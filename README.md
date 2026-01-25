@@ -1,4 +1,4 @@
-# EK-OmniProbe RTTVIEW
+# EK-OmniProbe
 
 一个开源的嵌入式开发三合一工具，集成**固件烧录**、**RTT 调试**和**串口终端**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
-> 此前由 [左岚](https://github.com/zuoliangyu) 维护，现已移交至 [EmbeddedKit Organization](https://github.com/EmbeddedKitOrg)，由左岚作为主要成员继续维护。
+> 此前由 [左岚](https://github.com/zuoliangyu) 维护，现已移交至 [EmbeddedKit Organization](https://github.com/EmbeddedKitOrg)，由[左岚](https://github.com/zuoliangyu) 作为主要成员继续维护。
 
 ## ✨ 核心特性
 
