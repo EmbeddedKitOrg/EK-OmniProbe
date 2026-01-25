@@ -6,7 +6,32 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
-> 此前由 [左岚](https://github.com/zuoliangyu) 维护，现已移交至 [EmbeddedKit Organization](https://github.com/EmbeddedKitOrg)，由[左岚](https://github.com/zuoliangyu) 作为主要成员继续维护。
+> 此前由 [左岚](https://github.com/zuoliangyu) 独立开发，现已移交至 [EmbeddedKit Organization](https://github.com/EmbeddedKitOrg)，由[左岚](https://github.com/zuoliangyu) 作为主要成员继续维护。
+
+## 👥 贡献者
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/zuoliangyu">
+        <img src="https://github.com/zuoliangyu.png" width="80" height="80" style="border-radius: 50%;" alt="左岚"/>
+        <br />
+        <b>左岚</b>
+      </a>
+      <br />
+      <sub>全局统筹规划与整体代码书写<br/>全功能实现与 Windows 调试</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/00lllooolll00">
+        <img src="https://github.com/00lllooolll00.png" width="80" height="80" style="border-radius: 50%;" alt="N1netyNine99"/>
+        <br />
+        <b>N1netyNine99</b>
+      </a>
+      <br />
+      <sub>Linux 端调试与报错信息修复</sub>
+    </td>
+  </tr>
+</table>
 
 ## ✨ 核心特性
 
