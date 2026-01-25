@@ -64,7 +64,7 @@ impl DataSource for LocalSerial {
             .stop_bits(self.stop_bits)
             .parity(self.parity)
             .flow_control(self.flow_control)
-            .timeout(Duration::from_millis(10))
+            .timeout(Duration::from_millis(1)) // 降低超时到 1ms，提高响应速度
             .open()
             .map_err(|e| format!("Failed to open serial port: {}", e))?;
 
