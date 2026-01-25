@@ -22,10 +22,12 @@ import {
   listImportedPacks,
   deletePack,
   getPackScanReport,
+  getPacksDirectory,
+  setCustomPacksDirectory,
 } from "@/lib/tauri";
 import type { PackInfo, PackScanReport, AlgorithmStat, DeviceScanResult } from "@/lib/types";
 import { useLogStore } from "@/stores/logStore";
-import { Package, Upload, Trash2, ChevronDown, ChevronRight, FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { Package, Upload, Trash2, ChevronDown, ChevronRight, FileText, AlertCircle, CheckCircle, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Pack扫描进度类型
@@ -61,7 +63,53 @@ export function PackManager() {
   const [scanProgress, setScanProgress] = useState<PackScanProgress | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedPackReport, setSelectedPackReport] = useState<PackScanReport | null>(null);
+  const [packsDirectory, setPacksDirectory] = useState<string>("");
+  const [showDirectorySettings, setShowDirectorySettings] = useState(false);
   const addLog = useLogStore((state) => state.addLog);
+
+  // Load Pack directory
+  useEffect(() => {
+    loadPacksDirectory();
+  }, []);
+
+  const loadPacksDirectory = async () => {
+    try {
+      const dir = await getPacksDirectory();
+      setPacksDirectory(dir);
+    } catch (error) {
+      console.error("获取Pack目录失败:", error);
+    }
+  };
+
+  const handleChangeDirectory = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "选择Pack存储目录",
+      });
+
+      if (selected) {
+        await setCustomPacksDirectory(selected as string);
+        await loadPacksDirectory();
+        addLog("success", `Pack目录已更改为: ${selected}`);
+        addLog("info", "请重启应用以使更改生效");
+      }
+    } catch (error) {
+      addLog("error", `更改Pack目录失败: ${error}`);
+    }
+  };
+
+  const handleResetDirectory = async () => {
+    try {
+      await setCustomPacksDirectory(null);
+      await loadPacksDirectory();
+      addLog("success", "Pack目录已重置为默认位置");
+      addLog("info", "请重启应用以使更改生效");
+    } catch (error) {
+      addLog("error", `重置Pack目录失败: ${error}`);
+    }
+  };
 
   // Load imported Pack list
   useEffect(() => {
@@ -178,7 +226,11 @@ export function PackManager() {
 
   // Delete Pack
   const handleDelete = async (packName: string) => {
+    console.log("handleDelete called with:", packName);
+    addLog("info", `准备删除Pack: ${packName}`);
+
     if (!confirm(`确定要删除Pack "${packName}" 吗？\n\n删除后需要重新导入才能使用。`)) {
+      addLog("info", "取消删除操作");
       return;
     }
 
@@ -224,6 +276,18 @@ export function PackManager() {
               <div className="flex items-center gap-1">
                 <Button
                   size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDirectorySettings(!showDirectorySettings);
+                  }}
+                  className="gap-1 h-7"
+                  title="Pack目录设置"
+                >
+                  <Settings className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleImport();
@@ -246,6 +310,40 @@ export function PackManager() {
 
         <CollapsibleContent>
           <CardContent className="space-y-2">
+            {/* Pack目录设置 */}
+            {showDirectorySettings && (
+              <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Pack存储目录</span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleChangeDirectory}
+                      className="h-7 gap-1"
+                    >
+                      <FolderOpen className="h-3 w-3" />
+                      更改目录
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleResetDirectory}
+                      className="h-7"
+                    >
+                      重置
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground break-all bg-background/50 p-2 rounded">
+                  {packsDirectory || "加载中..."}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  更改Pack目录后需要重启应用才能生效
+                </p>
+              </div>
+            )}
+
             {/* Drag-drop hint */}
             {isDragging && (
               <div className="border-2 border-dashed border-primary rounded-lg p-4 text-center bg-primary/5">
@@ -306,7 +404,10 @@ export function PackManager() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-muted-foreground hover:text-primary"
-                        onClick={() => handleViewReport(pack.name)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewReport(pack.name);
+                        }}
                         title="查看扫描报告"
                       >
                         <FileText className="h-3 w-3" />
@@ -315,7 +416,12 @@ export function PackManager() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDelete(pack.name)}
+                        onClick={(e) => {
+                          console.log("Delete button clicked for:", pack.name);
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(pack.name);
+                        }}
                         title="删除Pack"
                       >
                         <Trash2 className="h-3 w-3" />

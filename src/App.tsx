@@ -2,6 +2,7 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { FlashMode, RttMode, SerialMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
+import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
 import { useEffect, useCallback } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
@@ -141,6 +142,9 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* USB 权限检查对话框 (仅 Linux) */}
+      <UdevPermissionDialog />
     </div>
   );
 }

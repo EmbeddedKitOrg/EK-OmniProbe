@@ -226,3 +226,32 @@ export interface LogEntry {
   level: "info" | "warn" | "error" | "success";
   message: string;
 }
+
+// USB 设备接口信息
+export interface UsbInterfaceInfo {
+  interface_number: number;
+  class: number;
+  subclass: number;
+  protocol: number;
+  interface_string: string | null;
+}
+
+// USB 设备信息
+export interface UsbDeviceInfo {
+  vendor_id: number;
+  product_id: number;
+  manufacturer: string | null;
+  product: string | null;
+  serial_number: string | null;
+  bus_number: number;
+  device_address: number;
+  interfaces: UsbInterfaceInfo[];
+}
+
+// USB 权限状态
+export interface UsbPermissionStatus {
+  has_permission: boolean;
+  udev_rules_installed: boolean;
+  detected_dap_devices: UsbDeviceInfo[];
+  suggestions: string[];
+}
