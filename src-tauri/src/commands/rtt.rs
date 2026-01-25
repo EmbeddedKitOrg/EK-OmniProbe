@@ -1,7 +1,6 @@
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use probe_rs::rtt::{Rtt, ScanRegion};
-use probe_rs::MemoryInterface;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -114,20 +113,11 @@ pub async fn start_rtt(
             })?;
         log::info!("RTT 附加成功，耗时: {:?}", attach_start.elapsed());
 
-        // 尝试找到控制块地址 - 如果用户指定了 exact 模式，使用那个地址
-        // 否则我们需要扫描内存找到 "SEGGER RTT" 字符串
-        let found_address = if let Some(addr) = options.address {
-            log::info!("使用用户指定的控制块地址: 0x{:08X}", addr);
-            Some(addr)
-        } else {
-            // 跳过手动扫描，因为在 Linux 上非常慢
-            // probe-rs 已经找到了控制块（否则 attach 会失败）
-            // 我们在轮询时使用 Rtt::attach() 让 probe-rs 自动查找
-            log::info!("跳过手动扫描控制块地址（使用 probe-rs 自动查找）");
-            None
-        };
+        // 获取控制块地址 - probe-rs 已经找到了地址，直接使用 ptr() 方法获取
+        let found_address = rtt.ptr();
+        log::info!("RTT 控制块地址: 0x{:08X}", found_address);
 
-        log::info!("最终使用的 RTT 控制块地址: {:?}", found_address);
+        let found_address = Some(found_address);
 
         // 收集通道信息
         let mut up_channels = Vec::new();
@@ -178,49 +168,6 @@ pub async fn start_rtt(
         down_channels,
         control_block_address: found_address,
     })
-}
-
-/// 扫描内存寻找 RTT 控制块
-fn find_rtt_control_block(core: &mut probe_rs::Core) -> Option<u64> {
-    // RTT 控制块以 "SEGGER RTT" 开头
-    const RTT_ID: &[u8] = b"SEGGER RTT";
-
-    // 常见的 RAM 起始地址
-    let ram_regions = [
-        (0x2000_0000u64, 0x2000u64),  // 8KB
-        (0x2000_0000u64, 0x4000u64),  // 16KB
-        (0x2000_0000u64, 0x8000u64),  // 32KB
-        (0x2000_0000u64, 0x10000u64), // 64KB
-    ];
-
-    let mut buffer = vec![0u8; 1024];
-
-    for (start, size) in ram_regions {
-        let end = start + size;
-        let mut addr = start;
-
-        while addr < end {
-            let read_size = std::cmp::min(buffer.len() as u64, end - addr) as usize;
-
-            if let Ok(()) = core.read_8(addr, &mut buffer[..read_size]) {
-                // 在缓冲区中搜索 "SEGGER RTT"
-                if let Some(pos) = buffer[..read_size]
-                    .windows(RTT_ID.len())
-                    .position(|w| w == RTT_ID)
-                {
-                    let found_addr = addr + pos as u64;
-                    log::info!("找到 RTT 控制块: 0x{:08X}", found_addr);
-                    return Some(found_addr);
-                }
-            }
-
-            // 移动到下一个块，但要有重叠以防跨块
-            addr += (read_size - RTT_ID.len()) as u64;
-        }
-    }
-
-    log::warn!("未能在常见 RAM 区域找到 RTT 控制块");
-    None
 }
 
 /// RTT 轮询任务
