@@ -193,7 +193,6 @@ pub async fn start_serial(
         let mut interval_timer = interval(Duration::from_millis(poll_ms));
         interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-        let mut buf = vec![0u8; 16384]; // 增大缓冲区到 16KB
         let mut batch_buffer = Vec::with_capacity(65536); // 批量缓冲区 64KB
         let mut last_emit = std::time::Instant::now();
         const BATCH_TIMEOUT_MS: u64 = 10; // 批量发送超时 10ms
@@ -207,7 +206,6 @@ pub async fn start_serial(
             }
 
             // 连续读取，直到没有数据
-            let mut total_read = 0;
             loop {
                 // 使用 spawn_blocking 避免阻塞异步运行时
                 let serial_state_clone = Arc::clone(&serial_state);
@@ -226,7 +224,6 @@ pub async fn start_serial(
                     Ok(Ok((n, local_buf))) if n > 0 => {
                         // 将数据添加到批量缓冲区
                         batch_buffer.extend_from_slice(&local_buf[..n]);
-                        total_read += n;
 
                         // 如果批量缓冲区达到阈值，立即发送
                         if batch_buffer.len() >= BATCH_SIZE_THRESHOLD {
