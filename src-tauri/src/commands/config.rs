@@ -596,3 +596,38 @@ pub async fn rescan_all_outdated_packs(app: tauri::AppHandle) -> AppResult<Vec<S
 
     Ok(rescanned)
 }
+
+/// 获取当前Pack目录路径
+#[tauri::command]
+pub async fn get_packs_directory() -> AppResult<String> {
+    let packs_dir = crate::pack::paths::get_packs_dir();
+    Ok(packs_dir.to_string_lossy().to_string())
+}
+
+/// 设置自定义Pack目录路径
+#[tauri::command]
+pub async fn set_custom_packs_directory(path: Option<String>) -> AppResult<()> {
+    log::info!("设置自定义Pack目录: {:?}", path);
+
+    // 验证路径是否有效
+    if let Some(ref p) = path {
+        let path_buf = std::path::PathBuf::from(p);
+        if !path_buf.exists() {
+            // 尝试创建目录
+            std::fs::create_dir_all(&path_buf)
+                .map_err(|e| crate::error::AppError::IoError(e))?;
+        }
+
+        if !path_buf.is_dir() {
+            return Err(crate::error::AppError::PackError(
+                "指定的路径不是一个目录".to_string()
+            ));
+        }
+    }
+
+    crate::app_config::set_custom_packs_dir(path)?;
+
+    log::info!("Pack目录配置已更新");
+
+    Ok(())
+}

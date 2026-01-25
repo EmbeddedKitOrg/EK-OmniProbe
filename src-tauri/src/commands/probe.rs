@@ -354,6 +354,13 @@ pub async fn connect_target(
     options: ConnectOptions,
     state: State<'_, AppState>,
 ) -> AppResult<TargetInfo> {
+    log::info!("=== 开始连接目标 ===");
+    log::info!("探针标识: {}", options.probe_identifier);
+    log::info!("目标芯片: {}", options.target);
+    log::info!("接口类型: {:?}", options.interface_type);
+    log::info!("时钟速度: {:?} Hz", options.clock_speed);
+    log::info!("连接模式: {:?}", options.connect_mode);
+
     // 关闭现有连接
     {
         let mut session_guard = state.session.lock();
@@ -366,11 +373,21 @@ pub async fn connect_target(
     let probe_info = probes
         .iter()
         .find(|p| p.identifier == options.probe_identifier)
-        .ok_or_else(|| AppError::ProbeError("未找到指定的探针".to_string()))?;
+        .ok_or_else(|| {
+            log::error!("未找到指定的探针: {}", options.probe_identifier);
+            AppError::ProbeError("未找到指定的探针".to_string())
+        })?;
+
+    log::info!("找到探针: {:?}", probe_info.identifier);
 
     let mut probe = probe_info
         .open()
-        .map_err(|e| AppError::ProbeError(e.to_string()))?;
+        .map_err(|e| {
+            log::error!("打开探针失败: {}", e);
+            AppError::ProbeError(e.to_string())
+        })?;
+
+    log::info!("探针已打开");
 
     // 设置协议
     let protocol = match options.interface_type {
@@ -379,35 +396,84 @@ pub async fn connect_target(
     };
     probe
         .select_protocol(protocol)
-        .map_err(|e| AppError::ProbeError(e.to_string()))?;
+        .map_err(|e| {
+            log::error!("设置协议失败 ({:?}): {}", protocol, e);
+            AppError::ProbeError(e.to_string())
+        })?;
+
+    log::info!("协议已设置: {:?}", protocol);
 
     // 设置时钟速度（前端传递的是Hz，probe-rs需要kHz）
     if let Some(speed_hz) = options.clock_speed {
         let speed_khz = speed_hz / 1000;
         probe
             .set_speed(speed_khz)
-            .map_err(|e| AppError::ProbeError(format!("设置时钟速度失败 ({} kHz): {}", speed_khz, e)))?;
+            .map_err(|e| {
+                log::error!("设置时钟速度失败 ({} kHz): {}", speed_khz, e);
+                AppError::ProbeError(format!("设置时钟速度失败 ({} kHz): {}", speed_khz, e))
+            })?;
+        log::info!("时钟速度已设置: {} kHz", speed_khz);
     }
 
     // 连接目标
+    log::info!("正在连接目标芯片: {}", options.target);
     let mut session = if options.connect_mode == ConnectMode::UnderReset {
+        log::info!("使用 UnderReset 模式连接");
         probe
             .attach_under_reset(&options.target, Permissions::default())
-            .map_err(|e| AppError::ProbeError(e.to_string()))?
+            .map_err(|e| {
+                log::error!("连接目标失败 (UnderReset): {}", e);
+                log::error!("可能的原因:");
+                log::error!("  1. 芯片型号 '{}' 不在 probe-rs 支持列表中", options.target);
+                log::error!("  2. 需要导入对应的 CMSIS-Pack 文件");
+                log::error!("  3. 芯片连接有问题（检查电源、接线）");
+                AppError::ProbeError(format!(
+                    "无法连接到芯片 '{}': {}。请检查: 1) 芯片型号是否正确 2) 是否已导入对应的Pack文件 3) 硬件连接是否正常",
+                    options.target, e
+                ))
+            })?
     } else {
+        log::info!("使用 Normal 模式连接");
         probe
             .attach(&options.target, Permissions::default())
-            .map_err(|e| AppError::ProbeError(e.to_string()))?
+            .map_err(|e| {
+                log::error!("连接目标失败 (Normal): {}", e);
+                log::error!("可能的原因:");
+                log::error!("  1. 芯片型号 '{}' 不在 probe-rs 支持列表中", options.target);
+                log::error!("  2. 需要导入对应的 CMSIS-Pack 文件");
+                log::error!("  3. 芯片连接有问题（检查电源、接线）");
+                AppError::ProbeError(format!(
+                    "无法连接到芯片 '{}': {}。请检查: 1) 芯片型号是否正确 2) 是否已导入对应的Pack文件 3) 硬件连接是否正常",
+                    options.target, e
+                ))
+            })?
     };
+
+    log::info!("✓ 成功连接到目标芯片");
 
     // 读取芯片ID（DBGMCU_IDCODE）
     let chip_id = read_chip_id(&mut session);
+    if let Some(id) = chip_id {
+        log::info!("芯片ID (DBGMCU_IDCODE): 0x{:08X}", id);
+    } else {
+        log::warn!("无法读取芯片ID");
+    }
 
     // 读取 DP IDCODE (DPIDR) - 调试端口标识码
     let target_idcode = read_dp_idcode(&mut session);
+    if let Some(id) = target_idcode {
+        log::info!("调试端口ID (DPIDR): 0x{:08X}", id);
+    } else {
+        log::warn!("无法读取调试端口ID");
+    }
 
     // 获取目标信息
     let target = session.target();
+    log::info!("目标芯片名称: {}", target.name);
+    log::info!("核心类型: {:?}", target.cores.first().map(|c| c.core_type));
+    log::info!("内存区域数量: {}", target.memory_map.len());
+    log::info!("Flash算法数量: {}", target.flash_algorithms.len());
+
     let target_info = TargetInfo {
         name: target.name.clone(),
         core_type: format!("{:?}", target.cores.first().map(|c| c.core_type)),
@@ -460,6 +526,8 @@ pub async fn connect_target(
         let mut session_guard = state.session.lock();
         *session_guard = Some(session);
     }
+
+    log::info!("=== 连接完成 ===");
 
     Ok(target_info)
 }
@@ -741,4 +809,86 @@ pub async fn diagnose_usb_devices() -> AppResult<Vec<UsbDeviceInfo>> {
     log::info!("Found {} potential DAP devices", devices.len());
 
     Ok(devices)
+}
+
+/// USB 权限状态
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsbPermissionStatus {
+    pub has_permission: bool,
+    pub udev_rules_installed: bool,
+    pub detected_dap_devices: Vec<UsbDeviceInfo>,
+    pub suggestions: Vec<String>,
+}
+
+/// 检查 USB 权限状态
+#[tauri::command]
+pub async fn check_usb_permissions() -> AppResult<UsbPermissionStatus> {
+    log::info!("=== USB Permission Check Start ===");
+
+    let mut status = UsbPermissionStatus {
+        has_permission: false,
+        udev_rules_installed: false,
+        detected_dap_devices: Vec::new(),
+        suggestions: Vec::new(),
+    };
+
+    // 检测 CMSIS-DAP 设备
+    let devices = diagnose_usb_devices().await?;
+    status.detected_dap_devices = devices.clone();
+
+    if devices.is_empty() {
+        status.suggestions.push("未检测到CMSIS-DAP调试器，请检查USB连接".to_string());
+        return Ok(status);
+    }
+
+    // 尝试打开设备以测试权限
+    let lister = Lister::new();
+    let probes = lister.list_all();
+
+    if !probes.is_empty() {
+        // 尝试打开第一个探针
+        match probes[0].open() {
+            Ok(_) => {
+                status.has_permission = true;
+                log::info!("USB权限检查: 成功");
+            }
+            Err(e) => {
+                log::warn!("USB权限检查失败: {}", e);
+                status.has_permission = false;
+
+                // 检查是否是权限问题
+                let error_msg = e.to_string().to_lowercase();
+                if error_msg.contains("permission") || error_msg.contains("access denied") {
+                    status.suggestions.push("USB设备权限不足".to_string());
+                    status.suggestions.push("需要安装udev规则文件".to_string());
+                }
+            }
+        }
+    }
+
+    // 检查 udev 规则是否已安装
+    status.udev_rules_installed = crate::udev::check_udev_rules_installed();
+    if !status.udev_rules_installed {
+        status.suggestions.push("未检测到udev规则文件".to_string());
+        status.suggestions.push("点击下方按钮自动安装，或手动运行: sudo ./install-udev-rules.sh".to_string());
+    }
+
+    log::info!("=== USB Permission Check End ===");
+    Ok(status)
+}
+
+/// 安装 udev 规则
+#[tauri::command]
+pub async fn install_udev_rules() -> AppResult<String> {
+    log::info!("开始安装 udev 规则...");
+
+    crate::udev::install_udev_rules()?;
+
+    Ok("udev 规则安装成功！请重新插拔调试器。".to_string())
+}
+
+/// 获取手动安装说明
+#[tauri::command]
+pub async fn get_udev_install_instructions() -> AppResult<String> {
+    Ok(crate::udev::get_manual_install_instructions())
 }
