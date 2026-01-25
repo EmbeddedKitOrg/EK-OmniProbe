@@ -1,0 +1,40 @@
+# ZUOLAN DAPLINK - CMSIS-DAP 调试器 udev 规则
+# 安装方法: sudo cp 99-zuolan-daplink.rules /etc/udev/rules.d/
+# 重新加载: sudo udevadm control --reload-rules && sudo udevadm trigger
+
+# 1. CMSIS-DAP / DAPLINK 调试器
+
+# ARM 官方 CMSIS-DAP (VID: 0x0D28)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0d28", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0d28", MODE="0666", GROUP="plugdev"
+
+# Keil ULINK (VID: 0xC251)
+SUBSYSTEM=="usb", ATTR{idVendor}=="c251", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="c251", MODE="0666", GROUP="plugdev"
+
+# SEGGER J-Link (VID: 0x1366)
+SUBSYSTEM=="usb", ATTR{idVendor}=="1366", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1366", MODE="0666", GROUP="plugdev"
+
+# STMicroelectronics ST-Link (VID: 0x0483)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="374b", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="3748", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="374a", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="3752", MODE="0666", GROUP="plugdev"
+
+# Ahypnis CMSIS-DAP (VID: 0xFAED) - 常见的开源CMSIS-DAP实现
+SUBSYSTEM=="usb", ATTR{idVendor}=="faed", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="faed", MODE="0666", GROUP="plugdev"
+
+# 2. 通用 CMSIS-DAP 设备（通过接口字符串匹配）
+# 匹配所有包含 "CMSIS-DAP" 字符串的设备
+SUBSYSTEM=="usb", ATTRS{interface}=="*CMSIS-DAP*", MODE="0666", GROUP="plugdev"
+SUBSYSTEM=="hidraw", ATTRS{interface}=="*CMSIS-DAP*", MODE="0666", GROUP="plugdev"
+
+# 3. HID 类设备（CMSIS-DAP v1）
+# 匹配 HID 类 (0x03) 的调试器设备
+SUBSYSTEM=="hidraw", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceSubClass}=="00", MODE="0666", GROUP="plugdev"
+
+# 4. Vendor Specific 类设备（CMSIS-DAP v2）
+# 匹配 Vendor Specific 类 (0xFF) 的调试器设备
+SUBSYSTEM=="usb", ATTRS{bInterfaceClass}=="ff", ATTRS{interface}=="*CMSIS*", MODE="0666", GROUP="plugdev"
