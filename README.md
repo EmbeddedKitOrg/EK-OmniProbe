@@ -19,7 +19,7 @@
         <b>左岚</b>
       </a>
       <br />
-      <sub>全局统筹规划与整体代码书写<br/>全功能实现与 Windows 调试</sub>
+      <sub>功能规划与整体代码书写优化<br/>全功能实现与 Windows 调试</sub>
     </td>
     <td align="center">
       <a href="https://github.com/00lllooolll00">
@@ -28,7 +28,7 @@
         <b>N1netyNine99</b>
       </a>
       <br />
-      <sub>Linux 端调试与报错信息修复</sub>
+      <sub>功能规划与代码优化<br/>Linux 端调试与报错信息修复</sub>
     </td>
   </tr>
 </table>
