@@ -1,13 +1,21 @@
 // Linux udev 规则检测和安装模块
 
+#[cfg(target_os = "linux")]
 use crate::error::{AppError, AppResult};
+#[cfg(target_os = "linux")]
 use std::path::Path;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 
+#[cfg(not(target_os = "linux"))]
+use crate::error::AppResult;
+
 /// udev 规则文件名
+#[cfg(target_os = "linux")]
 const UDEV_RULES_FILE: &str = "99-zuolan-daplink.rules";
 
 /// udev 规则内容（嵌入到二进制中）
+#[cfg(target_os = "linux")]
 const UDEV_RULES_CONTENT: &str = include_str!("../../99-zuolan-daplink.rules");
 
 /// 检查 udev 规则是否已安装

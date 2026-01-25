@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-ZUOLAN DAPLINK 现已支持自动更新功能,可以从 GitHub Releases 自动检测和安装新版本。
+EK-OmniProbe 现已支持自动更新功能,可以从 GitHub Releases 自动检测和安装新版本。
 
 ## 使用方法
 

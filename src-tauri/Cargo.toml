@@ -1,12 +1,12 @@
 [package]
-name = "zuolandaplink"
-version = "0.7.1"
-description = "DAPLINK RTTVIEW"
+name = "ek-omniprobe"
+version = "0.7.2"
+description = "EK-OmniProbe - RTTVIEW"
 authors = ["zuolan"]
 edition = "2021"
 
 [lib]
-name = "zuolandaplink_lib"
+name = "ek_omniprobe_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

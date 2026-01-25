@@ -29,7 +29,7 @@ export function TopBar() {
     <header className="flex items-center h-11 px-3 border-b border-border bg-background no-select">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <span className="text-base font-bold text-primary">ZUOLAN DAPLINK</span>
+        <span className="text-base font-bold text-primary">EK-OmniProbe</span>
 
         {/* Mode Switch */}
         <ModeSwitch />

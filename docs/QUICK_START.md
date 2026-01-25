@@ -1,6 +1,6 @@
-# ZUOLAN DAPLINK 快速入门指南
+# EK-OmniProbe 快速入门指南
 
-本指南帮助您快速上手 ZUOLAN DAPLINK，了解基本功能和操作流程。
+本指南帮助您快速上手 EK-OmniProbe，了解基本功能和操作流程。
 
 ## 目录
 

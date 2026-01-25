@@ -1,6 +1,7 @@
 // Pack 数据目录路径管理模块
 
 use crate::app_config;
+#[cfg(target_os = "linux")]
 use directories::ProjectDirs;
 use std::path::PathBuf;
 

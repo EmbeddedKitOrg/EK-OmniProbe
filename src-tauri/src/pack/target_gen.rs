@@ -655,7 +655,7 @@ pub fn generate_probe_rs_yaml_with_algo(
     let mut yaml = String::new();
 
     // 版本标记（用于检测旧版本配置）
-    yaml.push_str(&format!("# ZUOLANDAPLINK Pack Scanner Version: {}\n", PACK_SCANNER_VERSION));
+    yaml.push_str(&format!("# EK-OmniProbe Pack Scanner Version: {}\n", PACK_SCANNER_VERSION));
     yaml.push_str(&format!("# Generated at: {}\n\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
 
     // 家族定义
@@ -916,10 +916,10 @@ pub fn detect_pack_scanner_version(pack_dir: &Path) -> Option<String> {
 
     // 查找版本标记行
     for line in content.lines() {
-        if line.starts_with("# ZUOLANDAPLINK Pack Scanner Version:") {
+        if line.starts_with("# EK-OmniProbe Pack Scanner Version:") {
             // 提取版本号
             let version = line
-                .trim_start_matches("# ZUOLANDAPLINK Pack Scanner Version:")
+                .trim_start_matches("# EK-OmniProbe Pack Scanner Version:")
                 .trim();
             return Some(version.to_string());
         }

@@ -21,7 +21,7 @@ function App() {
   const { isActive, timeRemainingSeconds } = useUserActivity(autoDisconnectTimeout);
 
   useEffect(() => {
-    addLog("info", "ZUOLAN DAPLINK RTTVIEW工具已启动");
+    addLog("info", "EK-OmniProbe RTTVIEW工具已启动");
     addLog("info", "等待连接调试探针...");
 
     // Initialize: load imported Packs

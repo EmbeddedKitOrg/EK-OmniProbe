@@ -161,7 +161,7 @@ jobs:
 
           # 如果提取失败，使用默认内容
           if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="查看完整更新日志: [CHANGELOG.md](https://github.com/zuoliangyu/ZUOLANDAPLINK/blob/main/CHANGELOG.md)"
+            CHANGELOG="查看完整更新日志: [CHANGELOG.md](https://github.com/EmbeddedKitOrg/EK-OmniProbe/blob/main/CHANGELOG.md)"
           fi
 
           # 输出到 GitHub Actions 环境变量（处理多行）
@@ -177,9 +177,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.event.inputs.version || github.ref_name }}
-          releaseName: 'ZUOLAN DAPLINK ${{ github.event.inputs.version || github.ref_name }}'
+          releaseName: 'EK-OmniProbe ${{ github.event.inputs.version || github.ref_name }}'
           releaseBody: |
-            ## ZUOLAN DAPLINK RTTVIEW
+            ## EK-OmniProbe RTTVIEW
 
             ### 📦 下载说明
 
@@ -197,7 +197,7 @@ jobs:
             - **Linux**: 需要WebKitGTK和libusb
 
 
-            完整更新历史: [CHANGELOG.md](https://github.com/zuoliangyu/ZUOLANDAPLINK/blob/main/CHANGELOG.md)
+            完整更新历史: [CHANGELOG.md](https://github.com/EmbeddedKitOrg/EK-OmniProbe/blob/main/CHANGELOG.md)
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
@@ -212,10 +212,10 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
-          EXE_PATH="src-tauri/target/x86_64-pc-windows-msvc/release/zuolandaplink.exe"
+          EXE_PATH="src-tauri/target/x86_64-pc-windows-msvc/release/ek-omniprobe.exe"
 
           if [ -f "$EXE_PATH" ]; then
-            PORTABLE_NAME="ZUOLAN.DAPLINK_${VERSION}_x64_portable.exe"
+            PORTABLE_NAME="EK-OmniProbe_${VERSION}_x64_portable.exe"
             cp "$EXE_PATH" "$PORTABLE_NAME"
             gh release upload "$TAG" "$PORTABLE_NAME" --clobber
             echo "Uploaded Windows portable: $PORTABLE_NAME"
@@ -268,7 +268,7 @@ jobs:
         run: |
           VERSION="${{ needs.build.outputs.version }}"
           TAG="v${VERSION}"
-          REPO="zuoliangyu/ZUOLANDAPLINK"
+          REPO="EmbeddedKitOrg/EK-OmniProbe"
 
           echo "Checking and normalizing update package names for version ${VERSION}"
 
@@ -291,7 +291,7 @@ jobs:
             # 检查文件名是否包含版本号
             if [[ ! "$MAC_NAME" =~ _${VERSION}_ ]]; then
               echo "macOS file needs renaming: ${MAC_NAME}"
-              NEW_MAC_NAME="ZUOLAN.DAPLINK_${VERSION}_aarch64.app.tar.gz"
+              NEW_MAC_NAME="EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"
 
               # 下载文件
               gh release download "$TAG" --pattern "$MAC_NAME" --dir downloads
@@ -317,7 +317,7 @@ jobs:
             # 检查文件名是否包含版本号
             if [[ ! "$WIN_NAME" =~ _${VERSION}_ ]]; then
               echo "Windows file needs renaming: ${WIN_NAME}"
-              NEW_WIN_NAME="ZUOLAN.DAPLINK_${VERSION}_x64-setup.nsis.zip"
+              NEW_WIN_NAME="EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"
 
               gh release download "$TAG" --pattern "$WIN_NAME" --dir downloads
               mv "downloads/${WIN_NAME}" "downloads/${NEW_WIN_NAME}"
@@ -338,7 +338,7 @@ jobs:
             # 检查文件名是否包含版本号
             if [[ ! "$LINUX_NAME" =~ _${VERSION}_ ]]; then
               echo "Linux file needs renaming: ${LINUX_NAME}"
-              NEW_LINUX_NAME="ZUOLAN.DAPLINK_${VERSION}_amd64.AppImage.tar.gz"
+              NEW_LINUX_NAME="EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"
 
               gh release download "$TAG" --pattern "$LINUX_NAME" --dir downloads
               mv "downloads/${LINUX_NAME}" "downloads/${NEW_LINUX_NAME}"
@@ -360,7 +360,7 @@ jobs:
         run: |
           VERSION="${{ needs.build.outputs.version }}"
           TAG="v${VERSION}"
-          REPO="zuoliangyu/ZUOLANDAPLINK"
+          REPO="EmbeddedKitOrg/EK-OmniProbe"
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           echo "Generating merged latest.json for version ${VERSION}"
@@ -375,23 +375,23 @@ jobs:
           PLATFORMS=""
 
           # Windows (带版本号格式)
-          WIN_URL="https://github.com/${REPO}/releases/download/${TAG}/ZUOLAN.DAPLINK_${VERSION}_x64-setup.nsis.zip"
+          WIN_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"
           # 检查文件是否存在
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "ZUOLAN.DAPLINK_${VERSION}_x64-setup.nsis.zip"; then
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"; then
             PLATFORMS="${PLATFORMS}\"windows-x86_64\": {\"signature\": \"\", \"url\": \"${WIN_URL}\"},"
             echo "Added Windows platform"
           fi
 
           # macOS (带版本号格式)
-          MAC_URL="https://github.com/${REPO}/releases/download/${TAG}/ZUOLAN.DAPLINK_${VERSION}_aarch64.app.tar.gz"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "ZUOLAN.DAPLINK_${VERSION}_aarch64.app.tar.gz"; then
+          MAC_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"; then
             PLATFORMS="${PLATFORMS}\"darwin-aarch64\": {\"signature\": \"\", \"url\": \"${MAC_URL}\"},"
             echo "Added macOS platform"
           fi
 
           # Linux (带版本号格式)
-          LINUX_URL="https://github.com/${REPO}/releases/download/${TAG}/ZUOLAN.DAPLINK_${VERSION}_amd64.AppImage.tar.gz"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "ZUOLAN.DAPLINK_${VERSION}_amd64.AppImage.tar.gz"; then
+          LINUX_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"; then
             PLATFORMS="${PLATFORMS}\"linux-x86_64\": {\"signature\": \"\", \"url\": \"${LINUX_URL}\"},"
             echo "Added Linux platform"
           fi

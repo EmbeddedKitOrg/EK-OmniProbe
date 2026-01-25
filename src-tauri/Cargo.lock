@@ -1033,6 +1033,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "ek-omniprobe"
+version = "0.7.1"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "directories",
+ "env_logger",
+ "hex",
+ "lazy_static",
+ "log",
+ "nusb 0.1.14",
+ "object 0.36.7",
+ "parking_lot",
+ "probe-rs",
+ "quick-xml 0.37.5",
+ "serde",
+ "serde_json",
+ "serialport",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-shell",
+ "tauri-plugin-updater",
+ "thiserror 2.0.18",
+ "tokio",
+ "zip 2.4.2",
+]
+
+[[package]]
 name = "embed-resource"
 version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6595,35 +6626,4 @@ checksum = "91e19ebc2adc8f83e43039e79776e3fda8ca919132d68a1fed6a5faca2683748"
 dependencies = [
  "cc",
  "pkg-config",
-]
-
-[[package]]
-name = "zuolandaplink"
-version = "0.7.0"
-dependencies = [
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "directories",
- "env_logger",
- "hex",
- "lazy_static",
- "log",
- "nusb 0.1.14",
- "object 0.36.7",
- "parking_lot",
- "probe-rs",
- "quick-xml 0.37.5",
- "serde",
- "serde_json",
- "serialport",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-shell",
- "tauri-plugin-updater",
- "thiserror 2.0.18",
- "tokio",
- "zip 2.4.2",
 ]

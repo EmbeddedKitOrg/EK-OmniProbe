@@ -4,8 +4,8 @@
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
-    use zuolandaplink_lib::pack::target_gen;
-    use zuolandaplink_lib::pack::progress;
+    use ek_omniprobe_lib::pack::target_gen;
+    use ek_omniprobe_lib::pack::progress;
 
     #[test]
     fn test_multiple_subfamily_parsing() {

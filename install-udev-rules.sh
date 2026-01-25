@@ -1,5 +1,5 @@
 #!/bin/bash
-# ZUOLAN DAPLINK - udev 规则安装脚本
+# EK-OmniProbe - udev 规则安装脚本
 
 set -e
 
@@ -7,7 +7,7 @@ RULES_FILE="99-zuolan-daplink.rules"
 INSTALL_PATH="/etc/udev/rules.d/$RULES_FILE"
 
 echo "=========================================="
-echo "ZUOLAN DAPLINK - udev 规则安装"
+echo "EK-OmniProbe - udev 规则安装"
 echo "=========================================="
 echo ""
 

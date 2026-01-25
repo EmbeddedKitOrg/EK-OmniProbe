@@ -5,6 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.2] - 2026-01-26
+
+### 修复
+- 🐛 **清理编译警告** - 修复 Windows 平台编译时的未使用导入和常量警告
+  - 为 Linux 特定的导入添加条件编译标记（`#[cfg(target_os = "linux")]`）
+  - 优化 `pack/paths.rs` 和 `udev.rs` 模块的导入结构
+  - 确保跨平台编译的代码整洁性
+
+### 改进
+- 🔧 **统一应用名称** - 规范化所有配置文件中的应用名称
+  - 产品名称统一为 "EK-OmniProbe"
+  - 窗口标题统一为 "EK-OmniProbe - RTTVIEW"
+  - 包名保持小写 "ek-omniprobe"（符合 npm/Cargo 规范）
+  - 更新 Cargo.toml 描述为 "EK-OmniProbe - RTTVIEW"
+
 ## [0.7.1] - 2026-01-25
 
 ### 新增功能
@@ -702,17 +717,18 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
-[0.7.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.7.0...v0.7.1
-[0.7.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.6.1...v0.7.0
-[0.6.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.5.6...v0.6.0
-[0.5.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.4.2...v0.5.0
-[0.4.2]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.3.3...v0.4.0
-[0.3.3]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.3.2...v0.3.3
-[0.3.2]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/releases/tag/v0.1.0
+[0.7.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.5.6...v0.6.0
+[0.5.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.4.2...v0.5.0
+[0.4.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/tag/v0.1.0

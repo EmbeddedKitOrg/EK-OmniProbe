@@ -1,9 +1,12 @@
-# ZUOLAN DAPLINK RTTVIEW
+# EK-OmniProbe RTTVIEW
 
 一个开源的嵌入式开发三合一工具，集成**固件烧录**、**RTT 调试**和**串口终端**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-0.7.1-blue)
+![Version](https://img.shields.io/badge/version-0.7.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+> **项目维护**
+> 此前由 [左岚](https://github.com/zuoliangyu) 维护，现已移交至 [EmbeddedKit Organization](https://github.com/EmbeddedKitOrg)，由左岚作为主要成员继续维护。
 
 ## ✨ 核心特性
 
@@ -146,7 +149,7 @@
 ## 📁 项目结构
 
 ```
-ZUOLANDAPLINK/
+EK-OmniProbe/
 ├── src/                          # React 前端源码
 │   ├── components/               # UI 组件
 │   │   ├── layout/              # 布局组件（TopBar, Sidebar, ModeSwitch）
@@ -416,7 +419,13 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 
 查看完整的更新日志请访问 [CHANGELOG.md](CHANGELOG.md)
 
-### 最新版本 v0.7.1 (2026-01-25)
+### 最新版本 v0.7.2 (2026-01-26)
+
+#### 修复
+- 🐛 **清理编译警告** - 修复 Windows 平台编译时的未使用导入和常量警告
+- 🔧 **统一应用名称** - 规范化所有配置文件中的应用名称为 "EK-OmniProbe"
+
+### v0.7.1 (2026-01-25)
 
 #### 新增功能
 - ✨ **Linux udev 权限管理** - 新增 udev 规则文件和自动安装脚本，解决 Linux 下探针权限问题
@@ -479,4 +488,4 @@ MIT License
 
 ---
 
-**Made with ❤️ by ZUOLAN**
+**Made with ❤️ by EmbeddedKit Organization**

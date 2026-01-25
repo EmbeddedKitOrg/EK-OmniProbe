@@ -1,4 +1,4 @@
-# ZUOLAN DAPLINK 用户文档
+# EK-OmniProbe 用户文档
 
 本目录包含所有面向用户的使用文档。
 
