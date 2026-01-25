@@ -1,3 +1,4 @@
+use crate::commands::config::TARGET_REGISTRY;
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, ConnectionInfo, ConnectMode, InterfaceType};
 use probe_rs::{
@@ -417,10 +418,14 @@ pub async fn connect_target(
 
     // 连接目标
     log::info!("正在连接目标芯片: {}", options.target);
+
+    // 获取自定义 Registry（包含从 Pack 导入的设备）
+    let registry = TARGET_REGISTRY.lock().unwrap();
+
     let mut session = if options.connect_mode == ConnectMode::UnderReset {
         log::info!("使用 UnderReset 模式连接");
         probe
-            .attach_under_reset(&options.target, Permissions::default())
+            .attach_under_reset_with_registry(&options.target, Permissions::default(), &*registry)
             .map_err(|e| {
                 log::error!("连接目标失败 (UnderReset): {}", e);
                 log::error!("可能的原因:");
@@ -435,7 +440,7 @@ pub async fn connect_target(
     } else {
         log::info!("使用 Normal 模式连接");
         probe
-            .attach(&options.target, Permissions::default())
+            .attach_with_registry(&options.target, Permissions::default(), &*registry)
             .map_err(|e| {
                 log::error!("连接目标失败 (Normal): {}", e);
                 log::error!("可能的原因:");
@@ -448,6 +453,9 @@ pub async fn connect_target(
                 ))
             })?
     };
+
+    // 释放 registry 锁
+    drop(registry);
 
     log::info!("✓ 成功连接到目标芯片");
 
@@ -616,15 +624,21 @@ pub async fn connect_rtt(
     }
 
     // 连接目标
+    // 获取自定义 Registry（包含从 Pack 导入的设备）
+    let registry = TARGET_REGISTRY.lock().unwrap();
+
     let mut session = if options.connect_mode == ConnectMode::UnderReset {
         probe
-            .attach_under_reset(&options.target, Permissions::default())
+            .attach_under_reset_with_registry(&options.target, Permissions::default(), &*registry)
             .map_err(|e| AppError::ProbeError(e.to_string()))?
     } else {
         probe
-            .attach(&options.target, Permissions::default())
+            .attach_with_registry(&options.target, Permissions::default(), &*registry)
             .map_err(|e| AppError::ProbeError(e.to_string()))?
     };
+
+    // 释放 registry 锁
+    drop(registry);
 
     // 读取芯片ID
     let chip_id = read_chip_id(&mut session);

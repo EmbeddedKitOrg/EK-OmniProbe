@@ -9,7 +9,7 @@ use tauri::Emitter;
 
 // Global target registry - probe-rs 0.31 uses instance-based Registry
 lazy_static::lazy_static! {
-    static ref TARGET_REGISTRY: Mutex<Registry> = Mutex::new(Registry::from_builtin_families());
+    pub static ref TARGET_REGISTRY: Mutex<Registry> = Mutex::new(Registry::from_builtin_families());
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
