@@ -22,8 +22,11 @@ export function useRttEvents() {
   const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
 
   useEffect(() => {
+    console.log("[RTT Events] 开始监听 RTT 事件");
+
     // 监听 RTT 数据事件
     const unlistenData = listen<RttDataEvent>("rtt-data", (event) => {
+      console.log("[RTT Events] 收到 rtt-data 事件", event.payload);
       // 如果暂停，不处理数据
       if (useRttStore.getState().isPaused) {
         return;
@@ -57,15 +60,18 @@ export function useRttEvents() {
 
     // 监听 RTT 状态事件
     const unlistenStatus = listen<RttStatusEvent>("rtt-status", (event) => {
+      console.log("[RTT Events] 收到 rtt-status 事件", event.payload);
       const { running, error } = event.payload;
       setRunning(running);
       if (error) {
+        console.error("[RTT Events] RTT 错误:", error);
         setError(error);
       }
     });
 
     // 清理
     return () => {
+      console.log("[RTT Events] 停止监听 RTT 事件");
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };
