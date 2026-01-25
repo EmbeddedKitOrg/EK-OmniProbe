@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发三合一工具，集成**固件烧录**、**RTT 调试**和**串口终端**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue)
+![Version](https://img.shields.io/badge/version-0.7.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## ✨ 核心特性
@@ -416,7 +416,22 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 
 查看完整的更新日志请访问 [CHANGELOG.md](CHANGELOG.md)
 
-### 最新版本 v0.7.0 (2026-01-25)
+### 最新版本 v0.7.1 (2026-01-25)
+
+#### 新增功能
+- ✨ **Linux udev 权限管理** - 新增 udev 规则文件和自动安装脚本，解决 Linux 下探针权限问题
+- ✨ **应用配置模块** - 新增应用配置和 Pack 路径管理功能
+- ✨ **权限提示对话框** - 友好提示用户配置 Linux 权限
+
+#### 性能优化
+- 🚀 **串口性能深度优化** - 解决高速数据流导致界面卡顿问题
+- 🚀 **RTT 性能优化（Linux）** - 解决 Linux 上 RTT 轮询耗时 7-8 秒的问题，大幅提升使用体验
+
+#### 修复
+- 🐛 **修复 Linux 端 Pack 芯片识别问题** - 解决 Linux 平台无法正确识别 Pack 中芯片的问题
+- 🐛 **修复串口模块编译警告** - 清理代码，消除编译警告
+
+### v0.7.0 (2026-01-25)
 
 #### 新增功能
 - ✨ **烧录前重载固件** - 烧录前自动重新读取固件文件，确保使用最新编译结果

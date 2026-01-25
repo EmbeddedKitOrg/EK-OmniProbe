@@ -5,6 +5,54 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.1] - 2026-01-25
+
+### 新增功能
+- ✨ **Linux udev 权限管理** - 新增 udev 规则文件和自动安装脚本，解决 Linux 下探针权限问题
+  - 提供 `99-zuolan-daplink.rules` udev 规则文件
+  - 提供 `install-udev-rules.sh` 一键安装脚本
+  - 前端集成权限检测和提示对话框
+- ✨ **应用配置模块** - 新增应用配置和 Pack 路径管理功能
+  - 支持自定义 Pack 存储路径配置
+  - 配置持久化到本地
+- ✨ **权限提示对话框** - 新增 `UdevPermissionDialog` 组件，友好提示用户配置权限
+
+### 性能优化
+- 🚀 **串口性能深度优化** - 解决高速数据流导致界面卡顿问题
+  - 优化数据接收和处理流程
+  - 改进前端渲染性能
+  - 显著提升大数据量场景下的流畅度
+- 🚀 **RTT 性能优化（Linux）** - 解决 Linux 上 RTT 轮询性能问题
+  - 修复每次轮询都重新扫描控制块导致耗时 7-8 秒的问题
+  - 优化 RTT view 刷新性能，解决刷新速度慢的问题
+  - 大幅提升 Linux 平台 RTT 使用体验
+
+### 修复
+- 🐛 **修复 Linux 端 Pack 芯片识别问题** - 解决 Linux 平台无法正确识别 Pack 中芯片的问题
+- 🐛 **修复串口模块编译警告** - 清理代码，消除编译时的警告信息
+
+### 改进
+- 🔧 **Pack 路径管理** - 新增 `pack/paths.rs` 模块，统一管理 Pack 文件路径
+- 🔧 **配置模块集成** - 将 udev 和配置功能集成到主程序
+- 🔧 **前端 UI 改进** - 优化配置界面和权限提示体验
+
+### 新增组件
+
+**后端 (Rust)**：
+- ✨ `app_config.rs` - 应用配置管理模块 (95 行)
+- ✨ `pack/paths.rs` - Pack 路径管理模块 (43 行)
+- ✨ `udev.rs` - Linux udev 权限管理模块 (125 行)
+
+**前端 (React)**：
+- ✨ `UdevPermissionDialog.tsx` - udev 权限提示对话框 (191 行)
+- ✨ `alert.tsx` - Alert UI 组件 (58 行)
+
+### 文件变更
+- 新增 `99-zuolan-daplink.rules` - udev 规则文件
+- 新增 `install-udev-rules.sh` - udev 规则安装脚本
+- 改进多个命令模块（config, flash, probe, rtt, serial）
+- 优化 Pack 管理器功能
+
 ## [0.7.0] - 2026-01-25
 
 ### 新增功能
@@ -654,6 +702,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
+[0.7.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/zuoliangyu/ZUOLANDAPLINK/compare/v0.5.6...v0.6.0
