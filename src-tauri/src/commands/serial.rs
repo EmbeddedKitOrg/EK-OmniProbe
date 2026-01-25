@@ -108,18 +108,25 @@ pub fn disconnect_serial(state: State<'_, AppState>) -> Result<(), String> {
 
 /// Write data to serial port
 #[tauri::command]
-pub fn write_serial(data: Vec<u8>, state: State<'_, AppState>) -> Result<usize, String> {
-    let mut guard = state.serial_state.datasource.lock();
-    let ds = guard
-        .as_mut()
-        .ok_or_else(|| "Serial port not connected".to_string())?;
+pub async fn write_serial(data: Vec<u8>, state: State<'_, AppState>) -> Result<usize, String> {
+    // 克隆 Arc 以便在 spawn_blocking 中使用
+    let serial_state = Arc::clone(&state.serial_state);
 
-    ds.write(&data)
+    tokio::task::spawn_blocking(move || {
+        let mut guard = serial_state.datasource.lock();
+        let ds = guard
+            .as_mut()
+            .ok_or_else(|| "Serial port not connected".to_string())?;
+
+        ds.write(&data)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Write string to serial port with optional encoding and line ending
 #[tauri::command]
-pub fn write_serial_string(
+pub async fn write_serial_string(
     text: String,
     encoding: String,
     line_ending: String,
@@ -144,12 +151,19 @@ pub fn write_serial_string(
         _ => text_with_ending.as_bytes().to_vec(),
     };
 
-    let mut guard = state.serial_state.datasource.lock();
-    let ds = guard
-        .as_mut()
-        .ok_or_else(|| "Serial port not connected".to_string())?;
+    // 克隆 Arc 以便在 spawn_blocking 中使用
+    let serial_state = Arc::clone(&state.serial_state);
 
-    ds.write(&data)
+    tokio::task::spawn_blocking(move || {
+        let mut guard = serial_state.datasource.lock();
+        let ds = guard
+            .as_mut()
+            .ok_or_else(|| "Serial port not connected".to_string())?;
+
+        ds.write(&data)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 /// Start serial polling
