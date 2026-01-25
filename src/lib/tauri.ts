@@ -15,6 +15,8 @@ import type {
   RegisterValue,
   FlashAlgorithmInfo,
   EraseMode,
+  UsbPermissionStatus,
+  UsbDeviceInfo,
 } from "./types";
 
 // 探针命令
@@ -212,4 +214,30 @@ export async function getSerialStatus(): Promise<SerialStatus> {
 
 export async function clearSerialBuffer(): Promise<void> {
   return await invoke("clear_serial_buffer");
+}
+
+// USB 权限检查命令
+export async function checkUsbPermissions(): Promise<UsbPermissionStatus> {
+  return await invoke<UsbPermissionStatus>("check_usb_permissions");
+}
+
+export async function installUdevRules(): Promise<string> {
+  return await invoke<string>("install_udev_rules");
+}
+
+export async function getUdevInstallInstructions(): Promise<string> {
+  return await invoke<string>("get_udev_install_instructions");
+}
+
+export async function diagnoseUsbDevices(): Promise<UsbDeviceInfo[]> {
+  return await invoke<UsbDeviceInfo[]>("diagnose_usb_devices");
+}
+
+// Pack目录管理命令
+export async function getPacksDirectory(): Promise<string> {
+  return await invoke<string>("get_packs_directory");
+}
+
+export async function setCustomPacksDirectory(path: string | null): Promise<void> {
+  return await invoke("set_custom_packs_directory", { path });
 }

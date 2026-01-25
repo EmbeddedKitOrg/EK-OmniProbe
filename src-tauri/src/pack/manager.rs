@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use crate::pack::paths;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -19,21 +20,91 @@ pub struct PackManager {
 
 impl PackManager {
     pub fn new() -> AppResult<Self> {
-        // 使用可执行文件同级的 data/packs 目录
-        let packs_dir = if let Ok(exe_path) = std::env::current_exe() {
-            if let Some(exe_dir) = exe_path.parent() {
-                exe_dir.join("data").join("packs")
-            } else {
-                PathBuf::from("./data/packs")
-            }
-        } else {
-            PathBuf::from("./data/packs")
-        };
+        // 使用新的路径逻辑（Linux使用XDG目录，其他平台使用可执行文件同级目录）
+        let packs_dir = paths::get_packs_dir();
 
-        // 确保目录存在
-        fs::create_dir_all(&packs_dir)?;
+        log::info!("Pack 数据目录: {:?}", packs_dir);
+
+        // 尝试创建目录
+        if let Err(e) = fs::create_dir_all(&packs_dir) {
+            log::error!("无法创建Pack目录 {:?}: {}", packs_dir, e);
+            return Err(AppError::PackError(format!(
+                "无法创建Pack目录: {}。请检查文件系统权限。",
+                e
+            )));
+        }
+
+        // 检查是否需要从旧位置迁移数据（仅Linux）
+        #[cfg(target_os = "linux")]
+        {
+            if let Some(legacy_dir) = paths::get_legacy_packs_dir() {
+                if legacy_dir != packs_dir {
+                    log::info!("检测到旧Pack目录: {:?}", legacy_dir);
+                    if let Err(e) = Self::migrate_legacy_packs(&legacy_dir, &packs_dir) {
+                        log::warn!("Pack数据迁移失败: {}", e);
+                    }
+                }
+            }
+        }
 
         Ok(Self { packs_dir })
+    }
+
+    /// 从旧位置迁移Pack数据（仅Linux）
+    #[cfg(target_os = "linux")]
+    fn migrate_legacy_packs(from: &Path, to: &Path) -> AppResult<()> {
+        if !from.exists() || !from.is_dir() {
+            return Ok(());
+        }
+
+        log::info!("开始迁移Pack数据: {:?} -> {:?}", from, to);
+
+        let mut migrated_count = 0;
+
+        for entry in fs::read_dir(from)? {
+            let entry = entry?;
+            let src = entry.path();
+
+            if src.is_dir() {
+                let pack_name = src.file_name().unwrap();
+                let dst = to.join(pack_name);
+
+                if !dst.exists() {
+                    log::info!("迁移Pack: {:?}", pack_name);
+                    if let Err(e) = Self::copy_dir_recursive(&src, &dst) {
+                        log::warn!("迁移Pack {:?} 失败: {}", pack_name, e);
+                    } else {
+                        migrated_count += 1;
+                    }
+                }
+            }
+        }
+
+        if migrated_count > 0 {
+            log::info!("Pack数据迁移完成，共迁移 {} 个Pack", migrated_count);
+        }
+
+        Ok(())
+    }
+
+    /// 递归复制目录
+    #[cfg(target_os = "linux")]
+    fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
+        fs::create_dir_all(dst)?;
+
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+
+            if src_path.is_dir() {
+                Self::copy_dir_recursive(&src_path, &dst_path)?;
+            } else {
+                fs::copy(&src_path, &dst_path)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn import_pack(&self, pack_path: &Path) -> AppResult<PackInfo> {
@@ -142,15 +213,40 @@ impl PackManager {
     }
 
     pub fn delete_pack(&self, pack_name: &str) -> AppResult<()> {
+        log::info!("=== 开始删除Pack ===");
+        log::info!("Pack名称: {}", pack_name);
+
         let pack_dir = self.get_pack_dir(pack_name);
+        log::info!("Pack目录路径: {:?}", pack_dir);
 
         if !pack_dir.exists() {
+            log::error!("Pack目录不存在: {:?}", pack_dir);
             return Err(AppError::PackError(format!("Pack不存在: {}", pack_name)));
         }
 
-        fs::remove_dir_all(&pack_dir)
-            .map_err(|e| AppError::PackError(format!("删除Pack失败: {}", e)))?;
+        log::info!("Pack目录存在，准备删除");
 
-        Ok(())
+        // 检查目录权限
+        match fs::metadata(&pack_dir) {
+            Ok(metadata) => {
+                log::info!("目录权限: {:?}", metadata.permissions());
+                log::info!("是否为目录: {}", metadata.is_dir());
+            }
+            Err(e) => {
+                log::error!("无法读取目录元数据: {}", e);
+            }
+        }
+
+        match fs::remove_dir_all(&pack_dir) {
+            Ok(_) => {
+                log::info!("✓ 成功删除Pack目录");
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("删除Pack目录失败: {}", e);
+                log::error!("错误类型: {:?}", e.kind());
+                Err(AppError::PackError(format!("删除Pack失败: {}", e)))
+            }
+        }
     }
 }

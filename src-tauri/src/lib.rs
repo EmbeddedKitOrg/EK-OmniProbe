@@ -3,6 +3,8 @@ pub mod error;
 pub mod pack;
 pub mod serial;
 pub mod state;
+pub mod udev;
+pub mod app_config;
 
 use commands::{config, flash, memory, probe, rtt, serial as serial_cmd};
 use state::AppState;
@@ -19,6 +21,16 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(AppState::new());
+
+            // Linux 系统启动时检查 udev 规则
+            #[cfg(target_os = "linux")]
+            {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    check_udev_on_startup(app_handle).await;
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +40,9 @@ pub fn run() {
             probe::disconnect,
             probe::get_connection_status,
             probe::diagnose_usb_devices,
+            probe::check_usb_permissions,
+            probe::install_udev_rules,
+            probe::get_udev_install_instructions,
             // RTT 独立连接命令
             probe::connect_rtt,
             probe::disconnect_rtt,
@@ -66,6 +81,9 @@ pub fn run() {
             config::check_outdated_packs,
             config::rescan_pack,
             config::rescan_all_outdated_packs,
+            // Pack目录管理命令
+            config::get_packs_directory,
+            config::set_custom_packs_directory,
             // 串口命令
             serial_cmd::list_serial_ports_cmd,
             serial_cmd::connect_serial,
@@ -79,4 +97,25 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("启动应用程序时出错");
+}
+
+/// Linux 启动时检查 udev 规则
+#[cfg(target_os = "linux")]
+async fn check_udev_on_startup(app: tauri::AppHandle) {
+    use tauri::Emitter;
+
+    log::info!("检查 udev 规则...");
+
+    // 延迟 2 秒，等待窗口完全加载
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // 检查 udev 规则是否已安装
+    if !udev::check_udev_rules_installed() {
+        log::warn!("未检测到 udev 规则，发送通知到前端");
+
+        // 发送事件到前端
+        let _ = app.emit("udev-rules-missing", ());
+    } else {
+        log::info!("udev 规则已安装");
+    }
 }

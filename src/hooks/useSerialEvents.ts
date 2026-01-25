@@ -26,17 +26,46 @@ export function useSerialEvents() {
     rawData: [],
   });
 
+  // 批量处理缓冲区
+  const batchLinesRef = useRef<any[]>([]);
+  const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
+  const updateTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
+    // 批量更新函数 - 使用 requestAnimationFrame 确保不阻塞渲染
+    const flushBatch = () => {
+      if (batchLinesRef.current.length > 0) {
+        // 批量添加行
+        addLines(batchLinesRef.current);
+        batchLinesRef.current = [];
+      }
+
+      if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
+        // 批量更新统计
+        const currentStats = useSerialStore.getState().stats;
+        updateStats({
+          bytes_received: currentStats.bytes_received + batchStatsRef.current.bytes_received,
+          bytes_sent: currentStats.bytes_sent + batchStatsRef.current.bytes_sent,
+        });
+        batchStatsRef.current = { bytes_received: 0, bytes_sent: 0 };
+      }
+
+      updateTimerRef.current = null;
+    };
+
+    // 调度批量更新 - 使用 requestAnimationFrame 在下一帧更新
+    const scheduleBatchUpdate = () => {
+      if (updateTimerRef.current === null) {
+        updateTimerRef.current = requestAnimationFrame(flushBatch);
+      }
+    };
+
     // Listen for serial data events
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
       const { data, timestamp, direction } = event.payload;
 
-      // Update stats
-      const currentStats = useSerialStore.getState().stats;
-      updateStats({
-        bytes_received: currentStats.bytes_received + data.length,
-        bytes_sent: currentStats.bytes_sent,
-      });
+      // 累积统计信息（不立即更新状态）
+      batchStatsRef.current.bytes_received += data.length;
 
       // Parse data to lines
       const { lines, pending } = parseSerialData(
@@ -48,7 +77,8 @@ export function useSerialEvents() {
       pendingBufferRef.current = pending;
 
       if (lines.length > 0) {
-        addLines(lines);
+        // 累积行（不立即更新状态）
+        batchLinesRef.current.push(...lines);
 
         // If chart is enabled, try to parse chart data
         if (chartConfig.enabled) {
@@ -62,6 +92,9 @@ export function useSerialEvents() {
             }
           }
         }
+
+        // 调度批量更新
+        scheduleBatchUpdate();
       }
     });
 
@@ -77,6 +110,12 @@ export function useSerialEvents() {
 
     // Cleanup
     return () => {
+      // 清理定时器
+      if (updateTimerRef.current !== null) {
+        cancelAnimationFrame(updateTimerRef.current);
+        flushBatch(); // 确保剩余数据被处理
+      }
+
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };

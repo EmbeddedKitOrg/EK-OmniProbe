@@ -27,11 +27,11 @@ impl ProgressState {
     }
 
     /// 计算总体进度 (0.0 - 1.0)
-    /// 擦除: 0-30%, 编程: 30-95%, 完成: 95-100%
+    /// 擦除: 0-30%, 编程: 30-90%, 完成: 90-100%
     fn calculate_progress(&self) -> f32 {
         if self.program_total > 0 {
-            // 编程阶段: 30% - 95%
-            0.30 + (self.program_current as f32 / self.program_total as f32) * 0.65
+            // 编程阶段: 30% - 90%
+            0.30 + (self.program_current as f32 / self.program_total as f32) * 0.60
         } else if self.erase_total > 0 {
             // 擦除阶段: 0% - 30%
             (self.erase_current as f32 / self.erase_total as f32) * 0.30
@@ -268,8 +268,26 @@ pub async fn flash_firmware(
             AppError::FlashError(error_msg)
         })?;
 
+    // 烧录完成，发送 95% 进度
+    let _ = window.emit(
+        "flash-progress",
+        FlashProgressEvent {
+            phase: "finishing".to_string(),
+            progress: 0.95,
+            message: "烧录完成，正在收尾...".to_string(),
+        },
+    );
+
     // 重置芯片
     if options.reset_after {
+        let _ = window.emit(
+            "flash-progress",
+            FlashProgressEvent {
+                phase: "reset".to_string(),
+                progress: 0.98,
+                message: "正在复位芯片...".to_string(),
+            },
+        );
         let mut core = session.core(0).map_err(|e| AppError::FlashError(e.to_string()))?;
         core.reset().map_err(|e| AppError::FlashError(e.to_string()))?;
     }

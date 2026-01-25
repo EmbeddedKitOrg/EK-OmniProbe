@@ -64,7 +64,7 @@ impl DataSource for LocalSerial {
             .stop_bits(self.stop_bits)
             .parity(self.parity)
             .flow_control(self.flow_control)
-            .timeout(Duration::from_millis(10))
+            .timeout(Duration::from_millis(1)) // 降低超时到 1ms，提高响应速度
             .open()
             .map_err(|e| format!("Failed to open serial port: {}", e))?;
 
@@ -84,10 +84,15 @@ impl DataSource for LocalSerial {
             .as_mut()
             .ok_or_else(|| "Serial port not connected".to_string())?;
 
-        let written = port
-            .write(data)
+        // 使用 write_all 确保所有数据都被写入
+        port.write_all(data)
             .map_err(|e| format!("Failed to write to serial port: {}", e))?;
 
+        // 立即刷新缓冲区，确保数据发送
+        port.flush()
+            .map_err(|e| format!("Failed to flush serial port: {}", e))?;
+
+        let written = data.len();
         self.stats.bytes_sent += written as u64;
         Ok(written)
     }

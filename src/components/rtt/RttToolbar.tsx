@@ -129,13 +129,16 @@ export function RttToolbar() {
   // 启动 RTT
   const handleStart = async () => {
     try {
+      console.log("[RTT Toolbar] 开始启动 RTT");
       addLog("info", "正在启动 RTT...");
+
       const config = await startRtt({
         scan_mode: scanMode,
         address: scanMode === "exact" ? scanAddress : undefined,
         poll_interval: pollInterval,
       });
 
+      console.log("[RTT Toolbar] RTT 启动成功，配置:", config);
       setChannels(config.up_channels, config.down_channels);
       setRunning(true);
       addLog("success", `RTT 已启动，发现 ${config.up_channels.length} 个上行通道`);
@@ -145,17 +148,22 @@ export function RttToolbar() {
         addLog("info", `  通道 ${ch.index}: ${ch.name || "(未命名)"} - ${ch.buffer_size} 字节`);
       }
     } catch (error) {
+      console.error("[RTT Toolbar] RTT 启动失败:", error);
       addLog("error", `启动 RTT 失败: ${error}`);
+      setRunning(false);
     }
   };
 
   // 停止 RTT
   const handleStop = async () => {
     try {
+      console.log("[RTT Toolbar] 开始停止 RTT");
       await stopRtt();
       setRunning(false);
       addLog("info", "RTT 已停止");
+      console.log("[RTT Toolbar] RTT 停止成功");
     } catch (error) {
+      console.error("[RTT Toolbar] RTT 停止失败:", error);
       addLog("error", `停止 RTT 失败: ${error}`);
     }
   };
