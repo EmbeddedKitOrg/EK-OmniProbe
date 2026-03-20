@@ -5,6 +5,36 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.8.0] - 2026-03-20
+
+### 性能优化
+- 🚀 **虚拟化列表渲染** - RTT 和串口查看器引入 `@tanstack/react-virtual`，大量数据下界面流畅不卡顿
+  - `RttViewer` 和 `SerialViewer` 均改为虚拟化渲染，仅渲染可视区域行
+  - 使用 `React.memo` 优化 `RttLineItem` 和 `SerialLineItem`，减少不必要的重渲染
+- 🚀 **Zustand 精确选择器** - 使用字段级选择器代替整体状态订阅，避免无关状态变化触发组件重渲染
+- 🚀 **条件渲染优化** - `App.tsx` 改为条件渲染，非活跃模式不再执行 hooks 和 Tauri 事件监听
+- 🚀 **修复事件监听器频繁重建** - 修复 useEffect 依赖问题，Tauri 事件监听器不再因状态变化频繁重建
+
+### 重构
+- 🔧 **抽取 storage.ts** - 统一封装 localStorage 读写操作，消除各 store 中重复的 try/catch 模式
+- 🔧 **抽取 ansiParser.ts** - 将 ANSI 解析逻辑提取为公共模块，消除 RTT 和串口模块间的函数重复
+- 🔧 **抽取 formatters.ts** - 将格式化函数提取为公共模块，统一 HEX、时间戳等格式化逻辑
+- 🔧 **统一 parseLogLevel** - 移至 utils.ts，消除 rttStore 和 serialStore 中的重复定义
+- 🔧 **通用 ChartViewer 组件** - 将 SerialChartViewer 重构为通用 ChartViewer，修复其错误使用 RttStore 的问题
+- 🔧 **代码清理** - 移除调试用 console.log、删除废弃导出、修复 any 类型、提升 TooltipProvider 到根级别
+
+### 修复
+- 🐛 **固件格式校验** - `verify_firmware` 添加 ELF/HEX 格式检测，非 BIN 格式文件返回明确错误提示
+- 🐛 **统一 Mutex 实现** - 全面改用 `parking_lot::Mutex`，移除 `lazy_static` 依赖，消除标准库锁中毒 panic 风险
+- 🐛 **内存操作安全校验** - 新增 `InvalidInput` 错误类型，为 `read_memory`/`read_flash`/`erase_sector` 添加大小上限校验，防止越界操作
+- 🐛 **TCP 完整写入** - `TcpSerial::write` 改用 `write_all`，修复 TCP 流中可能的部分写入问题
+- 🐛 **更新进度条累计计算** - 修复进度条显示单个 chunk 比例而非累计进度的 bug
+- 🐛 **移除重复 Download 按钮** - 清理 FlashToolbar 中功能重复的下载操作按钮
+- 🐛 **ChartViewer 参数修复** - 补充 ChartViewer 函数参数中缺失的 `setChartConfig`
+
+### 其他
+- 🗂️ 将 `docs/` 目录移出 Git 追踪（内容保留在本地，不再随仓库分发）
+
 ## [0.7.2] - 2026-01-26
 
 ### 修复
@@ -717,6 +747,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
+[0.8.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.6.1...v0.7.0
