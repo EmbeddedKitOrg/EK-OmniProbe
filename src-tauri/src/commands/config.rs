@@ -4,13 +4,12 @@ use crate::pack::target_gen;
 use probe_rs::config::Registry;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use tauri::Emitter;
 
 // Global target registry - probe-rs 0.31 uses instance-based Registry
-lazy_static::lazy_static! {
-    pub static ref TARGET_REGISTRY: Mutex<Registry> = Mutex::new(Registry::from_builtin_families());
-}
+pub static TARGET_REGISTRY: std::sync::LazyLock<Mutex<Registry>> =
+    std::sync::LazyLock::new(|| Mutex::new(Registry::from_builtin_families()));
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChipInfo {
@@ -163,7 +162,7 @@ pub async fn search_chips(query: String) -> AppResult<Vec<String>> {
     all_chips.extend(builtin_matched);
 
     // 2. 从 probe-rs 注册的所有目标中搜索（包含从 Pack 导入的）
-    let registry = TARGET_REGISTRY.lock().unwrap();
+    let registry = TARGET_REGISTRY.lock();
     for family in registry.families() {
         for variant in family.variants() {
             let chip_name = variant.name.clone();
@@ -304,7 +303,7 @@ fn register_pack_devices(
         println!("  📝 调试 YAML 已保存到: {:?}", debug_yaml_path);
     }
 
-    let mut registry = TARGET_REGISTRY.lock().unwrap();
+    let mut registry = TARGET_REGISTRY.lock();
     match registry.add_target_family_from_yaml(&yaml_content) {
         Ok(_) => {
             log::info!("成功注册 {} 个设备到 probe-rs（包含 Flash 算法）", devices.len());
@@ -343,7 +342,7 @@ fn register_pack_devices(
 #[tauri::command]
 pub async fn get_chip_info(chip_name: String) -> AppResult<ChipInfo> {
     // 尝试从probe-rs获取目标信息
-    let registry = TARGET_REGISTRY.lock().unwrap();
+    let registry = TARGET_REGISTRY.lock();
     let target = match registry.get_target_by_name(&chip_name) {
         Ok(t) => t,
         Err(e) => {
@@ -468,7 +467,7 @@ pub async fn delete_pack(pack_name: String) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn get_flash_algorithms(chip_name: String) -> AppResult<Vec<FlashAlgorithmInfo>> {
-    let registry = TARGET_REGISTRY.lock().unwrap();
+    let registry = TARGET_REGISTRY.lock();
     let target = registry.get_target_by_name(&chip_name)
         .map_err(|e| AppError::ConfigError(format!("未找到芯片: {}", e)))?;
 
@@ -615,7 +614,7 @@ pub async fn set_custom_packs_directory(path: Option<String>) -> AppResult<()> {
         if !path_buf.exists() {
             // 尝试创建目录
             std::fs::create_dir_all(&path_buf)
-                .map_err(|e| crate::error::AppError::IoError(e))?;
+                .map_err(crate::error::AppError::IoError)?;
         }
 
         if !path_buf.is_dir() {

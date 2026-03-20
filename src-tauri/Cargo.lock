@@ -1042,7 +1042,6 @@ dependencies = [
  "directories",
  "env_logger",
  "hex",
- "lazy_static",
  "log",
  "nusb 0.1.14",
  "object 0.36.7",

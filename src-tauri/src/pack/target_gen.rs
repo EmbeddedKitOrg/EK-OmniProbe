@@ -56,7 +56,7 @@ fn find_pdsc_file(pack_dir: &Path) -> AppResult<std::path::PathBuf> {
         let entry = entry?;
         let path = entry.path();
 
-        if path.extension().map_or(false, |ext| ext == "pdsc") {
+        if path.extension().is_some_and(|ext| ext == "pdsc") {
             return Ok(path);
         }
     }
@@ -133,12 +133,10 @@ pub fn parse_devices_from_pdsc(
 
                         // 提取 subFamily 名称用于日志
                         let mut subfamily_name = String::new();
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                if attr.key.as_ref() == b"DsubFamily" {
-                                    subfamily_name = String::from_utf8_lossy(&attr.value).to_string();
-                                    break;
-                                }
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"DsubFamily" {
+                                subfamily_name = String::from_utf8_lossy(&attr.value).to_string();
+                                break;
                             }
                         }
                         log::info!("开始解析 subFamily: {}", subfamily_name);
@@ -148,11 +146,9 @@ pub fn parse_devices_from_pdsc(
                         // 开始新设备
                         let mut name = String::new();
 
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                if attr.key.as_ref() == b"Dname" {
-                                    name = String::from_utf8_lossy(&attr.value).to_string();
-                                }
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"Dname" {
+                                name = String::from_utf8_lossy(&attr.value).to_string();
                             }
                         }
 
@@ -196,22 +192,20 @@ pub fn parse_devices_from_pdsc(
                         let mut fpu = false;
                         let mut mpu = false;
 
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                match attr.key.as_ref() {
-                                    b"Dcore" => {
-                                        core = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"Dfpu" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        fpu = val == "1" || val.to_lowercase() == "true" || val.to_lowercase() == "sp_fpu";
-                                    }
-                                    b"Dmpu" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        mpu = val == "1" || val.to_lowercase() == "true";
-                                    }
-                                    _ => {}
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"Dcore" => {
+                                    core = String::from_utf8_lossy(&attr.value).to_string();
                                 }
+                                b"Dfpu" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    fpu = val == "1" || val.to_lowercase() == "true" || val.to_lowercase() == "sp_fpu";
+                                }
+                                b"Dmpu" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    mpu = val == "1" || val.to_lowercase() == "true";
+                                }
+                                _ => {}
                             }
                         }
 
@@ -233,29 +227,27 @@ pub fn parse_devices_from_pdsc(
                         let mut size = 0u64;
                         let mut is_default = false;
 
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                match attr.key.as_ref() {
-                                    b"id" => {
-                                        id = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"name" => {
-                                        name_attr = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"start" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        start = parse_hex_or_dec(&val).unwrap_or(0);
-                                    }
-                                    b"size" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        size = parse_hex_or_dec(&val).unwrap_or(0);
-                                    }
-                                    b"default" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        is_default = val == "1" || val.to_lowercase() == "true";
-                                    }
-                                    _ => {}
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"id" => {
+                                    id = String::from_utf8_lossy(&attr.value).to_string();
                                 }
+                                b"name" => {
+                                    name_attr = String::from_utf8_lossy(&attr.value).to_string();
+                                }
+                                b"start" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    start = parse_hex_or_dec(&val).unwrap_or(0);
+                                }
+                                b"size" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    size = parse_hex_or_dec(&val).unwrap_or(0);
+                                }
+                                b"default" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    is_default = val == "1" || val.to_lowercase() == "true";
+                                }
+                                _ => {}
                             }
                         }
 
@@ -305,23 +297,21 @@ pub fn parse_devices_from_pdsc(
                         }
                     }
                     b"algorithm" if in_devices => {
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                if attr.key.as_ref() == b"name" {
-                                    let algo_name = String::from_utf8_lossy(&attr.value).to_string();
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"name" {
+                                let algo_name = String::from_utf8_lossy(&attr.value).to_string();
 
-                                    // 根据当前层级保存 algorithm
-                                    if in_device {
-                                        if let Some(ref mut dev) = current_device {
-                                            dev.flash_algorithm = Some(algo_name);
-                                        }
-                                    } else if in_subfamily {
-                                        subfamily_algorithm = Some(algo_name);
-                                    } else if in_family {
-                                        family_algorithm = Some(algo_name);
+                                // 根据当前层级保存 algorithm
+                                if in_device {
+                                    if let Some(ref mut dev) = current_device {
+                                        dev.flash_algorithm = Some(algo_name);
                                     }
-                                    break;
+                                } else if in_subfamily {
+                                    subfamily_algorithm = Some(algo_name);
+                                } else if in_family {
+                                    family_algorithm = Some(algo_name);
                                 }
+                                break;
                             }
                         }
                     }
@@ -336,22 +326,20 @@ pub fn parse_devices_from_pdsc(
                         let mut fpu = false;
                         let mut mpu = false;
 
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                match attr.key.as_ref() {
-                                    b"Dcore" => {
-                                        core = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"Dfpu" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        fpu = val == "1" || val.to_lowercase() == "true" || val.to_lowercase() == "sp_fpu";
-                                    }
-                                    b"Dmpu" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        mpu = val == "1" || val.to_lowercase() == "true";
-                                    }
-                                    _ => {}
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"Dcore" => {
+                                    core = String::from_utf8_lossy(&attr.value).to_string();
                                 }
+                                b"Dfpu" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    fpu = val == "1" || val.to_lowercase() == "true" || val.to_lowercase() == "sp_fpu";
+                                }
+                                b"Dmpu" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    mpu = val == "1" || val.to_lowercase() == "true";
+                                }
+                                _ => {}
                             }
                         }
 
@@ -373,29 +361,27 @@ pub fn parse_devices_from_pdsc(
                         let mut size = 0u64;
                         let mut is_default = false;
 
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                match attr.key.as_ref() {
-                                    b"id" => {
-                                        id = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"name" => {
-                                        name_attr = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
-                                    b"start" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        start = parse_hex_or_dec(&val).unwrap_or(0);
-                                    }
-                                    b"size" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        size = parse_hex_or_dec(&val).unwrap_or(0);
-                                    }
-                                    b"default" => {
-                                        let val = String::from_utf8_lossy(&attr.value);
-                                        is_default = val == "1" || val.to_lowercase() == "true";
-                                    }
-                                    _ => {}
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"id" => {
+                                    id = String::from_utf8_lossy(&attr.value).to_string();
                                 }
+                                b"name" => {
+                                    name_attr = String::from_utf8_lossy(&attr.value).to_string();
+                                }
+                                b"start" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    start = parse_hex_or_dec(&val).unwrap_or(0);
+                                }
+                                b"size" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    size = parse_hex_or_dec(&val).unwrap_or(0);
+                                }
+                                b"default" => {
+                                    let val = String::from_utf8_lossy(&attr.value);
+                                    is_default = val == "1" || val.to_lowercase() == "true";
+                                }
+                                _ => {}
                             }
                         }
 
@@ -445,23 +431,21 @@ pub fn parse_devices_from_pdsc(
                         }
                     }
                     b"algorithm" if in_devices => {
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr {
-                                if attr.key.as_ref() == b"name" {
-                                    let algo_name = String::from_utf8_lossy(&attr.value).to_string();
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"name" {
+                                let algo_name = String::from_utf8_lossy(&attr.value).to_string();
 
-                                    // 根据当前层级保存 algorithm
-                                    if in_device {
-                                        if let Some(ref mut dev) = current_device {
-                                            dev.flash_algorithm = Some(algo_name);
-                                        }
-                                    } else if in_subfamily {
-                                        subfamily_algorithm = Some(algo_name);
-                                    } else if in_family {
-                                        family_algorithm = Some(algo_name);
+                                // 根据当前层级保存 algorithm
+                                if in_device {
+                                    if let Some(ref mut dev) = current_device {
+                                        dev.flash_algorithm = Some(algo_name);
                                     }
-                                    break;
+                                } else if in_subfamily {
+                                    subfamily_algorithm = Some(algo_name);
+                                } else if in_family {
+                                    family_algorithm = Some(algo_name);
                                 }
+                                break;
                             }
                         }
                     }
@@ -624,12 +608,10 @@ pub fn generate_probe_rs_yaml_with_algo(
                         device_algo_map.insert(device.name.clone(), algo_key.clone());
 
                         // 只保存第一个遇到的同名+同大小算法
-                        if !algo_map.contains_key(&algo_key) {
-                            algo_map.insert(algo_key, CollectedAlgo {
-                                algo,
-                                load_address: device.memory.ram_start,
-                            });
-                        }
+                        algo_map.entry(algo_key).or_insert(CollectedAlgo {
+                            algo,
+                            load_address: device.memory.ram_start,
+                        });
                     }
                     Err(e) => {
                         log::warn!("提取 Flash 算法失败: {}，设备 {} 将无法烧录", e, device.name);
@@ -768,7 +750,7 @@ pub fn generate_probe_rs_yaml_with_algo(
             yaml.push_str(&format!("      - {}\n", algo_name));
         }
 
-        yaml.push_str("\n");
+        yaml.push('\n');
     }
 
     // 报告完成

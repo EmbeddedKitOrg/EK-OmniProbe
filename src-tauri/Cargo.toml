@@ -36,7 +36,6 @@ object = "0.36"
 base64 = "0.22"
 serialport = "4.3"
 async-trait = "0.1"
-lazy_static = "1.4"
 
 [features]
 default = ["custom-protocol"]

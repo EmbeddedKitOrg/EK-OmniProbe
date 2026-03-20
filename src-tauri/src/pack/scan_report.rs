@@ -114,7 +114,7 @@ impl PackScanReport {
             if let Some(ref algo) = device.algorithm {
                 algo_map
                     .entry(algo.name.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(device.name.clone());
             }
         }
