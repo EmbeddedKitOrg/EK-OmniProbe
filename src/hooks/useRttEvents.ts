@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useRttStore, parseRttData } from "@/stores/rttStore";
-import type { RttDataEvent, RttStatusEvent } from "@/lib/types";
+import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import { parseChartData } from "@/lib/parseChartData";
 
 /**
@@ -15,14 +15,13 @@ export function useRttEvents() {
     setRunning,
     setError,
     addChartData,
-    chartConfig,
     incrementParseSuccess,
     incrementParseFail,
   } = useRttStore();
   const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
 
   // 批量处理缓冲区
-  const batchLinesRef = useRef<any[]>([]);
+  const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
   const batchBytesRef = useRef(0);
   const updateTimerRef = useRef<number | null>(null);
 
@@ -72,10 +71,11 @@ export function useRttEvents() {
         // 累积行（不立即更新状态）
         batchLinesRef.current.push(...lines);
 
-        // 如果图表功能启用，尝试解析图表数据
-        if (chartConfig.enabled) {
+        // 如果图表功能启用，尝试解析图表数据（通过 getState() 实时读取，避免闭包捕获旧引用）
+        const currentChartConfig = useRttStore.getState().chartConfig;
+        if (currentChartConfig.enabled) {
           for (const line of lines) {
-            const result = parseChartData(line.text, chartConfig);
+            const result = parseChartData(line.text, currentChartConfig);
             if (result.success && result.dataPoint) {
               addChartData(result.dataPoint);
               incrementParseSuccess();
@@ -120,7 +120,6 @@ export function useRttEvents() {
     setRunning,
     setError,
     addChartData,
-    chartConfig,
     incrementParseSuccess,
     incrementParseFail,
   ]);

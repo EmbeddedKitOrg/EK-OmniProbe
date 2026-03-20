@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSerialStore, parseSerialData } from "@/stores/serialStore";
-import type { SerialDataEvent, SerialStatusEvent } from "@/lib/serialTypes";
+import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
 import { parseChartData } from "@/lib/parseChartData";
 
 /**
@@ -16,7 +16,6 @@ export function useSerialEvents() {
     setConnected,
     setError,
     addChartData,
-    chartConfig,
     incrementParseSuccess,
     incrementParseFail,
   } = useSerialStore();
@@ -27,7 +26,7 @@ export function useSerialEvents() {
   });
 
   // 批量处理缓冲区
-  const batchLinesRef = useRef<any[]>([]);
+  const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
   const updateTimerRef = useRef<number | null>(null);
 
@@ -80,10 +79,11 @@ export function useSerialEvents() {
         // 累积行（不立即更新状态）
         batchLinesRef.current.push(...lines);
 
-        // If chart is enabled, try to parse chart data
-        if (chartConfig.enabled) {
+        // If chart is enabled, try to parse chart data (read via getState() to avoid stale closure)
+        const currentChartConfig = useSerialStore.getState().chartConfig;
+        if (currentChartConfig.enabled) {
           for (const line of lines) {
-            const result = parseChartData(line.text, chartConfig);
+            const result = parseChartData(line.text, currentChartConfig);
             if (result.success && result.dataPoint) {
               addChartData(result.dataPoint);
               incrementParseSuccess();
@@ -126,7 +126,6 @@ export function useSerialEvents() {
     setConnected,
     setError,
     addChartData,
-    chartConfig,
     incrementParseSuccess,
     incrementParseFail,
   ]);
