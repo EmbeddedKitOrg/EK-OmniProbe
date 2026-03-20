@@ -7,7 +7,6 @@ import {
   FolderOpen,
   Save,
   Unlock,
-  Download,
   Trash2,
   CheckCircle,
   Upload,
@@ -295,15 +294,6 @@ export function FlashToolbar() {
           </div>
         </TooltipWrapper>
 
-        <TooltipButton
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          icon={<Download className="h-4 w-4" />}
-          tooltip="烧录固件"
-          disabled={!connected || flashing || !firmwarePath}
-          onClick={handleFlash}
-        />
         <TooltipButton
           variant="ghost"
           size="icon"
