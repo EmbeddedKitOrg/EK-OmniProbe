@@ -1,4 +1,5 @@
-import { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRttStore } from "@/stores/rttStore";
 import { cn } from "@/lib/utils";
 import type { RttLine } from "@/lib/types";
@@ -97,7 +98,6 @@ export function RttViewer() {
   const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } =
     useRttStore();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   // 过滤行
   const filteredLines = useMemo(() => {
@@ -119,12 +119,19 @@ export function RttViewer() {
     return filtered;
   }, [lines, selectedChannel, searchQuery]);
 
+  const rowVirtualizer = useVirtualizer({
+    count: filteredLines.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 22, // 估算行高（像素）
+    overscan: 15,           // 额外渲染条数
+  });
+
   // 自动滚动到底部
   useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "auto" });
+    if (autoScroll && filteredLines.length > 0) {
+      rowVirtualizer.scrollToIndex(filteredLines.length - 1, { align: "end" });
     }
-  }, [filteredLines.length, autoScroll]);
+  }, [filteredLines.length, autoScroll, rowVirtualizer]);
 
   // 空状态
   if (filteredLines.length === 0) {
@@ -140,10 +147,35 @@ export function RttViewer() {
       ref={scrollRef}
       className="h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background"
     >
-      {filteredLines.map((line) => (
-        <RttLineItem key={line.id} line={line} showTimestamp={showTimestamp} displayMode={displayMode} />
-      ))}
-      <div ref={bottomRef} />
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const line = filteredLines[virtualRow.index];
+          return (
+            <div
+              key={virtualRow.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              <RttLineItem
+                line={line}
+                showTimestamp={showTimestamp}
+                displayMode={displayMode}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -154,7 +186,7 @@ interface RttLineItemProps {
   displayMode: "text" | "hex";
 }
 
-function RttLineItem({ line, showTimestamp, displayMode }: RttLineItemProps) {
+const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displayMode }: RttLineItemProps) {
   const colorParserConfig = useRttStore((state) => state.colorParserConfig);
 
   const levelColors: Record<RttLine["level"], string> = {
@@ -242,4 +274,4 @@ function RttLineItem({ line, showTimestamp, displayMode }: RttLineItemProps) {
       )}
     </div>
   );
-}
+});
