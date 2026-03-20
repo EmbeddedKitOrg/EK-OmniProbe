@@ -77,7 +77,7 @@ export function PackManager() {
       const dir = await getPacksDirectory();
       setPacksDirectory(dir);
     } catch (error) {
-      console.error("获取Pack目录失败:", error);
+      addLog("error", `获取Pack目录失败: ${error}`);
     }
   };
 
@@ -226,7 +226,6 @@ export function PackManager() {
 
   // Delete Pack
   const handleDelete = async (packName: string) => {
-    console.log("handleDelete called with:", packName);
     addLog("info", `准备删除Pack: ${packName}`);
 
     if (!confirm(`确定要删除Pack "${packName}" 吗？\n\n删除后需要重新导入才能使用。`)) {
@@ -417,7 +416,6 @@ export function PackManager() {
                         size="icon"
                         className="h-6 w-6 text-muted-foreground hover:text-destructive"
                         onClick={(e) => {
-                          console.log("Delete button clicked for:", pack.name);
                           e.preventDefault();
                           e.stopPropagation();
                           handleDelete(pack.name);

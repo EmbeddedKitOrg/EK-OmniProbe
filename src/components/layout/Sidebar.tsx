@@ -61,27 +61,11 @@ export function Sidebar() {
       setLoading(true);
       const probeList = await listProbes();
 
-      // 🔍 调试日志：查看探针列表数据
-      console.log("=== 探针列表调试 ===");
-      console.log("探针数量:", probeList.length);
-      console.log("探针详细信息:", JSON.stringify(probeList, null, 2));
-      probeList.forEach((probe, index) => {
-        console.log(`探针 ${index + 1}:`, {
-          identifier: probe.identifier,
-          probe_type: probe.probe_type,
-          dap_version: probe.dap_version,
-          vendor_id: probe.vendor_id,
-          product_id: probe.product_id,
-        });
-      });
-      console.log("==================");
-
       setProbes(probeList);
 
       // 自动选择第一个探针（如果有且当前没有选择）
       if (probeList.length > 0 && !selectedProbe) {
         selectProbe(probeList[0]);
-        console.log("🔍 自动选择的探针:", probeList[0]);
         addLog("info", `检测到 ${probeList.length} 个探针，已自动选择第一个`);
       } else {
         addLog("info", `检测到 ${probeList.length} 个探针`);
@@ -178,13 +162,6 @@ export function Sidebar() {
       addLog("error", `获取芯片信息失败: ${error}`);
     }
   };
-
-  // 🔍 调试日志：查看当前选中的探针
-  // console.log("🔍 当前渲染状态:", {
-  //   selectedProbe: selectedProbe,
-  //   hasDapVersion: selectedProbe?.dap_version ? "有" : "无",
-  //   dapVersion: selectedProbe?.dap_version,
-  // });
 
   return (
     <aside className="w-72 border-r border-border bg-muted/30 overflow-y-auto p-3 space-y-3">
