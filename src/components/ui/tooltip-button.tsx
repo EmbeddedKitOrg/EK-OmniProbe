@@ -3,7 +3,6 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -28,19 +27,17 @@ export function TooltipButton({
   ...buttonProps
 }: TooltipButtonProps) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button {...buttonProps}>
-            {icon}
-            {children}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side={tooltipSide}>
-          {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button {...buttonProps}>
+          {icon}
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side={tooltipSide}>
+        {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -66,13 +63,11 @@ export function TooltipWrapper({
   asChild = true,
 }: TooltipWrapperProps) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild={asChild}>{children}</TooltipTrigger>
-        <TooltipContent side={side}>
-          {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild={asChild}>{children}</TooltipTrigger>
+      <TooltipContent side={side}>
+        {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
+      </TooltipContent>
+    </Tooltip>
   );
 }

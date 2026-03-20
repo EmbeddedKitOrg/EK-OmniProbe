@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useMemo } from "react";
 import type {
   SerialConfig,
   SerialLine,
@@ -353,22 +352,3 @@ export function parseSerialData(
   };
 }
 
-// Selector: Get filtered lines (deprecated - use useMemo in component instead)
-// Keeping for backward compatibility but recommend using useMemo to avoid infinite loops
-export function useFilteredSerialLines() {
-  const lines = useSerialStore((state) => state.lines);
-  const searchQuery = useSerialStore((state) => state.searchQuery);
-
-  return useMemo(() => {
-    let filtered = lines;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((line) =>
-        line.text.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [lines, searchQuery]);
-}

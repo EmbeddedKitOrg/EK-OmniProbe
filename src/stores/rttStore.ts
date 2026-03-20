@@ -288,24 +288,3 @@ export function parseRttData(
   return lines;
 }
 
-// 选择器：获取过滤后的行
-export function useFilteredLines() {
-  return useRttStore((state) => {
-    let filtered = state.lines;
-
-    // 按通道过滤
-    if (state.selectedChannel >= 0) {
-      filtered = filtered.filter((line) => line.channel === state.selectedChannel);
-    }
-
-    // 按搜索词过滤
-    if (state.searchQuery.trim()) {
-      const query = state.searchQuery.toLowerCase();
-      filtered = filtered.filter((line) =>
-        line.text.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  });
-}

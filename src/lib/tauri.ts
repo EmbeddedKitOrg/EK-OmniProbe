@@ -8,6 +8,7 @@ import type {
   FlashOptions,
   FirmwareFileInfo,
   PackInfo,
+  PackScanReport,
   ProjectConfig,
   RttConfig,
   RttStartOptions,
@@ -137,7 +138,7 @@ export async function deletePack(packName: string): Promise<void> {
   return await invoke("delete_pack", { packName });
 }
 
-export async function getPackScanReport(packName: string): Promise<any> {
+export async function getPackScanReport(packName: string): Promise<PackScanReport> {
   return await invoke("get_pack_scan_report", { packName });
 }
 

@@ -27,8 +27,6 @@ export function useRttEvents() {
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    console.log("[RTT Events] 开始监听 RTT 事件");
-
     // 批量更新函数 - 使用 requestAnimationFrame 确保不阻塞渲染
     const flushBatch = () => {
       if (batchLinesRef.current.length > 0) {
@@ -93,19 +91,15 @@ export function useRttEvents() {
 
     // 监听 RTT 状态事件
     const unlistenStatus = listen<RttStatusEvent>("rtt-status", (event) => {
-      console.log("[RTT Events] 收到 rtt-status 事件", event.payload);
       const { running, error } = event.payload;
       setRunning(running);
       if (error) {
-        console.error("[RTT Events] RTT 错误:", error);
         setError(error);
       }
     });
 
     // 清理
     return () => {
-      console.log("[RTT Events] 停止监听 RTT 事件");
-
       // 清理定时器
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
