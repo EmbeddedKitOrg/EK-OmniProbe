@@ -7,6 +7,7 @@ import { useChipStore } from "@/stores/chipStore";
 import { useAppStore } from "@/stores/appStore";
 import { Cpu, FileCode, Loader2 } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
+import { formatBytes } from "@/lib/formatters";
 
 export function TopBar() {
   const connected = useProbeStore((s) => s.connected);
@@ -19,13 +20,6 @@ export function TopBar() {
   const firmwarePath = useFlashStore((s) => s.firmwarePath);
   const selectedChip = useChipStore((s) => s.selectedChip);
   const mode = useAppStore((s) => s.mode);
-
-  // Format bytes for display
-  const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  };
 
   // Get firmware filename
   const firmwareFileName = firmwarePath ? firmwarePath.split(/[\\/]/).pop() : null;
