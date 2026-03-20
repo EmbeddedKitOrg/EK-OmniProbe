@@ -29,3 +29,20 @@ export function formatTime(date: Date): string {
     hour12: false,
   });
 }
+
+/** 从文本内容推断日志级别 */
+export function parseLogLevel(
+  text: string
+): "error" | "warn" | "info" | "debug" {
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes("[error]") || lowerText.includes("[err]") || lowerText.includes("error:")) {
+    return "error";
+  }
+  if (lowerText.includes("[warn]") || lowerText.includes("[warning]") || lowerText.includes("warning:")) {
+    return "warn";
+  }
+  if (lowerText.includes("[debug]") || lowerText.includes("[dbg]")) {
+    return "debug";
+  }
+  return "info";
+}
