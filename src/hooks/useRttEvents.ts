@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useRttStore, parseRttData } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import { parseChartData } from "@/lib/parseChartData";
+import { formatBytes } from "@/lib/formatters";
 
 /**
  * 监听 RTT 事件的 Hook
@@ -139,11 +140,3 @@ export function useRttStats() {
   };
 }
 
-// 格式化字节数
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
