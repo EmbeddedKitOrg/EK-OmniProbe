@@ -138,8 +138,8 @@ interface SerialState {
   reset: () => void;
 }
 
-const savedConfig = loadSerialConfig();
-const savedSendSettings = loadSendSettings();
+const savedConfig = loadFromStorage(SERIAL_CONFIG_KEY, defaultSerialConfigBundle);
+const savedSendSettings = loadFromStorage(SERIAL_SEND_SETTINGS_KEY, defaultSendSettings);
 
 export const useSerialStore = create<SerialState>((set, get) => ({
   // Initial state
@@ -163,11 +163,11 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   displayMode: "text",
   colorParserConfig: loadColorParserConfig(),
 
-  viewMode: loadViewMode(),
-  splitRatio: loadSplitRatio(),
+  viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
+  splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
 
   chartData: [],
-  chartConfig: loadChartConfig(),
+  chartConfig: loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
   chartPaused: false,
 
   parseSuccessCount: 0,
@@ -186,7 +186,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setLocalConfig: (config) => {
     set((state) => {
       const newLocal = { ...state.localConfig, ...config };
-      saveSerialConfig({ local: newLocal, tcp: state.tcpConfig, activeType: state.activeSourceType });
+      saveToStorage(SERIAL_CONFIG_KEY, { local: newLocal, tcp: state.tcpConfig, activeType: state.activeSourceType });
       return { localConfig: newLocal };
     });
   },
@@ -194,14 +194,14 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setTcpConfig: (config) => {
     set((state) => {
       const newTcp = { ...state.tcpConfig, ...config };
-      saveSerialConfig({ local: state.localConfig, tcp: newTcp, activeType: state.activeSourceType });
+      saveToStorage(SERIAL_CONFIG_KEY, { local: state.localConfig, tcp: newTcp, activeType: state.activeSourceType });
       return { tcpConfig: newTcp };
     });
   },
 
   setActiveSourceType: (type) => {
     set((state) => {
-      saveSerialConfig({ local: state.localConfig, tcp: state.tcpConfig, activeType: type });
+      saveToStorage(SERIAL_CONFIG_KEY, { local: state.localConfig, tcp: state.tcpConfig, activeType: type });
       return { activeSourceType: type };
     });
   },
@@ -249,17 +249,17 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   },
 
   setViewMode: (viewMode) => {
-    saveViewMode(viewMode);
+    saveToStorage(SERIAL_VIEW_MODE_KEY, viewMode);
     set({ viewMode });
   },
 
   setSplitRatio: (splitRatio) => {
-    saveSplitRatio(splitRatio);
+    saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
   },
 
   setChartConfig: (chartConfig) => {
-    saveChartConfig(chartConfig);
+    saveToStorage(SERIAL_CHART_CONFIG_KEY, chartConfig);
     set({ chartConfig });
   },
 
@@ -284,7 +284,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setSendSettings: (settings) => {
     set((state) => {
       const newSettings = { ...state.sendSettings, ...settings };
-      saveSendSettings(newSettings);
+      saveToStorage(SERIAL_SEND_SETTINGS_KEY, newSettings);
       return { sendSettings: newSettings };
     });
   },

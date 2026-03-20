@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { EraseMode } from "@/lib/types";
+import { loadFromStorage, saveToStorage } from "@/lib/storage";
 
 // Flash settings persistence key
 const FLASH_SETTINGS_KEY = "flash_settings";
@@ -10,34 +11,11 @@ interface FlashSettings {
   eraseMode: EraseMode;
 }
 
-function loadFlashSettings(): FlashSettings {
-  try {
-    const saved = localStorage.getItem(FLASH_SETTINGS_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        verifyAfterFlash: parsed.verifyAfterFlash ?? false,
-        resetAfterFlash: parsed.resetAfterFlash ?? true,
-        eraseMode: parsed.eraseMode ?? "SectorErase",
-      };
-    }
-  } catch {
-    // 静默处理，使用默认值
-  }
-  return {
-    verifyAfterFlash: false,  // 默认不校验（加快烧录速度）
-    resetAfterFlash: true,
-    eraseMode: "SectorErase",
-  };
-}
-
-function saveFlashSettings(settings: FlashSettings) {
-  try {
-    localStorage.setItem(FLASH_SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // 静默处理
-  }
-}
+const defaultFlashSettings: FlashSettings = {
+  verifyAfterFlash: false,  // 默认不校验（加快烧录速度）
+  resetAfterFlash: true,
+  eraseMode: "SectorErase",
+};
 
 interface FlashState {
   // 状态
@@ -71,7 +49,7 @@ interface FlashState {
 }
 
 export const useFlashStore = create<FlashState>((set, get) => {
-  const savedSettings = loadFlashSettings();
+  const savedSettings = loadFromStorage(FLASH_SETTINGS_KEY, defaultFlashSettings);
 
   return {
     firmwarePath: null,
@@ -104,7 +82,7 @@ export const useFlashStore = create<FlashState>((set, get) => {
     setVerifyAfterFlash: (verifyAfterFlash) => {
       set({ verifyAfterFlash });
       const state = get();
-      saveFlashSettings({
+      saveToStorage(FLASH_SETTINGS_KEY, {
         verifyAfterFlash,
         resetAfterFlash: state.resetAfterFlash,
         eraseMode: state.eraseMode,
@@ -114,7 +92,7 @@ export const useFlashStore = create<FlashState>((set, get) => {
     setResetAfterFlash: (resetAfterFlash) => {
       set({ resetAfterFlash });
       const state = get();
-      saveFlashSettings({
+      saveToStorage(FLASH_SETTINGS_KEY, {
         verifyAfterFlash: state.verifyAfterFlash,
         resetAfterFlash,
         eraseMode: state.eraseMode,
@@ -124,7 +102,7 @@ export const useFlashStore = create<FlashState>((set, get) => {
     setEraseMode: (eraseMode) => {
       set({ eraseMode });
       const state = get();
-      saveFlashSettings({
+      saveToStorage(FLASH_SETTINGS_KEY, {
         verifyAfterFlash: state.verifyAfterFlash,
         resetAfterFlash: state.resetAfterFlash,
         eraseMode,
