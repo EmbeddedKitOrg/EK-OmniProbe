@@ -73,12 +73,12 @@ impl DataSource for TcpSerial {
             .as_mut()
             .ok_or_else(|| "TCP connection not established".to_string())?;
 
-        let written = stream
-            .write(data)
+        stream
+            .write_all(data)
             .map_err(|e| format!("Failed to write to TCP stream: {}", e))?;
 
-        self.stats.bytes_sent += written as u64;
-        Ok(written)
+        self.stats.bytes_sent += data.len() as u64;
+        Ok(data.len())
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, String> {
