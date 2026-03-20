@@ -2,7 +2,7 @@ import { useSerialStore } from "@/stores/serialStore";
 import { SerialToolbar } from "./SerialToolbar";
 import { SerialViewer } from "./SerialViewer";
 import { SerialSendBar } from "./SerialSendBar";
-import { RttChartViewer } from "@/components/rtt/RttChartViewer";
+import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,29 @@ interface SerialPanelProps {
 
 // Wrapper component for chart that uses serial store
 function SerialChartViewer() {
-  return <RttChartViewer />;
+  const {
+    chartData,
+    chartConfig,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  } = useSerialStore();
+
+  return (
+    <ChartViewer
+      chartData={chartData}
+      chartConfig={chartConfig}
+      chartPaused={chartPaused}
+      parseSuccessCount={parseSuccessCount}
+      parseFailCount={parseFailCount}
+      setChartPaused={setChartPaused}
+      clearChartData={clearChartData}
+      setChartConfig={setChartConfig}
+    />
+  );
 }
 
 // Terminal viewer section - can be split by direction or single view
