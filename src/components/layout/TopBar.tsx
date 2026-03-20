@@ -9,11 +9,16 @@ import { Cpu, FileCode, Loader2 } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 
 export function TopBar() {
-  const { connected, selectedProbe } = useProbeStore();
-  const { rttConnected, isRunning: rttRunning, totalBytes } = useRttStore();
-  const { flashing, progress, firmwarePath } = useFlashStore();
-  const { selectedChip } = useChipStore();
-  const { mode } = useAppStore();
+  const connected = useProbeStore((s) => s.connected);
+  const selectedProbe = useProbeStore((s) => s.selectedProbe);
+  const rttConnected = useRttStore((s) => s.rttConnected);
+  const rttRunning = useRttStore((s) => s.isRunning);
+  const totalBytes = useRttStore((s) => s.totalBytes);
+  const flashing = useFlashStore((s) => s.flashing);
+  const progress = useFlashStore((s) => s.progress);
+  const firmwarePath = useFlashStore((s) => s.firmwarePath);
+  const selectedChip = useChipStore((s) => s.selectedChip);
+  const mode = useAppStore((s) => s.mode);
 
   // Format bytes for display
   const formatBytes = (bytes: number): string => {

@@ -23,35 +23,31 @@ import { PackManager } from "@/components/config/PackManager";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
-  const {
-    probes,
-    selectedProbe,
-    connected,
-    connectionInfo,
-    settings,
-    loading,
-    autoDisconnect,
-    autoDisconnectTimeout,
-    setProbes,
-    selectProbe,
-    setSelectedChipName, // 新增
-    setConnected,
-    setSettings,
-    setLoading,
-    setError,
-    setAutoDisconnect,
-    setAutoDisconnectTimeout,
-  } = useProbeStore();
+  const probes = useProbeStore((s) => s.probes);
+  const selectedProbe = useProbeStore((s) => s.selectedProbe);
+  const connected = useProbeStore((s) => s.connected);
+  const connectionInfo = useProbeStore((s) => s.connectionInfo);
+  const settings = useProbeStore((s) => s.settings);
+  const loading = useProbeStore((s) => s.loading);
+  const autoDisconnect = useProbeStore((s) => s.autoDisconnect);
+  const autoDisconnectTimeout = useProbeStore((s) => s.autoDisconnectTimeout);
+  const setProbes = useProbeStore((s) => s.setProbes);
+  const selectProbe = useProbeStore((s) => s.selectProbe);
+  const setSelectedChipName = useProbeStore((s) => s.setSelectedChipName);
+  const setConnected = useProbeStore((s) => s.setConnected);
+  const setSettings = useProbeStore((s) => s.setSettings);
+  const setLoading = useProbeStore((s) => s.setLoading);
+  const setError = useProbeStore((s) => s.setError);
+  const setAutoDisconnect = useProbeStore((s) => s.setAutoDisconnect);
+  const setAutoDisconnectTimeout = useProbeStore((s) => s.setAutoDisconnectTimeout);
 
-  const {
-    searchResults,
-    selectedChip,
-    searchQuery,
-    setSearchResults,
-    selectChip,
-    setChipInfo,
-    setSearchQuery,
-  } = useChipStore();
+  const searchResults = useChipStore((s) => s.searchResults);
+  const selectedChip = useChipStore((s) => s.selectedChip);
+  const searchQuery = useChipStore((s) => s.searchQuery);
+  const setSearchResults = useChipStore((s) => s.setSearchResults);
+  const selectChip = useChipStore((s) => s.selectChip);
+  const setChipInfo = useChipStore((s) => s.setChipInfo);
+  const setSearchQuery = useChipStore((s) => s.setSearchQuery);
 
   const addLog = useLogStore((state) => state.addLog);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
