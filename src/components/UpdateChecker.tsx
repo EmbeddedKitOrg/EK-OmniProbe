@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { check, type Update, type DownloadEvent } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function UpdateChecker() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const addLog = useLogStore((state) => state.addLog);
+  const downloadedBytesRef = useRef(0);
 
   // 启动时自动检查更新(静默模式)
   useEffect(() => {
@@ -57,6 +58,7 @@ export function UpdateChecker() {
 
   const downloadAndInstall = async () => {
     if (!updateInfo) return;
+    downloadedBytesRef.current = 0;
 
     try {
       setDownloading(true);
@@ -66,6 +68,7 @@ export function UpdateChecker() {
         switch (event.event) {
           case "Started": {
             const data = event.data as { contentLength?: number };
+            downloadedBytesRef.current = 0; // 重置累计字节
             if (data.contentLength) {
               addLog("info", `开始下载: ${data.contentLength} 字节`);
             }
@@ -73,11 +76,15 @@ export function UpdateChecker() {
           }
           case "Progress": {
             const data = event.data as { chunkLength: number; contentLength: number };
-            const progress = (data.chunkLength / data.contentLength) * 100;
-            setDownloadProgress(progress);
+            downloadedBytesRef.current += data.chunkLength;
+            const progress = data.contentLength > 0
+              ? (downloadedBytesRef.current / data.contentLength) * 100
+              : 0;
+            setDownloadProgress(Math.min(progress, 100));
             break;
           }
           case "Finished":
+            setDownloadProgress(100);
             addLog("success", "下载完成，准备安装...");
             break;
         }
