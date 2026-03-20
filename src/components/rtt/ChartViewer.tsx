@@ -53,6 +53,7 @@ export function ChartViewer({
   parseFailCount,
   setChartPaused,
   clearChartData,
+  setChartConfig: _setChartConfig,
 }: ChartViewerProps) {
   // 缩放范围状态
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
