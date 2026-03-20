@@ -15,6 +15,15 @@ pub async fn read_memory(
     options: ReadMemoryOptions,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<u8>> {
+    // 1MB 上限校验，防止 OOM
+    const MAX_MEMORY_READ_SIZE: u32 = 1024 * 1024;
+    if options.size > MAX_MEMORY_READ_SIZE {
+        return Err(AppError::InvalidInput(format!(
+            "内存读取大小 {} 字节超过最大限制 1MB",
+            options.size
+        )));
+    }
+
     let mut session_guard = state.session.lock();
     let session = session_guard
         .as_mut()

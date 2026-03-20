@@ -4,7 +4,8 @@ use probe_rs::flashing::{download_file_with_options, erase_all, FlashProgress, P
 use probe_rs::MemoryInterface;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use tauri::{Emitter, State, Window};
 
 /// 进度跟踪状态
@@ -164,7 +165,7 @@ pub async fn flash_firmware(
     let progress_state_clone = Arc::clone(&progress_state);
 
     let progress_callback = FlashProgress::new(move |event| {
-        let mut state = progress_state_clone.lock().unwrap();
+        let mut state = progress_state_clone.lock();
 
         let (phase, message) = match event {
             ProgressEvent::FlashLayoutReady { .. } => {
@@ -409,6 +410,15 @@ pub async fn erase_sector(
     options: EraseSectorOptions,
     state: State<'_, AppState>,
 ) -> AppResult<()> {
+    // 64MB 上限校验，防止 OOM
+    const MAX_ERASE_SIZE: u64 = 64 * 1024 * 1024;
+    if options.size > MAX_ERASE_SIZE {
+        return Err(AppError::InvalidInput(format!(
+            "擦除大小 {} 字节超过最大限制 64MB",
+            options.size
+        )));
+    }
+
     let mut session_guard = state.session.lock();
     let session = session_guard
         .as_mut()
@@ -538,6 +548,14 @@ pub async fn read_flash(
     options: ReadFlashOptions,
     state: State<'_, AppState>,
 ) -> AppResult<Vec<u8>> {
+    const MAX_FLASH_READ_SIZE: u64 = 64 * 1024 * 1024;
+    if options.size > MAX_FLASH_READ_SIZE {
+        return Err(AppError::InvalidInput(format!(
+            "Flash 读取大小 {} 字节超过最大限制 64MB",
+            options.size
+        )));
+    }
+
     let mut session_guard = state.session.lock();
     let session = session_guard
         .as_mut()

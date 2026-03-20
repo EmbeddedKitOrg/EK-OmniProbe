@@ -31,6 +31,9 @@ pub enum AppError {
 
     #[error("序列化错误: {0}")]
     SerdeError(#[from] serde_json::Error),
+
+    #[error("无效输入: {0}")]
+    InvalidInput(String),
 }
 
 impl serde::Serialize for AppError {
