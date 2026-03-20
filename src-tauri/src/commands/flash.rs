@@ -446,6 +446,28 @@ pub async fn verify_firmware(
     state: State<'_, AppState>,
     window: Window,
 ) -> AppResult<bool> {
+    // 检测文件格式，只支持 BIN 格式
+    {
+        use std::io::Read as IoRead;
+        let mut header = [0u8; 4];
+        let mut f = std::fs::File::open(&file_path)
+            .map_err(|e| AppError::FileError(e.to_string()))?;
+        let _ = f.read(&mut header);
+
+        // ELF 魔数: 0x7F 'E' 'L' 'F'
+        if header == [0x7F, 0x45, 0x4C, 0x46] {
+            return Err(AppError::InvalidInput(
+                "检测到 ELF 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string()
+            ));
+        }
+        // Intel HEX 以 ':' 开头
+        if header[0] == b':' {
+            return Err(AppError::InvalidInput(
+                "检测到 Intel HEX 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string()
+            ));
+        }
+    }
+
     let mut session_guard = state.session.lock();
     let session = session_guard
         .as_mut()
