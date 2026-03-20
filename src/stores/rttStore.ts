@@ -4,74 +4,15 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ChartSeries, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
+import { parseLogLevel } from "@/lib/utils";
+import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
 
 // 图表配置持久化
 const CHART_CONFIG_KEY = "rtt_chart_config";
 const VIEW_MODE_KEY = "rtt_view_mode";
 const SPLIT_RATIO_KEY = "rtt_split_ratio";
 
-function loadChartConfig(): ChartConfig {
-  try {
-    const saved = localStorage.getItem(CHART_CONFIG_KEY);
-    if (saved) {
-      return { ...DEFAULT_CHART_CONFIG, ...JSON.parse(saved) };
-    }
-  } catch {
-    // 静默处理，使用默认值
-  }
-  return DEFAULT_CHART_CONFIG;
-}
-
-function saveChartConfig(config: ChartConfig) {
-  try {
-    localStorage.setItem(CHART_CONFIG_KEY, JSON.stringify(config));
-  } catch {
-    // 静默处理
-  }
-}
-
-function loadViewMode(): ViewMode {
-  try {
-    const saved = localStorage.getItem(VIEW_MODE_KEY);
-    if (saved && (saved === "text" || saved === "chart" || saved === "split")) {
-      return saved as ViewMode;
-    }
-  } catch {
-    // 静默处理，使用默认值
-  }
-  return "text";
-}
-
-function saveViewMode(mode: ViewMode) {
-  try {
-    localStorage.setItem(VIEW_MODE_KEY, mode);
-  } catch {
-    // 静默处理
-  }
-}
-
-function loadSplitRatio(): number {
-  try {
-    const saved = localStorage.getItem(SPLIT_RATIO_KEY);
-    if (saved) {
-      const ratio = parseFloat(saved);
-      if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
-        return ratio;
-      }
-    }
-  } catch {
-    // 静默处理，使用默认值
-  }
-  return 0.4; // 默认 40% 文本，60% 图表
-}
-
-function saveSplitRatio(ratio: number) {
-  try {
-    localStorage.setItem(SPLIT_RATIO_KEY, ratio.toString());
-  } catch {
-    // 静默处理
-  }
-}
+const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 
 interface RttState {
   // RTT 连接状态
@@ -153,20 +94,6 @@ interface RttState {
   reset: () => void;
 }
 
-// 从文本解析日志级别
-function parseLogLevel(text: string): RttLine["level"] {
-  const lowerText = text.toLowerCase();
-  if (lowerText.includes("[error]") || lowerText.includes("[err]") || lowerText.includes("error:")) {
-    return "error";
-  }
-  if (lowerText.includes("[warn]") || lowerText.includes("[warning]") || lowerText.includes("warning:")) {
-    return "warn";
-  }
-  if (lowerText.includes("[debug]") || lowerText.includes("[dbg]")) {
-    return "debug";
-  }
-  return "info";
-}
 
 export const useRttStore = create<RttState>((set) => ({
   // 初始状态
@@ -185,10 +112,10 @@ export const useRttStore = create<RttState>((set) => ({
   searchQuery: "",
   displayMode: "text", // 新增：默认文本模式
   colorParserConfig: loadColorParserConfig(), // 新增：从 localStorage 加载配置
-  viewMode: loadViewMode(), // 新增：从 localStorage 加载视图模式
-  splitRatio: loadSplitRatio(), // 新增：从 localStorage 加载分屏比例
+  viewMode: loadStringFromStorage(VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"), // 新增：从 localStorage 加载视图模式
+  splitRatio: loadNumberFromStorage(SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1), // 新增：从 localStorage 加载分屏比例
   chartData: [], // 新增：图表数据
-  chartConfig: loadChartConfig(), // 新增：从 localStorage 加载图表配置
+  chartConfig: loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), // 新增：从 localStorage 加载图表配置
   chartPaused: false, // 新增：图表暂停状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
@@ -247,17 +174,17 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setViewMode: (viewMode) => {
-    saveViewMode(viewMode);
+    saveToStorage(VIEW_MODE_KEY, viewMode);
     set({ viewMode });
   },
 
   setSplitRatio: (splitRatio) => {
-    saveSplitRatio(splitRatio);
+    saveNumberToStorage(SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
   },
 
   setChartConfig: (chartConfig) => {
-    saveChartConfig(chartConfig);
+    saveToStorage(CHART_CONFIG_KEY, chartConfig);
     set({ chartConfig });
   },
 

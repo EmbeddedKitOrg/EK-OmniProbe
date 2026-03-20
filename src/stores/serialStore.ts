@@ -14,6 +14,8 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
+import { parseLogLevel } from "@/lib/utils";
+import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
 
 // Persistence keys
 const SERIAL_CONFIG_KEY = "serial_config";
@@ -47,123 +49,11 @@ interface SendSettings {
   hexMode: boolean;
 }
 
-function loadSerialConfig(): { local: LocalSerialConfig; tcp: TcpSerialConfig; activeType: DataSourceType } {
-  try {
-    const saved = localStorage.getItem(SERIAL_CONFIG_KEY);
-    if (saved) {
-      return { ...{ local: defaultLocalConfig, tcp: defaultTcpConfig, activeType: "local" as DataSourceType }, ...JSON.parse(saved) };
-    }
-  } catch {
-    // Use default
-  }
-  return { local: defaultLocalConfig, tcp: defaultTcpConfig, activeType: "local" };
-}
+const defaultSerialConfigBundle = { local: defaultLocalConfig, tcp: defaultTcpConfig, activeType: "local" as DataSourceType };
+const defaultSendSettings: SendSettings = { encoding: "utf-8", lineEnding: "lf", hexMode: false };
 
-function saveSerialConfig(config: { local: LocalSerialConfig; tcp: TcpSerialConfig; activeType: DataSourceType }) {
-  try {
-    localStorage.setItem(SERIAL_CONFIG_KEY, JSON.stringify(config));
-  } catch {
-    // Silent fail
-  }
-}
+const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 
-function loadChartConfig(): ChartConfig {
-  try {
-    const saved = localStorage.getItem(SERIAL_CHART_CONFIG_KEY);
-    if (saved) {
-      return { ...DEFAULT_CHART_CONFIG, ...JSON.parse(saved) };
-    }
-  } catch {
-    // Use default
-  }
-  return DEFAULT_CHART_CONFIG;
-}
-
-function saveChartConfig(config: ChartConfig) {
-  try {
-    localStorage.setItem(SERIAL_CHART_CONFIG_KEY, JSON.stringify(config));
-  } catch {
-    // Silent fail
-  }
-}
-
-function loadViewMode(): ViewMode {
-  try {
-    const saved = localStorage.getItem(SERIAL_VIEW_MODE_KEY);
-    if (saved && (saved === "text" || saved === "chart" || saved === "split")) {
-      return saved as ViewMode;
-    }
-  } catch {
-    // Use default
-  }
-  return "text";
-}
-
-function saveViewMode(mode: ViewMode) {
-  try {
-    localStorage.setItem(SERIAL_VIEW_MODE_KEY, mode);
-  } catch {
-    // Silent fail
-  }
-}
-
-function loadSplitRatio(): number {
-  try {
-    const saved = localStorage.getItem(SERIAL_SPLIT_RATIO_KEY);
-    if (saved) {
-      const ratio = parseFloat(saved);
-      if (!isNaN(ratio) && ratio >= 0 && ratio <= 1) {
-        return ratio;
-      }
-    }
-  } catch {
-    // Use default
-  }
-  return 0.4;
-}
-
-function saveSplitRatio(ratio: number) {
-  try {
-    localStorage.setItem(SERIAL_SPLIT_RATIO_KEY, ratio.toString());
-  } catch {
-    // Silent fail
-  }
-}
-
-function loadSendSettings(): SendSettings {
-  try {
-    const saved = localStorage.getItem(SERIAL_SEND_SETTINGS_KEY);
-    if (saved) {
-      return { ...{ encoding: "utf-8" as Encoding, lineEnding: "lf" as LineEnding, hexMode: false }, ...JSON.parse(saved) };
-    }
-  } catch {
-    // Use default
-  }
-  return { encoding: "utf-8", lineEnding: "lf", hexMode: false };
-}
-
-function saveSendSettings(settings: SendSettings) {
-  try {
-    localStorage.setItem(SERIAL_SEND_SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // Silent fail
-  }
-}
-
-// Parse log level from text
-function parseLogLevel(text: string): SerialLine["level"] {
-  const lowerText = text.toLowerCase();
-  if (lowerText.includes("[error]") || lowerText.includes("[err]") || lowerText.includes("error:")) {
-    return "error";
-  }
-  if (lowerText.includes("[warn]") || lowerText.includes("[warning]") || lowerText.includes("warning:")) {
-    return "warn";
-  }
-  if (lowerText.includes("[debug]") || lowerText.includes("[dbg]")) {
-    return "debug";
-  }
-  return "info";
-}
 
 interface SerialState {
   // Connection state
