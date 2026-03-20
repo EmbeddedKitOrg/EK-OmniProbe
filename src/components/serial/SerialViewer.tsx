@@ -1,4 +1,5 @@
-import { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSerialStore } from "@/stores/serialStore";
 import { cn } from "@/lib/utils";
 import type { SerialLine } from "@/lib/serialTypes";
@@ -114,14 +115,20 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
   }, [lines, direction, searchQuery]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredLines.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 22,
+    overscan: 15,
+  });
 
   // Auto scroll to bottom
   useEffect(() => {
-    if (autoScroll && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "auto" });
+    if (autoScroll && filteredLines.length > 0) {
+      rowVirtualizer.scrollToIndex(filteredLines.length - 1, { align: "end" });
     }
-  }, [filteredLines.length, autoScroll]);
+  }, [filteredLines.length, autoScroll, rowVirtualizer]);
 
   // Empty state message based on direction
   const getEmptyMessage = () => {
@@ -167,15 +174,35 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
         ref={scrollRef}
         className="flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background"
       >
-        {filteredLines.map((line) => (
-          <SerialLineItem
-            key={line.id}
-            line={line}
-            showTimestamp={showTimestamp}
-            displayMode={displayMode}
-          />
-        ))}
-        <div ref={bottomRef} />
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const line = filteredLines[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <SerialLineItem
+                  line={line}
+                  showTimestamp={showTimestamp}
+                  displayMode={displayMode}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -187,7 +214,7 @@ interface SerialLineItemProps {
   displayMode: "text" | "hex";
 }
 
-function SerialLineItem({ line, showTimestamp, displayMode }: SerialLineItemProps) {
+const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp, displayMode }: SerialLineItemProps) {
   const colorParserConfig = useSerialStore((state) => state.colorParserConfig);
 
   const levelColors: Record<SerialLine["level"], string> = {
@@ -273,4 +300,4 @@ function SerialLineItem({ line, showTimestamp, displayMode }: SerialLineItemProp
       )}
     </div>
   );
-}
+});
