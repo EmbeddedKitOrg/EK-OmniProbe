@@ -14,10 +14,14 @@ import { disconnect, initPacks } from "./lib/tauri";
 
 function App() {
   const addLog = useLogStore((state) => state.addLog);
-  const { connected, autoDisconnect, autoDisconnectTimeout, setConnected } = useProbeStore();
-  const { isRunning: rttRunning } = useRttStore();
-  const { flashing } = useFlashStore();
-  const { mode, setMode } = useAppStore();
+  const connected = useProbeStore((s) => s.connected);
+  const autoDisconnect = useProbeStore((s) => s.autoDisconnect);
+  const autoDisconnectTimeout = useProbeStore((s) => s.autoDisconnectTimeout);
+  const setConnected = useProbeStore((s) => s.setConnected);
+  const rttRunning = useRttStore((s) => s.isRunning);
+  const flashing = useFlashStore((s) => s.flashing);
+  const mode = useAppStore((s) => s.mode);
+  const setMode = useAppStore((s) => s.setMode);
   const { isActive, timeRemainingSeconds } = useUserActivity(autoDisconnectTimeout);
 
   useEffect(() => {
@@ -117,29 +121,11 @@ function App() {
         {/* Sidebar: switch based on mode */}
         {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
 
-        {/* Mode content with transition animation */}
+        {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
         <div className="flex-1 overflow-hidden relative">
-          <div
-            className={`absolute inset-0 transition-opacity duration-200 ${
-              mode === "flash" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-            }`}
-          >
-            <FlashMode />
-          </div>
-          <div
-            className={`absolute inset-0 transition-opacity duration-200 ${
-              mode === "rtt" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-            }`}
-          >
-            <RttMode />
-          </div>
-          <div
-            className={`absolute inset-0 transition-opacity duration-200 ${
-              mode === "serial" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-            }`}
-          >
-            <SerialMode />
-          </div>
+          {mode === "flash" && <FlashMode />}
+          {mode === "rtt" && <RttMode />}
+          {mode === "serial" && <SerialMode />}
         </div>
       </div>
 
