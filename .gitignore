@@ -37,3 +37,6 @@ packs/*.pack
 # Debug files
 *.pdb
 nul
+TEST_KEIL/
+
+docs/
