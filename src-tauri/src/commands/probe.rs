@@ -120,10 +120,10 @@ fn collect_cmsis_dap_caps() -> Vec<CmsisDapCaps> {
 
             // HID class = 0x03, Vendor Specific class = 0xFF
             if iface_class == 0x03 && (iface_is_cmsis || product_is_cmsis) {
-                debug_lines.push(format!("  -> HID interface (DAPv1)"));
+                debug_lines.push("  -> HID interface (DAPv1)".to_string());
                 has_hid = true;
             } else if iface_class == 0xFF && (iface_is_cmsis || product_is_cmsis) {
-                debug_lines.push(format!("  -> Vendor Specific (potential DAPv2)"));
+                debug_lines.push("  -> Vendor Specific (potential DAPv2)".to_string());
                 has_v2 = true;
             }
         }
@@ -420,12 +420,12 @@ pub async fn connect_target(
     log::info!("正在连接目标芯片: {}", options.target);
 
     // 获取自定义 Registry（包含从 Pack 导入的设备）
-    let registry = TARGET_REGISTRY.lock().unwrap();
+    let registry = TARGET_REGISTRY.lock();
 
     let mut session = if options.connect_mode == ConnectMode::UnderReset {
         log::info!("使用 UnderReset 模式连接");
         probe
-            .attach_under_reset_with_registry(&options.target, Permissions::default(), &*registry)
+            .attach_under_reset_with_registry(&options.target, Permissions::default(), &registry)
             .map_err(|e| {
                 log::error!("连接目标失败 (UnderReset): {}", e);
                 log::error!("可能的原因:");
@@ -440,7 +440,7 @@ pub async fn connect_target(
     } else {
         log::info!("使用 Normal 模式连接");
         probe
-            .attach_with_registry(&options.target, Permissions::default(), &*registry)
+            .attach_with_registry(&options.target, Permissions::default(), &registry)
             .map_err(|e| {
                 log::error!("连接目标失败 (Normal): {}", e);
                 log::error!("可能的原因:");
@@ -625,15 +625,15 @@ pub async fn connect_rtt(
 
     // 连接目标
     // 获取自定义 Registry（包含从 Pack 导入的设备）
-    let registry = TARGET_REGISTRY.lock().unwrap();
+    let registry = TARGET_REGISTRY.lock();
 
     let mut session = if options.connect_mode == ConnectMode::UnderReset {
         probe
-            .attach_under_reset_with_registry(&options.target, Permissions::default(), &*registry)
+            .attach_under_reset_with_registry(&options.target, Permissions::default(), &registry)
             .map_err(|e| AppError::ProbeError(e.to_string()))?
     } else {
         probe
-            .attach_with_registry(&options.target, Permissions::default(), &*registry)
+            .attach_with_registry(&options.target, Permissions::default(), &registry)
             .map_err(|e| AppError::ProbeError(e.to_string()))?
     };
 

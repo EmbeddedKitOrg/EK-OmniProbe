@@ -432,7 +432,7 @@ fn build_sectors_from_flash_device(fd: &FlashDevice, _flash_start: u64) -> Vec<S
 /// 扇区地址使用相对偏移量（从 0 开始）
 fn generate_default_sectors(flash_size: u64) -> Vec<SectorInfo> {
     let sector_size = 4096u64;
-    let sector_count = (flash_size + sector_size - 1) / sector_size;
+    let sector_count = flash_size.div_ceil(sector_size);
 
     (0..sector_count)
         .map(|i| SectorInfo {
@@ -454,7 +454,7 @@ pub fn find_flm_files(pack_dir: &Path) -> AppResult<Vec<std::path::PathBuf>> {
 
                 if path.is_dir() {
                     search_dir(&path, flm_files)?;
-                } else if path.extension().map_or(false, |ext| {
+                } else if path.extension().is_some_and(|ext| {
                     ext.eq_ignore_ascii_case("flm") || ext.eq_ignore_ascii_case("FLM")
                 }) {
                     flm_files.push(path);

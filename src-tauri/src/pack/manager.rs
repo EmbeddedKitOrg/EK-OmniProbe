@@ -192,7 +192,7 @@ impl PackManager {
                     let pdsc_entry = pdsc_entry?;
                     let pdsc_path = pdsc_entry.path();
 
-                    if pdsc_path.extension().map_or(false, |ext| ext == "pdsc") {
+                    if pdsc_path.extension().is_some_and(|ext| ext == "pdsc") {
                         log::info!("📄 找到 PDSC 文件: {:?}", pdsc_path);
                         let content = fs::read_to_string(&pdsc_path)?;
                         if let Ok(info) = super::parser::parse_pdsc(&content) {

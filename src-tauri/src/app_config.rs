@@ -7,18 +7,10 @@ use std::fs;
 use std::path::PathBuf;
 
 /// 应用配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     /// 自定义Pack目录路径
     pub custom_packs_dir: Option<String>,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            custom_packs_dir: None,
-        }
-    }
 }
 
 /// 获取配置文件路径

@@ -66,20 +66,18 @@ pub fn parse_pdsc(content: &str) -> AppResult<PackInfo> {
             },
             Ok(Event::Empty(ref e)) => {
                 // 处理自闭合标签
-                for attr in e.attributes() {
-                    if let Ok(attr) = attr {
-                        match (e.name().as_ref(), attr.key.as_ref()) {
-                            (b"package", b"vendor") => {
-                                vendor = String::from_utf8_lossy(&attr.value).to_string();
-                            }
-                            (b"package", b"name") => {
-                                name = String::from_utf8_lossy(&attr.value).to_string();
-                            }
-                            (b"package", b"version") => {
-                                version = String::from_utf8_lossy(&attr.value).to_string();
-                            }
-                            _ => {}
+                for attr in e.attributes().flatten() {
+                    match (e.name().as_ref(), attr.key.as_ref()) {
+                        (b"package", b"vendor") => {
+                            vendor = String::from_utf8_lossy(&attr.value).to_string();
                         }
+                        (b"package", b"name") => {
+                            name = String::from_utf8_lossy(&attr.value).to_string();
+                        }
+                        (b"package", b"version") => {
+                            version = String::from_utf8_lossy(&attr.value).to_string();
+                        }
+                        _ => {}
                     }
                 }
 
@@ -108,17 +106,15 @@ pub fn parse_pdsc(content: &str) -> AppResult<PackInfo> {
         loop {
             match reader.read_event_into(&mut buf) {
                 Ok(Event::Start(ref e)) if e.name().as_ref() == b"package" => {
-                    for attr in e.attributes() {
-                        if let Ok(attr) = attr {
-                            match attr.key.as_ref() {
-                                b"vendor" if vendor.is_empty() => {
-                                    vendor = String::from_utf8_lossy(&attr.value).to_string();
-                                }
-                                b"name" if name.is_empty() => {
-                                    name = String::from_utf8_lossy(&attr.value).to_string();
-                                }
-                                _ => {}
+                    for attr in e.attributes().flatten() {
+                        match attr.key.as_ref() {
+                            b"vendor" if vendor.is_empty() => {
+                                vendor = String::from_utf8_lossy(&attr.value).to_string();
                             }
+                            b"name" if name.is_empty() => {
+                                name = String::from_utf8_lossy(&attr.value).to_string();
+                            }
+                            _ => {}
                         }
                     }
                     break;
