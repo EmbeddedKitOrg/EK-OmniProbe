@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Plug, Unplug, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -166,13 +166,18 @@ export function Sidebar() {
   return (
     <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-3 space-y-3">
       {/* 探针选择 */}
-      <Card>
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">调试探针</CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
+        <Card>
+          <CardHeader className="py-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm">调试探针</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  {selectedProbe ? selectedProbe.identifier : `已检测 ${probes.length} 个探针`}
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
               className="h-6 w-6"
               onClick={refreshProbes}
               disabled={loading}
@@ -226,6 +231,9 @@ export function Sidebar() {
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-sm">目标芯片</CardTitle>
+          <CardDescription className="text-xs">
+            {selectedChip || "先搜索并锁定目标芯片，再进入 RTT 或烧录工作流。"}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="relative">
@@ -261,7 +269,12 @@ export function Sidebar() {
           <CollapsibleTrigger asChild>
             <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">接口设置</CardTitle>
+                <div>
+                  <CardTitle className="text-sm">接口设置</CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    {settings.interfaceType} · {(settings.clockSpeed / 1000000).toFixed(settings.clockSpeed >= 1000000 ? 0 : 1)} MHz · {settings.connectMode}
+                  </CardDescription>
+                </div>
                 {interfaceSettingsOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
@@ -362,7 +375,12 @@ export function Sidebar() {
           <CollapsibleTrigger asChild>
             <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">自动断开</CardTitle>
+                <div>
+                  <CardTitle className="text-sm">自动断开</CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    {autoDisconnect ? `${autoDisconnectTimeout / 1000} 秒无操作自动断开` : "当前关闭"}
+                  </CardDescription>
+                </div>
                 {autoDisconnectOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (

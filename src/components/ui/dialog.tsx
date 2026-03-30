@@ -12,94 +12,13 @@ const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
 
-function logDialogDebug(tag: "overlay" | "content", element: HTMLElement | null) {
-  if (!element || typeof window === "undefined") {
-    return;
-  }
-
-  const rect = element.getBoundingClientRect();
-  const style = window.getComputedStyle(element);
-  const centerX = Math.min(
-    Math.max(rect.left + rect.width / 2, 0),
-    Math.max(window.innerWidth - 1, 0)
-  );
-  const centerY = Math.min(
-    Math.max(rect.top + rect.height / 2, 0),
-    Math.max(window.innerHeight - 1, 0)
-  );
-  const topElement = document.elementFromPoint(centerX, centerY) as HTMLElement | null;
-
-  console.info(`[dialog-debug:${tag}]`, {
-    state: element.getAttribute("data-state"),
-    className: element.className,
-    zIndex: style.zIndex,
-    opacity: style.opacity,
-    visibility: style.visibility,
-    display: style.display,
-    pointerEvents: style.pointerEvents,
-    backdropFilter: style.backdropFilter,
-    rect: {
-      left: Math.round(rect.left),
-      top: Math.round(rect.top),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height),
-    },
-    topElement: topElement
-      ? {
-          tag: topElement.tagName,
-          className: topElement.className,
-          text: topElement.textContent?.slice(0, 80) ?? "",
-        }
-      : null,
-  });
-}
-
-function useDialogDebug(tag: "overlay" | "content", element: HTMLElement | null) {
-  React.useEffect(() => {
-    if (!element || typeof window === "undefined") {
-      return;
-    }
-
-    console.info(`[dialog-debug:${tag}] mounted`);
-
-    const emit = () => logDialogDebug(tag, element);
-    const frame = window.requestAnimationFrame(emit);
-    const timer = window.setTimeout(emit, 180);
-    const observer = new MutationObserver(emit);
-
-    observer.observe(element, {
-      attributes: true,
-      attributeFilter: ["class", "style", "data-state"],
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-      observer.disconnect();
-      console.info(`[dialog-debug:${tag}] unmounted`);
-    };
-  }, [tag, element]);
-}
-
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, style, ...props }, ref) => {
-  const [element, setElement] =
-    React.useState<React.ElementRef<typeof DialogPrimitive.Overlay> | null>(null)
-
-  useDialogDebug("overlay", element)
-
   return (
     <DialogPrimitive.Overlay
-      ref={(node) => {
-        setElement(node)
-        if (typeof ref === "function") {
-          ref(node)
-        } else if (ref) {
-          ref.current = node
-        }
-      }}
+      ref={ref}
       style={{ zIndex: 70, ...style }}
       className={cn(
         "glass-overlay fixed inset-0 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -115,11 +34,6 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, style, ...props }, ref) => {
-  const [element, setElement] =
-    React.useState<React.ElementRef<typeof DialogPrimitive.Content> | null>(null)
-
-  useDialogDebug("content", element)
-
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -128,17 +42,10 @@ const DialogContent = React.forwardRef<
         style={{ pointerEvents: "none" }}
       >
         <DialogPrimitive.Content
-          ref={(node) => {
-            setElement(node)
-            if (typeof ref === "function") {
-              ref(node)
-            } else if (ref) {
-              ref.current = node
-            }
-          }}
+          ref={ref}
           style={{ zIndex: 80, pointerEvents: "auto", ...style }}
           className={cn(
-            "glass-dialog grid w-[min(calc(100vw-2rem),42rem)] max-h-[calc(100vh-2rem)] max-w-lg gap-4 overflow-y-auto p-6 text-foreground duration-200 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-[30px]",
+            "glass-dialog grid w-[min(calc(100vw-2rem),44rem)] max-h-[calc(100vh-2rem)] max-w-2xl gap-4 overflow-y-auto p-6 text-foreground duration-200 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-[30px]",
             className
           )}
           {...props}

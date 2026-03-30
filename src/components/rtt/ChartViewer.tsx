@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ChartConfig, ChartDataPoint, SignalDomain } from "@/lib/chartTypes";
 import {
   LineChart,
@@ -48,16 +48,10 @@ export function ChartViewer({
   parseFailCount,
   setChartPaused,
   clearChartData,
-  setChartConfig: _setChartConfig,
+  setChartConfig,
 }: ChartViewerProps) {
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
-  const [signalDomain, setSignalDomain] = useState<SignalDomain>("time");
-
-  useEffect(() => {
-    if (chartConfig.chartType !== "waveform" && signalDomain !== "time") {
-      setSignalDomain("time");
-    }
-  }, [chartConfig.chartType, signalDomain]);
+  const signalDomain = chartConfig.signalDomain ?? "time";
 
   const chartDataFormatted = useMemo(() => {
     if (chartData.length === 0) return [];
@@ -164,6 +158,14 @@ export function ChartViewer({
     return count / durationSec;
   }, [chartConfig.sampleRateHz, chartData]);
 
+  const updateSignalDomain = (domain: SignalDomain) => {
+    setChartConfig({
+      ...chartConfig,
+      chartType: "waveform",
+      signalDomain: domain,
+    });
+  };
+
   const handleExport = () => {
     if (chartData.length === 0) return;
 
@@ -256,7 +258,7 @@ export function ChartViewer({
             <Button
               size="sm"
               variant={signalDomain === "time" ? "default" : "ghost"}
-              onClick={() => setSignalDomain("time")}
+              onClick={() => updateSignalDomain("time")}
               className="h-7 rounded-full px-3"
             >
               Time
@@ -264,7 +266,7 @@ export function ChartViewer({
             <Button
               size="sm"
               variant={signalDomain === "fft" ? "default" : "ghost"}
-              onClick={() => setSignalDomain("fft")}
+              onClick={() => updateSignalDomain("fft")}
               className="h-7 rounded-full px-3"
             >
               FFT
@@ -311,11 +313,19 @@ export function ChartViewer({
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
           <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
+          {chartConfig.chartType === "waveform" && (
+            <span className="rounded-full bg-white/80 px-3 py-1">
+              视图: {signalDomain === "fft" ? "FFT 频谱" : "Time 波形"}
+            </span>
+          )}
           <span className="rounded-full bg-white/80 px-3 py-1">数据点: {chartData.length}</span>
           <span className="rounded-full bg-white/80 px-3 py-1">成功: {parseSuccessCount}</span>
           <span className="rounded-full bg-white/80 px-3 py-1">失败: {parseFailCount}</span>
           {chartConfig.chartType === "waveform" && estimatedSampleRate && (
             <span className="rounded-full bg-white/80 px-3 py-1">采样率: {estimatedSampleRate.toFixed(1)} Hz</span>
+          )}
+          {chartConfig.chartType === "waveform" && signalDomain === "fft" && (
+            <span className="rounded-full bg-white/80 px-3 py-1">窗口: {chartConfig.fftWindowSize}</span>
           )}
         </div>
       </div>
@@ -323,7 +333,12 @@ export function ChartViewer({
       <div className="flex-1">
         {chartDataFormatted.length === 0 ? (
           <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
-            <p className="text-sm text-muted-foreground">等待数据流入…</p>
+            <div className="space-y-2 text-center">
+              <p className="text-sm font-medium text-foreground">等待数据流入…</p>
+              <p className="text-xs text-muted-foreground">
+                先接收数值流，再切换到图表视图。波形示波器支持 Time / FFT 两种观察方式。
+              </p>
+            </div>
           </div>
         ) : chartConfig.chartType === "waveform" ? (
           <SignalPlotCanvas

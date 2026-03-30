@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { cloneElement, isValidElement, useState, useEffect, useRef } from "react";
 import { check, type Update, type DownloadEvent } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,17 @@ import { Progress } from "@/components/ui/progress";
 import { Download, RefreshCw, CheckCircle } from "lucide-react";
 import { useLogStore } from "@/stores/logStore";
 
-export function UpdateChecker() {
+interface UpdateCheckerProps {
+  autoCheck?: boolean;
+  showTrigger?: boolean;
+  trigger?: React.ReactNode;
+}
+
+export function UpdateChecker({
+  autoCheck = true,
+  showTrigger = true,
+  trigger,
+}: UpdateCheckerProps) {
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -25,8 +35,10 @@ export function UpdateChecker() {
 
   // 启动时自动检查更新(静默模式)
   useEffect(() => {
-    checkForUpdates(true);
-  }, []);
+    if (autoCheck) {
+      checkForUpdates(true);
+    }
+  }, [autoCheck]);
 
   const checkForUpdates = async (silent = false) => {
     try {
@@ -104,16 +116,25 @@ export function UpdateChecker() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => checkForUpdates(false)}
-        disabled={checking || downloading}
-        className="gap-2"
-      >
-        <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-        {checking ? "检查中..." : "检查更新"}
-      </Button>
+      {showTrigger && (
+        trigger && isValidElement(trigger) ? (
+          cloneElement(trigger, {
+            onClick: () => checkForUpdates(false),
+            disabled: checking || downloading || (trigger.props as { disabled?: boolean }).disabled,
+          })
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => checkForUpdates(false)}
+            disabled={checking || downloading}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+            {checking ? "检查中..." : "检查更新"}
+          </Button>
+        )
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">

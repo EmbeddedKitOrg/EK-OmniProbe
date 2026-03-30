@@ -115,7 +115,10 @@ export const useRttStore = create<RttState>((set) => ({
   viewMode: loadStringFromStorage(VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"), // 新增：从 localStorage 加载视图模式
   splitRatio: loadNumberFromStorage(SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1), // 新增：从 localStorage 加载分屏比例
   chartData: [], // 新增：图表数据
-  chartConfig: loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), // 新增：从 localStorage 加载图表配置
+  chartConfig: {
+    ...DEFAULT_CHART_CONFIG,
+    ...loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
+  }, // 新增：从 localStorage 加载图表配置
   chartPaused: false, // 新增：图表暂停状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
@@ -184,8 +187,12 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    saveToStorage(CHART_CONFIG_KEY, chartConfig);
-    set({ chartConfig });
+    const normalizedConfig = {
+      ...DEFAULT_CHART_CONFIG,
+      ...chartConfig,
+    };
+    saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
+    set({ chartConfig: normalizedConfig });
   },
 
   addChartData: (data) =>
@@ -287,4 +294,3 @@ export function parseRttData(
 
   return lines;
 }
-

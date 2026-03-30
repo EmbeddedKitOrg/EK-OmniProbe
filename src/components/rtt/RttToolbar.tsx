@@ -20,12 +20,14 @@ import {
   Unlink,
   SplitSquareHorizontal,
   BarChart3,
+  Waves,
   Sparkles,
 } from "lucide-react";
 import { ColorSettingsDialog } from "./ColorSettingsDialog";
 import { ChartConfigDialog } from "./ChartConfigDialog";
 import { useEffect } from "react";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
+import type { SignalDomain } from "@/lib/chartTypes";
 
 export function RttToolbar() {
   const {
@@ -245,6 +247,21 @@ export function RttToolbar() {
     addLog("info", `已自动配置 ${result.detectedKeys.length} 个数据系列`);
   };
 
+  const activateSignalWorkspace = (domain: SignalDomain) => {
+    setChartConfig({
+      ...chartConfig,
+      enabled: true,
+      chartType: "waveform",
+      signalDomain: domain,
+    });
+
+    if (viewMode === "text") {
+      setViewMode("split");
+    }
+
+    addLog("info", domain === "fft" ? "已切换到 FFT 频谱工作流" : "已切换到波形示波器工作流");
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/60 bg-white/72 px-3 py-2 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
       {/* RTT 连接/断开按钮 */}
@@ -401,6 +418,29 @@ export function RttToolbar() {
         <Sparkles className="h-3.5 w-3.5" />
         智能启用
       </Button>
+
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"}
+          onClick={() => activateSignalWorkspace("time")}
+          className="gap-1"
+          title="直接进入波形示波器"
+        >
+          <Waves className="h-3.5 w-3.5" />
+          波形
+        </Button>
+        <Button
+          size="sm"
+          variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"}
+          onClick={() => activateSignalWorkspace("fft")}
+          className="gap-1"
+          title="直接进入 FFT 频谱"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          FFT
+        </Button>
+      </div>
 
       {/* 图表配置按钮 */}
       <ChartConfigDialog

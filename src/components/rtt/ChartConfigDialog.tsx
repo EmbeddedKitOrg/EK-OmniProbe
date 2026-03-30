@@ -176,7 +176,7 @@ export function ChartConfigDialog({
               </div>
 
               <div className="rounded-[24px] border border-border/60 p-4">
-                <div className="mb-3 text-sm font-medium">采样与缓存</div>
+                <div className="mb-3 text-sm font-medium">采样、缓存与频谱</div>
                 <div className="grid gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="maxDataPoints">最大数据点数</Label>
@@ -221,6 +221,9 @@ export function ChartConfigDialog({
                         })
                       }
                     />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      FFT 频率轴优先使用这里的采样率；如果填写为 0，会按时间戳自动估算。
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -239,6 +242,9 @@ export function ChartConfigDialog({
                         })
                       }
                     />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      窗口越大，频率分辨率越高，但实时性越低。常用范围建议 256 到 2048。
+                    </p>
                   </div>
                 </div>
               </div>
@@ -283,6 +289,7 @@ export function ChartConfigDialog({
                 <div className="mb-3 text-sm font-medium">当前模式说明</div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p><strong>波形示波器</strong>：适合实时调试数值流，支持 Time / FFT、缩放、拖拽与导出。</p>
+                  <p><strong>FFT 快捷入口</strong>：RTT 和串口工具栏都可以直接点“波形 / FFT”，不必先进入图表内部切换。</p>
                   <p><strong>XY 散点图</strong>：适合 X/Y 关系曲线，例如角度-电流、速度-电压。</p>
                   <p><strong>自动模式</strong>：会优先尝试 JSON，再尝试正则与分隔符。</p>
                 </div>
