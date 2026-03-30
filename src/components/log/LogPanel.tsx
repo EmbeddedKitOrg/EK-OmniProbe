@@ -98,7 +98,10 @@ export function LogPanel() {
   };
 
   return (
-    <div style={{ height: `${height}px` }} className="border-t border-border bg-muted/30 relative">
+    <div
+      style={{ height: `${height}px` }}
+      className="surface-card relative overflow-hidden rounded-[28px]"
+    >
       {/* 拖动手柄 */}
       <div
         className={`absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary/20 transition-colors ${
@@ -111,8 +114,11 @@ export function LogPanel() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-1 border-b border-border">
-        <span className="text-xs font-medium">输出日志</span>
+      <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
+        <div>
+          <div className="text-xs font-medium text-foreground">输出日志</div>
+          <div className="text-[11px] text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -124,11 +130,11 @@ export function LogPanel() {
       </div>
       <div
         ref={scrollRef}
-        className="overflow-y-auto p-2 font-mono text-xs"
-        style={{ height: `calc(100% - 28px)` }}
+        className="overflow-y-auto p-3 font-mono text-xs"
+        style={{ height: `calc(100% - 46px)` }}
       >
         {logs.map((log) => (
-          <div key={log.id} className="flex gap-2 py-0.5">
+          <div key={log.id} className="flex gap-2 rounded-xl px-2 py-1">
             <span className="text-muted-foreground shrink-0">
               [{formatTime(log.timestamp)}]
             </span>
