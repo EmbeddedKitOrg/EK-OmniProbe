@@ -1,0 +1,222 @@
+export interface ThemeScheme {
+  id: string;
+  name: string;
+  subtitle: string;
+  swatches: [string, string, string];
+  vars: Record<string, string>;
+}
+
+export const THEME_SCHEMES: ThemeScheme[] = [
+  {
+    id: "graphite",
+    name: "Default",
+    subtitle: "Neutral Graphite",
+    swatches: ["#d9dee7", "#5a6578", "#414b5d"],
+    vars: {
+      "--primary": "220 18% 36%",
+      "--ring": "220 18% 40%",
+      "--accent": "215 25% 90%",
+      "--accent-foreground": "220 20% 24%",
+      "--secondary": "214 22% 92%",
+      "--secondary-foreground": "220 18% 26%",
+      "--border": "218 20% 82%",
+      "--surface-0": "rgba(255, 255, 255, 0.78)",
+      "--surface-1": "rgba(255, 255, 255, 0.92)",
+      "--surface-2": "rgba(246, 247, 250, 0.94)",
+      "--surface-3": "rgba(237, 240, 245, 0.96)",
+      "--bg-spot-1": "rgba(166, 178, 198, 0.18)",
+      "--bg-spot-2": "rgba(124, 138, 160, 0.12)",
+      "--bg-gradient-top": "rgba(248, 249, 252, 0.98)",
+      "--bg-gradient-bottom": "rgba(235, 239, 245, 0.98)",
+      "--toolbar-chip-bg": "rgba(255, 255, 255, 0.84)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(82, 93, 112, 0.12)",
+      "--mode-glow-1": "rgba(255, 255, 255, 0.28)",
+      "--mode-glow-2": "rgba(188, 196, 211, 0.16)",
+    },
+  },
+  {
+    id: "sakura",
+    name: "Sakura Pink",
+    subtitle: "Soft Petals",
+    swatches: ["#f2dbe4", "#af4b6f", "#8e3f5b"],
+    vars: {
+      "--primary": "338 40% 49%",
+      "--ring": "338 40% 54%",
+      "--accent": "338 52% 92%",
+      "--accent-foreground": "336 24% 28%",
+      "--secondary": "336 35% 94%",
+      "--secondary-foreground": "336 22% 30%",
+      "--border": "336 28% 84%",
+      "--surface-2": "rgba(252, 245, 248, 0.96)",
+      "--surface-3": "rgba(248, 236, 242, 0.98)",
+      "--bg-spot-1": "rgba(226, 170, 191, 0.20)",
+      "--bg-spot-2": "rgba(188, 117, 148, 0.14)",
+      "--bg-gradient-top": "rgba(252, 248, 250, 0.98)",
+      "--bg-gradient-bottom": "rgba(246, 236, 241, 0.98)",
+      "--toolbar-chip-bg": "rgba(255, 248, 250, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(175, 75, 111, 0.14)",
+      "--mode-glow-2": "rgba(228, 182, 200, 0.22)",
+    },
+  },
+  {
+    id: "ocean",
+    name: "Ocean Blue",
+    subtitle: "Clear Tide",
+    swatches: ["#d8e8f4", "#3d83b8", "#2e6c97"],
+    vars: {
+      "--primary": "205 50% 48%",
+      "--ring": "205 52% 54%",
+      "--accent": "201 62% 91%",
+      "--accent-foreground": "206 34% 27%",
+      "--secondary": "205 42% 94%",
+      "--secondary-foreground": "206 26% 28%",
+      "--border": "205 30% 83%",
+      "--surface-2": "rgba(244, 249, 252, 0.95)",
+      "--surface-3": "rgba(233, 243, 250, 0.97)",
+      "--bg-spot-1": "rgba(143, 191, 223, 0.22)",
+      "--bg-spot-2": "rgba(74, 150, 199, 0.14)",
+      "--bg-gradient-top": "rgba(246, 251, 255, 0.98)",
+      "--bg-gradient-bottom": "rgba(228, 240, 249, 0.98)",
+      "--toolbar-chip-bg": "rgba(248, 252, 255, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(61, 131, 184, 0.14)",
+      "--mode-glow-2": "rgba(148, 203, 232, 0.22)",
+    },
+  },
+  {
+    id: "forest",
+    name: "Forest Green",
+    subtitle: "Moss Grove",
+    swatches: ["#dde9df", "#4d8a56", "#3f7448"],
+    vars: {
+      "--primary": "128 28% 43%",
+      "--ring": "128 32% 48%",
+      "--accent": "128 34% 91%",
+      "--accent-foreground": "132 24% 24%",
+      "--secondary": "126 24% 93%",
+      "--secondary-foreground": "130 18% 28%",
+      "--border": "126 18% 82%",
+      "--surface-2": "rgba(245, 250, 245, 0.95)",
+      "--surface-3": "rgba(235, 244, 236, 0.97)",
+      "--bg-spot-1": "rgba(153, 198, 157, 0.22)",
+      "--bg-spot-2": "rgba(100, 154, 110, 0.14)",
+      "--bg-gradient-top": "rgba(248, 252, 248, 0.98)",
+      "--bg-gradient-bottom": "rgba(232, 241, 233, 0.98)",
+      "--toolbar-chip-bg": "rgba(249, 252, 249, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(77, 138, 86, 0.14)",
+      "--mode-glow-2": "rgba(166, 209, 171, 0.22)",
+    },
+  },
+  {
+    id: "twilight",
+    name: "Twilight Violet",
+    subtitle: "Soft Dusk",
+    swatches: ["#e3def2", "#7761b8", "#5b4791"],
+    vars: {
+      "--primary": "255 37% 55%",
+      "--ring": "255 42% 60%",
+      "--accent": "255 56% 92%",
+      "--accent-foreground": "255 25% 28%",
+      "--secondary": "253 34% 94%",
+      "--secondary-foreground": "255 20% 30%",
+      "--border": "253 26% 84%",
+      "--surface-2": "rgba(248, 246, 252, 0.96)",
+      "--surface-3": "rgba(239, 235, 248, 0.98)",
+      "--bg-spot-1": "rgba(183, 165, 227, 0.22)",
+      "--bg-spot-2": "rgba(126, 102, 193, 0.15)",
+      "--bg-gradient-top": "rgba(249, 248, 253, 0.98)",
+      "--bg-gradient-bottom": "rgba(236, 233, 247, 0.98)",
+      "--toolbar-chip-bg": "rgba(251, 249, 255, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(119, 97, 184, 0.15)",
+      "--mode-glow-2": "rgba(187, 175, 228, 0.24)",
+    },
+  },
+  {
+    id: "amber",
+    name: "Amber Orange",
+    subtitle: "Warm Sunset",
+    swatches: ["#efe3d2", "#bf7a1a", "#9d6310"],
+    vars: {
+      "--primary": "35 76% 43%",
+      "--ring": "35 78% 48%",
+      "--accent": "36 78% 91%",
+      "--accent-foreground": "30 34% 25%",
+      "--secondary": "35 42% 93%",
+      "--secondary-foreground": "32 22% 28%",
+      "--border": "34 30% 82%",
+      "--surface-2": "rgba(252, 248, 242, 0.96)",
+      "--surface-3": "rgba(247, 239, 227, 0.98)",
+      "--bg-spot-1": "rgba(236, 195, 125, 0.24)",
+      "--bg-spot-2": "rgba(191, 122, 26, 0.16)",
+      "--bg-gradient-top": "rgba(252, 249, 245, 0.98)",
+      "--bg-gradient-bottom": "rgba(246, 235, 220, 0.98)",
+      "--toolbar-chip-bg": "rgba(255, 251, 246, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(191, 122, 26, 0.15)",
+      "--mode-glow-2": "rgba(238, 198, 133, 0.24)",
+    },
+  },
+  {
+    id: "mint",
+    name: "Mint Aqua",
+    subtitle: "Fresh Breeze",
+    swatches: ["#dcefe8", "#409d87", "#2f7f6c"],
+    vars: {
+      "--primary": "167 42% 43%",
+      "--ring": "167 44% 48%",
+      "--accent": "168 52% 91%",
+      "--accent-foreground": "168 25% 24%",
+      "--secondary": "165 30% 93%",
+      "--secondary-foreground": "168 18% 28%",
+      "--border": "165 22% 82%",
+      "--surface-2": "rgba(243, 251, 248, 0.96)",
+      "--surface-3": "rgba(231, 245, 240, 0.98)",
+      "--bg-spot-1": "rgba(153, 219, 199, 0.24)",
+      "--bg-spot-2": "rgba(64, 157, 135, 0.15)",
+      "--bg-gradient-top": "rgba(247, 252, 250, 0.98)",
+      "--bg-gradient-bottom": "rgba(228, 243, 238, 0.98)",
+      "--toolbar-chip-bg": "rgba(248, 255, 252, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(64, 157, 135, 0.15)",
+      "--mode-glow-2": "rgba(158, 222, 204, 0.24)",
+    },
+  },
+  {
+    id: "rosewood",
+    name: "Rosewood Red",
+    subtitle: "Muted Bloom",
+    swatches: ["#ecd7db", "#b65467", "#934352"],
+    vars: {
+      "--primary": "346 40% 52%",
+      "--ring": "346 44% 57%",
+      "--accent": "346 48% 92%",
+      "--accent-foreground": "344 24% 27%",
+      "--secondary": "345 30% 94%",
+      "--secondary-foreground": "344 18% 29%",
+      "--border": "344 24% 83%",
+      "--surface-2": "rgba(252, 246, 247, 0.96)",
+      "--surface-3": "rgba(246, 236, 239, 0.98)",
+      "--bg-spot-1": "rgba(227, 170, 181, 0.24)",
+      "--bg-spot-2": "rgba(182, 84, 103, 0.14)",
+      "--bg-gradient-top": "rgba(252, 248, 249, 0.98)",
+      "--bg-gradient-bottom": "rgba(244, 232, 236, 0.98)",
+      "--toolbar-chip-bg": "rgba(255, 249, 250, 0.88)",
+      "--toolbar-chip-shadow": "0 6px 16px rgba(182, 84, 103, 0.14)",
+      "--mode-glow-2": "rgba(230, 186, 194, 0.24)",
+    },
+  },
+];
+
+export const DEFAULT_THEME_SCHEME_ID = THEME_SCHEMES[0].id;
+
+export function getThemeSchemeById(id: string): ThemeScheme {
+  return THEME_SCHEMES.find((scheme) => scheme.id === id) ?? THEME_SCHEMES[0];
+}
+
+export function applyThemeSchemeToDocument(id: string) {
+  if (typeof document === "undefined") return;
+
+  const scheme = getThemeSchemeById(id);
+  const root = document.documentElement;
+
+  for (const [name, value] of Object.entries(scheme.vars)) {
+    root.style.setProperty(name, value);
+  }
+}

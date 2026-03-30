@@ -443,7 +443,7 @@ export function PackManager() {
 
       {/* Scan Report Dialog */}
       <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto p-7">
           <DialogHeader>
             <DialogTitle>Pack 扫描报告</DialogTitle>
             <DialogDescription>
@@ -455,18 +455,18 @@ export function PackManager() {
             <div className="space-y-4">
               {/* Statistics Cards */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="border rounded-lg p-3 text-center">
+                <div className="glass-section rounded-2xl p-3 text-center">
                   <div className="text-2xl font-bold">{selectedPackReport.total_devices}</div>
                   <div className="text-xs text-muted-foreground">总设备数</div>
                 </div>
-                <div className="border rounded-lg p-3 text-center bg-green-50 dark:bg-green-950">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="glass-section rounded-2xl p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">
                     {selectedPackReport.devices_with_algo}
                   </div>
                   <div className="text-xs text-muted-foreground">有算法</div>
                 </div>
-                <div className="border rounded-lg p-3 text-center bg-yellow-50 dark:bg-yellow-950">
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                <div className="glass-section rounded-2xl p-3 text-center">
+                  <div className="text-2xl font-bold text-yellow-600">
                     {selectedPackReport.devices_without_algo}
                   </div>
                   <div className="text-xs text-muted-foreground">无算法</div>
@@ -479,7 +479,7 @@ export function PackManager() {
                   <h3 className="text-sm font-medium">算法使用统计</h3>
                   <div className="space-y-1">
                     {selectedPackReport.algorithm_stats.slice(0, 5).map((stat: AlgorithmStat) => (
-                      <div key={stat.algorithm_name} className="flex items-center justify-between text-xs border rounded p-2">
+                      <div key={stat.algorithm_name} className="glass-section flex items-center justify-between rounded-2xl p-2 text-xs">
                         <span className="font-mono">{stat.algorithm_name}</span>
                         <span className="text-muted-foreground">{stat.device_count} 个设备</span>
                       </div>
@@ -500,7 +500,7 @@ export function PackManager() {
                       .filter((d: DeviceScanResult) => d.status === "Warning")
                       .slice(0, 20)
                       .map((device: DeviceScanResult) => (
-                        <div key={device.name} className="text-xs border rounded p-2 bg-yellow-50 dark:bg-yellow-950">
+                        <div key={device.name} className="glass-section rounded-2xl p-2 text-xs">
                           <div className="font-medium">{device.name}</div>
                           <div className="text-muted-foreground">
                             {device.core} • Flash: {(device.flash_size / 1024).toFixed(0)}KB
@@ -517,7 +517,7 @@ export function PackManager() {
                 <div className="text-xs text-muted-foreground">
                   共 {selectedPackReport.total_devices} 个设备
                   {selectedPackReport.devices_with_algo > 0 && (
-                    <span className="ml-2 text-green-600 dark:text-green-400">
+                    <span className="ml-2 text-green-600">
                       <CheckCircle className="inline h-3 w-3 mr-1" />
                       {selectedPackReport.devices_with_algo} 个已配置算法
                     </span>

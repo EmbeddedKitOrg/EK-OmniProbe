@@ -36,7 +36,12 @@ export type ParseMode = "regex" | "delimiter" | "json" | "auto";
 /**
  * 图表类型
  */
-export type ChartType = "line" | "bar" | "scatter" | "xy-scatter";
+export type ChartType = "waveform" | "line" | "bar" | "scatter" | "xy-scatter";
+
+/**
+ * 波形显示域
+ */
+export type SignalDomain = "time" | "fft";
 
 /**
  * 字段配置（用于分隔符模式）
@@ -91,6 +96,11 @@ export interface ChartConfig {
   /** 更新间隔（毫秒） */
   updateInterval: number;
 
+  /** FFT 窗口大小 */
+  fftWindowSize: number;
+  /** 采样率（Hz，0 表示自动估算） */
+  sampleRateHz: number;
+
   // XY 散点图配置
   /** X 轴字段名（仅用于 xy-scatter 模式） */
   xAxisField?: string;
@@ -133,10 +143,12 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   jsonKeys: [],
 
   // 图表配置
-  chartType: "line",
+  chartType: "waveform",
   series: [],
-  maxDataPoints: 1000,
-  updateInterval: 100,
+  maxDataPoints: 4000,
+  updateInterval: 33,
+  fftWindowSize: 1024,
+  sampleRateHz: 0,
 
   // 显示配置
   showGrid: true,

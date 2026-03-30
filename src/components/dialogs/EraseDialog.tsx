@@ -81,7 +81,7 @@ export function EraseDialog({ open, onOpenChange, onConfirm }: EraseDialogProps)
           </RadioGroup>
 
           {eraseMode === "custom" && (
-            <div className="space-y-3 ml-6 mt-3 p-3 border rounded-lg bg-muted/30">
+            <div className="glass-section ml-6 mt-3 space-y-3 rounded-2xl p-3">
               <div className="space-y-1">
                 <Label htmlFor="address" className="text-xs">
                   起始地址（十六进制）

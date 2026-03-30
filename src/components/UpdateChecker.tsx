@@ -145,7 +145,7 @@ export function UpdateChecker() {
                   {updateInfo.body && (
                     <div className="mt-4">
                       <div className="text-sm font-medium mb-2">更新内容:</div>
-                      <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md max-h-48 overflow-y-auto whitespace-pre-wrap">
+                      <div className="glass-section rounded-2xl p-3 max-h-48 overflow-y-auto whitespace-pre-wrap text-sm text-muted-foreground">
                         {updateInfo.body}
                       </div>
                     </div>
