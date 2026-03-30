@@ -1,13 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useLogStore } from "@/stores/logStore";
+import { useUiPreferencesStore } from "@/stores/uiPreferencesStore";
 import { formatTime } from "@/lib/utils";
 import { Trash2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function LogPanel() {
   const { logs, clearLogs } = useLogStore();
+  const storedHeight = useUiPreferencesStore((state) => state.logPanelHeight);
+  const setStoredHeight = useUiPreferencesStore((state) => state.setLogPanelHeight);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(128); // 默认高度128px
+  const [height, setHeight] = useState(storedHeight);
   const [isResizing, setIsResizing] = useState(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
@@ -36,6 +39,10 @@ export function LogPanel() {
 
   // 拖动中 - 使用 requestAnimationFrame 节流
   useEffect(() => {
+    setHeight(storedHeight);
+  }, [storedHeight]);
+
+  useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
 
@@ -54,6 +61,7 @@ export function LogPanel() {
     const handleMouseUp = () => {
       setIsResizing(false);
       document.body.style.userSelect = "";
+      setStoredHeight(height);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -69,7 +77,7 @@ export function LogPanel() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isResizing]);
+  }, [height, isResizing, setStoredHeight]);
 
   const getLevelColor = (level: string) => {
     switch (level) {
