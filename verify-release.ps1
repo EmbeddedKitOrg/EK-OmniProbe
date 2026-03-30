@@ -104,6 +104,11 @@ try {
         Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "tsc", "--noEmit")
     }
 
+    if ($packageManager -eq "pnpm") {
+        Write-Host "Checking pnpm frozen lockfile consistency..." -ForegroundColor Green
+        Invoke-PackageManager -PackageManager $packageManager -Arguments @("install", "--frozen-lockfile", "--ignore-scripts")
+    }
+
     Write-Host "Checking package.json syntax..." -ForegroundColor Green
     $packageJson = Get-Content "package.json" -Raw | ConvertFrom-Json
 
