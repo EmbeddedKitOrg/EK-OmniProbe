@@ -11,6 +11,8 @@ import { useAppStore } from "./stores/appStore";
 import { useFlashStore } from "./stores/flashStore";
 import { useUserActivity } from "./hooks/useUserActivity";
 import { disconnect, initPacks } from "./lib/tauri";
+import { applyThemeSchemeToDocument } from "./lib/themeSchemes";
+import { useThemeStore } from "./stores/themeStore";
 
 function App() {
   const addLog = useLogStore((state) => state.addLog);
@@ -22,7 +24,12 @@ function App() {
   const flashing = useFlashStore((s) => s.flashing);
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
+  const schemeId = useThemeStore((s) => s.schemeId);
   const { isActive, timeRemainingSeconds } = useUserActivity(autoDisconnectTimeout);
+
+  useEffect(() => {
+    applyThemeSchemeToDocument(schemeId);
+  }, [schemeId]);
 
   useEffect(() => {
     addLog("info", "EK-OmniProbe RTTVIEW工具已启动");
@@ -115,17 +122,19 @@ function App() {
   }, [autoDisconnect, connected, rttRunning, timeRemainingSeconds]);
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex h-screen flex-col overflow-hidden px-3 pb-3 pt-3 text-foreground">
       <TopBar />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="mt-3 flex flex-1 gap-3 overflow-hidden">
         {/* Sidebar: switch based on mode */}
         {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
 
         {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
-        <div className="flex-1 overflow-hidden relative">
-          {mode === "flash" && <FlashMode />}
-          {mode === "rtt" && <RttMode />}
-          {mode === "serial" && <SerialMode />}
+        <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">
+          <div key={mode} className="mode-stage h-full">
+            {mode === "flash" && <FlashMode />}
+            {mode === "rtt" && <RttMode />}
+            {mode === "serial" && <SerialMode />}
+          </div>
         </div>
       </div>
 

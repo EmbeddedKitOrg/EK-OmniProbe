@@ -79,7 +79,7 @@ export function UdevPermissionDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl p-7">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-yellow-500" />
@@ -160,7 +160,7 @@ export function UdevPermissionDialog() {
 
           {/* 手动安装说明 */}
           {!status.udev_rules_installed && instructions && (
-            <div className="bg-muted p-4 rounded-md">
+            <div className="glass-section rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Terminal className="w-4 h-4" />
                 <span className="font-medium text-sm">手动安装方法:</span>

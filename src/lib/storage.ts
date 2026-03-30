@@ -70,3 +70,12 @@ export function saveNumberToStorage(key: string, value: number): void {
     // 静默处理
   }
 }
+
+/** 将字符串直接存入 localStorage，失败时静默忽略 */
+export function saveStringToStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // 静默处理
+  }
+}

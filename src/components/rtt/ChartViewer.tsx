@@ -1,10 +1,5 @@
-/**
- * 通用图表查看器组件
- * 接收图表数据和配置作为 props，不依赖特定 store
- */
-
-import { useMemo, useState } from "react";
-import type { ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
+import { useEffect, useMemo, useState } from "react";
+import type { ChartConfig, ChartDataPoint, SignalDomain } from "@/lib/chartTypes";
 import {
   LineChart,
   Line,
@@ -27,8 +22,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
-// Brush 缩放范围类型
 interface BrushDomain {
   startIndex?: number;
   endIndex?: number;
@@ -55,109 +50,85 @@ export function ChartViewer({
   clearChartData,
   setChartConfig: _setChartConfig,
 }: ChartViewerProps) {
-  // 缩放范围状态
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
+  const [signalDomain, setSignalDomain] = useState<SignalDomain>("time");
 
-  // 格式化时间戳为可读格式（简化版）
-  const formatTimestamp = (timestamp: number, _index: number, firstTimestamp: number) => {
-    // 使用相对时间（秒）
-    const relativeSeconds = ((timestamp - firstTimestamp) / 1000).toFixed(1);
-    return `${relativeSeconds}s`;
-  };
+  useEffect(() => {
+    if (chartConfig.chartType !== "waveform" && signalDomain !== "time") {
+      setSignalDomain("time");
+    }
+  }, [chartConfig.chartType, signalDomain]);
 
-  // 转换数据格式为 Recharts 需要的格式
   const chartDataFormatted = useMemo(() => {
     if (chartData.length === 0) return [];
     const firstTimestamp = chartData[0].timestamp;
-
-    // XY 散点图模式：使用指定的 X 轴字段
-    if (chartConfig.chartType === "xy-scatter" && chartConfig.xAxisField) {
-      return chartData.map((point, index) => ({
-        index,
-        timestamp: point.timestamp,
-        time: formatTimestamp(point.timestamp, index, firstTimestamp),
-        ...point.values,
-      }));
-    }
-
-    // 普通模式：使用索引作为 X 轴
     return chartData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
-      time: formatTimestamp(point.timestamp, index, firstTimestamp),
+      time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
       ...point.values,
     }));
-  }, [chartData, chartConfig.chartType, chartConfig.xAxisField]);
+  }, [chartData]);
 
-  // 计算 Y 轴范围
+  const visibleSeries = useMemo(
+    () => chartConfig.series.filter((item) => item.visible),
+    [chartConfig.series]
+  );
+
   const yAxisDomain = useMemo(() => {
     if (chartData.length === 0) return [0, 100];
 
-    let min = Infinity;
-    let max = -Infinity;
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
 
     chartData.forEach((point) => {
       Object.entries(point.values).forEach(([key, value]) => {
-        // XY 散点图模式：排除 X 轴字段
-        if (chartConfig.chartType === "xy-scatter" && key === chartConfig.xAxisField) {
-          return;
-        }
-        if (typeof value === "number") {
+        if (chartConfig.chartType === "xy-scatter" && key === chartConfig.xAxisField) return;
+        if (typeof value === "number" && Number.isFinite(value)) {
           min = Math.min(min, value);
           max = Math.max(max, value);
         }
       });
     });
 
-    // 处理边界情况：所有值相同
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      return [0, 100];
+    }
+
     if (min === max) {
-      const center = min;
-      const range = Math.abs(center) * 0.1 || 10; // 如果是 0，使用固定范围
-      return [center - range, center + range];
+      const padding = Math.abs(min) * 0.1 || 10;
+      return [min - padding, max + padding];
     }
 
-    // 添加 10% 的边距
     const margin = (max - min) * 0.1;
-    return [Math.floor(min - margin), Math.ceil(max + margin)];
-  }, [chartData, chartConfig.chartType, chartConfig.xAxisField]);
+    return [min - margin, max + margin];
+  }, [chartConfig.chartType, chartConfig.xAxisField, chartData]);
 
-  // 计算 X 轴范围（仅用于 XY 散点图）
   const xAxisDomain = useMemo(() => {
-    if (chartConfig.chartType !== "xy-scatter" || !chartConfig.xAxisField) {
-      return undefined;
-    }
-
+    if (chartConfig.chartType !== "xy-scatter" || !chartConfig.xAxisField) return undefined;
     if (chartData.length === 0) return [0, 100];
 
-    let min = Infinity;
-    let max = -Infinity;
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
 
     chartData.forEach((point) => {
       const value = point.values[chartConfig.xAxisField!];
-      if (typeof value === "number") {
+      if (typeof value === "number" && Number.isFinite(value)) {
         min = Math.min(min, value);
         max = Math.max(max, value);
       }
     });
 
-    // 处理边界情况：所有值相同
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 100];
     if (min === max) {
-      const center = min;
-      const range = Math.abs(center) * 0.1 || 10;
-      return [center - range, center + range];
+      const padding = Math.abs(min) * 0.1 || 10;
+      return [min - padding, max + padding];
     }
 
-    // 添加 10% 的边距
     const margin = (max - min) * 0.1;
-    return [Math.floor(min - margin), Math.ceil(max + margin)];
-  }, [chartData, chartConfig.chartType, chartConfig.xAxisField]);
+    return [min - margin, max + margin];
+  }, [chartConfig.chartType, chartConfig.xAxisField, chartData]);
 
-  // 获取可见的系列
-  const visibleSeries = useMemo(() => {
-    return chartConfig.series.filter((s) => s.visible);
-  }, [chartConfig.series]);
-
-  // 计算统计信息
   const statistics = useMemo(() => {
     if (chartData.length === 0) return null;
 
@@ -166,96 +137,88 @@ export function ChartViewer({
     visibleSeries.forEach((series) => {
       const values = chartData
         .map((point) => point.values[series.key])
-        .filter((v) => typeof v === "number") as number[];
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
       if (values.length > 0) {
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
-        const latest = values[values.length - 1];
-
-        stats[series.key] = { min, max, avg, latest };
+        stats[series.key] = {
+          min: Math.min(...values),
+          max: Math.max(...values),
+          avg: values.reduce((sum, value) => sum + value, 0) / values.length,
+          latest: values[values.length - 1],
+        };
       }
     });
 
     return stats;
   }, [chartData, visibleSeries]);
 
-  // 导出数据为 CSV
+  const estimatedSampleRate = useMemo(() => {
+    if (chartConfig.sampleRateHz > 0) return chartConfig.sampleRateHz;
+    if (chartData.length < 2) return null;
+
+    const first = chartData[Math.max(chartData.length - 100, 0)].timestamp;
+    const last = chartData[chartData.length - 1].timestamp;
+    const count = chartData.length - Math.max(chartData.length - 100, 0) - 1;
+    const durationSec = (last - first) / 1000;
+    if (durationSec <= 0 || count <= 0) return null;
+    return count / durationSec;
+  }, [chartConfig.sampleRateHz, chartData]);
+
   const handleExport = () => {
-    if (chartData.length === 0) {
-      return;
-    }
+    if (chartData.length === 0) return;
 
-    // 构建 CSV 头部
     const headers = ["时间戳", "相对时间(s)"];
-    const keys: string[] = [];
-    if (chartData.length > 0) {
-      keys.push(...Object.keys(chartData[0].values));
-      headers.push(...keys);
-    }
+    const keys = chartData.length > 0 ? Object.keys(chartData[0].values) : [];
+    headers.push(...keys);
 
-    // 构建 CSV 内容
     const firstTimestamp = chartData[0].timestamp;
     const rows = chartData.map((point) => {
-      const relativeTime = ((point.timestamp - firstTimestamp) / 1000).toFixed(1);
-      const row = [
+      const relativeTime = ((point.timestamp - firstTimestamp) / 1000).toFixed(6);
+      return [
         point.timestamp.toString(),
         relativeTime,
-      ];
-      keys.forEach((key) => {
-        row.push((point.values[key] ?? "").toString());
-      });
-      return row.join(",");
+        ...keys.map((key) => (point.values[key] ?? "").toString()),
+      ].join(",");
     });
 
     const csv = [headers.join(","), ...rows].join("\n");
-
-    // 下载文件
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chart-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
-    a.click();
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `chart-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
+    anchor.click();
     URL.revokeObjectURL(url);
   };
 
-  // 如果图表功能未启用
   if (!chartConfig.enabled) {
     return (
-      <div className="flex items-center justify-center h-full bg-muted/20">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">图表功能未启用</p>
-          <p className="text-xs text-muted-foreground">
-            请点击工具栏的"配置图表"按钮进行配置
-          </p>
+      <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+        <div className="space-y-2 text-center">
+          <p className="text-base font-medium text-foreground">图表功能未启用</p>
+          <p className="text-xs text-muted-foreground">点击工具栏的“配置图表”或使用“智能启用”自动识别数据格式</p>
         </div>
       </div>
     );
   }
 
-  // 如果没有配置系列
   if (chartConfig.series.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full bg-muted/20">
-        <div className="text-center space-y-2">
-          <p className="text-muted-foreground">未配置数据系列</p>
-          <p className="text-xs text-muted-foreground">
-            请点击工具栏的"配置图表"按钮添加数据系列
-          </p>
+      <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+        <div className="space-y-2 text-center">
+          <p className="text-base font-medium text-foreground">未配置数据系列</p>
+          <p className="text-xs text-muted-foreground">先添加数据系列，再选择波形、折线、柱状图或散点图视图</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* 控制栏 */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+    <div className="flex h-full flex-col gap-3 rounded-[32px] border border-border/60 bg-white/80 p-3 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
+      <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/50 bg-secondary/70 px-3 py-2">
         <Button
           size="sm"
-          variant="outline"
+          variant={chartPaused ? "secondary" : "outline"}
           onClick={() => setChartPaused(!chartPaused)}
           className="gap-1"
         >
@@ -272,12 +235,7 @@ export function ChartViewer({
           )}
         </Button>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={clearChartData}
-          className="gap-1"
-        >
+        <Button size="sm" variant="outline" onClick={clearChartData} className="gap-1">
           <Trash2 className="h-3.5 w-3.5" />
           清空
         </Button>
@@ -293,7 +251,27 @@ export function ChartViewer({
           导出
         </Button>
 
-        {/* 统计信息 */}
+        {chartConfig.chartType === "waveform" && (
+          <div className="ml-1 flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-sm">
+            <Button
+              size="sm"
+              variant={signalDomain === "time" ? "default" : "ghost"}
+              onClick={() => setSignalDomain("time")}
+              className="h-7 rounded-full px-3"
+            >
+              Time
+            </Button>
+            <Button
+              size="sm"
+              variant={signalDomain === "fft" ? "default" : "ghost"}
+              onClick={() => setSignalDomain("fft")}
+              className="h-7 rounded-full px-3"
+            >
+              FFT
+            </Button>
+          </div>
+        )}
+
         {statistics && Object.keys(statistics).length > 0 && (
           <Popover>
             <PopoverTrigger asChild>
@@ -302,9 +280,9 @@ export function ChartViewer({
                 统计
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80 rounded-[24px]">
               <div className="space-y-3">
-                <h4 className="font-medium text-sm">数据统计</h4>
+                <h4 className="text-sm font-medium">数据统计</h4>
                 {visibleSeries.map((series) => {
                   const stat = statistics[series.key];
                   if (!stat) return null;
@@ -312,16 +290,16 @@ export function ChartViewer({
                     <div key={series.key} className="space-y-1">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-3 h-3 rounded-full"
+                          className="h-3 w-3 rounded-full"
                           style={{ backgroundColor: series.color }}
                         />
                         <span className="text-sm font-medium">{series.name}</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pl-5">
-                        <div>最小值: {stat.min.toFixed(2)}</div>
-                        <div>最大值: {stat.max.toFixed(2)}</div>
-                        <div>平均值: {stat.avg.toFixed(2)}</div>
-                        <div>当前值: {stat.latest.toFixed(2)}</div>
+                      <div className="grid grid-cols-2 gap-2 pl-5 text-xs text-muted-foreground">
+                        <div>最小值: {stat.min.toFixed(3)}</div>
+                        <div>最大值: {stat.max.toFixed(3)}</div>
+                        <div>平均值: {stat.avg.toFixed(3)}</div>
+                        <div>当前值: {stat.latest.toFixed(3)}</div>
                       </div>
                     </div>
                   );
@@ -331,168 +309,144 @@ export function ChartViewer({
           </Popover>
         )}
 
-        <div className="flex-1" />
-
-        {/* 统计信息 */}
-        <div className="text-xs text-muted-foreground space-x-3">
-          <span>数据点: {chartData.length}</span>
-          <span>成功: {parseSuccessCount}</span>
-          <span>失败: {parseFailCount}</span>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
+          <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
+          <span className="rounded-full bg-white/80 px-3 py-1">数据点: {chartData.length}</span>
+          <span className="rounded-full bg-white/80 px-3 py-1">成功: {parseSuccessCount}</span>
+          <span className="rounded-full bg-white/80 px-3 py-1">失败: {parseFailCount}</span>
+          {chartConfig.chartType === "waveform" && estimatedSampleRate && (
+            <span className="rounded-full bg-white/80 px-3 py-1">采样率: {estimatedSampleRate.toFixed(1)} Hz</span>
+          )}
         </div>
       </div>
 
-      {/* 图表区域 */}
-      <div className="flex-1 p-4">
+      <div className="flex-1">
         {chartDataFormatted.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">等待数据...</p>
+          <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+            <p className="text-sm text-muted-foreground">等待数据流入…</p>
           </div>
+        ) : chartConfig.chartType === "waveform" ? (
+          <SignalPlotCanvas
+            chartData={chartData}
+            series={visibleSeries}
+            chartConfig={chartConfig}
+            domain={signalDomain}
+          />
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            {chartConfig.chartType === "line" ? (
-              <LineChart data={chartDataFormatted}>
-                {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-                <XAxis
-                  dataKey="index"
-                  tick={{ fontSize: 12 }}
-                  label={{ value: "数据点", position: "insideBottom", offset: -5 }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  domain={yAxisDomain}
-                  label={{ value: "数值", angle: -90, position: "insideLeft" }}
-                />
-                {chartConfig.showTooltip && <Tooltip />}
-                {chartConfig.showLegend && <Legend />}
-                <Brush
-                  dataKey="index"
-                  height={30}
-                  stroke="#8884d8"
-                  startIndex={zoomDomain.startIndex}
-                  endIndex={zoomDomain.endIndex}
-                  onChange={(domain: BrushDomain) => setZoomDomain(domain)}
-                />
-                {visibleSeries.map((series) => (
-                  <Line
-                    key={series.key}
-                    type="monotone"
-                    dataKey={series.key}
-                    stroke={series.color}
-                    name={series.name}
-                    dot={false}
-                    strokeWidth={2}
-                    isAnimationActive={chartConfig.animationEnabled}
+          <div className="h-full min-h-[320px] rounded-[28px] border border-border/60 bg-white/80 p-3">
+            <ResponsiveContainer width="100%" height="100%">
+              {chartConfig.chartType === "line" ? (
+                <LineChart data={chartDataFormatted}>
+                  {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
+                  <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+                  {chartConfig.showTooltip && <Tooltip />}
+                  {chartConfig.showLegend && <Legend />}
+                  <Brush
+                    dataKey="index"
+                    height={28}
+                    stroke="#5f82ff"
+                    startIndex={zoomDomain.startIndex}
+                    endIndex={zoomDomain.endIndex}
+                    onChange={(domain) => setZoomDomain(domain || {})}
                   />
-                ))}
-              </LineChart>
-            ) : chartConfig.chartType === "bar" ? (
-              <BarChart data={chartDataFormatted}>
-                {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-                <XAxis
-                  dataKey="index"
-                  tick={{ fontSize: 12 }}
-                  label={{ value: "数据点", position: "insideBottom", offset: -5 }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  domain={yAxisDomain}
-                  label={{ value: "数值", angle: -90, position: "insideLeft" }}
-                />
-                {chartConfig.showTooltip && <Tooltip />}
-                {chartConfig.showLegend && <Legend />}
-                <Brush
-                  dataKey="index"
-                  height={30}
-                  stroke="#8884d8"
-                  startIndex={zoomDomain.startIndex}
-                  endIndex={zoomDomain.endIndex}
-                  onChange={(domain: BrushDomain) => setZoomDomain(domain)}
-                />
-                {visibleSeries.map((series) => (
-                  <Bar
-                    key={series.key}
-                    dataKey={series.key}
-                    fill={series.color}
-                    name={series.name}
-                    isAnimationActive={chartConfig.animationEnabled}
+                  {visibleSeries.map((series) => (
+                    <Line
+                      key={series.key}
+                      type="monotone"
+                      dataKey={series.key}
+                      stroke={series.color}
+                      name={series.name}
+                      dot={false}
+                      strokeWidth={2}
+                      isAnimationActive={chartConfig.animationEnabled}
+                    />
+                  ))}
+                </LineChart>
+              ) : chartConfig.chartType === "bar" ? (
+                <BarChart data={chartDataFormatted}>
+                  {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
+                  <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+                  {chartConfig.showTooltip && <Tooltip />}
+                  {chartConfig.showLegend && <Legend />}
+                  <Brush
+                    dataKey="index"
+                    height={28}
+                    stroke="#5f82ff"
+                    startIndex={zoomDomain.startIndex}
+                    endIndex={zoomDomain.endIndex}
+                    onChange={(domain) => setZoomDomain(domain || {})}
                   />
-                ))}
-              </BarChart>
-            ) : chartConfig.chartType === "xy-scatter" ? (
-              <ScatterChart data={chartDataFormatted}>
-                {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-                <XAxis
-                  type="number"
-                  dataKey={chartConfig.xAxisField || "index"}
-                  domain={xAxisDomain || ["auto", "auto"]}
-                  tick={{ fontSize: 12 }}
-                  label={{
-                    value: chartConfig.xAxisField || "X",
-                    position: "insideBottom",
-                    offset: -5
-                  }}
-                />
-                <YAxis
-                  type="number"
-                  tick={{ fontSize: 12 }}
-                  domain={yAxisDomain}
-                  label={{ value: "Y", angle: -90, position: "insideLeft" }}
-                />
-                {chartConfig.showTooltip && <Tooltip />}
-                {chartConfig.showLegend && <Legend />}
-                <Brush
-                  dataKey="index"
-                  height={30}
-                  stroke="#8884d8"
-                  startIndex={zoomDomain.startIndex}
-                  endIndex={zoomDomain.endIndex}
-                  onChange={(domain: BrushDomain) => setZoomDomain(domain)}
-                />
-                {visibleSeries.map((series) => (
-                  <Scatter
-                    key={series.key}
-                    dataKey={series.key}
-                    fill={series.color}
-                    name={series.name}
-                    isAnimationActive={chartConfig.animationEnabled}
+                  {visibleSeries.map((series) => (
+                    <Bar
+                      key={series.key}
+                      dataKey={series.key}
+                      fill={series.color}
+                      name={series.name}
+                      isAnimationActive={chartConfig.animationEnabled}
+                    />
+                  ))}
+                </BarChart>
+              ) : chartConfig.chartType === "xy-scatter" ? (
+                <ScatterChart data={chartDataFormatted}>
+                  {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
+                  <XAxis
+                    type="number"
+                    dataKey={chartConfig.xAxisField || "index"}
+                    domain={xAxisDomain || ["auto", "auto"]}
+                    tick={{ fontSize: 12 }}
+                    label={{ value: chartConfig.xAxisField || "X", position: "insideBottom", offset: -5 }}
                   />
-                ))}
-              </ScatterChart>
-            ) : (
-              <ScatterChart data={chartDataFormatted}>
-                {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-                <XAxis
-                  dataKey="index"
-                  tick={{ fontSize: 12 }}
-                  label={{ value: "数据点", position: "insideBottom", offset: -5 }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  domain={yAxisDomain}
-                  label={{ value: "数值", angle: -90, position: "insideLeft" }}
-                />
-                {chartConfig.showTooltip && <Tooltip />}
-                {chartConfig.showLegend && <Legend />}
-                <Brush
-                  dataKey="index"
-                  height={30}
-                  stroke="#8884d8"
-                  startIndex={zoomDomain.startIndex}
-                  endIndex={zoomDomain.endIndex}
-                  onChange={(domain: BrushDomain) => setZoomDomain(domain)}
-                />
-                {visibleSeries.map((series) => (
-                  <Scatter
-                    key={series.key}
-                    dataKey={series.key}
-                    fill={series.color}
-                    name={series.name}
-                    isAnimationActive={chartConfig.animationEnabled}
+                  <YAxis type="number" tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "Y", angle: -90, position: "insideLeft" }} />
+                  {chartConfig.showTooltip && <Tooltip />}
+                  {chartConfig.showLegend && <Legend />}
+                  <Brush
+                    dataKey="index"
+                    height={28}
+                    stroke="#5f82ff"
+                    startIndex={zoomDomain.startIndex}
+                    endIndex={zoomDomain.endIndex}
+                    onChange={(domain) => setZoomDomain(domain || {})}
                   />
-                ))}
-              </ScatterChart>
-            )}
-          </ResponsiveContainer>
+                  {visibleSeries.map((series) => (
+                    <Scatter
+                      key={series.key}
+                      dataKey={series.key}
+                      fill={series.color}
+                      name={series.name}
+                      isAnimationActive={chartConfig.animationEnabled}
+                    />
+                  ))}
+                </ScatterChart>
+              ) : (
+                <ScatterChart data={chartDataFormatted}>
+                  {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
+                  <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+                  {chartConfig.showTooltip && <Tooltip />}
+                  {chartConfig.showLegend && <Legend />}
+                  <Brush
+                    dataKey="index"
+                    height={28}
+                    stroke="#5f82ff"
+                    startIndex={zoomDomain.startIndex}
+                    endIndex={zoomDomain.endIndex}
+                    onChange={(domain) => setZoomDomain(domain || {})}
+                  />
+                  {visibleSeries.map((series) => (
+                    <Scatter
+                      key={series.key}
+                      dataKey={series.key}
+                      fill={series.color}
+                      name={series.name}
+                      isAnimationActive={chartConfig.animationEnabled}
+                    />
+                  ))}
+                </ScatterChart>
+              )}
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
     </div>

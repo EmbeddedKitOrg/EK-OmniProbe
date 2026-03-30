@@ -246,7 +246,7 @@ export function RttToolbar() {
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+    <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/60 bg-white/72 px-3 py-2 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
       {/* RTT 连接/断开按钮 */}
       {!rttConnected ? (
         <Button
@@ -403,7 +403,11 @@ export function RttToolbar() {
       </Button>
 
       {/* 图表配置按钮 */}
-      <ChartConfigDialog />
+      <ChartConfigDialog
+        chartConfig={chartConfig}
+        setChartConfig={setChartConfig}
+        title="RTT 图表配置"
+      />
 
       <div className="flex-1" />
 

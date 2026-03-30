@@ -7,7 +7,7 @@ export function SerialMode() {
   useSerialEvents();
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="surface-strong flex h-full flex-col overflow-hidden rounded-[34px] p-3">
       {/* Serial Panel */}
       <div className="flex-1 overflow-hidden">
         <SerialPanel className="h-full" />

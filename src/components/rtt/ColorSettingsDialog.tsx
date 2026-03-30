@@ -62,7 +62,7 @@ export function ColorSettingsDialog() {
           <Settings2 className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto p-7">
         <DialogHeader>
           <DialogTitle>RTT 颜色标记设置</DialogTitle>
           <DialogDescription>
@@ -124,7 +124,7 @@ export function ColorSettingsDialog() {
           </div>
 
           {/* 示例 */}
-          <div className="bg-muted p-3 rounded text-sm">
+          <div className="glass-section rounded-2xl p-3 text-sm">
             <div className="font-medium mb-1">示例语法：</div>
             <code>
               {localConfig.tagPrefix}red{localConfig.tagSuffix}错误信息
@@ -143,12 +143,12 @@ export function ColorSettingsDialog() {
               </Button>
             </div>
 
-            <div className="h-[300px] border rounded p-2 overflow-y-auto">
+            <div className="glass-section rounded-2xl p-2 h-[300px] overflow-y-auto">
               <div className="space-y-2">
                 {localConfig.tags.map((tag, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-[1fr,1fr,auto] gap-2 items-center p-2 border rounded"
+                    className="glass-section rounded-2xl grid grid-cols-[1fr,1fr,auto] gap-2 items-center p-2"
                   >
                     <div>
                       <Label className="text-xs">标记名</Label>
