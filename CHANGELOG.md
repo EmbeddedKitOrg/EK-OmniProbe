@@ -5,6 +5,23 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.9.0] - 2026-03-31
+
+### 新增功能
+- ✨ **设置中心** - 新增统一的设置入口，支持主题切换、启动默认工作台、RTT / 串口默认视图，以及默认波形观察域偏好
+- ✨ **日志面板偏好持久化** - 新增 `uiPreferencesStore`，支持记住日志面板高度，让不同工作流下的面板比例保持一致
+
+### 改进
+- 🔧 **工作台信息架构重整** - 参考 Entrance 的桌面工作区思路，重构 RTT / 串口模式页顶部信息布局，突出真正高频的工作流入口
+- 🔧 **波形 / FFT 入口前移** - RTT 和串口工具栏都提供显式的 `波形` / `FFT` 快捷入口，不再需要先深挖配置再切换分析域
+- 🔧 **图表概览增强** - 图表区域补充观察域、采样与缓存、解析健康度、活跃系列和最近系列快照，方便快速判断当前数据状态
+- 🔧 **工具栏分组统一** - RTT / 串口工具栏统一为连接 / 采集 / 查看 / 分析等分组，降低模式切换时的认知负担
+- 🔧 **工作台信息降噪** - 进一步压缩模式页说明和面板提示，把更多首屏空间还给文本区和图表区
+
+### 修复
+- 🐛 **FFT 工作流可发现性** - 修复“FFT 入口藏得过深”的使用问题，让 RTT 和串口都能沿同一套数值流分析路径进入频谱视图
+- 🐛 **面板承接层不一致** - 统一 RTT / 串口文本区、图表区和错误提示的视觉层级，减少分屏模式下的信息割裂感
+
 ## [0.8.0] - 2026-03-20
 
 ### 性能优化
@@ -747,6 +764,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
+[0.9.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.0...v0.7.1
