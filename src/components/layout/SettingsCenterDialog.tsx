@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Keyboard, Palette, Settings2, Sparkles } from "lucide-react";
+import { Keyboard, Palette, Settings2, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +12,36 @@ import {
 import { cn } from "@/lib/utils";
 import { THEME_SCHEMES } from "@/lib/themeSchemes";
 import { useThemeStore } from "@/stores/themeStore";
+import { useAppStore, type AppMode } from "@/stores/appStore";
+import { useRttStore } from "@/stores/rttStore";
+import { useSerialStore } from "@/stores/serialStore";
+import { useUiPreferencesStore } from "@/stores/uiPreferencesStore";
 import { UpdateChecker } from "../UpdateChecker";
+import type { SignalDomain, ViewMode } from "@/lib/chartTypes";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const workspaceOptions: Array<{ value: AppMode; label: string }> = [
+  { value: "flash", label: "烧录工作台" },
+  { value: "rtt", label: "RTT 工作台" },
+  { value: "serial", label: "串口工作台" },
+];
+
+const viewModeOptions: Array<{ value: ViewMode; label: string }> = [
+  { value: "text", label: "仅文本" },
+  { value: "split", label: "分屏" },
+  { value: "chart", label: "仅图表" },
+];
+
+const signalDomainOptions: Array<{ value: SignalDomain; label: string }> = [
+  { value: "time", label: "Time 波形" },
+  { value: "fft", label: "FFT 频谱" },
+];
 
 const quickActions = [
   {
@@ -32,11 +61,41 @@ const quickActions = [
 export function SettingsCenterDialog() {
   const schemeId = useThemeStore((state) => state.schemeId);
   const setSchemeId = useThemeStore((state) => state.setSchemeId);
+  const appMode = useAppStore((state) => state.mode);
+  const setAppMode = useAppStore((state) => state.setMode);
+  const rttViewMode = useRttStore((state) => state.viewMode);
+  const setRttViewMode = useRttStore((state) => state.setViewMode);
+  const rttChartConfig = useRttStore((state) => state.chartConfig);
+  const setRttChartConfig = useRttStore((state) => state.setChartConfig);
+  const serialViewMode = useSerialStore((state) => state.viewMode);
+  const setSerialViewMode = useSerialStore((state) => state.setViewMode);
+  const serialChartConfig = useSerialStore((state) => state.chartConfig);
+  const setSerialChartConfig = useSerialStore((state) => state.setChartConfig);
+  const logPanelHeight = useUiPreferencesStore((state) => state.logPanelHeight);
+  const setLogPanelHeight = useUiPreferencesStore((state) => state.setLogPanelHeight);
 
   const currentScheme = useMemo(
     () => THEME_SCHEMES.find((scheme) => scheme.id === schemeId) ?? THEME_SCHEMES[0],
     [schemeId]
   );
+
+  const updateSignalPreference = (
+    target: "rtt" | "serial",
+    domain: SignalDomain
+  ) => {
+    if (target === "rtt") {
+      setRttChartConfig({
+        ...rttChartConfig,
+        signalDomain: domain,
+      });
+      return;
+    }
+
+    setSerialChartConfig({
+      ...serialChartConfig,
+      signalDomain: domain,
+    });
+  };
 
   return (
     <Dialog>
@@ -118,6 +177,77 @@ export function SettingsCenterDialog() {
           <div className="space-y-4">
             <section className="glass-section rounded-[28px] p-5">
               <div className="mb-4 flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <div>
+                  <h3 className="text-base font-semibold">全局偏好</h3>
+                  <p className="text-sm text-muted-foreground">直接控制下次启动和工作区的默认行为。</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <PreferenceRow
+                  label="启动进入"
+                  description="应用下次打开时默认进入的工作台。"
+                  value={appMode}
+                  options={workspaceOptions}
+                  onChange={(value) => setAppMode(value as AppMode)}
+                />
+
+                <PreferenceRow
+                  label="RTT 默认视图"
+                  description="决定 RTT 模式默认是文本、图表还是分屏。"
+                  value={rttViewMode}
+                  options={viewModeOptions}
+                  onChange={(value) => setRttViewMode(value as ViewMode)}
+                />
+
+                <PreferenceRow
+                  label="RTT 波形默认域"
+                  description="波形示波器默认优先展示时域还是频域。"
+                  value={rttChartConfig.signalDomain}
+                  options={signalDomainOptions}
+                  onChange={(value) => updateSignalPreference("rtt", value as SignalDomain)}
+                />
+
+                <PreferenceRow
+                  label="串口默认视图"
+                  description="决定串口模式默认是文本、图表还是分屏。"
+                  value={serialViewMode}
+                  options={viewModeOptions}
+                  onChange={(value) => setSerialViewMode(value as ViewMode)}
+                />
+
+                <PreferenceRow
+                  label="串口波形默认域"
+                  description="串口进入波形工作流时默认优先展示的观察域。"
+                  value={serialChartConfig.signalDomain}
+                  options={signalDomainOptions}
+                  onChange={(value) => updateSignalPreference("serial", value as SignalDomain)}
+                />
+
+                <div className="rounded-[22px] border border-border/60 bg-white/62 p-4">
+                  <div className="mb-1 text-sm font-medium text-foreground">日志面板高度</div>
+                  <p className="mb-3 text-sm leading-6 text-muted-foreground">
+                    拖动日志面板后会自动记住高度，也可以在这里直接微调。
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={80}
+                      max={600}
+                      step={8}
+                      value={logPanelHeight}
+                      onChange={(event) => setLogPanelHeight(parseInt(event.target.value, 10))}
+                      className="w-full accent-[hsl(var(--primary))]"
+                    />
+                    <span className="w-14 text-right text-xs text-muted-foreground">{logPanelHeight}px</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="glass-section rounded-[28px] p-5">
+              <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <div>
                   <h3 className="text-base font-semibold">应用工具</h3>
@@ -163,5 +293,45 @@ export function SettingsCenterDialog() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface PreferenceOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+interface PreferenceRowProps<T extends string> {
+  label: string;
+  description: string;
+  value: T;
+  options: PreferenceOption<T>[];
+  onChange: (value: T) => void;
+}
+
+function PreferenceRow<T extends string>({
+  label,
+  description,
+  value,
+  options,
+  onChange,
+}: PreferenceRowProps<T>) {
+  return (
+    <div className="rounded-[22px] border border-border/60 bg-white/62 p-4">
+      <div className="mb-1 text-sm font-medium text-foreground">{label}</div>
+      <p className="mb-3 text-sm leading-6 text-muted-foreground">{description}</p>
+      <Select value={value} onValueChange={(nextValue) => onChange(nextValue as T)}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

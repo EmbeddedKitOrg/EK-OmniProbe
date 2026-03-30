@@ -28,6 +28,7 @@ import { ChartConfigDialog } from "./ChartConfigDialog";
 import { useEffect } from "react";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import type { SignalDomain } from "@/lib/chartTypes";
+import type { ReactNode } from "react";
 
 export function RttToolbar() {
   const {
@@ -264,212 +265,212 @@ export function RttToolbar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/60 bg-white/72 px-3 py-2 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
-      {/* RTT 连接/断开按钮 */}
-      {!rttConnected ? (
-        <Button
-          size="sm"
-          variant="default"
-          onClick={handleRttConnect}
-          disabled={rttConnecting}
-          className="gap-1"
-        >
-          <Link className={`h-3.5 w-3.5 ${rttConnecting ? "animate-pulse" : ""}`} />
-          {rttConnecting ? "连接中..." : "连接 RTT"}
-        </Button>
-      ) : (
+      <ToolbarGroup label="连接">
+        {!rttConnected ? (
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleRttConnect}
+            disabled={rttConnecting}
+            className="gap-1"
+          >
+            <Link className={`h-3.5 w-3.5 ${rttConnecting ? "animate-pulse" : ""}`} />
+            {rttConnecting ? "连接中..." : "连接 RTT"}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRttDisconnect}
+            className="gap-1 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+          >
+            <Unlink className="h-3.5 w-3.5" />
+            断开 RTT
+          </Button>
+        )}
+      </ToolbarGroup>
+
+      <ToolbarGroup label="采集">
+        {!isRunning ? (
+          <Button
+            size="sm"
+            onClick={handleStart}
+            disabled={!rttConnected}
+            className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Play className="h-3.5 w-3.5" />
+            启动
+          </Button>
+        ) : (
+          <Button size="sm" variant="destructive" onClick={handleStop} className="gap-1">
+            <Square className="h-3.5 w-3.5" />
+            停止
+          </Button>
+        )}
+
         <Button
           size="sm"
           variant="outline"
-          onClick={handleRttDisconnect}
-          className="gap-1 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-500"
-        >
-          <Unlink className="h-3.5 w-3.5" />
-          断开 RTT
-        </Button>
-      )}
-
-      <div className="w-px h-5 bg-border" />
-
-      {/* 启动/停止按钮 */}
-      {!isRunning ? (
-        <Button
-          size="sm"
-          onClick={handleStart}
-          disabled={!rttConnected}
-          className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-        >
-          <Play className="h-3.5 w-3.5" />
-          启动
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={handleStop}
+          onClick={handleTogglePause}
+          disabled={!isRunning}
           className="gap-1"
         >
-          <Square className="h-3.5 w-3.5" />
-          停止
+          {isPaused ? (
+            <>
+              <RotateCcw className="h-3.5 w-3.5" />
+              继续
+            </>
+          ) : (
+            <>
+              <Pause className="h-3.5 w-3.5" />
+              暂停
+            </>
+          )}
         </Button>
-      )}
 
-      {/* 暂停/继续按钮 */}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleTogglePause}
-        disabled={!isRunning}
-        className="gap-1"
-      >
-        {isPaused ? (
-          <>
-            <RotateCcw className="h-3.5 w-3.5" />
-            继续
-          </>
-        ) : (
-          <>
-            <Pause className="h-3.5 w-3.5" />
-            暂停
-          </>
-        )}
-      </Button>
+        <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
+          <Trash2 className="h-3.5 w-3.5" />
+          清空
+        </Button>
+      </ToolbarGroup>
 
-      {/* 清空按钮 */}
-      <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
-        <Trash2 className="h-3.5 w-3.5" />
-        清空
-      </Button>
+      <ToolbarGroup label="查看">
+        <Button
+          size="sm"
+          variant={autoScroll ? "secondary" : "outline"}
+          onClick={() => setAutoScroll(!autoScroll)}
+          className="gap-1"
+          title="自动滚动到最新 RTT 数据"
+        >
+          <ArrowDown className="h-3.5 w-3.5" />
+          自动滚动
+        </Button>
 
-      <div className="w-px h-5 bg-border" />
+        <Button
+          size="sm"
+          variant={displayMode === "hex" ? "secondary" : "outline"}
+          onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
+          className="gap-1"
+          title="切换 RTT 文本 / Hex 显示"
+        >
+          {displayMode === "hex" ? (
+            <>
+              <Binary className="h-3.5 w-3.5" />
+              Hex
+            </>
+          ) : (
+            <>
+              <FileText className="h-3.5 w-3.5" />
+              文本
+            </>
+          )}
+        </Button>
 
-      {/* 自动滚动 */}
-      <Button
-        size="sm"
-        variant={autoScroll ? "secondary" : "outline"}
-        onClick={() => setAutoScroll(!autoScroll)}
-        className="gap-1"
-      >
-        <ArrowDown className="h-3.5 w-3.5" />
-        自动滚动
-      </Button>
-
-      {/* 显示模式切换 */}
-      <Button
-        size="sm"
-        variant={displayMode === "hex" ? "secondary" : "outline"}
-        onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
-        className="gap-1"
-      >
-        {displayMode === "hex" ? (
-          <>
-            <Binary className="h-3.5 w-3.5" />
-            Hex
-          </>
-        ) : (
-          <>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={viewMode === "text" ? "secondary" : "outline"}
+            onClick={() => setViewMode("text")}
+            className="gap-1"
+            title="仅文本"
+          >
             <FileText className="h-3.5 w-3.5" />
-            文本
-          </>
-        )}
-      </Button>
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "split" ? "secondary" : "outline"}
+            onClick={() => setViewMode("split")}
+            className="gap-1"
+            title="文本 + 图表分屏"
+          >
+            <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "chart" ? "secondary" : "outline"}
+            onClick={() => setViewMode("chart")}
+            className="gap-1"
+            title="仅图表"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </ToolbarGroup>
 
-      <div className="w-px h-5 bg-border" />
-
-      {/* 视图模式切换 */}
-      <div className="flex gap-1">
+      <ToolbarGroup label="分析">
         <Button
           size="sm"
-          variant={viewMode === "text" ? "secondary" : "outline"}
-          onClick={() => setViewMode("text")}
+          variant={chartConfig.enabled ? "secondary" : "outline"}
+          onClick={handleSmartEnableChart}
+          disabled={lines.length === 0}
           className="gap-1"
-          title="仅文本"
+          title="智能检测数据格式并自动配置图表"
         >
-          <FileText className="h-3.5 w-3.5" />
+          <Sparkles className="h-3.5 w-3.5" />
+          智能启用
         </Button>
-        <Button
-          size="sm"
-          variant={viewMode === "split" ? "secondary" : "outline"}
-          onClick={() => setViewMode("split")}
-          className="gap-1"
-          title="分屏显示"
-        >
-          <SplitSquareHorizontal className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          size="sm"
-          variant={viewMode === "chart" ? "secondary" : "outline"}
-          onClick={() => setViewMode("chart")}
-          className="gap-1"
-          title="仅图表"
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
 
-      {/* 智能启用图表按钮 */}
-      <Button
-        size="sm"
-        variant={chartConfig.enabled ? "secondary" : "outline"}
-        onClick={handleSmartEnableChart}
-        disabled={lines.length === 0}
-        className="gap-1"
-        title="智能检测数据格式并自动配置图表"
-      >
-        <Sparkles className="h-3.5 w-3.5" />
-        智能启用
-      </Button>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"}
+            onClick={() => activateSignalWorkspace("time")}
+            className="gap-1"
+            title="直接进入波形示波器"
+          >
+            <Waves className="h-3.5 w-3.5" />
+            波形
+          </Button>
+          <Button
+            size="sm"
+            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"}
+            onClick={() => activateSignalWorkspace("fft")}
+            className="gap-1"
+            title="直接进入 FFT 频谱"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            FFT
+          </Button>
+        </div>
 
-      <div className="flex gap-1">
-        <Button
-          size="sm"
-          variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"}
-          onClick={() => activateSignalWorkspace("time")}
-          className="gap-1"
-          title="直接进入波形示波器"
-        >
-          <Waves className="h-3.5 w-3.5" />
-          波形
-        </Button>
-        <Button
-          size="sm"
-          variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"}
-          onClick={() => activateSignalWorkspace("fft")}
-          className="gap-1"
-          title="直接进入 FFT 频谱"
-        >
-          <BarChart3 className="h-3.5 w-3.5" />
-          FFT
-        </Button>
-      </div>
-
-      {/* 图表配置按钮 */}
-      <ChartConfigDialog
-        chartConfig={chartConfig}
-        setChartConfig={setChartConfig}
-        title="RTT 图表配置"
-      />
-
-      <div className="flex-1" />
-
-      {/* 搜索框 */}
-      <div className="relative w-48">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          placeholder="搜索..."
-          value={rttSearchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-8 pl-7 text-xs"
+        <ChartConfigDialog
+          chartConfig={chartConfig}
+          setChartConfig={setChartConfig}
+          title="RTT 图表配置"
         />
+      </ToolbarGroup>
+
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="relative w-48">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="搜索 RTT..."
+            value={rttSearchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-7 text-xs"
+          />
+        </div>
+
+        <ToolbarGroup label="输出">
+          <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
+            <Download className="h-3.5 w-3.5" />
+            导出
+          </Button>
+
+          <ColorSettingsDialog />
+        </ToolbarGroup>
       </div>
+    </div>
+  );
+}
 
-      {/* 导出按钮 */}
-      <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
-        <Download className="h-3.5 w-3.5" />
-        导出
-      </Button>
-
-      {/* 颜色设置 */}
-      <ColorSettingsDialog />
+function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1 rounded-[20px] border border-border/60 bg-white/58 px-1.5 py-1">
+      <span className="px-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
     </div>
   );
 }
