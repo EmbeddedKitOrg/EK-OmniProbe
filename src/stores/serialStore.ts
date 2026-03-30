@@ -166,7 +166,10 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
 
   chartData: [],
-  chartConfig: loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
+  chartConfig: {
+    ...DEFAULT_CHART_CONFIG,
+    ...loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
+  },
   chartPaused: false,
 
   parseSuccessCount: 0,
@@ -258,8 +261,12 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    saveToStorage(SERIAL_CHART_CONFIG_KEY, chartConfig);
-    set({ chartConfig });
+    const normalizedConfig = {
+      ...DEFAULT_CHART_CONFIG,
+      ...chartConfig,
+    };
+    saveToStorage(SERIAL_CHART_CONFIG_KEY, normalizedConfig);
+    set({ chartConfig: normalizedConfig });
   },
 
   addChartData: (data) =>
@@ -351,4 +358,3 @@ export function parseSerialData(
     pending: { text: lastPart, rawData: lastRawData },
   };
 }
-

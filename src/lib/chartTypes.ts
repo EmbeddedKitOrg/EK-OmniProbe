@@ -100,6 +100,8 @@ export interface ChartConfig {
   fftWindowSize: number;
   /** 采样率（Hz，0 表示自动估算） */
   sampleRateHz: number;
+  /** 波形示波器的默认显示域 */
+  signalDomain: SignalDomain;
 
   // XY 散点图配置
   /** X 轴字段名（仅用于 xy-scatter 模式） */
@@ -149,6 +151,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   updateInterval: 33,
   fftWindowSize: 1024,
   sampleRateHz: 0,
+  signalDomain: "time",
 
   // 显示配置
   showGrid: true,

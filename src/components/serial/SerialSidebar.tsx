@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -126,6 +126,11 @@ export function SerialSidebar() {
       <Card>
         <CardHeader className="py-3">
           <CardTitle className="text-sm">数据源</CardTitle>
+          <CardDescription className="text-xs">
+            {activeSourceType === "local"
+              ? (localConfig.port || "本地串口未选择")
+              : `${tcpConfig.host}:${tcpConfig.port}`}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <RadioGroup
@@ -157,7 +162,12 @@ export function SerialSidebar() {
         <Card>
           <CardHeader className="py-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">串口配置</CardTitle>
+              <div>
+                <CardTitle className="text-sm">串口配置</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  {localConfig.port ? `${localConfig.port} · ${localConfig.baud_rate} bps` : "选择端口并确认波特率"}
+                </CardDescription>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -227,7 +237,12 @@ export function SerialSidebar() {
             <CollapsibleTrigger asChild>
               <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">高级设置</CardTitle>
+                  <div>
+                    <CardTitle className="text-sm">高级设置</CardTitle>
+                    <CardDescription className="mt-1 text-xs">
+                      {localConfig.data_bits}-{localConfig.stop_bits}-{localConfig.parity} · {localConfig.flow_control}
+                    </CardDescription>
+                  </div>
                   {serialSettingsOpen ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   ) : (
@@ -320,6 +335,9 @@ export function SerialSidebar() {
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-sm">TCP 配置</CardTitle>
+            <CardDescription className="text-xs">
+              适合 ser2net、ESP-Link 等远程串口桥接场景。
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
@@ -352,7 +370,12 @@ export function SerialSidebar() {
           <CollapsibleTrigger asChild>
             <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">发送设置</CardTitle>
+                <div>
+                  <CardTitle className="text-sm">发送设置</CardTitle>
+                  <CardDescription className="mt-1 text-xs">
+                    {sendSettings.hexMode ? "Hex" : sendSettings.encoding} · {sendSettings.lineEnding.toUpperCase()}
+                  </CardDescription>
+                </div>
                 {sendSettingsOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
