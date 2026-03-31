@@ -5,6 +5,11 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.9.2] - 2026-03-31
+
+### 修复
+- 🐛 **发布流水线 updater 产物缺失** - 启用 Tauri `createUpdaterArtifacts`，确保生成带签名的 updater 产物，修复 `latest.json` 合并失败问题
+
 ## [0.9.1] - 2026-03-31
 
 ### 改进
