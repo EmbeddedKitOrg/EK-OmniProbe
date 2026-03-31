@@ -45,7 +45,7 @@ const DialogContent = React.forwardRef<
           ref={ref}
           style={{ zIndex: 80, pointerEvents: "auto", ...style }}
           className={cn(
-            "glass-dialog grid w-[min(calc(100vw-2rem),44rem)] max-h-[calc(100vh-2rem)] max-w-2xl gap-4 overflow-y-auto p-6 text-foreground duration-200 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-[30px]",
+            "glass-dialog grid w-[min(calc(100vw-1rem),44rem)] max-h-[calc(100vh-1rem)] max-w-2xl gap-4 overflow-y-auto overscroll-contain p-5 text-foreground duration-200 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-[30px] sm:p-6",
             className
           )}
           {...props}

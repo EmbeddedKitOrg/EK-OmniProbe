@@ -3,7 +3,7 @@ import { TopBar } from "./components/layout/TopBar";
 import { FlashMode, RttMode, SerialMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
@@ -13,6 +13,8 @@ import { useUserActivity } from "./hooks/useUserActivity";
 import { disconnect, initPacks } from "./lib/tauri";
 import { applyThemeSchemeToDocument } from "./lib/themeSchemes";
 import { useThemeStore } from "./stores/themeStore";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
 
 function App() {
   const addLog = useLogStore((state) => state.addLog);
@@ -25,7 +27,17 @@ function App() {
   const mode = useAppStore((s) => s.mode);
   const setMode = useAppStore((s) => s.setMode);
   const schemeId = useThemeStore((s) => s.schemeId);
+  const backgroundMode = useUiPreferencesStore((s) => s.backgroundMode);
+  const backgroundImagePath = useUiPreferencesStore((s) => s.backgroundImagePath);
+  const backgroundImageOpacity = useUiPreferencesStore((s) => s.backgroundImageOpacity);
   const { isActive, timeRemainingSeconds } = useUserActivity(autoDisconnectTimeout);
+  const backgroundImageUrl = useMemo(() => {
+    if (backgroundMode !== "custom" || !backgroundImagePath) {
+      return "";
+    }
+
+    return convertFileSrc(backgroundImagePath);
+  }, [backgroundMode, backgroundImagePath]);
 
   useEffect(() => {
     applyThemeSchemeToDocument(schemeId);
@@ -122,24 +134,36 @@ function App() {
   }, [autoDisconnect, connected, rttRunning, timeRemainingSeconds]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden px-3 pb-3 pt-3 text-foreground">
-      <TopBar />
-      <div className="mt-3 flex flex-1 gap-3 overflow-hidden">
-        {/* Sidebar: switch based on mode */}
-        {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
+    <div className="app-shell relative h-screen overflow-hidden text-foreground">
+      {backgroundImageUrl && (
+        <div
+          className="app-background-image"
+          style={{
+            backgroundImage: `url("${backgroundImageUrl}")`,
+            opacity: backgroundImageOpacity,
+          }}
+        />
+      )}
 
-        {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
-        <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">
-          <div key={mode} className="mode-stage h-full">
-            {mode === "flash" && <FlashMode />}
-            {mode === "rtt" && <RttMode />}
-            {mode === "serial" && <SerialMode />}
+      <div className="relative z-[1] flex h-full flex-col overflow-hidden px-3 pb-3 pt-3">
+        <TopBar />
+        <div className="mt-3 flex flex-1 gap-3 overflow-hidden">
+          {/* Sidebar: switch based on mode */}
+          {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
+
+          {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
+          <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">
+            <div key={mode} className="mode-stage h-full">
+              {mode === "flash" && <FlashMode />}
+              {mode === "rtt" && <RttMode />}
+              {mode === "serial" && <SerialMode />}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* USB 权限检查对话框 (仅 Linux) */}
-      <UdevPermissionDialog />
+        {/* USB 权限检查对话框 (仅 Linux) */}
+        <UdevPermissionDialog />
+      </div>
     </div>
   );
 }

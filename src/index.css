@@ -94,6 +94,22 @@ body {
   color: hsl(var(--foreground));
 }
 
+.app-shell {
+  isolation: isolate;
+}
+
+.app-background-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: saturate(1.05);
+  transform: scale(1.02);
+}
+
 ::selection {
   background: hsl(var(--primary) / 0.18);
 }
