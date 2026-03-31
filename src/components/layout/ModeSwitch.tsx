@@ -62,7 +62,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
             onClick={() => handleModeChange("flash")}
             disabled={flashing}
             className={cn(
-              "gap-1.5 h-8 rounded-full px-4",
+              "h-8 gap-1 rounded-full px-3 xl:px-3.5",
               mode === "flash" && "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(73,110,214,0.22)]"
             )}
           >
@@ -78,7 +78,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
             onClick={() => handleModeChange("rtt")}
             disabled={flashing}
             className={cn(
-              "gap-1.5 h-8 rounded-full px-4",
+              "h-8 gap-1 rounded-full px-3 xl:px-3.5",
               mode === "rtt" && "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(73,110,214,0.22)]"
             )}
           >
@@ -94,7 +94,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
             onClick={() => handleModeChange("serial")}
             disabled={flashing}
             className={cn(
-              "gap-1.5 h-8 rounded-full px-4",
+              "h-8 gap-1 rounded-full px-3 xl:px-3.5",
               mode === "serial" && "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(73,110,214,0.22)]"
             )}
           >

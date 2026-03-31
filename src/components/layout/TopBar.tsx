@@ -34,25 +34,25 @@ export function TopBar() {
   const ModeIcon = modeMeta[mode].icon;
 
   return (
-    <header className="surface-shell no-select flex h-14 items-center rounded-[28px] px-4">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(73,110,214,0.28)]">
+    <header className="surface-shell no-select flex flex-col gap-3 rounded-[28px] px-3 py-3 2xl:flex-row 2xl:items-center 2xl:gap-4 2xl:px-4 2xl:py-2.5">
+      <div className="flex w-full items-center justify-between gap-3 2xl:w-auto 2xl:flex-shrink-0 2xl:justify-start">
+        <div className="min-w-0 flex items-center gap-3">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(73,110,214,0.28)] 2xl:h-9 2xl:w-9">
             <Cpu className="h-4 w-4" />
           </div>
-          <div>
-            <div className="text-sm font-semibold tracking-[0.02em] text-primary">EK-OmniProbe</div>
-            <div className="text-[11px] text-muted-foreground">Embedded Toolkit Workspace</div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold tracking-[0.02em] text-primary">EK-OmniProbe</div>
+            <div className="hidden text-[11px] text-muted-foreground xl:block 2xl:block">Embedded Toolkit Workspace</div>
           </div>
         </div>
 
         {/* Mode Switch */}
-        <ModeSwitch />
+        <ModeSwitch className="flex-shrink-0" />
       </div>
 
-      <div className="flex flex-1 items-center gap-3 px-4">
-        <div className="workspace-summary flex min-w-[220px] items-center gap-3 rounded-[20px] px-4 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 2xl:flex-1 2xl:flex-nowrap 2xl:gap-3 2xl:px-2">
+        <div className="workspace-summary flex min-w-[170px] flex-1 items-center gap-3 rounded-[20px] px-3 py-2 md:min-w-[220px] 2xl:flex-none">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary">
             <ModeIcon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
@@ -61,12 +61,12 @@ export function TopBar() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="hidden min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground 2xl:flex">
           {selectedChip && (
             <TooltipWrapper tooltip="当前目标芯片">
-              <div className="toolbar-chip-strong flex items-center gap-1.5 px-3 py-1.5">
+              <div className="toolbar-chip-strong flex min-w-0 items-center gap-1.5 px-3 py-1.5">
                 <Cpu className="h-3 w-3" />
-                <span className="font-mono text-[11px]">{selectedChip}</span>
+                <span className="truncate font-mono text-[11px]">{selectedChip}</span>
               </div>
             </TooltipWrapper>
           )}
@@ -82,7 +82,7 @@ export function TopBar() {
                 </>
               }
             >
-              <div className="toolbar-chip flex items-center gap-1.5 px-3 py-1.5">
+              <div className="toolbar-chip flex min-w-0 items-center gap-1.5 px-3 py-1.5">
                 <Activity className="h-3 w-3" />
                 <span className="max-w-[140px] truncate text-[11px]">{selectedProbe.identifier}</span>
               </div>
@@ -127,12 +127,12 @@ export function TopBar() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="flex w-full items-center justify-end gap-2 text-xs text-muted-foreground 2xl:w-auto 2xl:flex-shrink-0 2xl:gap-3">
         <UpdateChecker showTrigger={false} />
         <SettingsCenterDialog />
 
         {rttConnected && !rttRunning && (
-          <div className="toolbar-chip flex items-center gap-1.5 px-3 py-1.5">
+          <div className="toolbar-chip hidden items-center gap-1.5 px-3 py-1.5 xl:flex">
             <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
             <span className="text-yellow-600">RTT就绪</span>
           </div>
