@@ -27,16 +27,19 @@ jobs:
           # Windows
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
+            rust_targets: x86_64-pc-windows-msvc
             os_name: windows
 
-          # macOS Apple Silicon (原生)
+          # macOS Universal（同时支持 Apple Silicon / Intel）
           - platform: macos-14
-            target: aarch64-apple-darwin
-            os_name: macos-arm
+            target: universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            os_name: macos-universal
 
           # Linux x64
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            rust_targets: x86_64-unknown-linux-gnu
             os_name: linux
 
     runs-on: ${{ matrix.platform }}
@@ -137,7 +140,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.rust_targets }}
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -187,13 +190,13 @@ jobs:
             |------|------|------|
             | **Windows** | `*_x64-setup.exe` | NSIS 安装程序 |
             | **Windows** | `*_x64_portable.exe` | 便携版（免安装） |
-            | **macOS (Apple Silicon)** | `*_aarch64.dmg` | M1/M2/M3芯片Mac |
+            | **macOS (Universal)** | `*_universal.dmg` | 同时支持 Apple Silicon 与 Intel |
             | **Linux** | `*_amd64.deb` | Debian/Ubuntu |
             | **Linux** | `*_amd64.AppImage` | 通用Linux |
 
             ### 💻 系统要求
             - **Windows**: Windows 10/11 64位，需要WebView2运行时
-            - **macOS**: macOS 11.0+ (Big Sur或更高), Apple Silicon
+            - **macOS**: macOS 11.0+ (Big Sur或更高), 通用版支持 Apple Silicon / Intel
             - **Linux**: 需要WebKitGTK和libusb
 
 
@@ -234,8 +237,8 @@ jobs:
             "x86_64-pc-windows-msvc")
               echo "windows-x86_64" > platform-info/platform.txt
               ;;
-            "aarch64-apple-darwin")
-              echo "darwin-aarch64" > platform-info/platform.txt
+            "universal-apple-darwin")
+              echo "darwin-universal" > platform-info/platform.txt
               ;;
             "x86_64-unknown-linux-gnu")
               echo "linux-x86_64" > platform-info/platform.txt
@@ -249,7 +252,7 @@ jobs:
           path: platform-info/
           retention-days: 1
 
-  # 合并所有平台的更新信息并规范化文件名
+  # 汇总所有平台的更新信息并生成统一的 latest.json
   merge-updater:
     needs: build
     runs-on: ubuntu-latest
@@ -261,103 +264,13 @@ jobs:
         # needs: build 已确保所有构建完成，这里只等待 GitHub API 缓冲
         run: sleep 120
 
-      - name: Normalize update package names (ensure version in filename)
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ needs.build.outputs.version }}"
-          TAG="v${VERSION}"
-          REPO="EmbeddedKitOrg/EK-OmniProbe"
-
-          echo "Checking and normalizing update package names for version ${VERSION}"
-
-          # 获取 Release 资产列表
-          ASSETS=$(gh api repos/${REPO}/releases/tags/${TAG} --jq '.assets[] | "\(.name)|\(.id)"' 2>/dev/null || echo "")
-
-          if [ -z "$ASSETS" ]; then
-            echo "Warning: Could not fetch release assets"
-            exit 0
-          fi
-
-          mkdir -p downloads
-
-          # 检查 macOS 更新包
-          MAC_FILE=$(echo "$ASSETS" | grep -E '\.app\.tar\.gz\|' | head -1 || true)
-          if [ -n "$MAC_FILE" ]; then
-            MAC_NAME=$(echo "$MAC_FILE" | cut -d'|' -f1)
-            MAC_ID=$(echo "$MAC_FILE" | cut -d'|' -f2)
-
-            # 检查文件名是否包含版本号
-            if [[ ! "$MAC_NAME" =~ _${VERSION}_ ]]; then
-              echo "macOS file needs renaming: ${MAC_NAME}"
-              NEW_MAC_NAME="EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"
-
-              # 下载文件
-              gh release download "$TAG" --pattern "$MAC_NAME" --dir downloads
-              mv "downloads/${MAC_NAME}" "downloads/${NEW_MAC_NAME}"
-
-              # 上传新文件
-              gh release upload "$TAG" "downloads/${NEW_MAC_NAME}" --clobber
-
-              # 删除旧文件
-              gh release delete-asset "$TAG" "$MAC_NAME" -y 2>/dev/null || true
-
-              echo "Renamed: ${MAC_NAME} -> ${NEW_MAC_NAME}"
-            else
-              echo "macOS file already has version: ${MAC_NAME}"
-            fi
-          fi
-
-          # 检查 Windows 更新包
-          WIN_FILE=$(echo "$ASSETS" | grep -E '\.nsis\.zip\|' | head -1 || true)
-          if [ -n "$WIN_FILE" ]; then
-            WIN_NAME=$(echo "$WIN_FILE" | cut -d'|' -f1)
-
-            # 检查文件名是否包含版本号
-            if [[ ! "$WIN_NAME" =~ _${VERSION}_ ]]; then
-              echo "Windows file needs renaming: ${WIN_NAME}"
-              NEW_WIN_NAME="EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"
-
-              gh release download "$TAG" --pattern "$WIN_NAME" --dir downloads
-              mv "downloads/${WIN_NAME}" "downloads/${NEW_WIN_NAME}"
-              gh release upload "$TAG" "downloads/${NEW_WIN_NAME}" --clobber
-              gh release delete-asset "$TAG" "$WIN_NAME" -y 2>/dev/null || true
-
-              echo "Renamed: ${WIN_NAME} -> ${NEW_WIN_NAME}"
-            else
-              echo "Windows file already has version: ${WIN_NAME}"
-            fi
-          fi
-
-          # 检查 Linux 更新包
-          LINUX_FILE=$(echo "$ASSETS" | grep -E '\.AppImage\.tar\.gz\|' | head -1 || true)
-          if [ -n "$LINUX_FILE" ]; then
-            LINUX_NAME=$(echo "$LINUX_FILE" | cut -d'|' -f1)
-
-            # 检查文件名是否包含版本号
-            if [[ ! "$LINUX_NAME" =~ _${VERSION}_ ]]; then
-              echo "Linux file needs renaming: ${LINUX_NAME}"
-              NEW_LINUX_NAME="EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"
-
-              gh release download "$TAG" --pattern "$LINUX_NAME" --dir downloads
-              mv "downloads/${LINUX_NAME}" "downloads/${NEW_LINUX_NAME}"
-              gh release upload "$TAG" "downloads/${NEW_LINUX_NAME}" --clobber
-              gh release delete-asset "$TAG" "$LINUX_NAME" -y 2>/dev/null || true
-
-              echo "Renamed: ${LINUX_NAME} -> ${NEW_LINUX_NAME}"
-            else
-              echo "Linux file already has version: ${LINUX_NAME}"
-            fi
-          fi
-
-          echo "Normalization complete"
-
       - name: Generate merged latest.json
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           VERSION="${{ needs.build.outputs.version }}"
           TAG="v${VERSION}"
           REPO="EmbeddedKitOrg/EK-OmniProbe"
@@ -371,37 +284,79 @@ jobs:
             CHANGELOG="查看完整更新日志: https://github.com/${REPO}/blob/main/CHANGELOG.md"
           fi
 
-          # 使用规范化后的文件名 URL
-          PLATFORMS=""
+          ASSET_NAMES=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "Release assets:"
+          echo "$ASSET_NAMES"
 
-          # Windows (带版本号格式)
-          WIN_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"
-          # 检查文件是否存在
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_x64-setup.nsis.zip"; then
-            PLATFORMS="${PLATFORMS}\"windows-x86_64\": {\"signature\": \"\", \"url\": \"${WIN_URL}\"},"
-            echo "Added Windows platform"
+          mkdir -p downloads/signatures
+          echo '{}' > platforms.json
+
+          get_asset_name() {
+            local pattern="$1"
+            echo "$ASSET_NAMES" | grep -E "$pattern" | grep -v '\.sig$' | head -n 1 || true
+          }
+
+          get_signature() {
+            local asset_name="$1"
+            local sig_name="${asset_name}.sig"
+
+            if [ -z "$asset_name" ]; then
+              return 0
+            fi
+
+            if echo "$ASSET_NAMES" | grep -Fxq "$sig_name"; then
+              gh release download "$TAG" --pattern "$sig_name" --dir downloads/signatures --clobber >/dev/null
+              tr -d '\r\n' < "downloads/signatures/${sig_name}"
+            fi
+          }
+
+          add_platform() {
+            local key="$1"
+            local url="$2"
+            local signature="$3"
+
+            if [ -z "$url" ] || [ -z "$signature" ]; then
+              echo "Skip platform ${key}: missing updater asset or signature"
+              return 0
+            fi
+
+            jq \
+              --arg key "$key" \
+              --arg url "$url" \
+              --arg signature "$signature" \
+              '. + {($key): {signature: $signature, url: $url}}' \
+              platforms.json > platforms.tmp
+            mv platforms.tmp platforms.json
+            echo "Added platform ${key}"
+          }
+
+          WIN_NAME=$(get_asset_name '\.nsis\.zip$')
+          MAC_NAME=$(get_asset_name '\.app\.tar\.gz$')
+          LINUX_NAME=$(get_asset_name '\.AppImage\.tar\.gz$')
+
+          if [ -n "$WIN_NAME" ]; then
+            WIN_URL="https://github.com/${REPO}/releases/download/${TAG}/${WIN_NAME}"
+            WIN_SIG=$(get_signature "$WIN_NAME")
+            add_platform "windows-x86_64" "$WIN_URL" "$WIN_SIG"
           fi
 
-          # macOS (带版本号格式)
-          MAC_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_aarch64.app.tar.gz"; then
-            PLATFORMS="${PLATFORMS}\"darwin-aarch64\": {\"signature\": \"\", \"url\": \"${MAC_URL}\"},"
-            echo "Added macOS platform"
+          if [ -n "$MAC_NAME" ]; then
+            MAC_URL="https://github.com/${REPO}/releases/download/${TAG}/${MAC_NAME}"
+            MAC_SIG=$(get_signature "$MAC_NAME")
+            add_platform "darwin-aarch64" "$MAC_URL" "$MAC_SIG"
+            add_platform "darwin-x86_64" "$MAC_URL" "$MAC_SIG"
+            add_platform "darwin-universal" "$MAC_URL" "$MAC_SIG"
           fi
 
-          # Linux (带版本号格式)
-          LINUX_URL="https://github.com/${REPO}/releases/download/${TAG}/EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -q "EK-OmniProbe_${VERSION}_amd64.AppImage.tar.gz"; then
-            PLATFORMS="${PLATFORMS}\"linux-x86_64\": {\"signature\": \"\", \"url\": \"${LINUX_URL}\"},"
-            echo "Added Linux platform"
+          if [ -n "$LINUX_NAME" ]; then
+            LINUX_URL="https://github.com/${REPO}/releases/download/${TAG}/${LINUX_NAME}"
+            LINUX_SIG=$(get_signature "$LINUX_NAME")
+            add_platform "linux-x86_64" "$LINUX_URL" "$LINUX_SIG"
           fi
 
-          # 移除末尾逗号
-          PLATFORMS=$(echo "$PLATFORMS" | sed 's/,$//')
-
-          if [ -z "$PLATFORMS" ]; then
-            echo "Warning: No update packages found, creating placeholder latest.json"
-            PLATFORMS="\"placeholder\": {\"signature\": \"\", \"url\": \"\"}"
+          if [ "$(jq 'length' platforms.json)" -eq 0 ]; then
+            echo "No valid updater assets with signatures were found."
+            exit 1
           fi
 
           # 转义 CHANGELOG 中的特殊字符用于 JSON
@@ -413,9 +368,7 @@ jobs:
             "version": "${VERSION}",
             "notes": ${CHANGELOG_JSON},
             "pub_date": "${PUB_DATE}",
-            "platforms": {
-              ${PLATFORMS}
-            }
+            "platforms": $(cat platforms.json)
           }
           EOF
 
