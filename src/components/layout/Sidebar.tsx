@@ -236,7 +236,7 @@ export function Sidebar() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="relative">
+          <div className="space-y-2">
             <Input
               placeholder="搜索芯片型号..."
               value={searchQuery}
@@ -244,11 +244,11 @@ export function Sidebar() {
               disabled={connected}
             />
             {searchResults.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-background border border-border rounded-md shadow-lg">
+              <div className="max-h-48 overflow-y-auto rounded-2xl border border-border/70 bg-white/88 shadow-[0_12px_28px_rgba(72,92,140,0.12)] backdrop-blur">
                 {searchResults.map((chip) => (
                   <button
                     key={chip}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+                    className="w-full border-b border-border/50 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-accent/60"
                     onClick={() => handleChipSelect(chip)}
                   >
                     {chip}
