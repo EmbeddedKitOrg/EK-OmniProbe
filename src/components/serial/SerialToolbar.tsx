@@ -3,21 +3,25 @@ import { useLogStore } from "@/stores/logStore";
 import { stopSerial, startSerial, clearSerialBuffer } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Play,
   Square,
   Trash2,
   Download,
-  ArrowDown,
   Search,
   FileText,
-  Binary,
   SplitSquareHorizontal,
   BarChart3,
   Waves,
   Sparkles,
+  SlidersHorizontal,
+  Settings2,
+  ArrowDown,
   Clock,
   Columns,
+  Binary,
+  Tags,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
@@ -31,6 +35,7 @@ export function SerialToolbar() {
     running,
     autoScroll,
     showTimestamp,
+    showDirectionPrefix,
     splitByDirection,
     searchQuery,
     displayMode,
@@ -40,6 +45,7 @@ export function SerialToolbar() {
     setRunning,
     setAutoScroll,
     setShowTimestamp,
+    setShowDirectionPrefix,
     setSplitByDirection,
     setSearchQuery,
     setDisplayMode,
@@ -198,58 +204,18 @@ export function SerialToolbar() {
       </ToolbarGroup>
 
       <ToolbarGroup label="查看">
-        <Button
-          size="sm"
-          variant={autoScroll ? "secondary" : "outline"}
-          onClick={() => setAutoScroll(!autoScroll)}
-          className="gap-1"
-          title="自动滚动到最新数据"
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-          自动滚动
-        </Button>
-
-        <Button
-          size="sm"
-          variant={showTimestamp ? "secondary" : "outline"}
-          onClick={() => setShowTimestamp(!showTimestamp)}
-          className="gap-1"
-          title="显示/隐藏时间戳"
-        >
-          <Clock className="h-3.5 w-3.5" />
-          时间戳
-        </Button>
-
-        <Button
-          size="sm"
-          variant={splitByDirection ? "secondary" : "outline"}
-          onClick={() => setSplitByDirection(!splitByDirection)}
-          className="gap-1"
-          title="左右分屏显示收发数据"
-        >
-          <Columns className="h-3.5 w-3.5" />
-          收发分屏
-        </Button>
-
-        <Button
-          size="sm"
-          variant={displayMode === "hex" ? "secondary" : "outline"}
-          onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
-          className="gap-1"
-          title="切换串口文本 / Hex 显示"
-        >
-          {displayMode === "hex" ? (
-            <>
-              <Binary className="h-3.5 w-3.5" />
-              Hex
-            </>
-          ) : (
-            <>
-              <FileText className="h-3.5 w-3.5" />
-              文本
-            </>
-          )}
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={autoScroll ? "secondary" : "outline"}
+            onClick={() => setAutoScroll(!autoScroll)}
+            className="gap-1"
+            title="自动滚动到最新数据"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            自动滚动
+          </Button>
+        </div>
 
         <div className="flex gap-1">
           <Button
@@ -314,16 +280,10 @@ export function SerialToolbar() {
             FFT
           </Button>
         </div>
-
-        <ChartConfigDialog
-          chartConfig={chartConfig}
-          setChartConfig={setChartConfig}
-          title="串口图表配置"
-        />
       </ToolbarGroup>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="relative w-48">
+        <div className="relative w-40 sm:w-48">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="搜索串口..."
@@ -333,14 +293,107 @@ export function SerialToolbar() {
           />
         </div>
 
-        <ToolbarGroup label="输出">
-          <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
-            <Download className="h-3.5 w-3.5" />
-            导出
-          </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              更多
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[340px] rounded-[24px] border-border/70 p-3">
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-foreground">更多操作</div>
+                <div className="text-xs text-muted-foreground">
+                  收发分屏、时间戳、显示方式和导出统一收在这里。
+                </div>
+              </div>
 
-          <ColorSettingsDialog />
-        </ToolbarGroup>
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  查看
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={showTimestamp ? "secondary" : "outline"}
+                    onClick={() => setShowTimestamp(!showTimestamp)}
+                    className="gap-1"
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                    时间戳
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={showDirectionPrefix ? "secondary" : "outline"}
+                    onClick={() => setShowDirectionPrefix(!showDirectionPrefix)}
+                    className="gap-1"
+                  >
+                    <Tags className="h-3.5 w-3.5" />
+                    RX/TX 前缀
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={splitByDirection ? "secondary" : "outline"}
+                    onClick={() => setSplitByDirection(!splitByDirection)}
+                    className="gap-1"
+                  >
+                    <Columns className="h-3.5 w-3.5" />
+                    收发分屏
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={displayMode === "hex" ? "secondary" : "outline"}
+                    onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
+                    className="gap-1"
+                  >
+                    {displayMode === "hex" ? <Binary className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                    {displayMode === "hex" ? "Hex" : "文本"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  配置
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <ChartConfigDialog
+                    chartConfig={chartConfig}
+                    setChartConfig={setChartConfig}
+                    title="串口图表配置"
+                    trigger={
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        图表配置
+                      </Button>
+                    }
+                  />
+                  <ColorSettingsDialog
+                    title="串口颜色标记设置"
+                    description="串口终端和 RTT 共用同一套颜色标记语法，可在这里统一调整。"
+                    trigger={
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        颜色设置
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  输出
+                </div>
+                <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
+                  <Download className="h-3.5 w-3.5" />
+                  导出日志
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

@@ -68,7 +68,7 @@ export const useUiPreferencesStore = create<UiPreferencesState>((set) => {
   return {
     logPanelHeight: loadNumberFromStorage(
       LOG_PANEL_HEIGHT_KEY,
-      128,
+      104,
       (value) => value >= 80 && value <= 600
     ),
     ...backgroundPreferences,

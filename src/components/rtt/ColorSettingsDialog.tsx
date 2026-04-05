@@ -14,11 +14,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings2, Plus, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
 
-export function ColorSettingsDialog() {
+interface ColorSettingsDialogProps {
+  trigger?: ReactNode;
+  title?: string;
+  description?: string;
+}
+
+export function ColorSettingsDialog({
+  trigger,
+  title = "RTT 颜色标记设置",
+  description = "自定义颜色标记语法，让 RTT 输出更易读。例如：[red]错误信息[/]",
+}: ColorSettingsDialogProps) {
   const { colorParserConfig, setColorParserConfig } = useRttStore();
   const [open, setOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState(colorParserConfig);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setLocalConfig(colorParserConfig);
+    }
+    setOpen(nextOpen);
+  };
 
   const handleSave = () => {
     setColorParserConfig(localConfig);
@@ -56,18 +74,18 @@ export function ColorSettingsDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" title="颜色设置">
-          <Settings2 className="h-4 w-4" />
-        </Button>
+        {trigger || (
+          <Button variant="ghost" size="icon" title="颜色设置">
+            <Settings2 className="h-4 w-4" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto p-7">
         <DialogHeader>
-          <DialogTitle>RTT 颜色标记设置</DialogTitle>
-          <DialogDescription>
-            自定义颜色标记语法，让 RTT 输出更易读。例如：[red]错误信息[/]
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

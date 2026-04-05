@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef } from "react";
-import { Send, Binary, Trash2, History } from "lucide-react";
+import { Send, Binary, Trash2, Settings2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
 import { writeSerialString, writeSerial } from "@/lib/tauri";
@@ -36,7 +37,6 @@ export function SerialSendBar() {
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>(loadHistory);
-  const [showHistory, setShowHistory] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Send text
@@ -113,7 +113,6 @@ export function SerialSendBar() {
   // Select history item
   const selectHistory = (text: string) => {
     setInputText(text);
-    setShowHistory(false);
     inputRef.current?.focus();
   };
 
@@ -124,60 +123,86 @@ export function SerialSendBar() {
   };
 
   return (
-    <div className="relative">
-      {/* History dropdown */}
-      {showHistory && history.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 bg-popover border border-border rounded-md shadow-lg max-h-40 overflow-y-auto z-10">
-          <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/50">
-            <span className="text-xs text-muted-foreground">历史记录</span>
+    <div className="border-t border-border bg-muted/20 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
             <Button
-              size="icon"
-              variant="ghost"
-              className="h-5 w-5"
-              onClick={clearHistory}
-              title="清空历史"
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              title="发送选项"
             >
-              <Trash2 className="h-3 w-3" />
+              <Settings2 className="h-3.5 w-3.5" />
+              选项
             </Button>
-          </div>
-          {history.map((item, index) => (
-            <div
-              key={index}
-              className="px-3 py-1.5 text-xs font-mono cursor-pointer hover:bg-accent truncate"
-              onClick={() => selectHistory(item)}
-              title={item}
-            >
-              {item}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[320px] rounded-[24px] border-border/70 p-3">
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-foreground">发送选项</div>
+                  <div className="text-xs text-muted-foreground">
+                    {sendSettings.encoding.toUpperCase()} · {sendSettings.lineEnding.toUpperCase()} · {sendSettings.hexMode ? "HEX" : "文本"}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={sendSettings.hexMode ? "secondary" : "outline"}
+                  onClick={() => setSendSettings({ hexMode: !sendSettings.hexMode })}
+                  className="gap-1"
+                  title="十六进制发送模式"
+                >
+                  <Binary className="h-3.5 w-3.5" />
+                  HEX
+                </Button>
+              </div>
+
+              <div className="rounded-[20px] border border-border/60 bg-muted/20">
+                <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    <History className="h-3.5 w-3.5" />
+                    发送历史
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={clearHistory}
+                    title="清空历史"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="max-h-40 overflow-y-auto p-1.5">
+                  {history.length > 0 ? (
+                    history.map((item, index) => (
+                      <button
+                        key={index}
+                        className="w-full truncate rounded-xl px-2.5 py-2 text-left text-xs font-mono hover:bg-accent"
+                        onClick={() => selectHistory(item)}
+                        title={item}
+                      >
+                        {item}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      暂无历史记录
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          </PopoverContent>
+        </Popover>
 
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-muted/30">
-        {/* History toggle */}
-        <Button
-          size="sm"
-          variant={showHistory ? "secondary" : "outline"}
-          onClick={() => setShowHistory(!showHistory)}
-          className="gap-1"
-          title="发送历史"
-        >
-          <History className="h-3.5 w-3.5" />
-        </Button>
+        {sendSettings.hexMode && (
+          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+            HEX
+          </span>
+        )}
 
-        {/* Hex mode toggle */}
-        <Button
-          size="sm"
-          variant={sendSettings.hexMode ? "secondary" : "outline"}
-          onClick={() => setSendSettings({ hexMode: !sendSettings.hexMode })}
-          className="gap-1"
-          title="十六进制发送模式"
-        >
-          <Binary className="h-3.5 w-3.5" />
-          HEX
-        </Button>
-
-        {/* Input */}
         <div className="flex-1">
           <Input
             ref={inputRef}
@@ -190,7 +215,6 @@ export function SerialSendBar() {
           />
         </div>
 
-        {/* Send button */}
         <Button
           size="sm"
           onClick={handleSend}
