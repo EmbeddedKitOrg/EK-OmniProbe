@@ -14,7 +14,14 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
-import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
+import {
+  loadBooleanFromStorage,
+  loadFromStorage,
+  saveToStorage,
+  loadStringFromStorage,
+  loadNumberFromStorage,
+  saveNumberToStorage,
+} from "@/lib/storage";
 
 // Persistence keys
 const SERIAL_CONFIG_KEY = "serial_config";
@@ -160,7 +167,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   autoScroll: true,
   showTimestamp: true,
-  showDirectionPrefix: loadFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
+  showDirectionPrefix: loadBooleanFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
   splitByDirection: false,
   searchQuery: "",
   displayMode: "text",

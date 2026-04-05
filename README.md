@@ -290,6 +290,27 @@ Windows PowerShell 也可以直接运行：
 - `-NoInstall`：跳过依赖安装检查
 - 其余参数会透传给 `tauri dev`
 
+### 推送前本地检查
+
+如果你想在推送前先跑一遍接近 CI 的本地检查，可以直接执行：
+
+```powershell
+.\check.ps1
+```
+
+默认会执行：
+
+- `pnpm install --frozen-lockfile --ignore-scripts`（依赖一致性检查）
+- `pnpm exec tsc --noEmit`
+- `pnpm build`
+- `cargo check --manifest-path src-tauri/Cargo.toml`
+
+常用参数：
+
+- `-NoInstall`：跳过依赖安装检查
+- `-ExpectedVersion 0.9.3`：额外检查版本号、README 徽章和 CHANGELOG 条目是否一致
+- `-ReleaseLike`：额外执行一遍本机 Windows 目标的 `tauri build`，更接近正式发布流程
+
 ### 构建发布版本
 
 ```bash
@@ -505,6 +526,7 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - ✨ **关于作者弹窗** - 顶栏新增“关于作者”按钮，可在软件内查看左岚、Bilibili 和项目 GitHub 入口
 - 🔧 **串口方向前缀** - 串口终端支持显示 `【RX】` / `【TX】` 前缀，合并视图中更容易区分收发方向
 - 🔧 **开发脚本自动探测端口** - `.\dev.ps1` 会自动跳过被系统保留或占用的端口，并动态同步到 Vite / Tauri
+- 🔧 **本地检查脚本** - 新增 `.\check.ps1`，推送前可一键执行 TypeScript、前端构建与 Rust 检查
 - 🔧 **工作台继续紧凑化** - RTT / 串口首屏收口低频操作，把更多空间还给文本区和图表区
 
 #### 界面收口
