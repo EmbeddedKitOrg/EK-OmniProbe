@@ -62,6 +62,29 @@ export function loadNumberFromStorage(
   return defaultValue;
 }
 
+/** 从 localStorage 读取布尔值，失败时返回默认值 */
+export function loadBooleanFromStorage(key: string, defaultValue: boolean): boolean {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved !== null) {
+      if (saved === "true") {
+        return true;
+      }
+      if (saved === "false") {
+        return false;
+      }
+
+      const parsed = JSON.parse(saved);
+      if (typeof parsed === "boolean") {
+        return parsed;
+      }
+    }
+  } catch {
+    // 静默处理
+  }
+  return defaultValue;
+}
+
 /** 将数值存入 localStorage，以字符串形式保存，失败时静默忽略 */
 export function saveNumberToStorage(key: string, value: number): void {
   try {
