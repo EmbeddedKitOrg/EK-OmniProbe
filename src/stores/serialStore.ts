@@ -22,6 +22,7 @@ const SERIAL_CHART_CONFIG_KEY = "serial_chart_config";
 const SERIAL_VIEW_MODE_KEY = "serial_view_mode";
 const SERIAL_SPLIT_RATIO_KEY = "serial_split_ratio";
 const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
+const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 
 // Default local serial config
 const defaultLocalConfig: LocalSerialConfig = {
@@ -74,6 +75,7 @@ interface SerialState {
   // Display settings
   autoScroll: boolean;
   showTimestamp: boolean;
+  showDirectionPrefix: boolean;
   splitByDirection: boolean;
   searchQuery: string;
   displayMode: "text" | "hex";
@@ -116,6 +118,7 @@ interface SerialState {
 
   setAutoScroll: (enabled: boolean) => void;
   setShowTimestamp: (show: boolean) => void;
+  setShowDirectionPrefix: (show: boolean) => void;
   setSplitByDirection: (split: boolean) => void;
   setSearchQuery: (query: string) => void;
   setDisplayMode: (mode: "text" | "hex") => void;
@@ -157,6 +160,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   autoScroll: true,
   showTimestamp: true,
+  showDirectionPrefix: loadFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
   splitByDirection: false,
   searchQuery: "",
   displayMode: "text",
@@ -241,6 +245,10 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   setAutoScroll: (autoScroll) => set({ autoScroll }),
   setShowTimestamp: (showTimestamp) => set({ showTimestamp }),
+  setShowDirectionPrefix: (showDirectionPrefix) => {
+    saveToStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, showDirectionPrefix);
+    set({ showDirectionPrefix });
+  },
   setSplitByDirection: (splitByDirection) => set({ splitByDirection }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setDisplayMode: (displayMode) => set({ displayMode }),

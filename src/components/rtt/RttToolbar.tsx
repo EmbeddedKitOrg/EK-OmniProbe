@@ -5,6 +5,7 @@ import { useChipStore } from "@/stores/chipStore";
 import { startRtt, stopRtt, clearRttBuffer, connectRtt, disconnectRtt, getRttConnectionStatus } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Play,
   Square,
@@ -12,7 +13,6 @@ import {
   RotateCcw,
   Trash2,
   Download,
-  ArrowDown,
   Search,
   FileText,
   Binary,
@@ -22,6 +22,8 @@ import {
   BarChart3,
   Waves,
   Sparkles,
+  SlidersHorizontal,
+  Settings2,
 } from "lucide-react";
 import { ColorSettingsDialog } from "./ColorSettingsDialog";
 import { ChartConfigDialog } from "./ChartConfigDialog";
@@ -334,38 +336,7 @@ export function RttToolbar() {
         </Button>
       </ToolbarGroup>
 
-      <ToolbarGroup label="查看">
-        <Button
-          size="sm"
-          variant={autoScroll ? "secondary" : "outline"}
-          onClick={() => setAutoScroll(!autoScroll)}
-          className="gap-1"
-          title="自动滚动到最新 RTT 数据"
-        >
-          <ArrowDown className="h-3.5 w-3.5" />
-          自动滚动
-        </Button>
-
-        <Button
-          size="sm"
-          variant={displayMode === "hex" ? "secondary" : "outline"}
-          onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
-          className="gap-1"
-          title="切换 RTT 文本 / Hex 显示"
-        >
-          {displayMode === "hex" ? (
-            <>
-              <Binary className="h-3.5 w-3.5" />
-              Hex
-            </>
-          ) : (
-            <>
-              <FileText className="h-3.5 w-3.5" />
-              文本
-            </>
-          )}
-        </Button>
-
+      <ToolbarGroup label="视图">
         <div className="flex gap-1">
           <Button
             size="sm"
@@ -433,15 +404,10 @@ export function RttToolbar() {
           </Button>
         </div>
 
-        <ChartConfigDialog
-          chartConfig={chartConfig}
-          setChartConfig={setChartConfig}
-          title="RTT 图表配置"
-        />
       </ToolbarGroup>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="relative w-48">
+        <div className="relative w-40 sm:w-48">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="搜索 RTT..."
@@ -451,14 +417,86 @@ export function RttToolbar() {
           />
         </div>
 
-        <ToolbarGroup label="输出">
-          <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
-            <Download className="h-3.5 w-3.5" />
-            导出
-          </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              更多
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[320px] rounded-[24px] border-border/70 p-3">
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-foreground">更多操作</div>
+                <div className="text-xs text-muted-foreground">
+                  低频查看项、图表设置和导出统一收在这里。
+                </div>
+              </div>
 
-          <ColorSettingsDialog />
-        </ToolbarGroup>
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  查看
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={autoScroll ? "secondary" : "outline"}
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className="gap-1"
+                  >
+                    自动滚动
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={displayMode === "hex" ? "secondary" : "outline"}
+                    onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
+                    className="gap-1"
+                  >
+                    {displayMode === "hex" ? <Binary className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                    {displayMode === "hex" ? "Hex" : "文本"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  配置
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <ChartConfigDialog
+                    chartConfig={chartConfig}
+                    setChartConfig={setChartConfig}
+                    title="RTT 图表配置"
+                    trigger={
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        图表配置
+                      </Button>
+                    }
+                  />
+                  <ColorSettingsDialog
+                    trigger={
+                      <Button size="sm" variant="outline" className="gap-1">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        颜色设置
+                      </Button>
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                  输出
+                </div>
+                <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
+                  <Download className="h-3.5 w-3.5" />
+                  导出日志
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

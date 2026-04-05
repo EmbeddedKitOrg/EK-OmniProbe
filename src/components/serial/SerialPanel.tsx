@@ -5,7 +5,7 @@ import { SerialSendBar } from "./SerialSendBar";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
-import { Activity, AlertCircle, BarChart3, FileText, Waves } from "lucide-react";
+import { Activity, AlertCircle, FileText } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 interface SerialPanelProps {
@@ -76,40 +76,32 @@ export function SerialPanel({ className }: SerialPanelProps) {
         title: "先连接串口",
         description: "在左侧选择本地 COM 或 TCP 串口并连接，再开始接收数据。",
       }
-    : !running
-      ? {
-          icon: Activity,
+      : !running
+        ? {
+            icon: Activity,
           title: "串口已连接，等待开始接收",
           description: "点击工具栏里的“开始”，即可进入持续接收状态。",
         }
-      : lines.length === 0
-        ? {
-            icon: FileText,
-            title: "串口正在接收，等待数据流入",
-            description: "收到结构化数值后，可以直接切到“波形 / FFT”，或保留分屏一起观察。",
-          }
-        : chartConfig.enabled
+        : lines.length === 0
           ? {
-              icon: chartConfig.signalDomain === "fft" ? BarChart3 : Waves,
-              title: chartConfig.signalDomain === "fft" ? "当前处于 FFT 分析链路" : "当前处于波形分析链路",
-              description: "如果开启收发分屏，仍可以同时保留终端区查看 RX / TX 文本。",
+              icon: FileText,
+              title: "串口正在接收，等待数据流入",
+              description: "收到结构化数值后，可以直接切到“波形 / FFT”，或保留分屏一起观察。",
             }
-          : {
-              icon: Waves,
-              title: "已经收到数据，可以启用图表",
-              description: "点“智能启用”自动生成图表配置，或直接点“波形 / FFT”查看数值流。",
-            };
+          : null;
 
   return (
-    <div className={cn("flex h-full flex-col gap-3", className)}>
+    <div className={cn("flex h-full flex-col gap-2", className)}>
       {/* Toolbar */}
       <SerialToolbar />
 
-      <PanelHintCard
-        icon={workflowHint.icon}
-        title={workflowHint.title}
-        description={workflowHint.description}
-      />
+      {workflowHint && (
+        <PanelHintCard
+          icon={workflowHint.icon}
+          title={workflowHint.title}
+          description={workflowHint.description}
+        />
+      )}
 
       {/* Error message */}
       {error && (

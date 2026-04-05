@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useLogStore } from "@/stores/logStore";
 import { useUiPreferencesStore } from "@/stores/uiPreferencesStore";
 import { formatTime } from "@/lib/utils";
-import { Trash2, GripHorizontal } from "lucide-react";
+import { Trash2, GripHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function LogPanel() {
@@ -12,8 +12,10 @@ export function LogPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(storedHeight);
   const [isResizing, setIsResizing] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
+  const expandedHeightRef = useRef(storedHeight);
   const rafRef = useRef<number | null>(null);
 
   // 自动滚动到底部（最新日志）- 使用 requestAnimationFrame 节流
@@ -29,18 +31,37 @@ export function LogPanel() {
 
   // 开始拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (collapsed) {
+      return;
+    }
     setIsResizing(true);
     startYRef.current = e.clientY;
     startHeightRef.current = height;
     e.preventDefault();
     // 禁用文本选择
     document.body.style.userSelect = "none";
-  }, [height]);
+  }, [collapsed, height]);
+
+  const toggleCollapsed = useCallback(() => {
+    if (collapsed) {
+      const nextHeight = Math.max(expandedHeightRef.current, 80);
+      setHeight(nextHeight);
+      setStoredHeight(nextHeight);
+      setCollapsed(false);
+      return;
+    }
+
+    expandedHeightRef.current = height;
+    setCollapsed(true);
+  }, [collapsed, height, setStoredHeight]);
 
   // 拖动中 - 使用 requestAnimationFrame 节流
   useEffect(() => {
-    setHeight(storedHeight);
-  }, [storedHeight]);
+    if (!collapsed) {
+      setHeight(storedHeight);
+      expandedHeightRef.current = storedHeight;
+    }
+  }, [collapsed, storedHeight]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -107,57 +128,75 @@ export function LogPanel() {
 
   return (
     <div
-      style={{ height: `${height}px` }}
+      style={{ height: `${collapsed ? 44 : height}px` }}
       className="surface-card relative overflow-hidden rounded-[28px]"
     >
       {/* 拖动手柄 */}
-      <div
-        className={`absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary/20 transition-colors ${
-          isResizing ? "bg-primary/30" : ""
-        }`}
-        onMouseDown={handleMouseDown}
-      >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+      {!collapsed && (
+        <div
+          className={`absolute top-0 left-0 right-0 h-1 cursor-ns-resize hover:bg-primary/20 transition-colors ${
+            isResizing ? "bg-primary/30" : ""
+          }`}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
         <div>
           <div className="text-xs font-medium text-foreground">输出日志</div>
-          <div className="text-[11px] text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
+          {!collapsed && (
+            <div className="text-[11px] text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={clearLogs}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={toggleCollapsed}
+            title={collapsed ? "展开日志" : "折叠日志"}
+          >
+            {collapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={clearLogs}
+            title="清空日志"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+      {!collapsed && (
+        <div
+          ref={scrollRef}
+          className="overflow-y-auto p-3 font-mono text-xs"
+          style={{ height: `calc(100% - 46px)` }}
         >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      </div>
-      <div
-        ref={scrollRef}
-        className="overflow-y-auto p-3 font-mono text-xs"
-        style={{ height: `calc(100% - 46px)` }}
-      >
-        {logs.map((log) => (
-          <div key={log.id} className="flex gap-2 rounded-xl px-2 py-1">
-            <span className="text-muted-foreground shrink-0">
-              [{formatTime(log.timestamp)}]
-            </span>
-            <span className={`shrink-0 ${getLevelColor(log.level)}`}>
-              {getLevelIcon(log.level)}
-            </span>
-            <span className={getLevelColor(log.level)}>{log.message}</span>
-          </div>
-        ))}
-        {logs.length === 0 && (
-          <div className="text-muted-foreground text-center py-4">
-            暂无日志
-          </div>
-        )}
-      </div>
+          {logs.map((log) => (
+            <div key={log.id} className="flex gap-2 rounded-xl px-2 py-1">
+              <span className="text-muted-foreground shrink-0">
+                [{formatTime(log.timestamp)}]
+              </span>
+              <span className={`shrink-0 ${getLevelColor(log.level)}`}>
+                {getLevelIcon(log.level)}
+              </span>
+              <span className={getLevelColor(log.level)}>{log.message}</span>
+            </div>
+          ))}
+          {logs.length === 0 && (
+            <div className="text-muted-foreground text-center py-4">
+              暂无日志
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Activity, Cpu, FileCode, Loader2, Radar, Waves, Wifi } from "lucide-rea
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
+import { AuthorAboutDialog } from "./AuthorAboutDialog";
 
 export function TopBar() {
   const connected = useProbeStore((s) => s.connected);
@@ -129,6 +130,7 @@ export function TopBar() {
 
       <div className="flex w-full items-center justify-end gap-2 text-xs text-muted-foreground 2xl:w-auto 2xl:flex-shrink-0 2xl:gap-3">
         <UpdateChecker showTrigger={false} />
+        <AuthorAboutDialog />
         <SettingsCenterDialog />
 
         {rttConnected && !rttRunning && (

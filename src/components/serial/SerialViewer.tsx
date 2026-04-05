@@ -12,7 +12,7 @@ interface SerialViewerProps {
 }
 
 export function SerialViewer({ direction, title }: SerialViewerProps) {
-  const { autoScroll, showTimestamp, running, displayMode, connected, lines, searchQuery } = useSerialStore();
+  const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } = useSerialStore();
 
   // Filter lines - cached with useMemo to avoid infinite loops
   const filteredLines = useMemo(() => {
@@ -117,6 +117,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
                 <SerialLineItem
                   line={line}
                   showTimestamp={showTimestamp}
+                  showDirectionPrefix={showDirectionPrefix}
                   displayMode={displayMode}
                 />
               </div>
@@ -131,10 +132,11 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
 interface SerialLineItemProps {
   line: SerialLine;
   showTimestamp: boolean;
+  showDirectionPrefix: boolean;
   displayMode: "text" | "hex";
 }
 
-const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp, displayMode }: SerialLineItemProps) {
+const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp, showDirectionPrefix, displayMode }: SerialLineItemProps) {
   const colorParserConfig = useSerialStore((state) => state.colorParserConfig);
 
   const levelColors: Record<SerialLine["level"], string> = {
@@ -199,10 +201,20 @@ const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp,
   }, [line.text, colorParserConfig]);
 
   return (
-    <div className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
+    <div className={cn("flex items-baseline gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
       {showTimestamp && (
-        <span className="text-muted-foreground shrink-0 select-none">
+        <span className="text-muted-foreground shrink-0 select-none font-mono">
           [{formatTime(line.timestamp)}]
+        </span>
+      )}
+      {showDirectionPrefix && (
+        <span
+          className={cn(
+            "shrink-0 select-none font-mono text-xs",
+            line.direction === "rx" ? "text-emerald-600" : "text-sky-600"
+          )}
+        >
+          {line.direction === "rx" ? "【RX】" : "【TX】"}
         </span>
       )}
       {displayMode === "hex" ? (

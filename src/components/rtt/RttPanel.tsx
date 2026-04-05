@@ -5,7 +5,7 @@ import { RttStatusBar } from "./RttStatusBar";
 import { RttChartViewer } from "./RttChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
-import { AlertCircle, BarChart3, FileText, Link, Waves } from "lucide-react";
+import { AlertCircle, FileText, Link } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 interface RttPanelProps {
@@ -34,29 +34,21 @@ export function RttPanel({ className }: RttPanelProps) {
             title: "RTT 正在运行，等待目标输出",
             description: "如果固件已经输出数值流，可以稍后直接切到“波形 / FFT”工作流。",
           }
-        : chartConfig.enabled
-          ? {
-              icon: chartConfig.signalDomain === "fft" ? BarChart3 : Waves,
-              title: chartConfig.signalDomain === "fft" ? "当前处于 FFT 分析链路" : "当前处于波形分析链路",
-              description: "保留文本与图表分屏时，可以同时观察原始日志和时域 / 频域变化。",
-            }
-          : {
-              icon: Waves,
-              title: "已经收到数据，可以启用图表",
-              description: "点“智能启用”自动识别数据格式，或直接点“波形 / FFT”进入图表视图。",
-            };
+        : null;
 
   // RTT is now independent from main connection
   return (
-    <div className={cn("flex h-full flex-col gap-3", className)}>
+    <div className={cn("flex h-full flex-col gap-2", className)}>
       {/* 工具栏 */}
       <RttToolbar />
 
-      <PanelHintCard
-        icon={workflowHint.icon}
-        title={workflowHint.title}
-        description={workflowHint.description}
-      />
+      {workflowHint && (
+        <PanelHintCard
+          icon={workflowHint.icon}
+          title={workflowHint.title}
+          description={workflowHint.description}
+        />
+      )}
 
       {/* 错误提示 */}
       {error && (

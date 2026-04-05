@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.9.3] - 2026-04-06
+
+### 改进
+- 🔧 **RTT / 串口工作台继续紧凑化** - 移除首屏冗余说明卡，仅在未连接、未启动或无数据时显示流程提示，让文本区和波形区获得更多高度
+- 🔧 **工具栏低频操作收口** - 将 RTT / 串口的低频查看项、图表配置、颜色设置和导出统一收进 `更多` 弹出层，减少工具栏换行和首屏挤压
+- 🔧 **串口方向前缀开关** - 串口终端支持显示 `RX` / `TX` 前缀，并可在 `更多` 菜单中开关，合并视图里更容易区分收发方向
+- 🔧 **串口发送栏精简** - 将发送历史和 HEX 切换收进口令式弹出面板，仅保留发送输入与主操作
+- 🔧 **日志面板可折叠** - 工作台底部日志区支持一键折叠，默认高度进一步收紧
+- ✨ **关于作者弹窗** - 顶栏新增“关于作者”按钮，可在软件内查看左岚、Bilibili 和项目 GitHub 入口
+- 🔧 **开发脚本自动探测端口** - `.\dev.ps1` 启动时会自动跳过被系统保留或占用的前端开发端口，并动态同步到 Vite / Tauri
+
 ## [0.9.2] - 2026-03-31
 
 ### 修复
@@ -781,6 +792,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ---
 
 [0.9.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.8.0...v0.9.0
+[0.9.3]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.2...v0.9.3
 [0.8.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.0...v0.7.1
