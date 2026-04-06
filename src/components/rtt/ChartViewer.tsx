@@ -240,8 +240,8 @@ export function ChartViewer({
   }
 
   return (
-    <div className="flex h-full flex-col gap-3 rounded-[32px] border border-border/60 bg-white/80 p-3 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
-      <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/50 bg-secondary/70 px-3 py-2">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-3 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-[24px] border border-border/50 bg-secondary/70 px-3 py-2">
         <Button
           size="sm"
           variant={chartPaused ? "secondary" : "outline"}
@@ -354,75 +354,43 @@ export function ChartViewer({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="glass-section rounded-[24px] p-4">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">观察域</div>
-          <div className="mt-2 text-base font-semibold text-foreground">
-            {chartConfig.chartType === "waveform"
-              ? signalDomain === "fft"
-                ? "FFT 频谱"
-                : "Time 波形"
-              : "业务图表"}
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {chartConfig.chartType === "waveform"
-              ? "适合实时数值流调试，支持缩放、拖拽和平移。"
-              : "适合结构化趋势数据、离散数据或 XY 关系展示。"}
-          </p>
-        </div>
-
-        <div className="glass-section rounded-[24px] p-4">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">采样与缓存</div>
-          <div className="mt-2 text-base font-semibold text-foreground">
-            {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "等待估算"}
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            缓存 {chartData.length} / {chartConfig.maxDataPoints} 点
-            {chartConfig.chartType === "waveform" && ` · FFT 窗口 ${chartConfig.fftWindowSize}`}
-          </p>
-        </div>
-
-        <div className="glass-section rounded-[24px] p-4">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">解析健康度</div>
-          <div className="mt-2 text-base font-semibold text-foreground">
-            {parseHealth === null ? "暂无统计" : `${parseHealth.toFixed(0)}%`}
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            成功 {parseSuccessCount} 次 · 失败 {parseFailCount} 次
-          </p>
-        </div>
-
-        <div className="glass-section rounded-[24px] p-4">
-          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">活跃系列</div>
-          <div className="mt-2 text-base font-semibold text-foreground">{visibleSeries.length} 条</div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            刷新间隔 {chartConfig.updateInterval} ms
-            {chartConfig.chartType === "xy-scatter" && chartConfig.xAxisField
-              ? ` · X 轴 ${chartConfig.xAxisField}`
-              : ""}
-          </p>
-        </div>
+      <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3 py-2 text-[11px] text-muted-foreground">
+        <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
+          {chartConfig.chartType === "waveform"
+            ? signalDomain === "fft"
+              ? "FFT 频谱"
+              : "Time 波形"
+            : "业务图表"}
+        </span>
+        <span className="rounded-full bg-secondary px-3 py-1">
+          {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "等待采样率"}
+        </span>
+        <span className="rounded-full bg-secondary px-3 py-1">
+          解析 {parseHealth === null ? "暂无统计" : `${parseHealth.toFixed(0)}%`}
+        </span>
+        <span className="rounded-full bg-secondary px-3 py-1">
+          系列 {visibleSeries.length} 条
+        </span>
+        <span className="rounded-full bg-secondary px-3 py-1">
+          缓存 {chartData.length} / {chartConfig.maxDataPoints}
+        </span>
+        {chartConfig.chartType === "xy-scatter" && chartConfig.xAxisField && (
+          <span className="rounded-full bg-secondary px-3 py-1">X 轴 {chartConfig.xAxisField}</span>
+        )}
+        {chartConfig.chartType === "waveform" && (
+          <span className="rounded-full bg-secondary px-3 py-1">
+            FFT 窗口 {chartConfig.fftWindowSize}
+          </span>
+        )}
+        {latestSeriesSnapshot.slice(0, 2).map((item) => (
+          <span key={item.key} className="rounded-full bg-secondary px-3 py-1">
+            <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: item.color }} />
+            {item.name} {item.latest.toFixed(2)}
+          </span>
+        ))}
       </div>
 
-      {latestSeriesSnapshot.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {latestSeriesSnapshot.map((item) => (
-            <div key={item.key} className="glass-section rounded-[22px] p-4">
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="truncate text-sm font-medium text-foreground">{item.name}</span>
-              </div>
-              <div className="mt-3 text-lg font-semibold text-foreground">{item.latest.toFixed(3)}</div>
-              <div className="mt-1 text-xs text-muted-foreground">平均值 {item.avg.toFixed(3)}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex-1">
+      <div className="flex-1 min-h-[320px]">
         {chartDataFormatted.length === 0 ? (
           <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
             <div className="space-y-2 text-center">

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { RttChannel, RttLine, RttScanMode } from "@/lib/types";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
-import type { ChartConfig, ChartDataPoint, ChartSeries, ViewMode } from "@/lib/chartTypes";
+import type { ChartConfig, ChartDataPoint, ChartSeries, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
 import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
@@ -11,8 +11,10 @@ import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromSt
 const CHART_CONFIG_KEY = "rtt_chart_config";
 const VIEW_MODE_KEY = "rtt_view_mode";
 const SPLIT_RATIO_KEY = "rtt_split_ratio";
+const SPLIT_ORIENTATION_KEY = "rtt_split_orientation";
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
+const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 
 interface RttState {
   // RTT 连接状态
@@ -43,6 +45,7 @@ interface RttState {
   // 视图模式
   viewMode: ViewMode; // 视图模式：仅文本/仅图表/分屏
   splitRatio: number; // 分屏比例（0-1，表示文本区域占比）
+  splitOrientation: SplitOrientation;
 
   // 图表数据
   chartData: ChartDataPoint[]; // 图表数据点
@@ -80,6 +83,7 @@ interface RttState {
   setColorParserConfig: (config: ColorParserConfig) => void; // 新增
   setViewMode: (mode: ViewMode) => void; // 新增：设置视图模式
   setSplitRatio: (ratio: number) => void; // 新增：设置分屏比例
+  setSplitOrientation: (orientation: SplitOrientation) => void;
   setChartConfig: (config: ChartConfig) => void; // 新增：设置图表配置
   addChartData: (data: ChartDataPoint) => void; // 新增：添加图表数据
   clearChartData: () => void; // 新增：清空图表数据
@@ -114,6 +118,7 @@ export const useRttStore = create<RttState>((set) => ({
   colorParserConfig: loadColorParserConfig(), // 新增：从 localStorage 加载配置
   viewMode: loadStringFromStorage(VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"), // 新增：从 localStorage 加载视图模式
   splitRatio: loadNumberFromStorage(SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1), // 新增：从 localStorage 加载分屏比例
+  splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
   chartConfig: {
     ...DEFAULT_CHART_CONFIG,
@@ -184,6 +189,11 @@ export const useRttStore = create<RttState>((set) => ({
   setSplitRatio: (splitRatio) => {
     saveNumberToStorage(SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
+  },
+
+  setSplitOrientation: (splitOrientation) => {
+    saveToStorage(SPLIT_ORIENTATION_KEY, splitOrientation);
+    set({ splitOrientation });
   },
 
   setChartConfig: (chartConfig) => {

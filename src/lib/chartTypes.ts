@@ -124,6 +124,13 @@ export interface ChartConfig {
 export type ViewMode = "text" | "chart" | "split";
 
 /**
+ * 分屏方向
+ * vertical: 上下分屏
+ * horizontal: 左右分屏
+ */
+export type SplitOrientation = "vertical" | "horizontal";
+
+/**
  * 默认图表配置
  */
 export const DEFAULT_CHART_CONFIG: ChartConfig = {

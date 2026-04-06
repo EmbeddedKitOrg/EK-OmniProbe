@@ -43,6 +43,7 @@ export function SerialToolbar() {
     textViewMode,
     terminalSettings,
     viewMode,
+    splitOrientation,
     lines,
     chartConfig,
     setRunning,
@@ -55,6 +56,7 @@ export function SerialToolbar() {
     setTextViewMode,
     setTerminalSettings,
     setViewMode,
+    setSplitOrientation,
     clearLines,
     setChartConfig,
   } = useSerialStore();
@@ -271,6 +273,29 @@ export function SerialToolbar() {
             <BarChart3 className="h-3.5 w-3.5" />
           </Button>
         </div>
+
+        {viewMode === "split" && (
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant={splitOrientation === "vertical" ? "secondary" : "outline"}
+              onClick={() => setSplitOrientation("vertical")}
+              className="px-2 text-xs"
+              title="上下分屏"
+            >
+              上下
+            </Button>
+            <Button
+              size="sm"
+              variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
+              onClick={() => setSplitOrientation("horizontal")}
+              className="px-2 text-xs"
+              title="左右分屏"
+            >
+              左右
+            </Button>
+          </div>
+        )}
       </ToolbarGroup>
 
       <ToolbarGroup label="分析">
