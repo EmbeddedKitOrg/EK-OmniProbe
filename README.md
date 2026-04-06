@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发三合一工具，集成**固件烧录**、**RTT 调试**和**串口终端**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-0.9.3-blue)
+![Version](https://img.shields.io/badge/version-0.9.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -308,7 +308,7 @@ Windows PowerShell 也可以直接运行：
 常用参数：
 
 - `-NoInstall`：跳过依赖安装检查
-- `-ExpectedVersion 0.9.3`：额外检查版本号、README 徽章和 CHANGELOG 条目是否一致
+- `-ExpectedVersion 0.9.4`：额外检查版本号、README 徽章和 CHANGELOG 条目是否一致
 - `-ReleaseLike`：额外执行一遍本机 Windows 目标的 `tauri build`，更接近正式发布流程
 
 ### 构建发布版本
@@ -527,11 +527,20 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 
 查看完整的更新日志请访问 [CHANGELOG.md](CHANGELOG.md)
 
-### 最新版本 v0.9.3 (2026-04-06)
+### 最新版本 v0.9.4 (2026-04-06)
+
+#### 新增与改进
+- ✨ **终端区直接输入** - 串口终端支持点击会话区域后直接键入，交互方式更接近 shell / CLI
+- 🔧 **终端本地回显默认关闭** - 避免设备自身回显时出现 `hheellpp` 这类字符双写
+- 🐛 **终端输入类型兼容** - 修复 `pnpm exec tsc --noEmit` 下的 `isComposing` 类型检查错误
+- ✨ **关于作者弹窗** - 顶栏新增“关于作者”按钮，可在软件内查看左岚、Bilibili 和项目 GitHub 入口
+- ✨ **串口终端视图** - 串口文本区新增“日志 / 终端”双视图，终端模式支持点击区域后直接输入，更适合 CLI 和 shell 式交互
+
+### v0.9.3 (2026-04-06)
 
 #### 新增与改进
 - ✨ **关于作者弹窗** - 顶栏新增“关于作者”按钮，可在软件内查看左岚、Bilibili 和项目 GitHub 入口
-- ✨ **串口终端视图** - 串口文本区新增“日志 / 终端”双视图，终端模式支持点击区域后直接输入，更适合 CLI 和 shell 式交互
+- ✨ **串口终端视图** - 串口文本区新增“日志 / 终端”双视图，终端模式更适合 CLI 和 shell 式交互
 - 🔧 **串口方向前缀** - 串口终端支持显示 `【RX】` / `【TX】` 前缀，合并视图中更容易区分收发方向
 - 🔧 **开发脚本自动探测端口** - `.\dev.ps1` 会自动跳过被系统保留或占用的端口，并动态同步到 Vite / Tauri
 - 🔧 **本地检查脚本** - 新增 `.\check.ps1`，推送前可一键执行 TypeScript、前端构建与 Rust 检查
