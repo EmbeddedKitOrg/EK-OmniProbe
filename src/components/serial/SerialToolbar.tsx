@@ -11,6 +11,7 @@ import {
   Download,
   Search,
   FileText,
+  SquareTerminal,
   SplitSquareHorizontal,
   BarChart3,
   Waves,
@@ -39,6 +40,8 @@ export function SerialToolbar() {
     splitByDirection,
     searchQuery,
     displayMode,
+    textViewMode,
+    terminalSettings,
     viewMode,
     lines,
     chartConfig,
@@ -49,6 +52,8 @@ export function SerialToolbar() {
     setSplitByDirection,
     setSearchQuery,
     setDisplayMode,
+    setTextViewMode,
+    setTerminalSettings,
     setViewMode,
     clearLines,
     setChartConfig,
@@ -220,6 +225,29 @@ export function SerialToolbar() {
         <div className="flex gap-1">
           <Button
             size="sm"
+            variant={textViewMode === "log" ? "secondary" : "outline"}
+            onClick={() => setTextViewMode("log")}
+            className="gap-1"
+            title="日志视图"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            日志
+          </Button>
+          <Button
+            size="sm"
+            variant={textViewMode === "terminal" ? "secondary" : "outline"}
+            onClick={() => setTextViewMode("terminal")}
+            className="gap-1"
+            title="终端视图"
+          >
+            <SquareTerminal className="h-3.5 w-3.5" />
+            终端
+          </Button>
+        </div>
+
+        <div className="flex gap-1">
+          <Button
+            size="sm"
             variant={viewMode === "text" ? "secondary" : "outline"}
             onClick={() => setViewMode("text")}
             title="仅文本"
@@ -283,15 +311,17 @@ export function SerialToolbar() {
       </ToolbarGroup>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="relative w-40 sm:w-48">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="搜索串口..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-7 text-xs"
-          />
-        </div>
+        {textViewMode === "log" && (
+          <div className="relative w-40 sm:w-48">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="搜索串口..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-7 text-xs"
+            />
+          </div>
+        )}
 
         <Popover>
           <PopoverTrigger asChild>
@@ -305,7 +335,9 @@ export function SerialToolbar() {
               <div>
                 <div className="text-sm font-medium text-foreground">更多操作</div>
                 <div className="text-xs text-muted-foreground">
-                  收发分屏、时间戳、显示方式和导出统一收在这里。
+                  {textViewMode === "terminal"
+                    ? "终端会话的本地回显、快捷键拦截和颜色配置统一收在这里。"
+                    : "收发分屏、时间戳、显示方式和导出统一收在这里。"}
                 </div>
               </div>
 
@@ -314,42 +346,71 @@ export function SerialToolbar() {
                   查看
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant={showTimestamp ? "secondary" : "outline"}
-                    onClick={() => setShowTimestamp(!showTimestamp)}
-                    className="gap-1"
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    时间戳
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={showDirectionPrefix ? "secondary" : "outline"}
-                    onClick={() => setShowDirectionPrefix(!showDirectionPrefix)}
-                    className="gap-1"
-                  >
-                    <Tags className="h-3.5 w-3.5" />
-                    RX/TX 前缀
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={splitByDirection ? "secondary" : "outline"}
-                    onClick={() => setSplitByDirection(!splitByDirection)}
-                    className="gap-1"
-                  >
-                    <Columns className="h-3.5 w-3.5" />
-                    收发分屏
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={displayMode === "hex" ? "secondary" : "outline"}
-                    onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
-                    className="gap-1"
-                  >
-                    {displayMode === "hex" ? <Binary className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                    {displayMode === "hex" ? "Hex" : "文本"}
-                  </Button>
+                  {textViewMode === "log" ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant={showTimestamp ? "secondary" : "outline"}
+                        onClick={() => setShowTimestamp(!showTimestamp)}
+                        className="gap-1"
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                        时间戳
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={showDirectionPrefix ? "secondary" : "outline"}
+                        onClick={() => setShowDirectionPrefix(!showDirectionPrefix)}
+                        className="gap-1"
+                      >
+                        <Tags className="h-3.5 w-3.5" />
+                        RX/TX 前缀
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={splitByDirection ? "secondary" : "outline"}
+                        onClick={() => setSplitByDirection(!splitByDirection)}
+                        className="gap-1"
+                      >
+                        <Columns className="h-3.5 w-3.5" />
+                        收发分屏
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={displayMode === "hex" ? "secondary" : "outline"}
+                        onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
+                        className="gap-1"
+                      >
+                        {displayMode === "hex" ? <Binary className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                        {displayMode === "hex" ? "Hex" : "文本"}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant={terminalSettings.localEcho ? "secondary" : "outline"}
+                        onClick={() => setTerminalSettings({ localEcho: !terminalSettings.localEcho })}
+                        className="gap-1"
+                      >
+                        <SquareTerminal className="h-3.5 w-3.5" />
+                        本地回显
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={terminalSettings.interceptShortcuts ? "secondary" : "outline"}
+                        onClick={() =>
+                          setTerminalSettings({
+                            interceptShortcuts: !terminalSettings.interceptShortcuts,
+                          })
+                        }
+                        className="gap-1"
+                      >
+                        <Tags className="h-3.5 w-3.5" />
+                        控制键拦截
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 

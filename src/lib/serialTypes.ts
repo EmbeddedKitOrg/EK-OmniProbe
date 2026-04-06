@@ -84,6 +84,11 @@ export interface SerialLine extends Omit<RttLine, "channel"> {
   direction: "rx" | "tx";
 }
 
+export interface SerialTerminalLine {
+  id: number;
+  text: string;
+}
+
 /**
  * Common baud rates
  */
@@ -111,6 +116,8 @@ export const DEFAULT_SERIAL_CONFIG: LocalSerialConfig = {
  */
 export type DataSourceType = "local" | "tcp";
 
+export type SerialTextViewMode = "log" | "terminal";
+
 /**
  * Line ending options
  */
@@ -120,3 +127,8 @@ export type LineEnding = "none" | "lf" | "crlf" | "cr";
  * Encoding options
  */
 export type Encoding = "utf-8" | "ascii" | "gbk";
+
+export interface SerialTerminalSettings {
+  localEcho: boolean;
+  interceptShortcuts: boolean;
+}
