@@ -5,10 +5,19 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.9.4] - 2026-04-06
+
+### 改进
+- ✨ **终端区直接输入** - 串口终端支持点击会话区域后直接键入，输入、粘贴和控制键交互更接近 shell / CLI
+- 🔧 **终端本地回显默认关闭** - 默认避免与设备自身回显叠加，修复 `hheellpp` 这类字符双写问题
+
+### 修复
+- 🐛 **终端输入类型兼容** - 修复 `pnpm exec tsc --noEmit` 下 `isComposing` 的 TypeScript 类型检查错误
+
 ## [0.9.3] - 2026-04-06
 
 ### 改进
-- ✨ **串口终端视图** - 串口文本区新增 `日志 / 终端` 双视图，终端模式支持点击终端后直接输入，本地回显默认关闭，并支持控制键快捷发送和常见回车/退格会话语义
+- ✨ **串口终端视图** - 串口文本区新增 `日志 / 终端` 双视图，终端模式支持本地回显、控制键快捷发送和常见回车/退格会话语义
 - 🔧 **RTT / 串口工作台继续紧凑化** - 移除首屏冗余说明卡，仅在未连接、未启动或无数据时显示流程提示，让文本区和波形区获得更多高度
 - 🔧 **工具栏低频操作收口** - 将 RTT / 串口的低频查看项、图表配置、颜色设置和导出统一收进 `更多` 弹出层，减少工具栏换行和首屏挤压
 - 🔧 **串口方向前缀开关** - 串口终端支持显示 `RX` / `TX` 前缀，并可在 `更多` 菜单中开关，合并视图里更容易区分收发方向
@@ -794,6 +803,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
+[0.9.4]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.3...v0.9.4
 [0.9.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.8.0...v0.9.0
 [0.9.3]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.2...v0.9.3
 [0.8.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.7.2...v0.8.0
