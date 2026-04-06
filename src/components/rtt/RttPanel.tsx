@@ -13,8 +13,19 @@ interface RttPanelProps {
 }
 
 export function RttPanel({ className }: RttPanelProps) {
-  const { error, viewMode, splitRatio, setSplitRatio, rttConnected, isRunning, lines, chartConfig } =
+  const {
+    error,
+    viewMode,
+    splitRatio,
+    splitOrientation,
+    setSplitRatio,
+    rttConnected,
+    isRunning,
+    lines,
+    chartConfig,
+  } =
     useRttStore();
+  const isVerticalSplit = splitOrientation === "vertical";
 
   const workflowHint = !rttConnected
     ? {
@@ -66,7 +77,7 @@ export function RttPanel({ className }: RttPanelProps) {
         {viewMode === "text" ? (
           <PanelShell
             title="文本区"
-            subtitle="查看原始 RTT 输出、搜索命中和通道日志。"
+            subtitle="原始 RTT 输出。"
             badge="Console"
           >
             <RttViewer />
@@ -74,35 +85,40 @@ export function RttPanel({ className }: RttPanelProps) {
         ) : viewMode === "chart" ? (
           <PanelShell
             title="图表区"
-            subtitle="查看波形、FFT 或结构化趋势图。"
+            subtitle="波形、FFT 与趋势图。"
             badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
           >
             <RttChartViewer />
           </PanelShell>
         ) : (
           // 分屏模式
-          <Group orientation="vertical">
+          <Group orientation={splitOrientation}>
             <Panel
               defaultSize={splitRatio * 100}
               minSize={20}
               onResize={(panelSize) => setSplitRatio(panelSize.asPercentage / 100)}
             >
-              <div className="h-full min-h-0 pb-1">
+              <div className={cn("h-full min-h-0", isVerticalSplit ? "pb-1" : "pr-1")}>
                 <PanelShell
                   title="文本区"
-                  subtitle="保留原始 RTT 文本，方便和图表结果对照。"
+                  subtitle="原始 RTT 文本。"
                   badge="Console"
                 >
                   <RttViewer />
                 </PanelShell>
               </div>
             </Panel>
-            <Separator className="h-1 bg-border hover:bg-primary/50 transition-colors" />
+            <Separator
+              className={cn(
+                "bg-border hover:bg-primary/50 transition-colors",
+                isVerticalSplit ? "h-1" : "w-1"
+              )}
+            />
             <Panel defaultSize={(1 - splitRatio) * 100} minSize={20}>
-              <div className="h-full min-h-0 pt-1">
+              <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
                 <PanelShell
                   title="图表区"
-                  subtitle="智能启用、波形和 FFT 都会在这里展开。"
+                  subtitle="图表主视图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
                 >
                   <RttChartViewer />

@@ -77,6 +77,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
     error,
     viewMode,
     splitRatio,
+    splitOrientation,
     setSplitRatio,
     splitByDirection,
     textViewMode,
@@ -86,6 +87,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
     chartConfig,
   } = useSerialStore();
   const showSendBar = textViewMode !== "terminal";
+  const isVerticalSplit = splitOrientation === "vertical";
 
   const workflowHint = !connected
     ? {
@@ -139,10 +141,10 @@ export function SerialPanel({ className }: SerialPanelProps) {
             title="文本区"
             subtitle={
               textViewMode === "terminal"
-                ? "单会话终端视图，适合持续交互式命令行。"
+                ? "单会话终端。"
                 : splitByDirection
-                  ? "当前按收发方向分屏，方便同时查看 RX / TX。"
-                  : "查看原始终端输出、搜索命中和时间戳。"
+                  ? "按收发方向分栏。"
+                  : "原始串口输出。"
             }
             badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
           >
@@ -152,28 +154,28 @@ export function SerialPanel({ className }: SerialPanelProps) {
           // Chart only mode
           <PanelShell
             title="图表区"
-            subtitle="查看波形、FFT 或结构化串口图表。"
+            subtitle="波形、FFT 与趋势图。"
             badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
           >
             <SerialChartViewer />
           </PanelShell>
         ) : (
           // Split mode (terminal + chart) - terminal section respects splitByDirection
-          <Group orientation="vertical">
+          <Group orientation={splitOrientation}>
             <Panel
               defaultSize={splitRatio * 100}
               minSize={20}
               onResize={(panelSize) => setSplitRatio(panelSize.asPercentage / 100)}
             >
-              <div className="h-full min-h-0 pb-1">
+              <div className={cn("h-full min-h-0", isVerticalSplit ? "pb-1" : "pr-1")}>
                 <PanelShell
                   title="文本区"
                   subtitle={
                     textViewMode === "terminal"
-                      ? "上方保留交互式终端会话，下方继续观察结构化波形。"
+                      ? "终端会话。"
                       : splitByDirection
-                        ? "上方保留终端视图，并按收发方向拆分。"
-                        : "上方保留原始终端输出，方便和图表结果互相对照。"
+                        ? "按收发方向分栏。"
+                        : "原始串口输出。"
                   }
                   badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
                 >
@@ -181,12 +183,17 @@ export function SerialPanel({ className }: SerialPanelProps) {
                 </PanelShell>
               </div>
             </Panel>
-            <Separator className="h-1 bg-border hover:bg-primary/50 transition-colors" />
+            <Separator
+              className={cn(
+                "bg-border hover:bg-primary/50 transition-colors",
+                isVerticalSplit ? "h-1" : "w-1"
+              )}
+            />
             <Panel defaultSize={(1 - splitRatio) * 100} minSize={20}>
-              <div className="h-full min-h-0 pt-1">
+              <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
                 <PanelShell
                   title="图表区"
-                  subtitle="智能启用、波形和 FFT 都会在这里展开。"
+                  subtitle="图表主视图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
                 >
                   <SerialChartViewer />

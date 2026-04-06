@@ -14,7 +14,7 @@ import type {
 } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
-import type { ChartConfig, ChartDataPoint, ViewMode } from "@/lib/chartTypes";
+import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
 import {
@@ -31,6 +31,7 @@ const SERIAL_CONFIG_KEY = "serial_config";
 const SERIAL_CHART_CONFIG_KEY = "serial_chart_config";
 const SERIAL_VIEW_MODE_KEY = "serial_view_mode";
 const SERIAL_SPLIT_RATIO_KEY = "serial_split_ratio";
+const SERIAL_SPLIT_ORIENTATION_KEY = "serial_split_orientation";
 const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
@@ -40,6 +41,7 @@ const SERIAL_TERMINAL_SETTINGS_VERSION = 2;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
+const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
 
 // Default local serial config
@@ -126,6 +128,7 @@ interface SerialState {
   // View mode
   viewMode: ViewMode;
   splitRatio: number;
+  splitOrientation: SplitOrientation;
 
   // Chart data
   chartData: ChartDataPoint[];
@@ -173,6 +176,7 @@ interface SerialState {
 
   setViewMode: (mode: ViewMode) => void;
   setSplitRatio: (ratio: number) => void;
+  setSplitOrientation: (orientation: SplitOrientation) => void;
 
   setChartConfig: (config: ChartConfig) => void;
   addChartData: (data: ChartDataPoint) => void;
@@ -425,6 +429,11 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
   splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
+  splitOrientation: loadStringFromStorage(
+    SERIAL_SPLIT_ORIENTATION_KEY,
+    SPLIT_ORIENTATION_VALUES,
+    "vertical"
+  ),
 
   chartData: [],
   chartConfig: {
@@ -572,6 +581,11 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setSplitRatio: (splitRatio) => {
     saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
+  },
+
+  setSplitOrientation: (splitOrientation) => {
+    saveToStorage(SERIAL_SPLIT_ORIENTATION_KEY, splitOrientation);
+    set({ splitOrientation });
   },
 
   setChartConfig: (chartConfig) => {
