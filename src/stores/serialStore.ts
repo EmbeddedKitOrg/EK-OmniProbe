@@ -35,6 +35,8 @@ const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
 const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
+const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
+const SERIAL_TERMINAL_SETTINGS_VERSION = 2;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -82,7 +84,7 @@ const defaultSerialConfigBundle = {
   activeType: "local" as DataSourceType,
 };
 const defaultSendSettings: SendSettings = { encoding: "utf-8", lineEnding: "lf", hexMode: false };
-const defaultTerminalSettings: SerialTerminalSettings = { localEcho: true, interceptShortcuts: true };
+const defaultTerminalSettings: SerialTerminalSettings = { localEcho: false, interceptShortcuts: true };
 
 interface SerialState {
   // Connection state
@@ -187,7 +189,27 @@ interface SerialState {
 
 const savedConfig = loadFromStorage(SERIAL_CONFIG_KEY, defaultSerialConfigBundle);
 const savedSendSettings = loadFromStorage(SERIAL_SEND_SETTINGS_KEY, defaultSendSettings);
-const savedTerminalSettings = loadFromStorage(SERIAL_TERMINAL_SETTINGS_KEY, defaultTerminalSettings);
+const savedTerminalSettingsVersion = loadNumberFromStorage(
+  SERIAL_TERMINAL_SETTINGS_VERSION_KEY,
+  0,
+  (value) => value >= 0
+);
+const loadedTerminalSettings = loadFromStorage(
+  SERIAL_TERMINAL_SETTINGS_KEY,
+  defaultTerminalSettings
+);
+const savedTerminalSettings: SerialTerminalSettings =
+  savedTerminalSettingsVersion < SERIAL_TERMINAL_SETTINGS_VERSION
+    ? {
+        ...loadedTerminalSettings,
+        localEcho: false,
+      }
+    : loadedTerminalSettings;
+
+if (savedTerminalSettingsVersion < SERIAL_TERMINAL_SETTINGS_VERSION) {
+  saveToStorage(SERIAL_TERMINAL_SETTINGS_KEY, savedTerminalSettings);
+  saveNumberToStorage(SERIAL_TERMINAL_SETTINGS_VERSION_KEY, SERIAL_TERMINAL_SETTINGS_VERSION);
+}
 
 function getVisibleLength(units: TerminalUnit[]) {
   return units.filter((unit) => unit.kind === "char").length;

@@ -85,6 +85,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
     lines,
     chartConfig,
   } = useSerialStore();
+  const showSendBar = textViewMode !== "terminal";
 
   const workflowHint = !connected
     ? {
@@ -197,7 +198,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
       </div>
 
       {/* Send bar */}
-      <SerialSendBar />
+      {showSendBar && <SerialSendBar />}
     </div>
   );
 }
