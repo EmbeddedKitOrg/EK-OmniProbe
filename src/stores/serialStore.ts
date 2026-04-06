@@ -594,7 +594,10 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       ...chartConfig,
     };
     saveToStorage(SERIAL_CHART_CONFIG_KEY, normalizedConfig);
-    set({ chartConfig: normalizedConfig });
+    set((state) => ({
+      chartConfig: normalizedConfig,
+      chartData: state.chartData.slice(-normalizedConfig.maxDataPoints),
+    }));
   },
 
   addChartData: (data) =>

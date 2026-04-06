@@ -194,6 +194,24 @@ export function ChartConfigDialog({
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="visiblePointLimit">可视点数 (0=自动)</Label>
+                    <Input
+                      id="visiblePointLimit"
+                      type="number"
+                      value={localConfig.visiblePointLimit}
+                      onChange={(event) =>
+                        setLocalConfig({
+                          ...localConfig,
+                          visiblePointLimit: Math.max(parseInt(event.target.value, 10) || 0, 0),
+                        })
+                      }
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      用于限制单次渲染的点数，降低高频数据下的界面压力；填 0 表示按当前缓存自动显示。
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="updateInterval">刷新间隔 (ms)</Label>
                     <Input
                       id="updateInterval"

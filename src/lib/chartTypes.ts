@@ -93,6 +93,8 @@ export interface ChartConfig {
   series: ChartSeries[];
   /** 最大数据点数 */
   maxDataPoints: number;
+  /** 渲染时最多显示多少个点，0 表示自动 */
+  visiblePointLimit: number;
   /** 更新间隔（毫秒） */
   updateInterval: number;
 
@@ -155,6 +157,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   chartType: "waveform",
   series: [],
   maxDataPoints: 4000,
+  visiblePointLimit: 600,
   updateInterval: 33,
   fftWindowSize: 1024,
   sampleRateHz: 0,
