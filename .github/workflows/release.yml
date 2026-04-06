@@ -184,6 +184,10 @@ jobs:
           releaseBody: |
             ## EK-OmniProbe RTTVIEW
 
+            ### 🆕 本次更新
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
             ### 📦 下载说明
 
             | 平台 | 文件 | 说明 |
@@ -198,7 +202,6 @@ jobs:
             - **Windows**: Windows 10/11 64位，需要WebView2运行时
             - **macOS**: macOS 11.0+ (Big Sur或更高), 通用版支持 Apple Silicon / Intel
             - **Linux**: 需要WebKitGTK和libusb
-
 
             完整更新历史: [CHANGELOG.md](https://github.com/EmbeddedKitOrg/EK-OmniProbe/blob/main/CHANGELOG.md)
           releaseDraft: false
