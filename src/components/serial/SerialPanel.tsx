@@ -2,6 +2,7 @@ import { useSerialStore } from "@/stores/serialStore";
 import { SerialToolbar } from "./SerialToolbar";
 import { SerialViewer } from "./SerialViewer";
 import { SerialSendBar } from "./SerialSendBar";
+import { SerialTerminalViewer } from "./SerialTerminalViewer";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ function SerialChartViewer() {
 }
 
 // Terminal viewer section - can be split by direction or single view
-function TerminalSection({ splitByDirection }: { splitByDirection: boolean }) {
+function LogSection({ splitByDirection }: { splitByDirection: boolean }) {
   if (splitByDirection) {
     return (
       <Group orientation="horizontal">
@@ -57,6 +58,20 @@ function TerminalSection({ splitByDirection }: { splitByDirection: boolean }) {
   return <SerialViewer />;
 }
 
+function TextSection({
+  textViewMode,
+  splitByDirection,
+}: {
+  textViewMode: "log" | "terminal";
+  splitByDirection: boolean;
+}) {
+  if (textViewMode === "terminal") {
+    return <SerialTerminalViewer />;
+  }
+
+  return <LogSection splitByDirection={splitByDirection} />;
+}
+
 export function SerialPanel({ className }: SerialPanelProps) {
   const {
     error,
@@ -64,6 +79,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
     splitRatio,
     setSplitRatio,
     splitByDirection,
+    textViewMode,
     connected,
     running,
     lines,
@@ -120,10 +136,16 @@ export function SerialPanel({ className }: SerialPanelProps) {
           // Text only mode - respect splitByDirection
           <PanelShell
             title="文本区"
-            subtitle={splitByDirection ? "当前按收发方向分屏，方便同时查看 RX / TX。" : "查看原始终端输出、搜索命中和时间戳。"}
-            badge={splitByDirection ? "RX / TX" : "Console"}
+            subtitle={
+              textViewMode === "terminal"
+                ? "单会话终端视图，适合持续交互式命令行。"
+                : splitByDirection
+                  ? "当前按收发方向分屏，方便同时查看 RX / TX。"
+                  : "查看原始终端输出、搜索命中和时间戳。"
+            }
+            badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
           >
-            <TerminalSection splitByDirection={splitByDirection} />
+            <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
           </PanelShell>
         ) : viewMode === "chart" ? (
           // Chart only mode
@@ -145,10 +167,16 @@ export function SerialPanel({ className }: SerialPanelProps) {
               <div className="h-full min-h-0 pb-1">
                 <PanelShell
                   title="文本区"
-                  subtitle={splitByDirection ? "上方保留终端视图，并按收发方向拆分。" : "上方保留原始终端输出，方便和图表结果互相对照。"}
-                  badge={splitByDirection ? "RX / TX" : "Console"}
+                  subtitle={
+                    textViewMode === "terminal"
+                      ? "上方保留交互式终端会话，下方继续观察结构化波形。"
+                      : splitByDirection
+                        ? "上方保留终端视图，并按收发方向拆分。"
+                        : "上方保留原始终端输出，方便和图表结果互相对照。"
+                  }
+                  badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
                 >
-                  <TerminalSection splitByDirection={splitByDirection} />
+                  <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
                 </PanelShell>
               </div>
             </Panel>

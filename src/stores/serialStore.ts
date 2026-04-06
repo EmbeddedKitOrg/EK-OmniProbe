@@ -8,6 +8,9 @@ import type {
   Encoding,
   LocalSerialConfig,
   TcpSerialConfig,
+  SerialTerminalLine,
+  SerialTextViewMode,
+  SerialTerminalSettings,
 } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
@@ -30,6 +33,12 @@ const SERIAL_VIEW_MODE_KEY = "serial_view_mode";
 const SERIAL_SPLIT_RATIO_KEY = "serial_split_ratio";
 const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
+const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
+const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
+
+const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
+const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
+const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
 
 // Default local serial config
 const defaultLocalConfig: LocalSerialConfig = {
@@ -56,11 +65,24 @@ interface SendSettings {
   hexMode: boolean;
 }
 
-const defaultSerialConfigBundle = { local: defaultLocalConfig, tcp: defaultTcpConfig, activeType: "local" as DataSourceType };
+type TerminalUnit =
+  | { kind: "char"; value: string }
+  | { kind: "ansi"; value: string };
+
+type TerminalToken =
+  | { type: "char"; value: string }
+  | { type: "ansi"; value: string }
+  | { type: "cr" }
+  | { type: "lf" }
+  | { type: "bs" };
+
+const defaultSerialConfigBundle = {
+  local: defaultLocalConfig,
+  tcp: defaultTcpConfig,
+  activeType: "local" as DataSourceType,
+};
 const defaultSendSettings: SendSettings = { encoding: "utf-8", lineEnding: "lf", hexMode: false };
-
-const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
-
+const defaultTerminalSettings: SerialTerminalSettings = { localEcho: true, interceptShortcuts: true };
 
 interface SerialState {
   // Connection state
@@ -87,6 +109,17 @@ interface SerialState {
   searchQuery: string;
   displayMode: "text" | "hex";
   colorParserConfig: ColorParserConfig;
+  textViewMode: SerialTextViewMode;
+
+  // Terminal state
+  terminalLines: SerialTerminalLine[];
+  terminalActiveLine: string;
+  terminalActiveUnits: TerminalUnit[];
+  terminalCursorColumn: number;
+  terminalPendingEscape: string;
+  terminalLineCounter: number;
+  maxTerminalLines: number;
+  terminalSettings: SerialTerminalSettings;
 
   // View mode
   viewMode: ViewMode;
@@ -130,6 +163,11 @@ interface SerialState {
   setSearchQuery: (query: string) => void;
   setDisplayMode: (mode: "text" | "hex") => void;
   setColorParserConfig: (config: ColorParserConfig) => void;
+  setTextViewMode: (mode: SerialTextViewMode) => void;
+
+  appendTerminalChunk: (text: string) => void;
+  clearTerminalBuffer: () => void;
+  setTerminalSettings: (settings: Partial<SerialTerminalSettings>) => void;
 
   setViewMode: (mode: ViewMode) => void;
   setSplitRatio: (ratio: number) => void;
@@ -149,6 +187,186 @@ interface SerialState {
 
 const savedConfig = loadFromStorage(SERIAL_CONFIG_KEY, defaultSerialConfigBundle);
 const savedSendSettings = loadFromStorage(SERIAL_SEND_SETTINGS_KEY, defaultSendSettings);
+const savedTerminalSettings = loadFromStorage(SERIAL_TERMINAL_SETTINGS_KEY, defaultTerminalSettings);
+
+function getVisibleLength(units: TerminalUnit[]) {
+  return units.filter((unit) => unit.kind === "char").length;
+}
+
+function getVisibleUnitIndex(units: TerminalUnit[], visibleIndex: number) {
+  let currentVisible = 0;
+
+  for (let index = 0; index < units.length; index += 1) {
+    if (units[index].kind !== "char") {
+      continue;
+    }
+
+    if (currentVisible === visibleIndex) {
+      return index;
+    }
+
+    currentVisible += 1;
+  }
+
+  return -1;
+}
+
+function getInsertionIndex(units: TerminalUnit[], cursorColumn: number) {
+  let currentVisible = 0;
+
+  for (let index = 0; index < units.length; index += 1) {
+    if (units[index].kind !== "char") {
+      continue;
+    }
+
+    if (currentVisible === cursorColumn) {
+      return index;
+    }
+
+    currentVisible += 1;
+  }
+
+  return units.length;
+}
+
+function unitsToText(units: TerminalUnit[]) {
+  return units.map((unit) => unit.value).join("");
+}
+
+function tokenizeTerminalChunk(
+  text: string,
+  pendingEscape: string
+): { tokens: TerminalToken[]; pendingEscape: string } {
+  const tokens: TerminalToken[] = [];
+  const combined = pendingEscape + text;
+  let index = 0;
+
+  while (index < combined.length) {
+    const char = combined[index];
+
+    if (char === "\x1b") {
+      const match = combined.slice(index).match(ANSI_ESCAPE_SEQUENCE_REGEX);
+      if (!match) {
+        return { tokens, pendingEscape: combined.slice(index) };
+      }
+
+      tokens.push({ type: "ansi", value: match[0] });
+      index += match[0].length;
+      continue;
+    }
+
+    if (char === "\r") {
+      tokens.push({ type: "cr" });
+      index += 1;
+      continue;
+    }
+
+    if (char === "\n") {
+      tokens.push({ type: "lf" });
+      index += 1;
+      continue;
+    }
+
+    if (char === "\b") {
+      tokens.push({ type: "bs" });
+      index += 1;
+      continue;
+    }
+
+    tokens.push({ type: "char", value: char });
+    index += 1;
+  }
+
+  return { tokens, pendingEscape: "" };
+}
+
+function processTerminalChunk(
+  text: string,
+  state: Pick<
+    SerialState,
+    | "terminalLines"
+    | "terminalActiveUnits"
+    | "terminalCursorColumn"
+    | "terminalPendingEscape"
+    | "terminalLineCounter"
+    | "maxTerminalLines"
+  >
+) {
+  const lines = [...state.terminalLines];
+  const activeUnits = [...state.terminalActiveUnits];
+  let cursorColumn = state.terminalCursorColumn;
+  let lineCounter = state.terminalLineCounter;
+
+  const pushCommittedLine = () => {
+    lineCounter += 1;
+    lines.push({
+      id: lineCounter,
+      text: unitsToText(activeUnits),
+    });
+
+    if (lines.length > state.maxTerminalLines) {
+      lines.splice(0, lines.length - state.maxTerminalLines);
+    }
+
+    activeUnits.length = 0;
+    cursorColumn = 0;
+  };
+
+  const { tokens, pendingEscape } = tokenizeTerminalChunk(text, state.terminalPendingEscape);
+
+  for (const token of tokens) {
+    if (token.type === "cr") {
+      cursorColumn = 0;
+      continue;
+    }
+
+    if (token.type === "lf") {
+      pushCommittedLine();
+      continue;
+    }
+
+    if (token.type === "bs") {
+      if (cursorColumn === 0) {
+        continue;
+      }
+
+      cursorColumn -= 1;
+      const removeIndex = getVisibleUnitIndex(activeUnits, cursorColumn);
+      if (removeIndex >= 0) {
+        activeUnits.splice(removeIndex, 1);
+      }
+      continue;
+    }
+
+    if (token.type === "ansi") {
+      const insertionIndex = getInsertionIndex(activeUnits, cursorColumn);
+      activeUnits.splice(insertionIndex, 0, { kind: "ansi", value: token.value });
+      continue;
+    }
+
+    const visibleLength = getVisibleLength(activeUnits);
+    if (cursorColumn < visibleLength) {
+      const replaceIndex = getVisibleUnitIndex(activeUnits, cursorColumn);
+      if (replaceIndex >= 0) {
+        activeUnits[replaceIndex] = { kind: "char", value: token.value };
+      }
+    } else {
+      const insertionIndex = getInsertionIndex(activeUnits, cursorColumn);
+      activeUnits.splice(insertionIndex, 0, { kind: "char", value: token.value });
+    }
+
+    cursorColumn += 1;
+  }
+
+  return {
+    terminalLines: lines,
+    terminalActiveUnits: activeUnits,
+    terminalActiveLine: unitsToText(activeUnits),
+    terminalCursorColumn: cursorColumn,
+    terminalPendingEscape: pendingEscape,
+    terminalLineCounter: lineCounter,
+  };
+}
 
 export const useSerialStore = create<SerialState>((set, get) => ({
   // Initial state
@@ -172,6 +390,16 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   searchQuery: "",
   displayMode: "text",
   colorParserConfig: loadColorParserConfig(),
+  textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
+
+  terminalLines: [],
+  terminalActiveLine: "",
+  terminalActiveUnits: [],
+  terminalCursorColumn: 0,
+  terminalPendingEscape: "",
+  terminalLineCounter: 0,
+  maxTerminalLines: 4000,
+  terminalSettings: savedTerminalSettings,
 
   viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
   splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
@@ -199,7 +427,11 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setLocalConfig: (config) => {
     set((state) => {
       const newLocal = { ...state.localConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, { local: newLocal, tcp: state.tcpConfig, activeType: state.activeSourceType });
+      saveToStorage(SERIAL_CONFIG_KEY, {
+        local: newLocal,
+        tcp: state.tcpConfig,
+        activeType: state.activeSourceType,
+      });
       return { localConfig: newLocal };
     });
   },
@@ -207,14 +439,22 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setTcpConfig: (config) => {
     set((state) => {
       const newTcp = { ...state.tcpConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, { local: state.localConfig, tcp: newTcp, activeType: state.activeSourceType });
+      saveToStorage(SERIAL_CONFIG_KEY, {
+        local: state.localConfig,
+        tcp: newTcp,
+        activeType: state.activeSourceType,
+      });
       return { tcpConfig: newTcp };
     });
   },
 
   setActiveSourceType: (type) => {
     set((state) => {
-      saveToStorage(SERIAL_CONFIG_KEY, { local: state.localConfig, tcp: state.tcpConfig, activeType: type });
+      saveToStorage(SERIAL_CONFIG_KEY, {
+        local: state.localConfig,
+        tcp: state.tcpConfig,
+        activeType: type,
+      });
       return { activeSourceType: type };
     });
   },
@@ -246,7 +486,18 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       return { lines, lineIdCounter: idCounter };
     }),
 
-  clearLines: () => set({ lines: [], lineIdCounter: 0, stats: { bytes_received: 0, bytes_sent: 0 } }),
+  clearLines: () =>
+    set({
+      lines: [],
+      lineIdCounter: 0,
+      stats: { bytes_received: 0, bytes_sent: 0 },
+      terminalLines: [],
+      terminalActiveLine: "",
+      terminalActiveUnits: [],
+      terminalCursorColumn: 0,
+      terminalPendingEscape: "",
+      terminalLineCounter: 0,
+    }),
 
   updateStats: (stats) => set({ stats }),
 
@@ -263,6 +514,32 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setColorParserConfig: (colorParserConfig) => {
     saveColorParserConfig(colorParserConfig);
     set({ colorParserConfig });
+  },
+
+  setTextViewMode: (textViewMode) => {
+    saveToStorage(SERIAL_TEXT_VIEW_MODE_KEY, textViewMode);
+    set({ textViewMode });
+  },
+
+  appendTerminalChunk: (text) =>
+    set((state) => processTerminalChunk(text, state)),
+
+  clearTerminalBuffer: () =>
+    set({
+      terminalLines: [],
+      terminalActiveLine: "",
+      terminalActiveUnits: [],
+      terminalCursorColumn: 0,
+      terminalPendingEscape: "",
+      terminalLineCounter: 0,
+    }),
+
+  setTerminalSettings: (settings) => {
+    set((state) => {
+      const nextSettings = { ...state.terminalSettings, ...settings };
+      saveToStorage(SERIAL_TERMINAL_SETTINGS_KEY, nextSettings);
+      return { terminalSettings: nextSettings };
+    });
   },
 
   setViewMode: (viewMode) => {
@@ -286,7 +563,9 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   addChartData: (data) =>
     set((state) => {
-      if (state.chartPaused) return state;
+      if (state.chartPaused) {
+        return state;
+      }
       const newData = [...state.chartData, data];
       const trimmedData = newData.slice(-state.chartConfig.maxDataPoints);
       return { chartData: trimmedData };
@@ -319,6 +598,12 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       lines: [],
       stats: { bytes_received: 0, bytes_sent: 0 },
       lineIdCounter: 0,
+      terminalLines: [],
+      terminalActiveLine: "",
+      terminalActiveUnits: [],
+      terminalCursorColumn: 0,
+      terminalPendingEscape: "",
+      terminalLineCounter: 0,
     }),
 }));
 

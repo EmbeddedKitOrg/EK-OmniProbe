@@ -16,6 +16,7 @@ export function useSerialEvents() {
     setRunning,
     setConnected,
     setError,
+    appendTerminalChunk,
     addChartData,
     incrementParseSuccess,
     incrementParseFail,
@@ -25,6 +26,7 @@ export function useSerialEvents() {
     text: "",
     rawData: [],
   });
+  const terminalDecoderRef = useRef(new TextDecoder());
 
   // 批量处理缓冲区
   const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
@@ -64,6 +66,11 @@ export function useSerialEvents() {
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
       const { data, timestamp, direction } = event.payload;
 
+      const terminalText = terminalDecoderRef.current.decode(new Uint8Array(data), { stream: true });
+      if (terminalText) {
+        appendTerminalChunk(terminalText);
+      }
+
       // 累积统计信息（不立即更新状态）
       batchStatsRef.current.bytes_received += data.length;
 
@@ -94,9 +101,10 @@ export function useSerialEvents() {
           }
         }
 
-        // 调度批量更新
-        scheduleBatchUpdate();
       }
+
+      // 只要收到数据就调度更新，避免无换行数据时统计不刷新
+      scheduleBatchUpdate();
     });
 
     // Listen for serial status events
@@ -126,6 +134,7 @@ export function useSerialEvents() {
     setRunning,
     setConnected,
     setError,
+    appendTerminalChunk,
     addChartData,
     incrementParseSuccess,
     incrementParseFail,

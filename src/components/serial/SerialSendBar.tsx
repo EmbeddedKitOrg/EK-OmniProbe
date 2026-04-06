@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
 import { writeSerialString, writeSerial } from "@/lib/tauri";
+import type { LineEnding } from "@/lib/serialTypes";
 
 // History persistence key
 const SEND_HISTORY_KEY = "serial_send_history";
@@ -31,13 +32,88 @@ function saveHistory(history: string[]) {
   }
 }
 
+function getLineEndingText(lineEnding: LineEnding) {
+  switch (lineEnding) {
+    case "cr":
+      return "\r";
+    case "crlf":
+      return "\r\n";
+    case "none":
+      return "";
+    case "lf":
+    default:
+      return "\n";
+  }
+}
+
 export function SerialSendBar() {
-  const { connected, sendSettings, setSendSettings, addLine } = useSerialStore();
+  const {
+    connected,
+    sendSettings,
+    terminalSettings,
+    textViewMode,
+    setSendSettings,
+    addLine,
+    appendTerminalChunk,
+  } = useSerialStore();
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>(loadHistory);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const moveHistory = useCallback(
+    (direction: "older" | "newer") => {
+      if (history.length === 0) {
+        return;
+      }
+
+      if (direction === "older") {
+        const nextIndex = historyIndex < history.length - 1 ? historyIndex + 1 : history.length - 1;
+        setHistoryIndex(nextIndex);
+        setInputText(history[nextIndex] ?? "");
+        return;
+      }
+
+      if (historyIndex <= 0) {
+        setHistoryIndex(-1);
+        setInputText("");
+        return;
+      }
+
+      const nextIndex = historyIndex - 1;
+      setHistoryIndex(nextIndex);
+      setInputText(history[nextIndex] ?? "");
+    },
+    [history, historyIndex]
+  );
+
+  const sendRawBytes = useCallback(
+    async (bytes: number[], label: string) => {
+      if (!connected) {
+        addLog("error", "串口未连接");
+        return;
+      }
+
+      try {
+        setSending(true);
+        await writeSerial(bytes);
+        addLine({
+          timestamp: new Date(),
+          text: label,
+          level: "info",
+          rawData: bytes,
+          direction: "tx",
+        });
+      } catch (error) {
+        addLog("error", `发送失败: ${error}`);
+      } finally {
+        setSending(false);
+      }
+    },
+    [addLine, addLog, connected]
+  );
 
   // Send text
   const handleSend = useCallback(async () => {
@@ -87,6 +163,10 @@ export function SerialSendBar() {
           rawData: Array.from(new TextEncoder().encode(inputText)),
           direction: "tx",
         });
+
+        if (textViewMode === "terminal" && terminalSettings.localEcho) {
+          appendTerminalChunk(`${inputText}${getLineEndingText(sendSettings.lineEnding)}`);
+        }
       }
 
       // Save to history
@@ -95,24 +175,62 @@ export function SerialSendBar() {
       saveHistory(newHistory);
 
       setInputText("");
+      setHistoryIndex(-1);
     } catch (error) {
       addLog("error", `发送失败: ${error}`);
     } finally {
       setSending(false);
     }
-  }, [inputText, connected, sendSettings, addLog, addLine, history]);
+  }, [
+    inputText,
+    connected,
+    sendSettings,
+    addLog,
+    addLine,
+    appendTerminalChunk,
+    history,
+    terminalSettings.localEcho,
+    textViewMode,
+  ]);
 
   // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+      return;
+    }
+
+    if (textViewMode === "terminal") {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        moveHistory("older");
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        moveHistory("newer");
+        return;
+      }
+
+      if (terminalSettings.interceptShortcuts && e.ctrlKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        void sendRawBytes([0x03], "CTRL+C");
+        return;
+      }
+
+      if (terminalSettings.interceptShortcuts && e.ctrlKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        void sendRawBytes([0x04], "CTRL+D");
+      }
     }
   };
 
   // Select history item
   const selectHistory = (text: string) => {
     setInputText(text);
+    setHistoryIndex(history.findIndex((item) => item === text));
     inputRef.current?.focus();
   };
 
@@ -120,6 +238,7 @@ export function SerialSendBar() {
   const clearHistory = () => {
     setHistory([]);
     saveHistory([]);
+    setHistoryIndex(-1);
   };
 
   return (
@@ -193,6 +312,31 @@ export function SerialSendBar() {
                   )}
                 </div>
               </div>
+
+              {textViewMode === "terminal" && (
+                <div className="rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                  <div className="mb-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+                    终端快捷发送
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => void sendRawBytes([0x03], "CTRL+C")}>
+                      Ctrl+C
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void sendRawBytes([0x04], "CTRL+D")}>
+                      Ctrl+D
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void sendRawBytes([0x09], "TAB")}>
+                      Tab
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void sendRawBytes([0x1b], "ESC")}>
+                      Esc
+                    </Button>
+                  </div>
+                  <div className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                    终端视图下可用上下方向键切换本地发送历史，Ctrl+C / Ctrl+D 可直接发送控制字节。
+                  </div>
+                </div>
+              )}
             </div>
           </PopoverContent>
         </Popover>
@@ -203,13 +347,25 @@ export function SerialSendBar() {
           </span>
         )}
 
+        {textViewMode === "terminal" && (
+          <span className="rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground">
+            {terminalSettings.localEcho ? "本地回显" : "设备回显"}
+          </span>
+        )}
+
         <div className="flex-1">
           <Input
             ref={inputRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={sendSettings.hexMode ? "输入十六进制 (如: 48 65 6C 6C 6F)" : "输入发送内容... Enter 发送"}
+            placeholder={
+              sendSettings.hexMode
+                ? "输入十六进制 (如: 48 65 6C 6C 6F)"
+                : textViewMode === "terminal"
+                  ? "输入命令后回车发送，上下键可切换历史"
+                  : "输入发送内容... Enter 发送"
+            }
             disabled={!connected}
             className="h-8 text-sm font-mono"
           />
