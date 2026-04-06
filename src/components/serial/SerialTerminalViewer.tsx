@@ -141,7 +141,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         return;
       }
 
-      if (event.isComposing) {
+      if (event.nativeEvent.isComposing) {
         return;
       }
 
