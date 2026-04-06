@@ -64,6 +64,45 @@ function nextPowerOfTwo(value: number) {
   return result;
 }
 
+function estimateSampleRate(chartData: ChartDataPoint[], configuredRate: number) {
+  if (configuredRate > 0) {
+    return configuredRate;
+  }
+
+  if (chartData.length < 2) {
+    return null;
+  }
+
+  const startIndex = Math.max(chartData.length - 200, 0);
+  const firstTimestamp = chartData[startIndex].timestamp;
+  const lastTimestamp = chartData[chartData.length - 1].timestamp;
+  const sampleCount = chartData.length - startIndex - 1;
+  const durationSec = (lastTimestamp - firstTimestamp) / 1000;
+
+  if (sampleCount <= 0 || durationSec <= 0) {
+    return null;
+  }
+
+  return sampleCount / durationSec;
+}
+
+function downsamplePoints<T>(points: T[], limit: number) {
+  if (limit <= 0 || points.length <= limit) {
+    return points;
+  }
+
+  if (limit === 1) {
+    return [points[points.length - 1]];
+  }
+
+  const step = (points.length - 1) / (limit - 1);
+  const sampled: T[] = [];
+  for (let index = 0; index < limit; index += 1) {
+    sampled.push(points[Math.round(index * step)]);
+  }
+  return sampled;
+}
+
 function formatAxisValue(value: number) {
   const abs = Math.abs(value);
   if (abs >= 1000 || (abs > 0 && abs < 0.01)) {
@@ -202,16 +241,26 @@ export function SignalPlotCanvas({
     [series]
   );
 
+  const effectiveSampleRate = useMemo(
+    () => estimateSampleRate(chartData, chartConfig.sampleRateHz),
+    [chartConfig.sampleRateHz, chartData]
+  );
+
   const normalizedData = useMemo<NormalizedPoint[]>(() => {
     if (chartData.length === 0) return [];
-    const firstTimestamp = chartData[0].timestamp;
+    const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate)
+      ? effectiveSampleRate
+      : 1;
+
     return chartData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
-      timeSec: (point.timestamp - firstTimestamp) / 1000,
+      // Waveform should use uniformly spaced samples instead of host receive timestamps.
+      // Serial/RTT data often arrives in batches, which makes Date.now()-based X positions fold back.
+      timeSec: index / sampleRate,
       values: point.values,
     }));
-  }, [chartData]);
+  }, [chartData, effectiveSampleRate]);
 
   const timeView = useMemo<TimeViewModel | null>(() => {
     if (normalizedData.length === 0 || visibleSeries.length === 0) return null;
@@ -226,11 +275,15 @@ export function SignalPlotCanvas({
     const endSec = startSec + visibleDurationSec;
     const points = normalizedData.filter((point) => point.timeSec >= startSec && point.timeSec <= endSec);
     const sourcePoints = points.length > 0 ? points : normalizedData;
+    const sampledPoints = downsamplePoints(
+      sourcePoints,
+      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : sourcePoints.length
+    );
 
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
 
-    for (const point of sourcePoints) {
+    for (const point of sampledPoints) {
       for (const item of visibleSeries) {
         const value = point.values[item.key];
         if (Number.isFinite(value)) {
@@ -261,11 +314,19 @@ export function SignalPlotCanvas({
       startSec,
       endSec,
       maxPanSec,
-      points: sourcePoints,
+      points: sampledPoints,
       yMin: center - range / 2,
       yMax: center + range / 2,
     };
-  }, [normalizedData, timePanSec, timeZoom, visibleSeries, yOffset, yZoom]);
+  }, [
+    chartConfig.visiblePointLimit,
+    normalizedData,
+    timePanSec,
+    timeZoom,
+    visibleSeries,
+    yOffset,
+    yZoom,
+  ]);
 
   const fftView = useMemo<FftViewModel | null>(() => {
     if (normalizedData.length < 4 || visibleSeries.length === 0) return null;
@@ -276,9 +337,10 @@ export function SignalPlotCanvas({
       (slice[slice.length - 1].timestamp - slice[0].timestamp) / 1000,
       0.001
     );
-    const sampleRateHz = chartConfig.sampleRateHz > 0
-      ? chartConfig.sampleRateHz
-      : Math.max((slice.length - 1) / durationSec, 1);
+    const sampleRateHz = Math.max(
+      effectiveSampleRate ?? Math.max((slice.length - 1) / durationSec, 1),
+      1
+    );
 
     const computedSeries: SpectrumSeries[] = [];
     for (const item of visibleSeries) {
@@ -341,7 +403,16 @@ export function SignalPlotCanvas({
       yMin: center - range / 2,
       yMax: center + range / 2,
     };
-  }, [chartConfig.fftWindowSize, chartConfig.sampleRateHz, fftPanBins, fftZoom, normalizedData, visibleSeries, yOffset, yZoom]);
+  }, [
+    chartConfig.fftWindowSize,
+    effectiveSampleRate,
+    fftPanBins,
+    fftZoom,
+    normalizedData,
+    visibleSeries,
+    yOffset,
+    yZoom,
+  ]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -387,34 +458,43 @@ export function SignalPlotCanvas({
     context.lineWidth = 1;
     context.strokeRect(MARGIN.left, MARGIN.top, plotWidth, plotHeight);
 
-      if (domain === "time" && timeView) {
-        drawTimeChart(context, {
-          size,
-          plotWidth,
-          plotHeight,
-          timeView,
-          hoverPoint,
-          visibleSeries,
-          showGrid: chartConfig.showGrid,
-          showTooltip: chartConfig.showTooltip,
-        });
-      } else if (domain === "fft" && fftView) {
-        drawFftChart(context, {
-          size,
-          plotWidth,
-          plotHeight,
-          fftView,
-          hoverPoint,
-          showGrid: chartConfig.showGrid,
-          showTooltip: chartConfig.showTooltip,
-        });
+    if (domain === "time" && timeView) {
+      drawTimeChart(context, {
+        size,
+        plotWidth,
+        plotHeight,
+        timeView,
+        hoverPoint,
+        visibleSeries,
+        showGrid: chartConfig.showGrid,
+        showTooltip: chartConfig.showTooltip,
+      });
+    } else if (domain === "fft" && fftView) {
+      drawFftChart(context, {
+        size,
+        plotWidth,
+        plotHeight,
+        fftView,
+        hoverPoint,
+        showGrid: chartConfig.showGrid,
+        showTooltip: chartConfig.showTooltip,
+      });
     } else {
       context.fillStyle = "rgba(102, 112, 133, 0.72)";
       context.font = "500 14px 'Segoe UI Variable', 'Noto Sans SC', sans-serif";
       context.textAlign = "center";
       context.fillText("等待足够的数据样本…", size.width / 2, size.height / 2);
     }
-  }, [domain, fftView, hoverPoint, size, timeView, visibleSeries]);
+  }, [
+    chartConfig.showGrid,
+    chartConfig.showTooltip,
+    domain,
+    fftView,
+    hoverPoint,
+    size,
+    timeView,
+    visibleSeries,
+  ]);
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();

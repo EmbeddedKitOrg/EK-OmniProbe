@@ -6,8 +6,11 @@ import { SerialTerminalViewer } from "./SerialTerminalViewer";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
-import { Activity, AlertCircle, FileText } from "lucide-react";
+import { Activity, AlertCircle, ArrowLeftRight, FileText, MonitorUp } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { useChartWorkspaceHost } from "@/hooks/useChartWorkspaceHost";
 
 interface SerialPanelProps {
   className?: string;
@@ -85,9 +88,43 @@ export function SerialPanel({ className }: SerialPanelProps) {
     running,
     lines,
     chartConfig,
+    chartData,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
   } = useSerialStore();
   const showSendBar = textViewMode !== "terminal";
   const isVerticalSplit = splitOrientation === "vertical";
+
+  const chartSnapshot = useMemo(
+    () => ({
+      source: "serial" as const,
+      title: "串口图表工作台",
+      subtitle: "波形、FFT、字段管理与缓冲控制。",
+      chartData,
+      chartConfig,
+      chartPaused,
+      parseSuccessCount,
+      parseFailCount,
+    }),
+    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount]
+  );
+
+  const {
+    detached: chartDetached,
+    openDetachedWindow,
+    focusDetachedWindow,
+    restoreInline,
+  } = useChartWorkspaceHost({
+    source: "serial",
+    snapshot: chartSnapshot,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  });
 
   const workflowHint = !connected
     ? {
@@ -156,8 +193,23 @@ export function SerialPanel({ className }: SerialPanelProps) {
             title="图表区"
             subtitle="波形、FFT 与趋势图。"
             badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
+            actions={
+              <ChartWindowActions
+                detached={chartDetached}
+                onDetach={openDetachedWindow}
+                onFocus={focusDetachedWindow}
+                onRestore={restoreInline}
+              />
+            }
           >
-            <SerialChartViewer />
+            {chartDetached ? (
+              <ChartDetachedPlaceholder
+                onFocus={focusDetachedWindow}
+                onRestore={restoreInline}
+              />
+            ) : (
+              <SerialChartViewer />
+            )}
           </PanelShell>
         ) : (
           // Split mode (terminal + chart) - terminal section respects splitByDirection
@@ -195,8 +247,23 @@ export function SerialPanel({ className }: SerialPanelProps) {
                   title="图表区"
                   subtitle="图表主视图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
+                  actions={
+                    <ChartWindowActions
+                      detached={chartDetached}
+                      onDetach={openDetachedWindow}
+                      onFocus={focusDetachedWindow}
+                      onRestore={restoreInline}
+                    />
+                  }
                 >
-                  <SerialChartViewer />
+                  {chartDetached ? (
+                    <ChartDetachedPlaceholder
+                      onFocus={focusDetachedWindow}
+                      onRestore={restoreInline}
+                    />
+                  ) : (
+                    <SerialChartViewer />
+                  )}
                 </PanelShell>
               </div>
             </Panel>
@@ -232,10 +299,11 @@ interface PanelShellProps {
   title: string;
   subtitle: string;
   badge: string;
+  actions?: ReactNode;
   children: ReactNode;
 }
 
-function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
+function PanelShell({ title, subtitle, badge, actions, children }: PanelShellProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-white/75 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-white/72 px-4 py-2.5">
@@ -243,11 +311,73 @@ function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
           <div className="text-sm font-medium text-foreground">{title}</div>
           <div className="text-[11px] text-muted-foreground">{subtitle}</div>
         </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
-          {badge}
-        </span>
+        <div className="flex items-center gap-2">
+          {actions}
+          <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+            {badge}
+          </span>
+        </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+function ChartWindowActions({
+  detached,
+  onDetach,
+  onFocus,
+  onRestore,
+}: {
+  detached: boolean;
+  onDetach: () => void | Promise<void>;
+  onFocus: () => void | Promise<void>;
+  onRestore: () => void | Promise<void>;
+}) {
+  return detached ? (
+    <>
+      <Button size="sm" variant="outline" className="gap-1" onClick={() => void onFocus()}>
+        <MonitorUp className="h-3.5 w-3.5" />
+        定位窗口
+      </Button>
+      <Button size="sm" variant="outline" className="gap-1" onClick={() => void onRestore()}>
+        <ArrowLeftRight className="h-3.5 w-3.5" />
+        收回
+      </Button>
+    </>
+  ) : (
+    <Button size="sm" variant="outline" className="gap-1" onClick={() => void onDetach()}>
+      <MonitorUp className="h-3.5 w-3.5" />
+      独立窗口
+    </Button>
+  );
+}
+
+function ChartDetachedPlaceholder({
+  onFocus,
+  onRestore,
+}: {
+  onFocus: () => void | Promise<void>;
+  onRestore: () => void | Promise<void>;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+      <div className="space-y-3 text-center">
+        <div className="text-base font-medium text-foreground">图表工作台已在独立窗口打开</div>
+        <div className="text-xs text-muted-foreground">
+          主窗口继续负责接收数据；你可以定位独立窗口，也可以随时收回到这里。
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => void onFocus()}>
+            <MonitorUp className="h-3.5 w-3.5" />
+            定位窗口
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1" onClick={() => void onRestore()}>
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            收回主界面
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -92,6 +92,7 @@ export function useSerialEvents() {
         if (currentChartConfig.enabled) {
           for (const line of lines) {
             const result = parseChartData(line.text, currentChartConfig);
+
             if (result.success && result.dataPoint) {
               addChartData(result.dataPoint);
               incrementParseSuccess();

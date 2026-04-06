@@ -202,7 +202,10 @@ export const useRttStore = create<RttState>((set) => ({
       ...chartConfig,
     };
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
-    set({ chartConfig: normalizedConfig });
+    set((state) => ({
+      chartConfig: normalizedConfig,
+      chartData: state.chartData.slice(-normalizedConfig.maxDataPoints),
+    }));
   },
 
   addChartData: (data) =>

@@ -15,8 +15,26 @@ import { applyThemeSchemeToDocument } from "./lib/themeSchemes";
 import { useThemeStore } from "./stores/themeStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
+import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
+import type { ChartWorkspaceSource } from "./lib/chartWorkspace";
 
 function App() {
+  const popupSource = useMemo(() => {
+    const value = new URLSearchParams(window.location.search).get("chart_workspace");
+    if (value === "rtt" || value === "serial") {
+      return value as ChartWorkspaceSource;
+    }
+    return null;
+  }, []);
+
+  if (popupSource) {
+    return <ChartWorkspacePopupApp source={popupSource} />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const addLog = useLogStore((state) => state.addLog);
   const connected = useProbeStore((s) => s.connected);
   const autoDisconnect = useProbeStore((s) => s.autoDisconnect);
@@ -166,6 +184,16 @@ function App() {
       </div>
     </div>
   );
+}
+
+function ChartWorkspacePopupApp({ source }: { source: ChartWorkspaceSource }) {
+  const schemeId = useThemeStore((s) => s.schemeId);
+
+  useEffect(() => {
+    applyThemeSchemeToDocument(schemeId);
+  }, [schemeId]);
+
+  return <ChartWorkspaceWindowPage source={source} />;
 }
 
 export default App;
