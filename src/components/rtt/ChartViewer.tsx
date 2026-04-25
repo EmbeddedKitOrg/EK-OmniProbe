@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { exportChartDataAsCsv, exportCanvasAsPng, exportSvgAsPng } from "@/lib/exporters";
 import { useLogStore } from "@/stores/logStore";
-import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain } from "@/lib/chartTypes";
+import type { Channel, ChartConfig, ChartDataPoint, SignalDomain } from "@/lib/chartTypes";
+import { getVisibleYChannels, getXChannel, PRESET_COLORS } from "@/lib/chartTypes";
 import {
   Bar,
   BarChart,
@@ -38,7 +39,7 @@ interface SeriesSnapshot {
   latest: number;
 }
 
-interface SeriesInspectorEntry {
+interface ChannelInspectorEntry {
   key: string;
   name: string;
   color: string;
@@ -46,9 +47,10 @@ interface SeriesInspectorEntry {
   unit?: string;
   latestValue: number | null;
   configured: boolean;
+  role: "x" | "y";
 }
 
-function fallbackSeriesColor(index: number) {
+function fallbackChannelColor(index: number) {
   return `hsl(${(index * 53) % 360} 72% 48%)`;
 }
 
@@ -94,9 +96,12 @@ export function ChartViewer({
     );
   }, [chartConfig.visiblePointLimit, chartData]);
 
+  const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
+  const xChannelKey = xChannel?.key;
+
   const visibleSeries = useMemo(
-    () => chartConfig.series.filter((item) => item.visible),
-    [chartConfig.series]
+    () => getVisibleYChannels(chartConfig),
+    [chartConfig]
   );
 
   const yAxisDomain = useMemo(() => {
@@ -105,7 +110,7 @@ export function ChartViewer({
     let max = Number.NEGATIVE_INFINITY;
     chartData.forEach((point) => {
       Object.entries(point.values).forEach(([key, value]) => {
-        if (chartConfig.chartType === "xy-scatter" && key === chartConfig.xAxisField) return;
+        if (chartConfig.chartType === "xy-scatter" && key === xChannelKey) return;
         if (typeof value === "number" && Number.isFinite(value)) {
           min = Math.min(min, value);
           max = Math.max(max, value);
@@ -119,15 +124,15 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, chartConfig.xAxisField, chartData]);
+  }, [chartConfig.chartType, xChannelKey, chartData]);
 
   const xAxisDomain = useMemo(() => {
-    if (chartConfig.chartType !== "xy-scatter" || !chartConfig.xAxisField) return undefined;
+    if (chartConfig.chartType !== "xy-scatter" || !xChannelKey) return undefined;
     if (chartData.length === 0) return [0, 100];
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
     chartData.forEach((point) => {
-      const value = point.values[chartConfig.xAxisField!];
+      const value = point.values[xChannelKey];
       if (typeof value === "number" && Number.isFinite(value)) {
         min = Math.min(min, value);
         max = Math.max(max, value);
@@ -140,7 +145,7 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, chartConfig.xAxisField, chartData]);
+  }, [chartConfig.chartType, xChannelKey, chartData]);
 
   const statistics = useMemo(() => {
     if (chartData.length === 0) return null;
@@ -196,26 +201,27 @@ export function ChartViewer({
       .slice(0, 4);
   }, [statistics, visibleSeries]);
 
-  const seriesInspectorEntries = useMemo<SeriesInspectorEntry[]>(() => {
+  const seriesInspectorEntries = useMemo<ChannelInspectorEntry[]>(() => {
     const keys = new Set<string>();
-    chartConfig.series.forEach((series) => keys.add(series.key));
+    chartConfig.channels.forEach((channel) => keys.add(channel.key));
     if (latestPoint) {
       Object.keys(latestPoint.values).forEach((key) => keys.add(key));
     }
-    const seriesMap = new Map(chartConfig.series.map((series) => [series.key, series]));
+    const channelMap = new Map(chartConfig.channels.map((channel) => [channel.key, channel]));
     return Array.from(keys)
       .map((key, index) => {
-        const series = seriesMap.get(key);
+        const channel = channelMap.get(key);
         const rawValue = latestPoint?.values[key];
         return {
           key,
-          name: series?.name ?? key,
-          color: series?.color ?? fallbackSeriesColor(index),
-          visible: series?.visible ?? false,
-          unit: series?.unit ?? "",
+          name: channel?.name ?? key,
+          color: channel?.color ?? fallbackChannelColor(index),
+          visible: channel?.visible ?? false,
+          unit: channel?.unit ?? "",
           latestValue:
             typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null,
-          configured: Boolean(series),
+          configured: Boolean(channel),
+          role: (channel?.role ?? "y") as "x" | "y",
         };
       })
       .sort((left, right) => {
@@ -227,7 +233,7 @@ export function ChartViewer({
         }
         return left.key.localeCompare(right.key);
       });
-  }, [chartConfig.series, latestPoint]);
+  }, [chartConfig.channels, latestPoint]);
 
   const updateSignalDomain = (domain: SignalDomain) => {
     setChartConfig({
@@ -279,33 +285,33 @@ export function ChartViewer({
     clearChartData();
     setChartConfig({
       ...chartConfig,
-      series: [],
+      channels: [],
     });
   };
 
-  const updateSeriesConfig = (
-    seriesKey: string,
-    updater: (series: ChartSeries) => ChartSeries
+  const updateChannelConfig = (
+    channelKey: string,
+    updater: (channel: Channel) => Channel
   ) => {
     setChartConfig({
       ...chartConfig,
-      series: chartConfig.series.map((series) =>
-        series.key === seriesKey ? updater(series) : series
+      channels: chartConfig.channels.map((channel) =>
+        channel.key === channelKey ? updater(channel) : channel
       ),
     });
   };
 
-  const addSeriesFromField = (
-    entry: SeriesInspectorEntry,
-    overrides: Partial<ChartSeries> = {}
+  const addChannelFromField = (
+    entry: ChannelInspectorEntry,
+    overrides: Partial<Channel> = {}
   ) => {
-    const existingSeries = chartConfig.series.find((series) => series.key === entry.key);
-    if (existingSeries) {
+    const existing = chartConfig.channels.find((channel) => channel.key === entry.key);
+    if (existing) {
       if (Object.keys(overrides).length === 0) return;
       setChartConfig({
         ...chartConfig,
-        series: chartConfig.series.map((series) =>
-          series.key === entry.key ? { ...series, ...overrides } : series
+        channels: chartConfig.channels.map((channel) =>
+          channel.key === entry.key ? { ...channel, ...overrides } : channel
         ),
       });
       return;
@@ -313,14 +319,15 @@ export function ChartViewer({
 
     setChartConfig({
       ...chartConfig,
-      series: [
-        ...chartConfig.series,
+      channels: [
+        ...chartConfig.channels,
         {
           key: entry.key,
           name: entry.name,
-          color: entry.color,
+          color: entry.color || PRESET_COLORS[chartConfig.channels.length % PRESET_COLORS.length],
           visible: true,
           unit: entry.unit,
+          role: "y",
           ...overrides,
         },
       ],
@@ -390,7 +397,7 @@ export function ChartViewer({
       return (
         <ScatterChart data={chartDataFormatted}>
           {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-          <XAxis type="number" dataKey={chartConfig.xAxisField || "index"} domain={xAxisDomain || ["auto", "auto"]} tick={{ fontSize: 12 }} label={{ value: chartConfig.xAxisField || "X", position: "insideBottom", offset: -5 }} />
+          <XAxis type="number" dataKey={xChannelKey || "index"} domain={xAxisDomain || ["auto", "auto"]} tick={{ fontSize: 12 }} label={{ value: xChannel?.name || xChannelKey || "X", position: "insideBottom", offset: -5 }} />
           <YAxis type="number" tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "Y", angle: -90, position: "insideLeft" }} />
           {chartConfig.showTooltip && <Tooltip />}
           {chartConfig.showLegend && <Legend />}
@@ -588,9 +595,9 @@ export function ChartViewer({
         <span className="rounded-full bg-secondary px-3 py-1">
           可视 {chartConfig.visiblePointLimit === 0 ? "自动" : chartConfig.visiblePointLimit}
         </span>
-        {chartConfig.chartType === "xy-scatter" && chartConfig.xAxisField && (
+        {chartConfig.chartType === "xy-scatter" && xChannelKey && (
           <span className="rounded-full bg-secondary px-3 py-1">
-            X 轴 {chartConfig.xAxisField}
+            X 轴 {xChannel?.name || xChannelKey}
           </span>
         )}
         {chartConfig.chartType === "waveform" && (
@@ -721,13 +728,13 @@ export function ChartViewer({
                       onChange={(event) => {
                         const nextName = event.target.value || series.key;
                         if (series.configured) {
-                          updateSeriesConfig(series.key, (item) => ({
+                          updateChannelConfig(series.key, (item) => ({
                             ...item,
                             name: nextName,
                           }));
                           return;
                         }
-                        addSeriesFromField(
+                        addChannelFromField(
                           { ...series, name: nextName },
                           { name: nextName, visible: false }
                         );
@@ -739,7 +746,7 @@ export function ChartViewer({
                       <Switch
                         checked={series.visible}
                         onCheckedChange={(checked) =>
-                          updateSeriesConfig(series.key, (item) => ({
+                          updateChannelConfig(series.key, (item) => ({
                             ...item,
                             visible: checked,
                           }))
@@ -750,7 +757,7 @@ export function ChartViewer({
                         size="sm"
                         variant="outline"
                         className="h-8 gap-1 px-2"
-                        onClick={() => addSeriesFromField(series)}
+                        onClick={() => addChannelFromField(series)}
                       >
                         <Plus className="h-3.5 w-3.5" />
                         加入曲线

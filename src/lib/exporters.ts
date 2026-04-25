@@ -117,13 +117,13 @@ export async function exportChartDataAsCsv(
   data: ChartDataPoint[],
   config: ChartConfig
 ): Promise<string | null> {
-  const seriesKeys = config.series.map((s) => s.key);
-  const seriesNames = config.series.map((s) => s.name || s.key);
+  const channelKeys = config.channels.map((c) => c.key);
+  const channelNames = config.channels.map((c) => c.name || c.key);
 
-  const header = ["timestamp", ...seriesNames.map(escapeCsv)].join(",");
+  const header = ["timestamp", ...channelNames.map(escapeCsv)].join(",");
   const rows = data.map((point) => {
     const cells = [escapeCsv(new Date(point.timestamp).toISOString())];
-    for (const key of seriesKeys) {
+    for (const key of channelKeys) {
       const value = point.values[key];
       cells.push(value === undefined || !Number.isFinite(value) ? "" : String(value));
     }

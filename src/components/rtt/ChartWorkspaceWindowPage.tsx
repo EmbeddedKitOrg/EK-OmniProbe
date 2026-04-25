@@ -32,7 +32,7 @@ export function ChartWorkspaceWindowPage({
           ({ payload }) => {
             if (payload.source !== source) return;
             console.info(
-              `[图表窗口:${source}] 收到快照，data=${payload.chartData.length} series=${payload.chartConfig.series.length}`
+              `[图表窗口:${source}] 收到快照，data=${payload.chartData.length} channels=${payload.chartConfig.channels.length}`
             );
             setSnapshot(payload);
           }

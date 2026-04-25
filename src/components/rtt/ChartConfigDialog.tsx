@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ChartConfig, ChartType, ParseMode } from "@/lib/chartTypes";
+import { useMemo, useState } from "react";
+import type { Channel, ChartConfig, ChartType, ParseMode } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import {
   Dialog,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -20,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Settings, Plus, Trash2 } from "lucide-react";
+import { Settings, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface ChartConfigDialogProps {
   chartConfig: ChartConfig;
@@ -37,10 +36,14 @@ export function ChartConfigDialog({
 }: ChartConfigDialogProps) {
   const [open, setOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState<ChartConfig>(chartConfig);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDisplay, setShowDisplay] = useState(false);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       setLocalConfig(chartConfig);
+      setShowAdvanced(false);
+      setShowDisplay(false);
     }
     setOpen(nextOpen);
   };
@@ -50,34 +53,81 @@ export function ChartConfigDialog({
     setOpen(false);
   };
 
-  const handleAddField = () => {
+  const isDelimiter = localConfig.parseMode === "delimiter" || localConfig.parseMode === "auto";
+  const isXyScatter = localConfig.chartType === "xy-scatter";
+
+  const updateChannel = (index: number, patch: Partial<Channel>) => {
+    setLocalConfig((current) => {
+      const next = current.channels.map((channel, i) => (i === index ? { ...channel, ...patch } : channel));
+      // role 切到 x 时确保只保留一个 x
+      if (patch.role === "x") {
+        for (let i = 0; i < next.length; i += 1) {
+          if (i !== index && next[i].role === "x") {
+            next[i] = { ...next[i], role: "y" };
+          }
+        }
+      }
+      return { ...current, channels: next };
+    });
+  };
+
+  const addChannel = () => {
+    setLocalConfig((current) => {
+      const usedKeys = new Set(current.channels.map((c) => c.key));
+      let baseKey = "ch";
+      let suffix = current.channels.length + 1;
+      while (usedKeys.has(`${baseKey}${suffix}`)) suffix += 1;
+      const key = `${baseKey}${suffix}`;
+      return {
+        ...current,
+        channels: [
+          ...current.channels,
+          {
+            key,
+            name: key,
+            color: PRESET_COLORS[current.channels.length % PRESET_COLORS.length],
+            visible: true,
+            role: "y",
+            sourceIndex: current.parseMode === "delimiter" ? current.channels.length : undefined,
+          },
+        ],
+      };
+    });
+  };
+
+  const removeChannel = (index: number) => {
     setLocalConfig((current) => ({
       ...current,
-      fields: [
-        ...current.fields,
-        {
-          index: current.fields.length,
-          name: `field${current.fields.length + 1}`,
-          enabled: true,
-        },
-      ],
+      channels: current.channels.filter((_, i) => i !== index),
     }));
   };
 
-  const handleAddSeries = () => {
-    setLocalConfig((current) => ({
-      ...current,
-      series: [
-        ...current.series,
-        {
-          key: `series${current.series.length + 1}`,
-          name: `系列${current.series.length + 1}`,
-          color: PRESET_COLORS[current.series.length % PRESET_COLORS.length],
-          visible: true,
-        },
-      ],
-    }));
+  const moveChannel = (index: number, direction: -1 | 1) => {
+    setLocalConfig((current) => {
+      const next = current.channels.slice();
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...current, channels: next };
+    });
   };
+
+  const parseModeHint = useMemo(() => {
+    switch (localConfig.parseMode) {
+      case "delimiter":
+        return "按分隔符切列。下方每条通道用「列号」指定从分隔后的第几列读取。";
+      case "regex":
+        return "用命名捕获组提取数值，如 (?<temp>\\d+\\.\\d+)。通道的 key 必须与捕获组同名。";
+      case "json":
+        return "整行作为 JSON 解析，按通道 key 取数值字段。通道留空时自动提取全部数值字段。";
+      case "kv":
+        return "自动提取行内所有 key=value 数值对。通道留空时全部保留，否则只保留命中的 key。";
+      case "auto":
+        return "依次尝试 JSON → 正则 → KV → 分隔符。任意一种成功即停止。";
+      default:
+        return "";
+    }
+  }, [localConfig.parseMode]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -89,503 +139,259 @@ export function ChartConfigDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto rounded-[28px]">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 rounded-[20px]">
-            <TabsTrigger value="basic">基础</TabsTrigger>
-            <TabsTrigger value="series">系列</TabsTrigger>
-            <TabsTrigger value="delimiter">分隔符</TabsTrigger>
-            <TabsTrigger value="regex">正则</TabsTrigger>
-            <TabsTrigger value="json">JSON</TabsTrigger>
-            <TabsTrigger value="kv">KV</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-4 pt-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[24px] border border-border/60 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <Label htmlFor="enabled">启用图表功能</Label>
-                  <Switch
-                    id="enabled"
-                    checked={localConfig.enabled}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig({ ...localConfig, enabled: checked })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="parseMode">解析模式</Label>
-                    <Select
-                      value={localConfig.parseMode}
-                      onValueChange={(value: ParseMode) =>
-                        setLocalConfig({ ...localConfig, parseMode: value })
-                      }
-                    >
-                      <SelectTrigger id="parseMode">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">自动</SelectItem>
-                        <SelectItem value="regex">正则</SelectItem>
-                        <SelectItem value="delimiter">分隔符</SelectItem>
-                        <SelectItem value="json">JSON</SelectItem>
-                        <SelectItem value="kv">KV (key=value)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="chartType">图表类型</Label>
-                    <Select
-                      value={localConfig.chartType}
-                      onValueChange={(value: ChartType) =>
-                        setLocalConfig({ ...localConfig, chartType: value })
-                      }
-                    >
-                      <SelectTrigger id="chartType">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="waveform">波形示波器</SelectItem>
-                        <SelectItem value="line">折线图</SelectItem>
-                        <SelectItem value="bar">柱状图</SelectItem>
-                        <SelectItem value="scatter">散点图</SelectItem>
-                        <SelectItem value="xy-scatter">XY 散点图</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {localConfig.chartType === "xy-scatter" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="xAxisField">X 轴字段</Label>
-                      <Input
-                        id="xAxisField"
-                        value={localConfig.xAxisField || ""}
-                        placeholder="x / time / angle"
-                        onChange={(event) =>
-                          setLocalConfig({ ...localConfig, xAxisField: event.target.value })
-                        }
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-border/60 p-4">
-                <div className="mb-3 text-sm font-medium">采样、缓存与频谱</div>
-                <div className="grid gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="maxDataPoints">最大数据点数</Label>
-                    <Input
-                      id="maxDataPoints"
-                      type="number"
-                      value={localConfig.maxDataPoints}
-                      onChange={(event) =>
-                        setLocalConfig({
-                          ...localConfig,
-                          maxDataPoints: Math.max(parseInt(event.target.value, 10) || 1000, 100),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="visiblePointLimit">可视点数 (0=自动)</Label>
-                    <Input
-                      id="visiblePointLimit"
-                      type="number"
-                      value={localConfig.visiblePointLimit}
-                      onChange={(event) =>
-                        setLocalConfig({
-                          ...localConfig,
-                          visiblePointLimit: Math.max(parseInt(event.target.value, 10) || 0, 0),
-                        })
-                      }
-                    />
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      用于限制单次渲染的点数，降低高频数据下的界面压力；填 0 表示按当前缓存自动显示。
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="updateInterval">刷新间隔 (ms)</Label>
-                    <Input
-                      id="updateInterval"
-                      type="number"
-                      value={localConfig.updateInterval}
-                      onChange={(event) =>
-                        setLocalConfig({
-                          ...localConfig,
-                          updateInterval: Math.max(parseInt(event.target.value, 10) || 33, 16),
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sampleRateHz">采样率 (Hz，0=自动估算)</Label>
-                    <Input
-                      id="sampleRateHz"
-                      type="number"
-                      value={localConfig.sampleRateHz}
-                      onChange={(event) =>
-                        setLocalConfig({
-                          ...localConfig,
-                          sampleRateHz: Math.max(parseFloat(event.target.value) || 0, 0),
-                        })
-                      }
-                    />
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      FFT 频率轴优先使用这里的采样率；如果填写为 0，会按时间戳自动估算。
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="fftWindowSize">FFT 窗口大小</Label>
-                    <Input
-                      id="fftWindowSize"
-                      type="number"
-                      value={localConfig.fftWindowSize}
-                      onChange={(event) =>
-                        setLocalConfig({
-                          ...localConfig,
-                          fftWindowSize: Math.min(
-                            Math.max(parseInt(event.target.value, 10) || 1024, 32),
-                            4096
-                          ),
-                        })
-                      }
-                    />
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      窗口越大，频率分辨率越高，但实时性越低。常用范围建议 256 到 2048。
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-[24px] border border-border/60 p-4">
-                <div className="mb-3 text-sm font-medium">显示选项</div>
-                <div className="grid gap-3">
-                  <ToggleRow
-                    label="显示网格"
-                    checked={localConfig.showGrid}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig({ ...localConfig, showGrid: checked })
-                    }
-                  />
-                  <ToggleRow
-                    label="显示图例"
-                    checked={localConfig.showLegend}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig({ ...localConfig, showLegend: checked })
-                    }
-                  />
-                  <ToggleRow
-                    label="显示工具提示"
-                    checked={localConfig.showTooltip}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig({ ...localConfig, showTooltip: checked })
-                    }
-                  />
-                  <ToggleRow
-                    label="启用动画"
-                    checked={localConfig.animationEnabled}
-                    onCheckedChange={(checked) =>
-                      setLocalConfig({ ...localConfig, animationEnabled: checked })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-border/60 p-4">
-                <div className="mb-3 text-sm font-medium">当前模式说明</div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p><strong>波形示波器</strong>：适合实时调试数值流，支持 Time / FFT、缩放、拖拽与导出。</p>
-                  <p><strong>FFT 快捷入口</strong>：RTT 和串口工具栏都可以直接点“波形 / FFT”，不必先进入图表内部切换。</p>
-                  <p><strong>XY 散点图</strong>：适合 X/Y 关系曲线，例如角度-电流、速度-电压。</p>
-                  <p><strong>KV 模式</strong>：自动抽取行内所有 <code>key=value</code> 对（如 <code>seq=17 fft=1024 mag=10145.5</code>），非数值字段自动跳过。</p>
-                  <p><strong>自动模式</strong>：依次尝试 JSON → 正则 → KV → 分隔符。</p>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="series" className="space-y-4 pt-4">
+        <div className="space-y-4">
+          {/* 1. 启用 + 解析模式 + 图表类型 */}
+          <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium">数据系列</div>
-                <p className="text-xs text-muted-foreground">控制每个字段的显示名称、颜色与可见性。</p>
+                <div className="text-sm font-medium">基础</div>
+                <p className="text-xs text-muted-foreground">关掉开关后，图表面板不会再消费数据。</p>
               </div>
-              <Button size="sm" variant="outline" onClick={handleAddSeries}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                添加系列
-              </Button>
+              <Switch
+                checked={localConfig.enabled}
+                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, enabled: checked })}
+              />
             </div>
 
-            <div className="space-y-3">
-              {localConfig.series.map((series, index) => (
-                <div key={`${series.key}-${index}`} className="grid gap-3 rounded-[24px] border border-border/60 p-4 md:grid-cols-[1fr_1fr_auto_auto_auto]">
-                  <Input
-                    value={series.key}
-                    placeholder="数据键"
-                    onChange={(event) => {
-                      const next = [...localConfig.series];
-                      next[index] = { ...next[index], key: event.target.value };
-                      setLocalConfig({ ...localConfig, series: next });
-                    }}
-                  />
-                  <Input
-                    value={series.name}
-                    placeholder="显示名称"
-                    onChange={(event) => {
-                      const next = [...localConfig.series];
-                      next[index] = { ...next[index], name: event.target.value };
-                      setLocalConfig({ ...localConfig, series: next });
-                    }}
-                  />
-                  <Input
-                    value={series.unit || ""}
-                    placeholder="单位"
-                    onChange={(event) => {
-                      const next = [...localConfig.series];
-                      next[index] = { ...next[index], unit: event.target.value };
-                      setLocalConfig({ ...localConfig, series: next });
-                    }}
-                  />
-                  <input
-                    type="color"
-                    value={series.color}
-                    onChange={(event) => {
-                      const next = [...localConfig.series];
-                      next[index] = { ...next[index], color: event.target.value };
-                      setLocalConfig({ ...localConfig, series: next });
-                    }}
-                    className="h-10 w-14 cursor-pointer rounded-xl border border-border bg-transparent"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={series.visible}
-                      onCheckedChange={(checked) => {
-                        const next = [...localConfig.series];
-                        next[index] = { ...next[index], visible: checked };
-                        setLocalConfig({ ...localConfig, series: next });
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setLocalConfig({
-                          ...localConfig,
-                          series: localConfig.series.filter((_, itemIndex) => itemIndex !== index),
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="parseMode">解析模式</Label>
+                <Select
+                  value={localConfig.parseMode}
+                  onValueChange={(value: ParseMode) =>
+                    setLocalConfig({ ...localConfig, parseMode: value })
+                  }
+                >
+                  <SelectTrigger id="parseMode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">自动</SelectItem>
+                    <SelectItem value="delimiter">分隔符</SelectItem>
+                    <SelectItem value="json">JSON</SelectItem>
+                    <SelectItem value="kv">KV (key=value)</SelectItem>
+                    <SelectItem value="regex">正则</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              {localConfig.series.length === 0 && (
-                <div className="rounded-[24px] border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
-                  还没有系列，先添加一项。
+              <div className="space-y-2">
+                <Label htmlFor="chartType">图表类型</Label>
+                <Select
+                  value={localConfig.chartType}
+                  onValueChange={(value: ChartType) =>
+                    setLocalConfig({ ...localConfig, chartType: value })
+                  }
+                >
+                  <SelectTrigger id="chartType">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="waveform">波形示波器</SelectItem>
+                    <SelectItem value="line">折线图</SelectItem>
+                    <SelectItem value="bar">柱状图</SelectItem>
+                    <SelectItem value="scatter">散点图（按时间）</SelectItem>
+                    <SelectItem value="xy-scatter">XY 散点图</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>
+
+            {isXyScatter && (
+              <p className="text-xs text-muted-foreground leading-5">
+                XY 散点图需要一条通道把「角色」选成「X」，其余通道作为 Y 值。
+              </p>
+            )}
+          </section>
+
+          {/* 2. 模式专属字段 */}
+          {(localConfig.parseMode === "delimiter" || localConfig.parseMode === "regex") && (
+            <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
+              <div className="text-sm font-medium">
+                {localConfig.parseMode === "delimiter" ? "分隔符" : "正则表达式"}
+              </div>
+
+              {localConfig.parseMode === "delimiter" && (
+                <div className="space-y-2">
+                  <Label htmlFor="delimiter">分隔符（字符或转义序列）</Label>
+                  <Input
+                    id="delimiter"
+                    value={localConfig.delimiter}
+                    placeholder=", / \t / ; / 空格"
+                    onChange={(event) =>
+                      setLocalConfig({ ...localConfig, delimiter: event.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    例如 <code className="font-mono">20,4997.32,122954.44</code> 用 <code className="font-mono">,</code>。
+                  </p>
                 </div>
               )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="delimiter" className="space-y-4 pt-4">
-            <div className="rounded-[24px] border border-border/60 p-4">
-              <ToggleRow
-                label="启用分隔符解析"
-                checked={localConfig.delimiterEnabled}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, delimiterEnabled: checked })
-                }
-              />
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="delimiter">分隔符</Label>
-                <Input
-                  id="delimiter"
-                  value={localConfig.delimiter}
-                  placeholder=", / \\t / ;"
-                  onChange={(event) =>
-                    setLocalConfig({ ...localConfig, delimiter: event.target.value })
-                  }
-                />
-              </div>
-            </div>
+              {localConfig.parseMode === "regex" && (
+                <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+                  <div className="space-y-2">
+                    <Label htmlFor="regexPattern">正则表达式</Label>
+                    <Input
+                      id="regexPattern"
+                      value={localConfig.regexPattern}
+                      placeholder="temp:(?<temp>\d+\.\d+)"
+                      className="font-mono"
+                      onChange={(event) =>
+                        setLocalConfig({ ...localConfig, regexPattern: event.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="regexFlags">标志</Label>
+                    <Input
+                      id="regexFlags"
+                      value={localConfig.regexFlags || ""}
+                      placeholder="g / gi"
+                      onChange={(event) =>
+                        setLocalConfig({ ...localConfig, regexFlags: event.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
+          {/* 3. 通道表格 */}
+          <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium">字段映射</div>
-                <p className="text-xs text-muted-foreground">例如 `1.23,4.56` 可映射成 voltage / current。</p>
+                <div className="text-sm font-medium">通道</div>
+                <p className="text-xs text-muted-foreground">
+                  一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。
+                </p>
               </div>
-              <Button size="sm" variant="outline" onClick={handleAddField}>
+              <Button size="sm" variant="outline" onClick={addChannel}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                添加字段
+                添加
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {localConfig.fields.map((field, index) => (
-                <div key={`${field.name}-${index}`} className="grid gap-3 rounded-[24px] border border-border/60 p-4 md:grid-cols-[100px_1fr_auto_auto]">
-                  <Input
-                    type="number"
-                    value={field.index}
-                    onChange={(event) => {
-                      const next = [...localConfig.fields];
-                      next[index] = {
-                        ...next[index],
-                        index: Math.max(parseInt(event.target.value, 10) || 0, 0),
-                      };
-                      setLocalConfig({ ...localConfig, fields: next });
-                    }}
+            {localConfig.channels.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
+                还没有通道。
+                {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") && "（留空时会自动提取所有数值字段）"}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <ChannelHeaderRow isDelimiter={isDelimiter} isXyScatter={isXyScatter} />
+                {localConfig.channels.map((channel, index) => (
+                  <ChannelRow
+                    key={`${channel.key}-${index}`}
+                    channel={channel}
+                    index={index}
+                    total={localConfig.channels.length}
+                    isDelimiter={isDelimiter}
+                    isXyScatter={isXyScatter}
+                    onChange={(patch) => updateChannel(index, patch)}
+                    onMove={(dir) => moveChannel(index, dir)}
+                    onRemove={() => removeChannel(index)}
                   />
-                  <Input
-                    value={field.name}
-                    onChange={(event) => {
-                      const next = [...localConfig.fields];
-                      next[index] = { ...next[index], name: event.target.value };
-                      setLocalConfig({ ...localConfig, fields: next });
-                    }}
-                  />
-                  <Switch
-                    checked={field.enabled}
-                    onCheckedChange={(checked) => {
-                      const next = [...localConfig.fields];
-                      next[index] = { ...next[index], enabled: checked };
-                      setLocalConfig({ ...localConfig, fields: next });
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      setLocalConfig({
-                        ...localConfig,
-                        fields: localConfig.fields.filter((_, itemIndex) => itemIndex !== index),
-                      })
-                    }
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
+                ))}
+              </div>
+            )}
+          </section>
 
-          <TabsContent value="regex" className="space-y-4 pt-4">
-            <div className="rounded-[24px] border border-border/60 p-4">
-              <ToggleRow
-                label="启用正则解析"
-                checked={localConfig.regexEnabled}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, regexEnabled: checked })
+          {/* 4. 性能与采样（折叠） */}
+          <CollapsibleSection
+            title="性能与采样"
+            subtitle="缓冲、刷新、FFT 窗口、采样率"
+            open={showAdvanced}
+            onToggle={() => setShowAdvanced(!showAdvanced)}
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <NumberField
+                id="maxDataPoints"
+                label="最大数据点数"
+                value={localConfig.maxDataPoints}
+                onChange={(value) =>
+                  setLocalConfig({ ...localConfig, maxDataPoints: Math.max(value, 100) })
                 }
               />
-              <div className="mt-4 space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="regexPattern">正则表达式（推荐命名捕获组）</Label>
-                  <Input
-                    id="regexPattern"
-                    value={localConfig.regexPattern}
-                    placeholder="temp:(?<temp>\\d+\\.\\d+)"
-                    className="font-mono"
-                    onChange={(event) =>
-                      setLocalConfig({ ...localConfig, regexPattern: event.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="regexFlags">正则标志</Label>
-                  <Input
-                    id="regexFlags"
-                    value={localConfig.regexFlags || ""}
-                    placeholder="g / gi"
-                    onChange={(event) =>
-                      setLocalConfig({ ...localConfig, regexFlags: event.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="json" className="space-y-4 pt-4">
-            <div className="rounded-[24px] border border-border/60 p-4">
-              <ToggleRow
-                label="启用 JSON 解析"
-                checked={localConfig.jsonEnabled}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, jsonEnabled: checked })
+              <NumberField
+                id="visiblePointLimit"
+                label="可视点数 (0=自动)"
+                value={localConfig.visiblePointLimit}
+                onChange={(value) =>
+                  setLocalConfig({ ...localConfig, visiblePointLimit: Math.max(value, 0) })
                 }
               />
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="jsonKeys">JSON 字段（逗号分隔，留空表示全部数值字段）</Label>
-                <Input
-                  id="jsonKeys"
-                  value={(localConfig.jsonKeys || []).join(",")}
-                  placeholder="voltage,current,temperature"
-                  onChange={(event) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      jsonKeys: event.target.value
-                        .split(",")
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="kv" className="space-y-4 pt-4">
-            <div className="rounded-[24px] border border-border/60 p-4">
-              <ToggleRow
-                label="启用 KV 解析"
-                checked={localConfig.kvEnabled}
-                onCheckedChange={(checked) =>
-                  setLocalConfig({ ...localConfig, kvEnabled: checked })
+              <NumberField
+                id="updateInterval"
+                label="刷新间隔 (ms)"
+                value={localConfig.updateInterval}
+                onChange={(value) =>
+                  setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })
                 }
               />
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="kvKeys">KV 字段（逗号分隔，留空表示自动提取所有数值键）</Label>
-                <Input
-                  id="kvKeys"
-                  value={(localConfig.kvKeys || []).join(",")}
-                  placeholder="seq,fft,fs,frame_mean,peak_bin,peak_freq,mag"
-                  onChange={(event) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      kvKeys: event.target.value
-                        .split(",")
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                />
-                <p className="text-xs leading-5 text-muted-foreground">
-                  适合 <code className="font-mono">key=value</code> 风格的自由文本日志，
-                  例如 <code className="font-mono">seq=17 fft=1024 fs=255863 Hz frame_mean=-19.6 peak_freq=999.46 Hz mag=10145130</code>。
-                  非数值字段（如 <code className="font-mono">filter=none</code>）和单位词（如 <code className="font-mono">Hz</code>）会被自动忽略。
-                </p>
-              </div>
+              <NumberField
+                id="sampleRateHz"
+                label="采样率 (Hz, 0=自动)"
+                value={localConfig.sampleRateHz}
+                onChange={(value) =>
+                  setLocalConfig({ ...localConfig, sampleRateHz: Math.max(value, 0) })
+                }
+              />
+              <NumberField
+                id="fftWindowSize"
+                label="FFT 窗口大小 (32-4096)"
+                value={localConfig.fftWindowSize}
+                onChange={(value) =>
+                  setLocalConfig({
+                    ...localConfig,
+                    fftWindowSize: Math.min(Math.max(value, 32), 4096),
+                  })
+                }
+              />
             </div>
-          </TabsContent>
-        </Tabs>
+          </CollapsibleSection>
 
-        <div className="mt-6 flex justify-end gap-2">
+          {/* 5. 显示选项（折叠） */}
+          <CollapsibleSection
+            title="显示选项"
+            subtitle="网格、图例、Tooltip、动画"
+            open={showDisplay}
+            onToggle={() => setShowDisplay(!showDisplay)}
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <ToggleRow
+                label="显示网格"
+                checked={localConfig.showGrid}
+                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showGrid: checked })}
+              />
+              <ToggleRow
+                label="显示图例"
+                checked={localConfig.showLegend}
+                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showLegend: checked })}
+              />
+              <ToggleRow
+                label="显示 Tooltip"
+                checked={localConfig.showTooltip}
+                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showTooltip: checked })}
+              />
+              <ToggleRow
+                label="启用动画"
+                checked={localConfig.animationEnabled}
+                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, animationEnabled: checked })}
+              />
+            </div>
+          </CollapsibleSection>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>
@@ -593,6 +399,210 @@ export function ChartConfigDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ChannelHeaderRow({
+  isDelimiter,
+  isXyScatter,
+}: {
+  isDelimiter: boolean;
+  isXyScatter: boolean;
+}) {
+  return (
+    <div
+      className="grid items-center gap-2 px-2 text-[11px] uppercase tracking-wide text-muted-foreground"
+      style={{ gridTemplateColumns: gridTemplate(isDelimiter, isXyScatter) }}
+    >
+      <span>键</span>
+      {isDelimiter && <span>列号</span>}
+      <span>显示名称</span>
+      <span>单位</span>
+      <span>颜色</span>
+      {isXyScatter && <span>角色</span>}
+      <span className="text-center">显示</span>
+      <span />
+    </div>
+  );
+}
+
+function ChannelRow({
+  channel,
+  index,
+  total,
+  isDelimiter,
+  isXyScatter,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  channel: Channel;
+  index: number;
+  total: number;
+  isDelimiter: boolean;
+  isXyScatter: boolean;
+  onChange: (patch: Partial<Channel>) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      className="grid items-center gap-2 rounded-[18px] border border-border/60 bg-white/65 p-2"
+      style={{ gridTemplateColumns: gridTemplate(isDelimiter, isXyScatter) }}
+    >
+      <Input
+        value={channel.key}
+        placeholder="key"
+        onChange={(e) => onChange({ key: e.target.value })}
+        className="h-9"
+      />
+      {isDelimiter && (
+        <Input
+          type="number"
+          min={0}
+          value={channel.sourceIndex ?? ""}
+          placeholder="列号"
+          onChange={(e) => {
+            const raw = e.target.value;
+            const parsed = raw === "" ? undefined : Math.max(parseInt(raw, 10) || 0, 0);
+            onChange({ sourceIndex: parsed });
+          }}
+          className="h-9"
+        />
+      )}
+      <Input
+        value={channel.name}
+        placeholder={channel.key}
+        onChange={(e) => onChange({ name: e.target.value })}
+        className="h-9"
+      />
+      <Input
+        value={channel.unit ?? ""}
+        placeholder="℃ / Hz"
+        onChange={(e) => onChange({ unit: e.target.value || undefined })}
+        className="h-9"
+      />
+      <input
+        type="color"
+        value={channel.color}
+        onChange={(e) => onChange({ color: e.target.value })}
+        className="h-9 w-12 cursor-pointer rounded-md border border-border bg-transparent"
+        aria-label="颜色"
+      />
+      {isXyScatter && (
+        <Select
+          value={channel.role ?? "y"}
+          onValueChange={(value) => onChange({ role: value as "x" | "y" })}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="y">Y</SelectItem>
+            <SelectItem value="x">X</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+      <div className="flex justify-center">
+        <Switch
+          checked={channel.visible}
+          onCheckedChange={(checked) => onChange({ visible: checked })}
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          disabled={index === 0}
+          onClick={() => onMove(-1)}
+          aria-label="上移"
+        >
+          ↑
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          disabled={index === total - 1}
+          onClick={() => onMove(1)}
+          aria-label="下移"
+        >
+          ↓
+        </Button>
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={onRemove} aria-label="删除">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function gridTemplate(isDelimiter: boolean, isXyScatter: boolean) {
+  // [key] [sourceIndex?] [name] [unit] [color] [role?] [visible] [actions]
+  const cols = ["minmax(0, 1.2fr)"];
+  if (isDelimiter) cols.push("80px");
+  cols.push("minmax(0, 1.4fr)");
+  cols.push("80px");
+  cols.push("56px");
+  if (isXyScatter) cols.push("80px");
+  cols.push("64px");
+  cols.push("auto");
+  return cols.join(" ");
+}
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[24px] border border-border/60">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <div>
+          <div className="text-sm font-medium">{title}</div>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
+        {open ? <ChevronDown className="h-4 w-4 opacity-70" /> : <ChevronRight className="h-4 w-4 opacity-70" />}
+      </button>
+      {open && <div className="border-t border-border/60 p-4">{children}</div>}
+    </section>
+  );
+}
+
+function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="number"
+        value={value}
+        onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
+      />
+    </div>
   );
 }
 
@@ -606,7 +616,7 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2">
       <Label>{label}</Label>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>

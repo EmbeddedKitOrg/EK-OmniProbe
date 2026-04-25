@@ -3,6 +3,14 @@ use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
 
+#[cfg(windows)]
+#[link(name = "kernel32")]
+extern "system" {
+    /// Sets the OS-level serial driver RX/TX queue sizes for an open COM handle.
+    /// Default on Windows is typically 4 KB which overflows easily at 921600 baud.
+    fn SetupComm(hFile: *mut std::ffi::c_void, dwInQueue: u32, dwOutQueue: u32) -> i32;
+}
+
 /// Local serial port implementation
 pub struct LocalSerial {
     port_name: String,
@@ -62,16 +70,34 @@ impl DataSource for LocalSerial {
             return Ok(());
         }
 
-        let port = serialport::new(&self.port_name, self.baud_rate)
+        // 50ms timeout：read 在数据到达时立即返回，没数据时等到 50ms。
+        // 比 1ms 更划算，每次 syscall 拿到的数据量更大；专用读线程会一直 block 在这里，
+        // OS 驱动 FIFO 不会因为我们慢而溢出。
+        let native_port = serialport::new(&self.port_name, self.baud_rate)
             .data_bits(self.data_bits)
             .stop_bits(self.stop_bits)
             .parity(self.parity)
             .flow_control(self.flow_control)
-            .timeout(Duration::from_millis(1)) // 降低超时到 1ms，提高响应速度
-            .open()
+            .timeout(Duration::from_millis(50))
+            .open_native()
             .map_err(|e| format!("Failed to open serial port: {}", e))?;
 
-        self.port = Some(port);
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            let handle = native_port.as_raw_handle();
+            // 64 KB RX / 8 KB TX：在 921600 baud 下能扛住 ~700ms 的调度抖动而不丢字节。
+            let ok = unsafe { SetupComm(handle as *mut _, 65536, 8192) };
+            if ok == 0 {
+                log::warn!(
+                    "SetupComm 调用失败，OS 驱动 RX 队列保持默认大小（高 baud 时可能丢字节）"
+                );
+            } else {
+                log::info!("已把 OS 驱动 RX 队列扩大到 64 KB");
+            }
+        }
+
+        self.port = Some(Box::new(native_port));
         self.stats = SerialStats::default();
         Ok(())
     }
