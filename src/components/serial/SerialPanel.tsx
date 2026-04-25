@@ -306,14 +306,14 @@ interface PanelShellProps {
 function PanelShell({ title, subtitle, badge, actions, children }: PanelShellProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-white/75 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-white/72 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-white/72 px-4 py-3">
         <div>
           <div className="text-sm font-medium text-foreground">{title}</div>
-          <div className="text-[11px] text-muted-foreground">{subtitle}</div>
+          <div className="text-xs text-muted-foreground">{subtitle}</div>
         </div>
         <div className="flex items-center gap-2">
           {actions}
-          <span className="rounded-full bg-secondary px-3 py-1 text-[11px] font-medium text-secondary-foreground">
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
             {badge}
           </span>
         </div>

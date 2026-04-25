@@ -431,7 +431,7 @@ export function ChartViewer({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-3 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-4 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
       <div className="flex shrink-0 flex-wrap items-center gap-2.5 rounded-[24px] border border-border/50 bg-secondary/70 px-3.5 py-2.5">
         <Button
           size="sm"
@@ -546,7 +546,7 @@ export function ChartViewer({
           </Popover>
         )}
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[11px] text-muted-foreground">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
           <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
           {chartConfig.chartType === "waveform" && (
             <span className="rounded-full bg-white/80 px-3 py-1">
@@ -567,7 +567,7 @@ export function ChartViewer({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3 py-2 text-[11px] text-muted-foreground">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3.5 py-2.5 text-xs text-muted-foreground">
         <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
           {chartConfig.chartType === "waveform"
             ? signalDomain === "fft"
@@ -691,11 +691,11 @@ export function ChartViewer({
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
             <div>
               <div className="text-sm font-medium text-foreground">解析字段</div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 实时值、曲线命名与显示控制
               </div>
             </div>
-            <span className="rounded-full bg-secondary px-3 py-1 text-[11px] text-secondary-foreground">
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
               {seriesInspectorEntries.length} 项
             </span>
           </div>
@@ -759,7 +759,7 @@ export function ChartViewer({
                   </div>
 
                   <div className="mt-2 flex items-end justify-between gap-3">
-                    <div className="space-y-1 text-[11px] text-muted-foreground">
+                    <div className="space-y-1 text-xs text-muted-foreground">
                       <div>
                         key: <span className="font-mono">{series.key}</span>
                       </div>
@@ -773,7 +773,7 @@ export function ChartViewer({
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[11px] text-muted-foreground">最新值</div>
+                      <div className="text-xs text-muted-foreground">最新值</div>
                       <div className="text-base font-semibold text-foreground">
                         {series.latestValue === null ? "—" : formatChartNumber(series.latestValue)}
                         {series.unit ? (
@@ -805,7 +805,7 @@ function ControlField({
 }) {
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <Input
         type="number"
         inputMode="numeric"
@@ -813,7 +813,7 @@ function ControlField({
         onChange={(event) => onChange(event.target.value)}
         className="h-8 w-28 text-sm"
       />
-      <span className="text-[11px] text-muted-foreground">{suffix}</span>
+      <span className="text-xs text-muted-foreground">{suffix}</span>
     </label>
   );
 }
