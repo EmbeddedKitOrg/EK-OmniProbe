@@ -7,7 +7,6 @@ use std::time::Duration;
 pub struct TcpSerial {
     host: String,
     port: u16,
-    #[allow(dead_code)]
     reconnect: bool,
     stream: Option<TcpStream>,
     stats: SerialStats,
@@ -117,5 +116,9 @@ impl DataSource for TcpSerial {
 
     fn reset_stats(&mut self) {
         self.stats = SerialStats::default();
+    }
+
+    fn wants_reconnect(&self) -> bool {
+        self.reconnect
     }
 }

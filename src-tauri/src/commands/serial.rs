@@ -61,6 +61,7 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             stop_bits,
             parity,
             flow_control,
+            reconnect,
         } => Box::new(LocalSerial::new(
             port,
             baud_rate,
@@ -68,6 +69,7 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             stop_bits,
             &parity,
             &flow_control,
+            reconnect,
         )),
         SerialConfig::Tcp {
             host,
@@ -245,16 +247,87 @@ pub async fn start_serial(
                         break;
                     }
                     Ok(Err(e)) => {
-                        // 错误occurred
-                        serial_state.set_running(false);
+                        // 读取出错：如果数据源希望自动重连，则进入重连循环；否则按原有逻辑停止。
+                        let wants_reconnect = {
+                            let guard = serial_state.datasource.lock();
+                            guard.as_ref().map(|d| d.wants_reconnect()).unwrap_or(false)
+                        };
+
+                        if !wants_reconnect {
+                            serial_state.set_running(false);
+                            let _ = app.emit(
+                                "serial-status",
+                                SerialStatusEvent {
+                                    connected: false,
+                                    running: false,
+                                    error: Some(e),
+                                },
+                            );
+                            break;
+                        }
+
+                        // 进入重连：先 flush 已有 batch，再以指数退避重试
+                        if !batch_buffer.is_empty() {
+                            let timestamp = chrono::Utc::now().timestamp_millis();
+                            let _ = app.emit(
+                                "serial-data",
+                                SerialDataEvent {
+                                    data: batch_buffer.clone(),
+                                    timestamp,
+                                    direction: "rx".to_string(),
+                                },
+                            );
+                            batch_buffer.clear();
+                            last_emit = std::time::Instant::now();
+                        }
+
                         let _ = app.emit(
                             "serial-status",
                             SerialStatusEvent {
                                 connected: false,
-                                running: false,
-                                error: Some(e),
+                                running: true,
+                                error: Some(format!("连接断开，正在尝试重连: {}", e)),
                             },
                         );
+
+                        let mut delay_ms: u64 = 1000;
+                        loop {
+                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                            if !serial_state.is_running() {
+                                break;
+                            }
+
+                            let serial_state_inner = Arc::clone(&serial_state);
+                            let connect_result = tokio::task::spawn_blocking(move || {
+                                let mut guard = serial_state_inner.datasource.lock();
+                                match guard.as_mut() {
+                                    Some(ds) => {
+                                        let _ = ds.disconnect();
+                                        ds.connect()
+                                    }
+                                    None => Err("数据源已不存在".to_string()),
+                                }
+                            })
+                            .await;
+
+                            match connect_result {
+                                Ok(Ok(_)) => {
+                                    let _ = app.emit(
+                                        "serial-status",
+                                        SerialStatusEvent {
+                                            connected: true,
+                                            running: true,
+                                            error: None,
+                                        },
+                                    );
+                                    break;
+                                }
+                                _ => {
+                                    delay_ms = (delay_ms.saturating_mul(2)).min(5000);
+                                }
+                            }
+                        }
+                        // 重连成功或被用户停止，退出内层读取循环
                         break;
                     }
                     Err(_) => {

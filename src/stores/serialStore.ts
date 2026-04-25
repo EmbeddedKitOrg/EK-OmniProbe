@@ -53,6 +53,7 @@ const defaultLocalConfig: LocalSerialConfig = {
   stop_bits: 1,
   parity: "none",
   flow_control: "none",
+  reconnect: false,
 };
 
 // Default TCP config

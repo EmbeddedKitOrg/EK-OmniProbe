@@ -75,6 +75,11 @@ pub trait DataSource: Send {
 
     /// Reset statistics
     fn reset_stats(&mut self);
+
+    /// 该数据源是否希望在断线时由轮询任务尝试自动重连
+    fn wants_reconnect(&self) -> bool {
+        false
+    }
 }
 
 /// Serial port runtime state
