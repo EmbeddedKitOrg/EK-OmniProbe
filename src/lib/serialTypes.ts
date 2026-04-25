@@ -24,6 +24,7 @@ export interface LocalSerialConfig {
   stop_bits?: 1 | 2;
   parity?: "none" | "even" | "odd";
   flow_control?: "none" | "hardware" | "software";
+  reconnect?: boolean;
 }
 
 /**

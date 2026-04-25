@@ -13,6 +13,7 @@ pub struct LocalSerial {
     flow_control: FlowControl,
     port: Option<Box<dyn SerialPort>>,
     stats: SerialStats,
+    reconnect: bool,
 }
 
 impl LocalSerial {
@@ -23,6 +24,7 @@ impl LocalSerial {
         stop_bits: u8,
         parity: &str,
         flow_control: &str,
+        reconnect: bool,
     ) -> Self {
         Self {
             port_name,
@@ -49,6 +51,7 @@ impl LocalSerial {
             },
             port: None,
             stats: SerialStats::default(),
+            reconnect,
         }
     }
 }
@@ -127,6 +130,10 @@ impl DataSource for LocalSerial {
 
     fn reset_stats(&mut self) {
         self.stats = SerialStats::default();
+    }
+
+    fn wants_reconnect(&self) -> bool {
+        self.reconnect
     }
 }
 

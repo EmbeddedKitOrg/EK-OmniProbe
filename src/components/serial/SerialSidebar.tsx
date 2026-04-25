@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Collapsible,
@@ -324,6 +325,19 @@ export function SerialSidebar() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-medium">断线自动重连</label>
+                    <p className="text-[11px] text-muted-foreground">
+                      读取出错时尝试重连 (1s 起，指数退避到 5s)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localConfig.reconnect ?? false}
+                    onCheckedChange={(value) => setLocalConfig({ reconnect: value })}
+                  />
+                </div>
               </CardContent>
             </CollapsibleContent>
           </Card>
@@ -358,6 +372,19 @@ export function SerialSidebar() {
                 onChange={(e) => setTcpConfig({ port: parseInt(e.target.value) || 0 })}
                 placeholder="8080"
                 disabled={connected}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="space-y-0.5">
+                <label className="text-xs font-medium">断线自动重连</label>
+                <p className="text-[11px] text-muted-foreground">
+                  读取出错时尝试重连 (1s 起，指数退避到 5s)
+                </p>
+              </div>
+              <Switch
+                checked={tcpConfig.reconnect ?? false}
+                onCheckedChange={(value) => setTcpConfig({ reconnect: value })}
               />
             </div>
           </CardContent>

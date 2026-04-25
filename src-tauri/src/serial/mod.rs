@@ -23,6 +23,8 @@ pub enum SerialConfig {
         parity: String,
         #[serde(default = "default_flow_control")]
         flow_control: String,
+        #[serde(default)]
+        reconnect: bool,
     },
     /// TCP serial server (ser2net, ESP-Link, etc.)
     #[serde(rename = "tcp")]
