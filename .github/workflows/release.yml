@@ -159,8 +159,12 @@ jobs:
           VERSION="${{ github.event.inputs.version || github.ref_name }}"
           VERSION_NUM="${VERSION#v}"  # 移除 v 前缀
 
-          # 从 CHANGELOG.md 提取当前版本的内容
-          CHANGELOG=$(awk "/## \[${VERSION_NUM}\]/,/## \[/" CHANGELOG.md | sed '$d' | tail -n +2)
+          # 从 CHANGELOG.md 提取当前版本的内容（用 index 做字面量匹配，避免版本号里的 . 被当作正则）
+          CHANGELOG=$(awk -v ver="$VERSION_NUM" '
+            !flag && index($0, "## [" ver "]") == 1 { flag=1; next }
+            flag && index($0, "## [") == 1 { exit }
+            flag { print }
+          ' CHANGELOG.md | awk 'NF{p=1; for(i=0;i<b;i++) print ""; print; b=0; next} p{b++}')
 
           # 如果提取失败，使用默认内容
           if [ -z "$CHANGELOG" ]; then
@@ -281,8 +285,12 @@ jobs:
 
           echo "Generating merged latest.json for version ${VERSION}"
 
-          # 从 CHANGELOG.md 提取当前版本的内容
-          CHANGELOG=$(awk "/## \[${VERSION}\]/,/## \[/" CHANGELOG.md | sed '$d' | tail -n +2)
+          # 从 CHANGELOG.md 提取当前版本的内容（用 index 做字面量匹配，避免版本号里的 . 被当作正则）
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            !flag && index($0, "## [" ver "]") == 1 { flag=1; next }
+            flag && index($0, "## [") == 1 { exit }
+            flag { print }
+          ' CHANGELOG.md | awk 'NF{p=1; for(i=0;i<b;i++) print ""; print; b=0; next} p{b++}')
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="查看完整更新日志: https://github.com/${REPO}/blob/main/CHANGELOG.md"
           fi
