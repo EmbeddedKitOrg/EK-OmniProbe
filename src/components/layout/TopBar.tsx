@@ -51,8 +51,8 @@ export function TopBar() {
         <ModeSwitch className="flex-shrink-0" />
       </div>
 
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 2xl:flex-1 2xl:flex-nowrap 2xl:gap-3 2xl:px-2">
-        <div className="workspace-summary flex min-w-[170px] flex-1 items-center gap-3 rounded-[20px] px-3 py-2 md:min-w-[220px] 2xl:flex-none">
+      <div className="hidden w-full min-w-0 flex-wrap items-center gap-2 xl:flex 2xl:flex-1 2xl:flex-nowrap 2xl:gap-3 2xl:px-2">
+        <div className="workspace-summary hidden min-w-[220px] items-center gap-3 rounded-[20px] px-3 py-2 xl:flex 2xl:flex-none">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary">
             <ModeIcon className="h-4 w-4" />
           </div>

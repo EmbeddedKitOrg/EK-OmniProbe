@@ -329,7 +329,7 @@ export function SerialSidebar() {
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="space-y-0.5">
                     <label className="text-xs font-medium">断线自动重连</label>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       读取出错时尝试重连 (1s 起，指数退避到 5s)
                     </p>
                   </div>

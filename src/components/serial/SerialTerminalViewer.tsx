@@ -421,7 +421,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         </div>
       )}
 
-      <div className="border-b border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+      <div className="border-b border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
         {lineMode
           ? focused
             ? "行编辑模式：输入会先在本地累积，回车整行发送；↑↓ 翻历史，Esc 清空。复制：选中后 Ctrl+C 或 Ctrl+Shift+C。"

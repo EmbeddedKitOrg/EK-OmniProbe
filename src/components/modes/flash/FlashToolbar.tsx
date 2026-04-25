@@ -34,7 +34,7 @@ import type { FlashProgressEvent, EraseMode } from "@/lib/types";
 import { EraseDialog } from "@/components/dialogs/EraseDialog";
 
 function ToolbarSeparator() {
-  return <div className="w-px h-6 bg-border mx-1" />;
+  return <div className="w-px h-6 bg-border mx-2" />;
 }
 
 export function FlashToolbar() {

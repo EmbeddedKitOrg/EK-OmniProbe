@@ -163,7 +163,7 @@ export function LogPanel() {
         <div>
           <div className="text-xs font-medium text-foreground">输出日志</div>
           {!collapsed && (
-            <div className="text-[11px] text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
+            <div className="text-xs text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
           )}
         </div>
         <div className="flex items-center gap-1">
