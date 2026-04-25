@@ -85,8 +85,25 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
   }, [autoScroll, displayLines.length, rowVirtualizer]);
 
   const focusTerminal = useCallback(() => {
+    // 用户正在选择文本时不要夺焦，否则一松手选区就丢
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().length > 0) {
+      return;
+    }
     captureRef.current?.focus();
   }, []);
+
+  const copySelectionToClipboard = useCallback(() => {
+    const sel = window.getSelection();
+    const text = sel ? sel.toString() : "";
+    if (!text) return false;
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).catch((err) => {
+        addLog("warn", `复制到剪贴板失败: ${err}`);
+      });
+    }
+    return true;
+  }, [addLog]);
 
   const emitLocalEcho = useCallback(
     (text: string) => {
@@ -145,9 +162,30 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         return;
       }
 
-      if (terminalSettings.interceptShortcuts && event.ctrlKey && event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        void sendRawChunk([0x03]);
+      // Ctrl+Shift+C：始终复制选区
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c") {
+        if (copySelectionToClipboard()) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      // Ctrl+Shift+V：触发粘贴（让浏览器派发 paste 事件给 textarea）
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "v") {
+        // 浏览器会自动触发 onPaste，无需手动处理
+        return;
+      }
+
+      if (event.ctrlKey && event.key.toLowerCase() === "c") {
+        // 有选区 → 复制；无选区且开启拦截 → SIGINT
+        if (copySelectionToClipboard()) {
+          event.preventDefault();
+          return;
+        }
+        if (terminalSettings.interceptShortcuts) {
+          event.preventDefault();
+          void sendRawChunk([0x03]);
+        }
         return;
       }
 
@@ -203,6 +241,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
       sendSettings.lineEnding,
       sendRawChunk,
       sendTextChunk,
+      copySelectionToClipboard,
     ]
   );
 
@@ -259,8 +298,8 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
 
       <div className="border-b border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
         {focused
-          ? "终端已获取焦点，直接输入即可发送到设备。"
-          : "点击终端区域以激活键盘输入；粘贴内容会直接发送到串口。"}
+          ? "终端已获取焦点，直接输入即可发送。复制：选中后 Ctrl+C 或 Ctrl+Shift+C；Ctrl+C 在无选区时会发送 SIGINT。"
+          : "点击终端区域以激活键盘输入；选中文本可直接 Ctrl+C 复制，粘贴会发送到串口。"}
       </div>
 
       <div
