@@ -31,7 +31,7 @@ export interface ChartSeries {
 /**
  * 解析模式
  */
-export type ParseMode = "regex" | "delimiter" | "json" | "auto";
+export type ParseMode = "regex" | "delimiter" | "json" | "kv" | "auto";
 
 /**
  * 图表类型
@@ -85,6 +85,12 @@ export interface ChartConfig {
   jsonEnabled: boolean;
   /** 要提取的键，空表示全部 */
   jsonKeys?: string[];
+
+  // KV 模式配置 (key=value 风格自由文本，如 "seq=17 fft=1024 mag=10145.5")
+  /** 是否启用 KV 解析 */
+  kvEnabled: boolean;
+  /** 要提取的键，空表示自动提取所有数值键 */
+  kvKeys?: string[];
 
   // 图表配置
   /** 图表类型 */
@@ -152,6 +158,10 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   // JSON 模式
   jsonEnabled: true,
   jsonKeys: [],
+
+  // KV 模式
+  kvEnabled: true,
+  kvKeys: [],
 
   // 图表配置
   chartType: "waveform",

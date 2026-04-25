@@ -10,7 +10,7 @@ import { PRESET_COLORS } from "./chartTypes";
  */
 export interface DetectionResult {
   /** 检测到的格式类型 */
-  format: "single-value" | "csv" | "xy-data" | "json" | "regex" | "unknown";
+  format: "single-value" | "csv" | "xy-data" | "json" | "kv" | "regex" | "unknown";
   /** 建议的配置 */
   suggestedConfig: Partial<ChartConfig>;
   /** 检测到的字段/键 */
@@ -20,6 +20,8 @@ export interface DetectionResult {
   /** 说明 */
   description: string;
 }
+
+const KV_DETECT_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
 
 /**
  * 智能检测数据格式
@@ -53,16 +55,98 @@ export function detectDataFormat(sampleLines: string[]): DetectionResult {
     return jsonResult;
   }
 
-  // 4. 检测 CSV 格式（逗号、制表符、空格分隔）
+  // 4. 检测 KV 格式 (key=value 自由文本)
+  const kvResult = detectKv(sampleLines);
+  if (kvResult.confidence > 0.8) {
+    return kvResult;
+  }
+
+  // 5. 检测 CSV 格式（逗号、制表符、空格分隔）
   const csvResult = detectCsv(sampleLines);
   if (csvResult.confidence > 0.6) {
     return csvResult;
   }
 
-  // 5. 返回最佳猜测
-  const results = [singleValueResult, xyDataResult, jsonResult, csvResult];
+  // 6. 返回最佳猜测
+  const results = [singleValueResult, xyDataResult, jsonResult, kvResult, csvResult];
   results.sort((a, b) => b.confidence - a.confidence);
   return results[0];
+}
+
+/**
+ * 检测 key=value 格式（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
+ *
+ * 判定标准：每行至少匹配 2 个 key=number 对，跨行 key 集合稳定。
+ */
+function detectKv(lines: string[]): DetectionResult {
+  const trimmedLines = lines.map((l) => l.trim()).filter((l) => l.length > 0);
+  if (trimmedLines.length === 0) {
+    return {
+      format: "unknown",
+      suggestedConfig: {},
+      detectedKeys: [],
+      confidence: 0,
+      description: "没有数据可分析",
+    };
+  }
+
+  // 每行的 key 计数 + 全局 key 累计
+  const keyOccurrences = new Map<string, number>();
+  let validLineCount = 0;
+
+  for (const line of trimmedLines) {
+    KV_DETECT_REGEX.lastIndex = 0;
+    const lineKeys = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = KV_DETECT_REGEX.exec(line)) !== null) {
+      lineKeys.add(match[1]);
+    }
+    if (lineKeys.size >= 2) {
+      validLineCount++;
+      for (const key of lineKeys) {
+        keyOccurrences.set(key, (keyOccurrences.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  const confidence = validLineCount / trimmedLines.length;
+  // 至少 70% 行能匹配出 ≥2 个 KV 对，且至少在半数样本里出现的 key 才纳入
+  const stableKeys = Array.from(keyOccurrences.entries())
+    .filter(([, count]) => count >= Math.max(1, Math.floor(validLineCount * 0.5)))
+    .map(([key]) => key);
+
+  if (confidence > 0.7 && stableKeys.length >= 2) {
+    const series: ChartSeries[] = stableKeys.map((key, index) => ({
+      key,
+      name: key,
+      color: PRESET_COLORS[index % PRESET_COLORS.length],
+      visible: true,
+    }));
+
+    return {
+      format: "kv",
+      suggestedConfig: {
+        enabled: true,
+        parseMode: "kv",
+        kvEnabled: true,
+        kvKeys: stableKeys,
+        series,
+        chartType: "waveform",
+        maxDataPoints: 4000,
+      },
+      detectedKeys: stableKeys,
+      confidence,
+      description: `检测到 key=value 格式，共 ${stableKeys.length} 个稳定数值字段`,
+    };
+  }
+
+  return {
+    format: "unknown",
+    suggestedConfig: {},
+    detectedKeys: [],
+    confidence,
+    description: "不是 KV 格式",
+  };
 }
 
 /**

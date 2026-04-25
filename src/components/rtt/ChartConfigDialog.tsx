@@ -95,12 +95,13 @@ export function ChartConfigDialog({
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 rounded-[20px]">
+          <TabsList className="grid w-full grid-cols-6 rounded-[20px]">
             <TabsTrigger value="basic">基础</TabsTrigger>
             <TabsTrigger value="series">系列</TabsTrigger>
             <TabsTrigger value="delimiter">分隔符</TabsTrigger>
             <TabsTrigger value="regex">正则</TabsTrigger>
             <TabsTrigger value="json">JSON</TabsTrigger>
+            <TabsTrigger value="kv">KV</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-4 pt-4">
@@ -134,6 +135,7 @@ export function ChartConfigDialog({
                         <SelectItem value="regex">正则</SelectItem>
                         <SelectItem value="delimiter">分隔符</SelectItem>
                         <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="kv">KV (key=value)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -309,7 +311,8 @@ export function ChartConfigDialog({
                   <p><strong>波形示波器</strong>：适合实时调试数值流，支持 Time / FFT、缩放、拖拽与导出。</p>
                   <p><strong>FFT 快捷入口</strong>：RTT 和串口工具栏都可以直接点“波形 / FFT”，不必先进入图表内部切换。</p>
                   <p><strong>XY 散点图</strong>：适合 X/Y 关系曲线，例如角度-电流、速度-电压。</p>
-                  <p><strong>自动模式</strong>：会优先尝试 JSON，再尝试正则与分隔符。</p>
+                  <p><strong>KV 模式</strong>：自动抽取行内所有 <code>key=value</code> 对（如 <code>seq=17 fft=1024 mag=10145.5</code>），非数值字段自动跳过。</p>
+                  <p><strong>自动模式</strong>：依次尝试 JSON → 正则 → KV → 分隔符。</p>
                 </div>
               </div>
             </div>
@@ -543,6 +546,40 @@ export function ChartConfigDialog({
                     })
                   }
                 />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="kv" className="space-y-4 pt-4">
+            <div className="rounded-[24px] border border-border/60 p-4">
+              <ToggleRow
+                label="启用 KV 解析"
+                checked={localConfig.kvEnabled}
+                onCheckedChange={(checked) =>
+                  setLocalConfig({ ...localConfig, kvEnabled: checked })
+                }
+              />
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="kvKeys">KV 字段（逗号分隔，留空表示自动提取所有数值键）</Label>
+                <Input
+                  id="kvKeys"
+                  value={(localConfig.kvKeys || []).join(",")}
+                  placeholder="seq,fft,fs,frame_mean,peak_bin,peak_freq,mag"
+                  onChange={(event) =>
+                    setLocalConfig({
+                      ...localConfig,
+                      kvKeys: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  适合 <code className="font-mono">key=value</code> 风格的自由文本日志，
+                  例如 <code className="font-mono">seq=17 fft=1024 fs=255863 Hz frame_mean=-19.6 peak_freq=999.46 Hz mag=10145130</code>。
+                  非数值字段（如 <code className="font-mono">filter=none</code>）和单位词（如 <code className="font-mono">Hz</code>）会被自动忽略。
+                </p>
               </div>
             </div>
           </TabsContent>

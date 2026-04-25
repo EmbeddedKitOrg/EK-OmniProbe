@@ -15,8 +15,16 @@ export interface ParseResult {
   /** 错误信息 */
   error?: string;
   /** 使用的解析方法 */
-  method?: "regex" | "delimiter" | "json";
+  method?: "regex" | "delimiter" | "json" | "kv";
 }
+
+/**
+ * 匹配 key=value 对的全局正则。
+ * - key：字母/数字/下划线
+ * - value：可选正负号 + 数字 + 可选小数 + 可选指数
+ * 不消费 = 后面的 unit 和单位（如 "fs=255863 Hz" 中的 Hz 会被自然跳过）。
+ */
+const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
 
 /**
  * 使用正则表达式解析数据
@@ -171,6 +179,48 @@ export function parseWithJson(
 }
 
 /**
+ * 解析 key=value 对（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
+ *
+ * - 自动提取行内所有 key=number 对
+ * - 非数值字段（如 filter=none）和单位词（如 Hz）会被自动跳过
+ * - 如果传入 keys 列表则只保留这些键，否则保留所有
+ */
+export function parseWithKv(
+  text: string,
+  keys?: string[]
+): ParseResult {
+  KV_PAIR_REGEX.lastIndex = 0;
+  const filter = keys && keys.length > 0 ? new Set(keys) : null;
+  const values: Record<string, number> = {};
+
+  let match: RegExpExecArray | null;
+  while ((match = KV_PAIR_REGEX.exec(text)) !== null) {
+    const [, key, valueStr] = match;
+    if (filter && !filter.has(key)) continue;
+    const num = parseFloat(valueStr);
+    if (Number.isFinite(num)) {
+      values[key] = num;
+    }
+  }
+
+  if (Object.keys(values).length === 0) {
+    return {
+      success: false,
+      error: "未匹配到任何 key=value 数值对",
+    };
+  }
+
+  return {
+    success: true,
+    dataPoint: {
+      timestamp: Date.now(),
+      values,
+    },
+    method: "kv",
+  };
+}
+
+/**
  * 自动解析（按优先级尝试）
  */
 export function parseAuto(
@@ -197,7 +247,15 @@ export function parseAuto(
     }
   }
 
-  // 3. 尝试分隔符解析
+  // 3. 尝试 KV 解析（key=value 自由文本）
+  if (config.kvEnabled) {
+    const result = parseWithKv(text, config.kvKeys);
+    if (result.success) {
+      return result;
+    }
+  }
+
+  // 4. 尝试分隔符解析
   if (config.delimiterEnabled && config.fields.length > 0) {
     const result = parseWithDelimiter(
       text,
@@ -264,6 +322,15 @@ export function parseChartData(
         };
       }
       return parseWithJson(text, config.jsonKeys);
+
+    case "kv":
+      if (!config.kvEnabled) {
+        return {
+          success: false,
+          error: "KV 解析未启用",
+        };
+      }
+      return parseWithKv(text, config.kvKeys);
 
     case "auto":
       return parseAuto(text, config);
