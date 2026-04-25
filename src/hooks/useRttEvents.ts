@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useRttStore, parseRttData } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
+import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
 
@@ -15,28 +16,37 @@ export function useRttEvents() {
     addBytes,
     setRunning,
     setError,
-    addChartData,
-    incrementParseSuccess,
-    incrementParseFail,
+    addChartDataBatch,
+    incrementParseCounts,
   } = useRttStore();
   const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
 
-  // 批量处理缓冲区
+  // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
   const batchBytesRef = useRef(0);
+  const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
+  const batchParseRef = useRef({ success: 0, fail: 0 });
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // 批量更新函数 - 使用 requestAnimationFrame 确保不阻塞渲染
+    // 批量更新函数 - 在每帧最多触发一次 setState
     const flushBatch = () => {
       if (batchLinesRef.current.length > 0) {
-        // 批量添加行
         addLines(batchLinesRef.current);
         batchLinesRef.current = [];
       }
 
+      if (batchChartPointsRef.current.length > 0) {
+        addChartDataBatch(batchChartPointsRef.current);
+        batchChartPointsRef.current = [];
+      }
+
+      if (batchParseRef.current.success > 0 || batchParseRef.current.fail > 0) {
+        incrementParseCounts(batchParseRef.current.success, batchParseRef.current.fail);
+        batchParseRef.current = { success: 0, fail: 0 };
+      }
+
       if (batchBytesRef.current > 0) {
-        // 批量更新字节数
         addBytes(batchBytesRef.current);
         batchBytesRef.current = 0;
       }
@@ -60,31 +70,27 @@ export function useRttEvents() {
 
       const { channel, data, timestamp } = event.payload;
 
-      // 累积字节数（不立即更新状态）
       batchBytesRef.current += data.length;
 
-      // 解析数据为文本行
       const lines = parseRttData(data, channel, timestamp, pendingBufferRef.current);
 
       if (lines.length > 0) {
-        // 累积行（不立即更新状态）
         batchLinesRef.current.push(...lines);
 
-        // 如果图表功能启用，尝试解析图表数据（通过 getState() 实时读取，避免闭包捕获旧引用）
+        // 图表解析：累积到批，flushBatch 时单次 setState
         const currentChartConfig = useRttStore.getState().chartConfig;
         if (currentChartConfig.enabled) {
           for (const line of lines) {
             const result = parseChartData(line.text, currentChartConfig);
             if (result.success && result.dataPoint) {
-              addChartData(result.dataPoint);
-              incrementParseSuccess();
+              batchChartPointsRef.current.push(result.dataPoint);
+              batchParseRef.current.success += 1;
             } else {
-              incrementParseFail();
+              batchParseRef.current.fail += 1;
             }
           }
         }
 
-        // 调度批量更新
         scheduleBatchUpdate();
       }
     });
@@ -114,9 +120,8 @@ export function useRttEvents() {
     addBytes,
     setRunning,
     setError,
-    addChartData,
-    incrementParseSuccess,
-    incrementParseFail,
+    addChartDataBatch,
+    incrementParseCounts,
   ]);
 }
 
