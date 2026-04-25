@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSerialStore, parseSerialData } from "@/stores/serialStore";
 import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
+import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
 
@@ -17,9 +18,8 @@ export function useSerialEvents() {
     setConnected,
     setError,
     appendTerminalChunk,
-    addChartData,
-    incrementParseSuccess,
-    incrementParseFail,
+    addChartDataBatch,
+    incrementParseCounts,
   } = useSerialStore();
 
   const pendingBufferRef = useRef<{ text: string; rawData: number[] }>({
@@ -28,22 +28,38 @@ export function useSerialEvents() {
   });
   const terminalDecoderRef = useRef(new TextDecoder());
 
-  // 批量处理缓冲区
+  // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
+  const batchTerminalTextRef = useRef<string>("");
+  const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
+  const batchParseRef = useRef({ success: 0, fail: 0 });
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // 批量更新函数 - 使用 requestAnimationFrame 确保不阻塞渲染
+    // 批量更新函数 - 在每帧最多触发一次 setState
     const flushBatch = () => {
+      if (batchTerminalTextRef.current.length > 0) {
+        appendTerminalChunk(batchTerminalTextRef.current);
+        batchTerminalTextRef.current = "";
+      }
+
       if (batchLinesRef.current.length > 0) {
-        // 批量添加行
         addLines(batchLinesRef.current);
         batchLinesRef.current = [];
       }
 
+      if (batchChartPointsRef.current.length > 0) {
+        addChartDataBatch(batchChartPointsRef.current);
+        batchChartPointsRef.current = [];
+      }
+
+      if (batchParseRef.current.success > 0 || batchParseRef.current.fail > 0) {
+        incrementParseCounts(batchParseRef.current.success, batchParseRef.current.fail);
+        batchParseRef.current = { success: 0, fail: 0 };
+      }
+
       if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
-        // 批量更新统计
         const currentStats = useSerialStore.getState().stats;
         updateStats({
           bytes_received: currentStats.bytes_received + batchStatsRef.current.bytes_received,
@@ -68,10 +84,9 @@ export function useSerialEvents() {
 
       const terminalText = terminalDecoderRef.current.decode(new Uint8Array(data), { stream: true });
       if (terminalText) {
-        appendTerminalChunk(terminalText);
+        batchTerminalTextRef.current += terminalText;
       }
 
-      // 累积统计信息（不立即更新状态）
       batchStatsRef.current.bytes_received += data.length;
 
       // Parse data to lines
@@ -84,24 +99,21 @@ export function useSerialEvents() {
       pendingBufferRef.current = pending;
 
       if (lines.length > 0) {
-        // 累积行（不立即更新状态）
         batchLinesRef.current.push(...lines);
 
-        // If chart is enabled, try to parse chart data (read via getState() to avoid stale closure)
+        // 图表解析：累积到批，flushBatch 时单次 setState
         const currentChartConfig = useSerialStore.getState().chartConfig;
         if (currentChartConfig.enabled) {
           for (const line of lines) {
             const result = parseChartData(line.text, currentChartConfig);
-
             if (result.success && result.dataPoint) {
-              addChartData(result.dataPoint);
-              incrementParseSuccess();
+              batchChartPointsRef.current.push(result.dataPoint);
+              batchParseRef.current.success += 1;
             } else {
-              incrementParseFail();
+              batchParseRef.current.fail += 1;
             }
           }
         }
-
       }
 
       // 只要收到数据就调度更新，避免无换行数据时统计不刷新
@@ -136,9 +148,8 @@ export function useSerialEvents() {
     setConnected,
     setError,
     appendTerminalChunk,
-    addChartData,
-    incrementParseSuccess,
-    incrementParseFail,
+    addChartDataBatch,
+    incrementParseCounts,
   ]);
 }
 

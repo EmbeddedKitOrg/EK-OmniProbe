@@ -185,11 +185,13 @@ interface SerialState {
 
   setChartConfig: (config: ChartConfig) => void;
   addChartData: (data: ChartDataPoint) => void;
+  addChartDataBatch: (points: ChartDataPoint[]) => void;
   clearChartData: () => void;
   setChartPaused: (paused: boolean) => void;
 
   incrementParseSuccess: () => void;
   incrementParseFail: () => void;
+  incrementParseCounts: (success: number, fail: number) => void;
 
   setSendSettings: (settings: Partial<SendSettings>) => void;
 
@@ -620,6 +622,17 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       return { chartData: trimmedData };
     }),
 
+  addChartDataBatch: (points) =>
+    set((state) => {
+      if (state.chartPaused || points.length === 0) {
+        return state;
+      }
+      const newData = state.chartData.concat(points);
+      const max = state.chartConfig.maxDataPoints;
+      const trimmedData = newData.length > max ? newData.slice(-max) : newData;
+      return { chartData: trimmedData };
+    }),
+
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
@@ -629,6 +642,15 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   incrementParseFail: () =>
     set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
+
+  incrementParseCounts: (success, fail) =>
+    set((state) => {
+      if (success === 0 && fail === 0) return state;
+      return {
+        parseSuccessCount: state.parseSuccessCount + success,
+        parseFailCount: state.parseFailCount + fail,
+      };
+    }),
 
   setSendSettings: (settings) => {
     set((state) => {

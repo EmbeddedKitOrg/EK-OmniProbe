@@ -86,11 +86,13 @@ interface RttState {
   setSplitOrientation: (orientation: SplitOrientation) => void;
   setChartConfig: (config: ChartConfig) => void; // 新增：设置图表配置
   addChartData: (data: ChartDataPoint) => void; // 新增：添加图表数据
+  addChartDataBatch: (points: ChartDataPoint[]) => void; // 批量添加图表数据，单次 setState
   clearChartData: () => void; // 新增：清空图表数据
   setChartPaused: (paused: boolean) => void; // 新增：设置图表暂停状态
   updateChartSeries: (series: ChartSeries[]) => void; // 新增：更新图表系列
   incrementParseSuccess: () => void; // 新增：增加解析成功计数
   incrementParseFail: () => void; // 新增：增加解析失败计数
+  incrementParseCounts: (success: number, fail: number) => void; // 批量更新解析计数
   setScanMode: (mode: RttScanMode) => void;
   setScanAddress: (address: number) => void;
   setPollInterval: (interval: number) => void;
@@ -217,6 +219,15 @@ export const useRttStore = create<RttState>((set) => ({
       return { chartData: trimmedData };
     }),
 
+  addChartDataBatch: (points) =>
+    set((state) => {
+      if (state.chartPaused || points.length === 0) return state;
+      const newData = state.chartData.concat(points);
+      const max = state.chartConfig.maxDataPoints;
+      const trimmedData = newData.length > max ? newData.slice(-max) : newData;
+      return { chartData: trimmedData };
+    }),
+
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
@@ -231,6 +242,15 @@ export const useRttStore = create<RttState>((set) => ({
 
   incrementParseFail: () =>
     set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
+
+  incrementParseCounts: (success, fail) =>
+    set((state) => {
+      if (success === 0 && fail === 0) return state;
+      return {
+        parseSuccessCount: state.parseSuccessCount + success,
+        parseFailCount: state.parseFailCount + fail,
+      };
+    }),
 
   setScanMode: (scanMode) => set({ scanMode }),
 
