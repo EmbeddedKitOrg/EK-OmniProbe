@@ -5,6 +5,35 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] - 2026-04-25
+
+本次集中修复了 **921600 高 baud 串口丢字节** 的老问题，并对图表配置做了破坏性重构（合并字段/系列/X 轴为统一的「通道」模型）。
+
+### 性能优化
+- 🚀 **串口高 baud 不再丢字节** - 921600 baud 长时间连续输出（如 fftdump）下不再出现整段消失，从根上重做读取链路：
+  - **OS 驱动 RX 队列扩到 64 KB**（Windows）：`LocalSerial::connect` 改用 `open_native()` 拿到 `COMPort` 后调 WinAPI `SetupComm(handle, 65536, 8192)`，从默认 4 KB 提升 16 倍，能扛住 ~700ms 的调度抖动
+  - **专用阻塞读线程**：`start_serial` 不再用 `tokio::interval` 5ms 轮询 + `spawn_blocking`，改为单独 `std::thread` 永远 block 在 `read()` 上，OS FIFO 始终被排空；读到的 chunk 通过 `tokio::sync::mpsc::unbounded_channel` 送给 async 批处理任务
+  - **read timeout 1ms → 50ms**：每次 syscall 拿到的数据量更大，摊薄调度开销
+  - 重连逻辑随之搬到读线程内部，前端 `serial-status` 事件 schema 不变
+
+### 新增功能
+- ✨ **"序号, X, Y" 三列自动识别** - 形如 `20,4997.32,122954.44` 的纯数字数据现在会被自动检测为 XY 散点图模式：第 1 列单调递增的整数当作隐藏序号、第 2 列设为 X 轴、第 3 列作 Y 轴；新增 `detectXyWithSeq()` 检测策略，置信度优先于通用 CSV
+- ✨ **图表通道模型** - 用统一的 `Channel` 替换原先分散的 `fields` / `series` / `jsonKeys` / `kvKeys` / `xAxisField` 五份配置，一行通道同时承载「字段名 / 列号 / 显示名 / 单位 / 颜色 / 可见性 / X-Y 角色」；删除了 4 个冗余的 `xxxEnabled` 开关，`parseMode` 成为单一真相源
+
+### 改进
+- 🔧 **图表配置对话框完全重写** - 干掉 6-tab 布局，改成单页可滚卡片：基础 / 模式专属字段 / 通道表 / 性能采样（折叠）/ 显示选项（折叠）；通道表会随 parseMode 动态显隐「列号」列、随 chartType 动态显隐「角色」列，避免在多个 tab 间反复切换；不再需要在「分隔符 tab」配字段后再去「系列 tab」拼 key
+- 🔧 **解析容错** - `parseWithDelimiter` 在通道未填「列号」时退回到通道在数组里的位置（0/1/2…），自动模式的分隔符回退路径不再要求至少有一条通道带 `sourceIndex`，老配置不用手动重配
+
+### 修复
+- 🐛 **对话框里下拉打不开** - shadcn `Select` / `Popover` / `Tooltip` 的 z-index 都是 `z-50`，但 Dialog 包装层是 `z-[80]`，导致下拉的 portal 打开后被 Dialog 玻璃面板压在底下，看着像"点击没反应"；三处弹层统一抬到 `z-[90]`
+- 🐛 **对话框纵向无法滚动** - `index.css` 里 `.glass-dialog { overflow: hidden }` 简写覆盖了 Tailwind 的 `overflow-y-auto`，导致超过 viewport 高度时底部按钮够不到；改成 `overflow-x: hidden` 单独截 X 轴，纵向交回 utility class
+- 🐛 **配置迁移** - 新增 `migrateChartConfig()` shim，旧版 localStorage 里的 `series + fields + xAxisField + jsonKeys + kvKeys` 自动折成新版 `channels[]`，幂等可重入；`xAxisField` 对应的 key 自动设 `role: "x"`
+
+### 重构
+- 🔧 **类型层** - `chartTypes.ts` 新增 `Channel` / `getYChannels` / `getVisibleYChannels` / `getXChannel` helper；`ChartSeries` 保留为 `Channel` 别名，渲染层（SignalPlotCanvas、recharts 业务图）零改动
+- 🔧 **解析层** - 4 个 parser（regex / delimiter / json / kv）全部从 `channels` 读取目标键和列索引，签名统一
+- 🔧 **store 层** - `rttStore` / `serialStore` 在 `loadFromStorage` 后立刻跑 `migrateChartConfig`；`setChartConfig` 同样过迁移，保证从分离图表窗口推回主窗口的配置也是新 shape；删除已死的 `updateChartSeries` action
+
 ## [1.0.1] - 2026-04-25
 
 ### 新增功能
@@ -867,6 +896,9 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 
 ---
 
+[1.1.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.5...v1.0.0
 [0.9.5]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.9.3...v0.9.4
 [0.9.0]: https://github.com/EmbeddedKitOrg/EK-OmniProbe/compare/v0.8.0...v0.9.0

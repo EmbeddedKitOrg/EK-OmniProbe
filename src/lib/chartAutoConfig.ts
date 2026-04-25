@@ -2,7 +2,7 @@
  * RTT 图表智能自动配置
  */
 
-import type { ChartConfig, FieldConfig, ChartSeries } from "./chartTypes";
+import type { ChartConfig, Channel } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
 
 /**
@@ -10,7 +10,7 @@ import { PRESET_COLORS } from "./chartTypes";
  */
 export interface DetectionResult {
   /** 检测到的格式类型 */
-  format: "single-value" | "csv" | "xy-data" | "json" | "kv" | "regex" | "unknown";
+  format: "single-value" | "csv" | "xy-data" | "xy-with-seq" | "json" | "kv" | "regex" | "unknown";
   /** 建议的配置 */
   suggestedConfig: Partial<ChartConfig>;
   /** 检测到的字段/键 */
@@ -37,60 +37,57 @@ export function detectDataFormat(sampleLines: string[]): DetectionResult {
     };
   }
 
-  // 1. 检测纯数值（单个数值）
   const singleValueResult = detectSingleValue(sampleLines);
   if (singleValueResult.confidence > 0.8) {
     return singleValueResult;
   }
 
-  // 2. 检测 XY 数据格式（两列数值）
+  const xyWithSeqResult = detectXyWithSeq(sampleLines);
+  if (xyWithSeqResult.confidence > 0.8) {
+    return xyWithSeqResult;
+  }
+
   const xyDataResult = detectXyData(sampleLines);
   if (xyDataResult.confidence > 0.8) {
     return xyDataResult;
   }
 
-  // 3. 检测 JSON 格式
   const jsonResult = detectJson(sampleLines);
   if (jsonResult.confidence > 0.8) {
     return jsonResult;
   }
 
-  // 4. 检测 KV 格式 (key=value 自由文本)
   const kvResult = detectKv(sampleLines);
   if (kvResult.confidence > 0.8) {
     return kvResult;
   }
 
-  // 5. 检测 CSV 格式（逗号、制表符、空格分隔）
   const csvResult = detectCsv(sampleLines);
   if (csvResult.confidence > 0.6) {
     return csvResult;
   }
 
-  // 6. 返回最佳猜测
-  const results = [singleValueResult, xyDataResult, jsonResult, kvResult, csvResult];
+  const results = [
+    singleValueResult,
+    xyWithSeqResult,
+    xyDataResult,
+    jsonResult,
+    kvResult,
+    csvResult,
+  ];
   results.sort((a, b) => b.confidence - a.confidence);
   return results[0];
 }
 
 /**
  * 检测 key=value 格式（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
- *
- * 判定标准：每行至少匹配 2 个 key=number 对，跨行 key 集合稳定。
  */
 function detectKv(lines: string[]): DetectionResult {
   const trimmedLines = lines.map((l) => l.trim()).filter((l) => l.length > 0);
   if (trimmedLines.length === 0) {
-    return {
-      format: "unknown",
-      suggestedConfig: {},
-      detectedKeys: [],
-      confidence: 0,
-      description: "没有数据可分析",
-    };
+    return emptyDetection();
   }
 
-  // 每行的 key 计数 + 全局 key 累计
   const keyOccurrences = new Map<string, number>();
   let validLineCount = 0;
 
@@ -110,27 +107,18 @@ function detectKv(lines: string[]): DetectionResult {
   }
 
   const confidence = validLineCount / trimmedLines.length;
-  // 至少 70% 行能匹配出 ≥2 个 KV 对，且至少在半数样本里出现的 key 才纳入
   const stableKeys = Array.from(keyOccurrences.entries())
     .filter(([, count]) => count >= Math.max(1, Math.floor(validLineCount * 0.5)))
     .map(([key]) => key);
 
   if (confidence > 0.7 && stableKeys.length >= 2) {
-    const series: ChartSeries[] = stableKeys.map((key, index) => ({
-      key,
-      name: key,
-      color: PRESET_COLORS[index % PRESET_COLORS.length],
-      visible: true,
-    }));
-
+    const channels = stableKeys.map((key, index) => buildYChannel(key, index));
     return {
       format: "kv",
       suggestedConfig: {
         enabled: true,
         parseMode: "kv",
-        kvEnabled: true,
-        kvKeys: stableKeys,
-        series,
+        channels,
         chartType: "waveform",
         maxDataPoints: 4000,
       },
@@ -157,7 +145,6 @@ function detectSingleValue(lines: string[]): DetectionResult {
   const trimmedLines = lines.map((l) => l.trim()).filter((l) => l.length > 0);
 
   for (const line of trimmedLines) {
-    // 检查是否是纯数值（可能带正负号、小数点）
     if (/^-?\d+\.?\d*$/.test(line)) {
       validCount++;
     }
@@ -171,21 +158,15 @@ function detectSingleValue(lines: string[]): DetectionResult {
       suggestedConfig: {
         enabled: true,
         parseMode: "delimiter",
-        delimiterEnabled: true,
-        delimiter: ",", // 对于单值，分隔符不重要
-        fields: [
-          {
-            index: 0,
-            name: "value",
-            enabled: true,
-          },
-        ],
-        series: [
+        delimiter: ",",
+        channels: [
           {
             key: "value",
+            sourceIndex: 0,
             name: "数值",
             color: PRESET_COLORS[0],
             visible: true,
+            role: "y",
           },
         ],
         chartType: "waveform",
@@ -218,21 +199,12 @@ function detectXyData(lines: string[]): DetectionResult {
 
   for (const delimiter of delimiters) {
     let validCount = 0;
-
     for (const line of trimmedLines) {
       const parts = line.split(delimiter).map((p) => p.trim()).filter((p) => p.length > 0);
-
-      // 必须恰好是两列
-      if (parts.length === 2) {
-        // 检查两列是否都是数值
-        const isNum1 = /^-?\d+\.?\d*$/.test(parts[0]);
-        const isNum2 = /^-?\d+\.?\d*$/.test(parts[1]);
-        if (isNum1 && isNum2) {
-          validCount++;
-        }
+      if (parts.length === 2 && parts.every((p) => /^-?\d+\.?\d*$/.test(p))) {
+        validCount++;
       }
     }
-
     const confidence = trimmedLines.length > 0 ? validCount / trimmedLines.length : 0;
     if (confidence > bestConfidence) {
       bestConfidence = confidence;
@@ -241,49 +213,36 @@ function detectXyData(lines: string[]): DetectionResult {
   }
 
   if (bestConfidence > 0.8) {
-    const delimiterName =
-      bestDelimiter === ","
-        ? "逗号"
-        : bestDelimiter === "\t"
-          ? "制表符"
-          : bestDelimiter === " "
-            ? "空格"
-            : "分号";
-
     return {
       format: "xy-data",
       suggestedConfig: {
         enabled: true,
         parseMode: "delimiter",
-        delimiterEnabled: true,
         delimiter: bestDelimiter,
-        fields: [
+        channels: [
           {
-            index: 0,
-            name: "x",
-            enabled: true,
+            key: "x",
+            sourceIndex: 0,
+            name: "X",
+            color: PRESET_COLORS[8],
+            visible: true,
+            role: "x",
           },
-          {
-            index: 1,
-            name: "y",
-            enabled: true,
-          },
-        ],
-        series: [
           {
             key: "y",
-            name: "Y 值",
+            sourceIndex: 1,
+            name: "Y",
             color: PRESET_COLORS[0],
             visible: true,
+            role: "y",
           },
         ],
         chartType: "xy-scatter",
-        xAxisField: "x",
         maxDataPoints: 4000,
       },
       detectedKeys: ["x", "y"],
       confidence: bestConfidence,
-      description: `检测到 ${delimiterName} 分隔的 XY 数据格式（${(bestConfidence * 100).toFixed(0)}% 置信度）`,
+      description: `检测到 ${describeDelimiter(bestDelimiter)} 分隔的 XY 数据格式（${(bestConfidence * 100).toFixed(0)}% 置信度）`,
     };
   }
 
@@ -293,6 +252,106 @@ function detectXyData(lines: string[]): DetectionResult {
     detectedKeys: [],
     confidence: bestConfidence,
     description: "不是 XY 数据格式",
+  };
+}
+
+/**
+ * 检测 "序号, x, y" 三列纯数值格式（第 1 列单调递增的整数序号）
+ *
+ * 例：20,4997.32,122954.44
+ */
+function detectXyWithSeq(lines: string[]): DetectionResult {
+  const delimiters = [",", "\t", " ", ";"];
+  let bestDelimiter = ",";
+  let bestConfidence = 0;
+  let bestMonotonic = false;
+
+  const trimmedLines = lines.map((l) => l.trim()).filter((l) => l.length > 0);
+  if (trimmedLines.length < 2) {
+    return {
+      format: "unknown",
+      suggestedConfig: {},
+      detectedKeys: [],
+      confidence: 0,
+      description: "样本太少",
+    };
+  }
+
+  for (const delimiter of delimiters) {
+    let validCount = 0;
+    const seqValues: number[] = [];
+
+    for (const line of trimmedLines) {
+      const parts = line.split(delimiter).map((p) => p.trim()).filter((p) => p.length > 0);
+      if (parts.length !== 3) continue;
+      const isInt = /^-?\d+$/.test(parts[0]);
+      const allNumeric = parts.every((p) => /^-?\d+\.?\d*$/.test(p));
+      if (!isInt || !allNumeric) continue;
+      validCount++;
+      seqValues.push(parseInt(parts[0], 10));
+    }
+
+    const confidence = validCount / trimmedLines.length;
+    let monotonic = false;
+    if (seqValues.length >= 2) {
+      monotonic = seqValues.every((v, i) => i === 0 || v >= seqValues[i - 1]);
+    }
+
+    if (confidence > bestConfidence || (confidence === bestConfidence && monotonic && !bestMonotonic)) {
+      bestConfidence = confidence;
+      bestDelimiter = delimiter;
+      bestMonotonic = monotonic;
+    }
+  }
+
+  if (bestConfidence > 0.8 && bestMonotonic) {
+    return {
+      format: "xy-with-seq",
+      suggestedConfig: {
+        enabled: true,
+        parseMode: "delimiter",
+        delimiter: bestDelimiter,
+        channels: [
+          {
+            key: "seq",
+            sourceIndex: 0,
+            name: "序号",
+            color: PRESET_COLORS[2],
+            visible: false,
+            role: "y",
+          },
+          {
+            key: "x",
+            sourceIndex: 1,
+            name: "X",
+            color: PRESET_COLORS[8],
+            visible: true,
+            role: "x",
+          },
+          {
+            key: "y",
+            sourceIndex: 2,
+            name: "Y",
+            color: PRESET_COLORS[0],
+            visible: true,
+            role: "y",
+          },
+        ],
+        chartType: "xy-scatter",
+        maxDataPoints: 4000,
+      },
+      detectedKeys: ["seq", "x", "y"],
+      confidence: bestConfidence,
+      description: `检测到 ${describeDelimiter(bestDelimiter)} 分隔的"序号, X, Y"三列格式`,
+    };
+  }
+
+  return {
+    format: "unknown",
+    suggestedConfig: {},
+    detectedKeys: [],
+    confidence: bestConfidence,
+    description: "不是 序号+XY 格式",
   };
 }
 
@@ -309,7 +368,6 @@ function detectJson(lines: string[]): DetectionResult {
       const data = JSON.parse(line);
       if (typeof data === "object" && data !== null) {
         validCount++;
-        // 收集所有数值类型的键
         for (const [key, value] of Object.entries(data)) {
           if (typeof value === "number") {
             allKeys.add(key);
@@ -325,21 +383,14 @@ function detectJson(lines: string[]): DetectionResult {
   const detectedKeys = Array.from(allKeys);
 
   if (confidence > 0.8 && detectedKeys.length > 0) {
-    const series: ChartSeries[] = detectedKeys.map((key, index) => ({
-      key,
-      name: key,
-      color: PRESET_COLORS[index % PRESET_COLORS.length],
-      visible: true,
-    }));
+    const channels = detectedKeys.map((key, index) => buildYChannel(key, index));
 
     return {
       format: "json",
       suggestedConfig: {
         enabled: true,
         parseMode: "json",
-        jsonEnabled: true,
-        jsonKeys: detectedKeys,
-        series,
+        channels,
         chartType: "waveform",
         maxDataPoints: 4000,
       },
@@ -377,8 +428,6 @@ function detectCsv(lines: string[]): DetectionResult {
     for (const line of trimmedLines) {
       const parts = line.split(delimiter);
       fieldCounts.push(parts.length);
-
-      // 检查是否所有部分都是数值
       const numericParts = parts.filter((p) => /^-?\d+\.?\d*$/.test(p.trim()));
       if (numericParts.length === parts.length && parts.length > 1) {
         validCount++;
@@ -386,7 +435,6 @@ function detectCsv(lines: string[]): DetectionResult {
       }
     }
 
-    // 检查字段数是否一致
     const avgFieldCount = totalFields / validCount || 0;
     const consistentFields = fieldCounts.every(
       (count) => Math.abs(count - avgFieldCount) < 1
@@ -403,48 +451,31 @@ function detectCsv(lines: string[]): DetectionResult {
   }
 
   if (bestConfidence > 0.6 && bestFieldCount > 1) {
-    const fields: FieldConfig[] = [];
-    const series: ChartSeries[] = [];
-
+    const channels: Channel[] = [];
     for (let i = 0; i < bestFieldCount; i++) {
-      const fieldName = `field${i + 1}`;
-      fields.push({
-        index: i,
-        name: fieldName,
-        enabled: true,
-      });
-      series.push({
-        key: fieldName,
+      channels.push({
+        key: `field${i + 1}`,
+        sourceIndex: i,
         name: `字段${i + 1}`,
         color: PRESET_COLORS[i % PRESET_COLORS.length],
         visible: true,
+        role: "y",
       });
     }
-
-    const delimiterName =
-      bestDelimiter === ","
-        ? "逗号"
-        : bestDelimiter === "\t"
-          ? "制表符"
-          : bestDelimiter === " "
-            ? "空格"
-            : "分号";
 
     return {
       format: "csv",
       suggestedConfig: {
         enabled: true,
         parseMode: "delimiter",
-        delimiterEnabled: true,
         delimiter: bestDelimiter,
-        fields,
-        series,
+        channels,
         chartType: "waveform",
         maxDataPoints: 4000,
       },
-      detectedKeys: fields.map((f) => f.name),
+      detectedKeys: channels.map((c) => c.key),
       confidence: bestConfidence,
-      description: `检测到 ${delimiterName} 分隔的 CSV 格式，包含 ${bestFieldCount} 个字段`,
+      description: `检测到 ${describeDelimiter(bestDelimiter)} 分隔的 CSV 格式，包含 ${bestFieldCount} 个字段`,
     };
   }
 
@@ -467,5 +498,33 @@ export function applyAutoConfig(
   return {
     ...currentConfig,
     ...detectionResult.suggestedConfig,
+  };
+}
+
+function buildYChannel(key: string, index: number): Channel {
+  return {
+    key,
+    name: key,
+    color: PRESET_COLORS[index % PRESET_COLORS.length],
+    visible: true,
+    role: "y",
+  };
+}
+
+function describeDelimiter(delimiter: string): string {
+  if (delimiter === ",") return "逗号";
+  if (delimiter === "\t") return "制表符";
+  if (delimiter === " ") return "空格";
+  if (delimiter === ";") return "分号";
+  return `"${delimiter}"`;
+}
+
+function emptyDetection(): DetectionResult {
+  return {
+    format: "unknown",
+    suggestedConfig: {},
+    detectedKeys: [],
+    confidence: 0,
+    description: "没有数据可分析",
   };
 }

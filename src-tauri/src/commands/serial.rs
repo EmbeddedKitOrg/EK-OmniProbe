@@ -2,9 +2,8 @@ use crate::serial::{list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo
 use crate::state::{AppState, DataSource, SerialStats};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
-use tokio::time::interval;
 
 /// Serial status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,6 +168,10 @@ pub async fn write_serial_string(
 }
 
 /// Start serial polling
+///
+/// 架构：专用阻塞读线程 + tokio mpsc + async 批处理。
+/// - 读线程独占一个 OS 线程，常驻在 `read()` 上，最大程度压低 OS 驱动 RX FIFO 占用，避免高 baud 时丢字节。
+/// - async 侧只做 batching/emit，不再用 polling timer。
 #[tauri::command]
 pub async fn start_serial(
     poll_interval: Option<u64>,
@@ -183,79 +186,58 @@ pub async fn start_serial(
         return Err("Serial port not connected".to_string());
     }
 
-    let poll_ms = poll_interval.unwrap_or(5); // 降低默认轮询间隔到 5ms
-    *state.serial_state.poll_interval_ms.lock() = poll_ms;
+    // 兼容字段：前端可能仍传 poll_interval，但读线程不再使用。
+    *state.serial_state.poll_interval_ms.lock() = poll_interval.unwrap_or(5);
     state.serial_state.set_running(true);
 
-    // Get Arc clone for the polling task
     let serial_state = Arc::clone(&state.serial_state);
 
-    // Spawn polling task
-    tokio::spawn(async move {
-        let mut interval_timer = interval(Duration::from_millis(poll_ms));
-        interval_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    // mpsc 通道：reader -> async accumulator。无界，让读线程永远不会被反压阻塞。
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
 
-        let mut batch_buffer = Vec::with_capacity(65536); // 批量缓冲区 64KB
-        let mut last_emit = std::time::Instant::now();
-        const BATCH_TIMEOUT_MS: u64 = 10; // 批量发送超时 10ms
-        const BATCH_SIZE_THRESHOLD: usize = 4096; // 批量大小阈值 4KB
+    // ===== 读线程：独立 OS 线程，循环 read() 并把每段 chunk 发到 channel =====
+    let reader_state = Arc::clone(&serial_state);
+    let reader_app = app.clone();
+    let reader_handle = std::thread::Builder::new()
+        .name("serial-reader".into())
+        .spawn(move || {
+            let mut local_buf = vec![0u8; 16384];
 
-        loop {
-            interval_timer.tick().await;
+            'outer: loop {
+                if !reader_state.is_running() {
+                    break;
+                }
 
-            if !serial_state.is_running() {
-                break;
-            }
-
-            // 连续读取，直到没有数据
-            loop {
-                // 使用 spawn_blocking 避免阻塞异步运行时
-                let serial_state_clone = Arc::clone(&serial_state);
-                let read_result = tokio::task::spawn_blocking(move || {
-                    let mut guard = serial_state_clone.datasource.lock();
-                    if let Some(ds) = guard.as_mut() {
-                        let mut local_buf = vec![0u8; 16384];
-                        ds.read(&mut local_buf).map(|n| (n, local_buf))
-                    } else {
-                        Err("Disconnected".to_string())
+                // 进入临界区只为这一次 read，结束就解锁，避免长时间挡 write/disconnect。
+                let result = {
+                    let mut guard = reader_state.datasource.lock();
+                    match guard.as_mut() {
+                        Some(ds) => ds.read(&mut local_buf),
+                        None => break,
                     }
-                })
-                .await;
+                };
 
-                match read_result {
-                    Ok(Ok((n, local_buf))) if n > 0 => {
-                        // 将数据添加到批量缓冲区
-                        batch_buffer.extend_from_slice(&local_buf[..n]);
-
-                        // 如果批量缓冲区达到阈值，立即发送
-                        if batch_buffer.len() >= BATCH_SIZE_THRESHOLD {
-                            let timestamp = chrono::Utc::now().timestamp_millis();
-                            let _ = app.emit(
-                                "serial-data",
-                                SerialDataEvent {
-                                    data: batch_buffer.clone(),
-                                    timestamp,
-                                    direction: "rx".to_string(),
-                                },
-                            );
-                            batch_buffer.clear();
-                            last_emit = std::time::Instant::now();
+                match result {
+                    Ok(0) => {
+                        // 50ms timeout 触发，没有数据，立刻再 read。
+                        continue;
+                    }
+                    Ok(n) => {
+                        let chunk = local_buf[..n].to_vec();
+                        if tx.send(chunk).is_err() {
+                            // accumulator 已退出，没人收了。
+                            break;
                         }
                     }
-                    Ok(Ok(_)) => {
-                        // 没有数据了，退出内层循环
-                        break;
-                    }
-                    Ok(Err(e)) => {
-                        // 读取出错：如果数据源希望自动重连，则进入重连循环；否则按原有逻辑停止。
+                    Err(e) => {
                         let wants_reconnect = {
-                            let guard = serial_state.datasource.lock();
+                            let guard = reader_state.datasource.lock();
                             guard.as_ref().map(|d| d.wants_reconnect()).unwrap_or(false)
                         };
 
                         if !wants_reconnect {
-                            serial_state.set_running(false);
-                            let _ = app.emit(
+                            reader_state.set_running(false);
+                            let _ = reader_app.emit(
                                 "serial-status",
                                 SerialStatusEvent {
                                     connected: false,
@@ -266,22 +248,7 @@ pub async fn start_serial(
                             break;
                         }
 
-                        // 进入重连：先 flush 已有 batch，再以指数退避重试
-                        if !batch_buffer.is_empty() {
-                            let timestamp = chrono::Utc::now().timestamp_millis();
-                            let _ = app.emit(
-                                "serial-data",
-                                SerialDataEvent {
-                                    data: batch_buffer.clone(),
-                                    timestamp,
-                                    direction: "rx".to_string(),
-                                },
-                            );
-                            batch_buffer.clear();
-                            last_emit = std::time::Instant::now();
-                        }
-
-                        let _ = app.emit(
+                        let _ = reader_app.emit(
                             "serial-status",
                             SerialStatusEvent {
                                 connected: false,
@@ -290,16 +257,16 @@ pub async fn start_serial(
                             },
                         );
 
+                        // 指数退避重连
                         let mut delay_ms: u64 = 1000;
                         loop {
-                            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                            if !serial_state.is_running() {
-                                break;
+                            std::thread::sleep(Duration::from_millis(delay_ms));
+                            if !reader_state.is_running() {
+                                break 'outer;
                             }
 
-                            let serial_state_inner = Arc::clone(&serial_state);
-                            let connect_result = tokio::task::spawn_blocking(move || {
-                                let mut guard = serial_state_inner.datasource.lock();
+                            let connect_result = {
+                                let mut guard = reader_state.datasource.lock();
                                 match guard.as_mut() {
                                     Some(ds) => {
                                         let _ = ds.disconnect();
@@ -307,12 +274,11 @@ pub async fn start_serial(
                                     }
                                     None => Err("数据源已不存在".to_string()),
                                 }
-                            })
-                            .await;
+                            };
 
                             match connect_result {
-                                Ok(Ok(_)) => {
-                                    let _ = app.emit(
+                                Ok(_) => {
+                                    let _ = reader_app.emit(
                                         "serial-status",
                                         SerialStatusEvent {
                                             connected: true,
@@ -322,38 +288,78 @@ pub async fn start_serial(
                                     );
                                     break;
                                 }
-                                _ => {
-                                    delay_ms = (delay_ms.saturating_mul(2)).min(5000);
+                                Err(_) => {
+                                    delay_ms = delay_ms.saturating_mul(2).min(5000);
                                 }
                             }
                         }
-                        // 重连成功或被用户停止，退出内层读取循环
-                        break;
-                    }
-                    Err(_) => {
-                        // Task join error
-                        break;
                     }
                 }
             }
+            // tx drop -> accumulator 收到 None 退出
+        })
+        .map_err(|e| format!("Failed to spawn reader thread: {}", e))?;
 
-            // 如果有累积的数据且超过超时时间，发送
-            if !batch_buffer.is_empty() && last_emit.elapsed().as_millis() as u64 >= BATCH_TIMEOUT_MS {
-                let timestamp = chrono::Utc::now().timestamp_millis();
-                let _ = app.emit(
-                    "serial-data",
-                    SerialDataEvent {
-                        data: batch_buffer.clone(),
-                        timestamp,
-                        direction: "rx".to_string(),
-                    },
-                );
-                batch_buffer.clear();
-                last_emit = std::time::Instant::now();
+    // 持有 join handle 但不阻塞主线程（读线程会自然退出）。
+    drop(reader_handle);
+
+    // ===== async accumulator：batch + emit =====
+    let accumulator_state = Arc::clone(&serial_state);
+    tokio::spawn(async move {
+        const BATCH_TIMEOUT_MS: u64 = 10;
+        const BATCH_SIZE_THRESHOLD: usize = 4096;
+
+        let mut batch_buffer: Vec<u8> = Vec::with_capacity(65536);
+        let mut last_emit = Instant::now();
+        let mut tick = tokio::time::interval(Duration::from_millis(BATCH_TIMEOUT_MS));
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                msg = rx.recv() => {
+                    match msg {
+                        Some(chunk) => {
+                            batch_buffer.extend_from_slice(&chunk);
+                            if batch_buffer.len() >= BATCH_SIZE_THRESHOLD {
+                                let timestamp = chrono::Utc::now().timestamp_millis();
+                                let payload = std::mem::take(&mut batch_buffer);
+                                batch_buffer.reserve(65536);
+                                let _ = app.emit(
+                                    "serial-data",
+                                    SerialDataEvent {
+                                        data: payload,
+                                        timestamp,
+                                        direction: "rx".to_string(),
+                                    },
+                                );
+                                last_emit = Instant::now();
+                            }
+                        }
+                        None => break, // reader thread 退出 -> channel 关闭
+                    }
+                }
+                _ = tick.tick() => {
+                    if !batch_buffer.is_empty()
+                        && last_emit.elapsed().as_millis() as u64 >= BATCH_TIMEOUT_MS
+                    {
+                        let timestamp = chrono::Utc::now().timestamp_millis();
+                        let payload = std::mem::take(&mut batch_buffer);
+                        batch_buffer.reserve(65536);
+                        let _ = app.emit(
+                            "serial-data",
+                            SerialDataEvent {
+                                data: payload,
+                                timestamp,
+                                direction: "rx".to_string(),
+                            },
+                        );
+                        last_emit = Instant::now();
+                    }
+                }
             }
         }
 
-        // 发送剩余数据
+        // flush 残留
         if !batch_buffer.is_empty() {
             let timestamp = chrono::Utc::now().timestamp_millis();
             let _ = app.emit(
@@ -366,11 +372,10 @@ pub async fn start_serial(
             );
         }
 
-        // Send final status
         let _ = app.emit(
             "serial-status",
             SerialStatusEvent {
-                connected: serial_state.is_connected(),
+                connected: accumulator_state.is_connected(),
                 running: false,
                 error: None,
             },

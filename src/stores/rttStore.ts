@@ -2,8 +2,8 @@ import { create } from "zustand";
 import type { RttChannel, RttLine, RttScanMode } from "@/lib/types";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
-import type { ChartConfig, ChartDataPoint, ChartSeries, ViewMode, SplitOrientation } from "@/lib/chartTypes";
-import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
+import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
+import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
 import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
 
@@ -89,7 +89,6 @@ interface RttState {
   addChartDataBatch: (points: ChartDataPoint[]) => void; // 批量添加图表数据，单次 setState
   clearChartData: () => void; // 新增：清空图表数据
   setChartPaused: (paused: boolean) => void; // 新增：设置图表暂停状态
-  updateChartSeries: (series: ChartSeries[]) => void; // 新增：更新图表系列
   incrementParseSuccess: () => void; // 新增：增加解析成功计数
   incrementParseFail: () => void; // 新增：增加解析失败计数
   incrementParseCounts: (success: number, fail: number) => void; // 批量更新解析计数
@@ -122,10 +121,7 @@ export const useRttStore = create<RttState>((set) => ({
   splitRatio: loadNumberFromStorage(SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1), // 新增：从 localStorage 加载分屏比例
   splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
-  chartConfig: {
-    ...DEFAULT_CHART_CONFIG,
-    ...loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
-  }, // 新增：从 localStorage 加载图表配置
+  chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false, // 新增：图表暂停状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
@@ -199,10 +195,7 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    const normalizedConfig = {
-      ...DEFAULT_CHART_CONFIG,
-      ...chartConfig,
-    };
+    const normalizedConfig = migrateChartConfig(chartConfig);
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
     set((state) => ({
       chartConfig: normalizedConfig,
@@ -231,11 +224,6 @@ export const useRttStore = create<RttState>((set) => ({
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
-
-  updateChartSeries: (series) =>
-    set((state) => ({
-      chartConfig: { ...state.chartConfig, series },
-    })),
 
   incrementParseSuccess: () =>
     set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),

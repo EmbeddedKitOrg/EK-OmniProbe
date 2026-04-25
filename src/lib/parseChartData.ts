@@ -2,7 +2,7 @@
  * RTT 图表数据解析工具
  */
 
-import type { ChartConfig, ChartDataPoint } from "./chartTypes";
+import type { ChartConfig, ChartDataPoint, Channel } from "./chartTypes";
 
 /**
  * 解析结果
@@ -20,19 +20,20 @@ export interface ParseResult {
 
 /**
  * 匹配 key=value 对的全局正则。
- * - key：字母/数字/下划线
- * - value：可选正负号 + 数字 + 可选小数 + 可选指数
- * 不消费 = 后面的 unit 和单位（如 "fs=255863 Hz" 中的 Hz 会被自然跳过）。
  */
 const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
 
 /**
  * 使用正则表达式解析数据
+ *
+ * channels 仅用于约束输出键集合（若给出且非空，则只保留 channel.key 对应的命名捕获组）。
+ * 实际值仍来自正则的命名捕获组。
  */
 export function parseWithRegex(
   text: string,
   pattern: string,
-  flags?: string
+  flags?: string,
+  channels?: Channel[]
 ): ParseResult {
   try {
     const regex = new RegExp(pattern, flags);
@@ -45,8 +46,13 @@ export function parseWithRegex(
       };
     }
 
+    const filter = channels && channels.length > 0
+      ? new Set(channels.map((c) => c.key))
+      : null;
+
     const values: Record<string, number> = {};
     for (const [key, value] of Object.entries(match.groups)) {
+      if (filter && !filter.has(key)) continue;
       const num = parseFloat(value);
       if (!isNaN(num)) {
         values[key] = num;
@@ -78,28 +84,28 @@ export function parseWithRegex(
 
 /**
  * 使用分隔符解析数据
+ *
+ * 每条 channel 对应一列；sourceIndex 缺失时退回到 channel 在数组里的位置。
  */
 export function parseWithDelimiter(
   text: string,
   delimiter: string,
-  fields: Array<{ index: number; name: string; enabled: boolean }>
+  channels: Channel[]
 ): ParseResult {
   try {
     const parts = text.split(delimiter);
     const values: Record<string, number> = {};
 
-    for (const field of fields) {
-      if (!field.enabled) continue;
+    for (let i = 0; i < channels.length; i += 1) {
+      const channel = channels[i];
+      const sourceIndex = typeof channel.sourceIndex === "number" ? channel.sourceIndex : i;
+      if (sourceIndex < 0 || sourceIndex >= parts.length) continue;
 
-      if (field.index >= parts.length) {
-        continue; // 跳过超出范围的字段
-      }
-
-      const value = parts[field.index].trim();
+      const value = parts[sourceIndex].trim();
       const num = parseFloat(value);
 
       if (!isNaN(num)) {
-        values[field.name] = num;
+        values[channel.key] = num;
       }
     }
 
@@ -128,10 +134,12 @@ export function parseWithDelimiter(
 
 /**
  * 使用 JSON 解析数据
+ *
+ * channels 为空 → 自动提取所有数值字段；非空 → 只保留 channel.key 对应字段。
  */
 export function parseWithJson(
   text: string,
-  keys?: string[]
+  channels?: Channel[]
 ): ParseResult {
   try {
     const data = JSON.parse(text);
@@ -144,12 +152,12 @@ export function parseWithJson(
     }
 
     const values: Record<string, number> = {};
-
-    // 如果指定了 keys，只提取这些键
-    const targetKeys = keys && keys.length > 0 ? keys : Object.keys(data);
+    const targetKeys = channels && channels.length > 0
+      ? channels.map((c) => c.key)
+      : Object.keys(data);
 
     for (const key of targetKeys) {
-      const value = data[key];
+      const value = (data as Record<string, unknown>)[key];
       if (typeof value === "number" && !isNaN(value)) {
         values[key] = value;
       }
@@ -181,16 +189,16 @@ export function parseWithJson(
 /**
  * 解析 key=value 对（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
  *
- * - 自动提取行内所有 key=number 对
- * - 非数值字段（如 filter=none）和单位词（如 Hz）会被自动跳过
- * - 如果传入 keys 列表则只保留这些键，否则保留所有
+ * channels 为空 → 自动提取所有 key=number 对；非空 → 只保留 channel.key 对应键。
  */
 export function parseWithKv(
   text: string,
-  keys?: string[]
+  channels?: Channel[]
 ): ParseResult {
   KV_PAIR_REGEX.lastIndex = 0;
-  const filter = keys && keys.length > 0 ? new Set(keys) : null;
+  const filter = channels && channels.length > 0
+    ? new Set(channels.map((c) => c.key))
+    : null;
   const values: Record<string, number> = {};
 
   let match: RegExpExecArray | null;
@@ -221,50 +229,31 @@ export function parseWithKv(
 }
 
 /**
- * 自动解析（按优先级尝试）
+ * 自动解析（按 JSON → 正则 → KV → 分隔符 顺序尝试）
  */
 export function parseAuto(
   text: string,
   config: ChartConfig
 ): ParseResult {
-  // 1. 尝试 JSON 解析
-  if (config.jsonEnabled) {
-    const result = parseWithJson(text, config.jsonKeys);
-    if (result.success) {
-      return result;
-    }
-  }
+  const jsonResult = parseWithJson(text, config.channels);
+  if (jsonResult.success) return jsonResult;
 
-  // 2. 尝试正则表达式解析
-  if (config.regexEnabled && config.regexPattern) {
-    const result = parseWithRegex(
+  if (config.regexPattern) {
+    const regexResult = parseWithRegex(
       text,
       config.regexPattern,
-      config.regexFlags
+      config.regexFlags,
+      config.channels
     );
-    if (result.success) {
-      return result;
-    }
+    if (regexResult.success) return regexResult;
   }
 
-  // 3. 尝试 KV 解析（key=value 自由文本）
-  if (config.kvEnabled) {
-    const result = parseWithKv(text, config.kvKeys);
-    if (result.success) {
-      return result;
-    }
-  }
+  const kvResult = parseWithKv(text, config.channels);
+  if (kvResult.success) return kvResult;
 
-  // 4. 尝试分隔符解析
-  if (config.delimiterEnabled && config.fields.length > 0) {
-    const result = parseWithDelimiter(
-      text,
-      config.delimiter,
-      config.fields
-    );
-    if (result.success) {
-      return result;
-    }
+  if (config.channels.length > 0) {
+    const delimiterResult = parseWithDelimiter(text, config.delimiter, config.channels);
+    if (delimiterResult.success) return delimiterResult;
   }
 
   return {
@@ -289,7 +278,7 @@ export function parseChartData(
 
   switch (config.parseMode) {
     case "regex":
-      if (!config.regexEnabled || !config.regexPattern) {
+      if (!config.regexPattern) {
         return {
           success: false,
           error: "正则表达式未配置",
@@ -298,39 +287,24 @@ export function parseChartData(
       return parseWithRegex(
         text,
         config.regexPattern,
-        config.regexFlags
+        config.regexFlags,
+        config.channels
       );
 
     case "delimiter":
-      if (!config.delimiterEnabled || config.fields.length === 0) {
+      if (config.channels.length === 0) {
         return {
           success: false,
-          error: "分隔符配置不完整",
+          error: "分隔符模式未配置任何通道",
         };
       }
-      return parseWithDelimiter(
-        text,
-        config.delimiter,
-        config.fields
-      );
+      return parseWithDelimiter(text, config.delimiter, config.channels);
 
     case "json":
-      if (!config.jsonEnabled) {
-        return {
-          success: false,
-          error: "JSON 解析未启用",
-        };
-      }
-      return parseWithJson(text, config.jsonKeys);
+      return parseWithJson(text, config.channels);
 
     case "kv":
-      if (!config.kvEnabled) {
-        return {
-          success: false,
-          error: "KV 解析未启用",
-        };
-      }
-      return parseWithKv(text, config.kvKeys);
+      return parseWithKv(text, config.channels);
 
     case "auto":
       return parseAuto(text, config);

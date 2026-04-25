@@ -15,7 +15,7 @@ import type {
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
-import { DEFAULT_CHART_CONFIG } from "@/lib/chartTypes";
+import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
 import {
   loadBooleanFromStorage,
@@ -448,10 +448,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   ),
 
   chartData: [],
-  chartConfig: {
-    ...DEFAULT_CHART_CONFIG,
-    ...loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG),
-  },
+  chartConfig: migrateChartConfig(loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false,
 
   parseSuccessCount: 0,
@@ -601,10 +598,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    const normalizedConfig = {
-      ...DEFAULT_CHART_CONFIG,
-      ...chartConfig,
-    };
+    const normalizedConfig = migrateChartConfig(chartConfig);
     saveToStorage(SERIAL_CHART_CONFIG_KEY, normalizedConfig);
     set((state) => ({
       chartConfig: normalizedConfig,

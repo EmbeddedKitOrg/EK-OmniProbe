@@ -240,7 +240,7 @@ textarea:focus {
 
 .glass-dialog {
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
   border: 1px solid hsl(var(--border) / 0.9);
   background-color: rgba(251, 252, 255, 0.985);
   background:
