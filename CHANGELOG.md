@@ -5,6 +5,17 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.1] - 2026-04-25
+
+### 新增功能
+- ✨ **应用内更新检测** - 启动时静默检查 GitHub Release 是否有新版本，命中后弹窗展示当前版本 / 新版本 / 完整 changelog 内容并支持一键下载安装；设置中心同时提供"检查更新"手动按钮
+- ✨ **更新弹窗展示 changelog** - 检测到新版后直接拉取 `latest.json` 中的 notes 字段，把新版本所有"新增 / 改进 / 修复"条目铺在对话框里，让用户在升级前就能看到本次变更
+
+### 修复
+- 🐛 **应用内更新无法重启** - 补齐 `tauri-plugin-process` 的 Rust 端注册和 capability 权限（`process:default` / `process:allow-restart`），修复"立即更新"下载完成后调用 `relaunch()` 静默失败的问题
+- 🐛 **GitHub Release 说明退化为占位符** - 修复 `release.yml` 中 awk 范围匹配 `/start/,/end/` 因起止 pattern 同行立即闭合，导致提取到空内容的问题；改用 `index()` 字面量匹配，发布说明和 `latest.json` 的 notes 字段不再退化
+- 🐛 **历史 Release 说明回填** - 同步修正了此前 25 个历史 Release 的 body，使其与 CHANGELOG 对应版本内容一致
+
 ## [1.0.0] - 2026-04-25
 
 首个正式版本。集中迭代了**数据导出**、**断线重连**、**终端体验**、**图表解析**与**整体 UI 密度**。
