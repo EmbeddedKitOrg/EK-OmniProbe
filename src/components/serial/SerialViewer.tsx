@@ -106,6 +106,8 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
             return (
               <div
                 key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
                 style={{
                   position: "absolute",
                   top: 0,

@@ -453,6 +453,8 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
               return (
                 <div
                   key={`${line.id}-${virtualRow.key}`}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
                   style={{
                     position: "absolute",
                     top: 0,
