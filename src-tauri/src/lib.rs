@@ -6,7 +6,7 @@ pub mod state;
 pub mod udev;
 pub mod app_config;
 
-use commands::{config, flash, memory, probe, rtt, serial as serial_cmd};
+use commands::{config, export, flash, memory, probe, rtt, serial as serial_cmd};
 use state::AppState;
 use tauri::Manager;
 
@@ -85,6 +85,9 @@ pub fn run() {
             // Pack目录管理命令
             config::get_packs_directory,
             config::set_custom_packs_directory,
+            // 导出命令
+            export::write_text_file,
+            export::write_binary_file,
             // 串口命令
             serial_cmd::list_serial_ports_cmd,
             serial_cmd::connect_serial,
