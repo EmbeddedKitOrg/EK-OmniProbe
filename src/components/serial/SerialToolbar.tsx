@@ -344,6 +344,7 @@ export function SerialToolbar() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 pl-7 text-xs"
+              data-shortcut-search
             />
           </div>
         )}

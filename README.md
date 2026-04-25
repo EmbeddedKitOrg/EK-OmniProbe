@@ -363,6 +363,9 @@ Windows PowerShell 也可以直接运行：
 - **Ctrl+1**：烧录模式
 - **Ctrl+2**：RTT 模式
 - **Ctrl+3**：串口模式
+- **Ctrl+L**：清空当前模式数据
+- **Ctrl+F**：聚焦当前模式搜索框
+- **Space**：在 RTT 模式下暂停/恢复图表
 
 ### 烧录模式使用
 
@@ -515,6 +518,7 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - 点击终端区域后即可直接输入，不再依赖底部输入框
 - 本地回显默认关闭；仅在设备不回显时再开启，避免字符双写
 - 支持 `Enter`、方向键、`Ctrl+C`、`Ctrl+D`、`Tab`、`Esc` 和粘贴直发
+- **复制选区**：选中文字后 `Ctrl+C` 即复制（无选区时才发送 SIGINT），或 `Ctrl+Shift+C` 强制复制；`Ctrl+Shift+V` 强制粘贴
 - 终端区会处理常见的 `CR`、`LF` 和退格回写，适合 MCU CLI、Bootloader 命令台和串口 shell
 
 ### 自动断开配置（可选）

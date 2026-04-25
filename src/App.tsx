@@ -7,6 +7,7 @@ import { useEffect, useCallback, useMemo } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
+import { useSerialStore } from "./stores/serialStore";
 import { useAppStore } from "./stores/appStore";
 import { useFlashStore } from "./stores/flashStore";
 import { useUserActivity } from "./hooks/useUserActivity";
@@ -77,37 +78,72 @@ function MainApp() {
       });
   }, [addLog]);
 
-  // Keyboard shortcuts: Ctrl+1 for Flash mode, Ctrl+2 for RTT mode, Ctrl+3 for Serial mode
+  // 全局快捷键
+  // Ctrl+1/2/3: 切换 Flash / RTT / Serial 模式
+  // Ctrl+L:    清空当前模式数据
+  // Ctrl+F:    聚焦当前模式搜索框
+  // Space:     在 RTT 模式下切换图表暂停
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Don't trigger if typing in an input
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    const isInInput =
+      e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+
+    if (e.ctrlKey && e.key === "1") {
+      if (isInInput) return;
+      e.preventDefault();
+      if (!flashing) setMode("flash");
       return;
     }
 
-    // Ctrl+1: Switch to Flash mode
-    if (e.ctrlKey && e.key === "1") {
-      e.preventDefault();
-      if (!flashing) {
-        setMode("flash");
-      }
-    }
-
-    // Ctrl+2: Switch to RTT mode
     if (e.ctrlKey && e.key === "2") {
+      if (isInInput) return;
       e.preventDefault();
-      if (!flashing) {
-        setMode("rtt");
-      }
+      if (!flashing) setMode("rtt");
+      return;
     }
 
-    // Ctrl+3: Switch to Serial mode
     if (e.ctrlKey && e.key === "3") {
+      if (isInInput) return;
       e.preventDefault();
-      if (!flashing) {
-        setMode("serial");
-      }
+      if (!flashing) setMode("serial");
+      return;
     }
-  }, [flashing, setMode]);
+
+    // Ctrl+F：聚焦当前模式搜索框（即使在某些 input 中也允许，方便切焦点）
+    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+      const target = document.querySelector<HTMLInputElement>(
+        '[data-shortcut-search]:not([disabled])'
+      );
+      if (target) {
+        e.preventDefault();
+        target.focus();
+        target.select();
+      }
+      return;
+    }
+
+    if (isInInput) return;
+
+    // Ctrl+L：清空当前模式数据
+    if (e.ctrlKey && e.key.toLowerCase() === "l") {
+      e.preventDefault();
+      if (mode === "rtt") {
+        useRttStore.getState().clearLines();
+      } else if (mode === "serial") {
+        const serialState = useSerialStore.getState();
+        serialState.clearLines();
+        serialState.clearTerminalBuffer();
+      }
+      return;
+    }
+
+    // Space：在 RTT 模式下切换图表暂停
+    if (e.key === " " && mode === "rtt") {
+      e.preventDefault();
+      const rttState = useRttStore.getState();
+      rttState.setChartPaused(!rttState.chartPaused);
+      return;
+    }
+  }, [flashing, mode, setMode]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
