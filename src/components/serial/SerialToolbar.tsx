@@ -27,6 +27,7 @@ import {
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
+import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
 import type { SignalDomain } from "@/lib/chartTypes";
 import type { ReactNode } from "react";
 
@@ -100,40 +101,32 @@ export function SerialToolbar() {
     }
   };
 
-  // Format timestamp
-  const formatTimestamp = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    const seconds = date.getSeconds().toString().padStart(2, "0");
-    const ms = date.getMilliseconds().toString().padStart(3, "0");
-    return `${hours}:${minutes}:${seconds}.${ms}`;
-  };
-
-  // Export to TXT
-  const handleExport = () => {
+  const handleExportTxt = async () => {
     const { lines } = useSerialStore.getState();
     if (lines.length === 0) {
       addLog("warn", "没有数据可导出");
       return;
     }
+    try {
+      const path = await exportSerialLinesAsTxt(lines);
+      if (path) addLog("success", `已导出 ${lines.length} 行到 ${path}`);
+    } catch (err) {
+      addLog("error", `导出失败: ${err}`);
+    }
+  };
 
-    const content = lines
-      .map((line) => {
-        const time = formatTimestamp(line.timestamp);
-        const dir = line.direction === "rx" ? "RX" : "TX";
-        return `[${time}] [${dir}] ${line.text}`;
-      })
-      .join("\n");
-
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `serial-log-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    addLog("success", `已导出 ${lines.length} 行数据`);
+  const handleExportCsv = async () => {
+    const { lines } = useSerialStore.getState();
+    if (lines.length === 0) {
+      addLog("warn", "没有数据可导出");
+      return;
+    }
+    try {
+      const path = await exportSerialLinesAsCsv(lines);
+      if (path) addLog("success", `已导出 ${lines.length} 行到 ${path}`);
+    } catch (err) {
+      addLog("error", `导出失败: ${err}`);
+    }
   };
 
   // Smart enable chart
@@ -473,10 +466,16 @@ export function SerialToolbar() {
                 <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
                   输出
                 </div>
-                <Button size="sm" variant="outline" onClick={handleExport} className="gap-1">
-                  <Download className="h-3.5 w-3.5" />
-                  导出日志
-                </Button>
+                <div className="flex flex-wrap gap-1">
+                  <Button size="sm" variant="outline" onClick={handleExportTxt} className="gap-1">
+                    <Download className="h-3.5 w-3.5" />
+                    导出 TXT
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleExportCsv} className="gap-1">
+                    <Download className="h-3.5 w-3.5" />
+                    导出 CSV
+                  </Button>
+                </div>
               </div>
             </div>
           </PopoverContent>

@@ -2,11 +2,25 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useLogStore } from "@/stores/logStore";
 import { useUiPreferencesStore } from "@/stores/uiPreferencesStore";
 import { formatTime } from "@/lib/utils";
-import { Trash2, GripHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, GripHorizontal, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { exportLogs } from "@/lib/exporters";
 
 export function LogPanel() {
-  const { logs, clearLogs } = useLogStore();
+  const { logs, clearLogs, addLog } = useLogStore();
+
+  const handleExport = useCallback(async () => {
+    if (logs.length === 0) {
+      addLog("warn", "暂无日志可导出");
+      return;
+    }
+    try {
+      const path = await exportLogs(logs);
+      if (path) addLog("success", `日志已导出: ${path}`);
+    } catch (err) {
+      addLog("error", `导出日志失败: ${err}`);
+    }
+  }, [logs, addLog]);
   const storedHeight = useUiPreferencesStore((state) => state.logPanelHeight);
   const setStoredHeight = useUiPreferencesStore((state) => state.setLogPanelHeight);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -161,6 +175,15 @@ export function LogPanel() {
             title={collapsed ? "展开日志" : "折叠日志"}
           >
             {collapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={handleExport}
+            title="导出日志为 .txt"
+          >
+            <Download className="h-3 w-3" />
           </Button>
           <Button
             variant="ghost"

@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { exportChartDataAsCsv, exportCanvasAsPng, exportSvgAsPng } from "@/lib/exporters";
+import { useLogStore } from "@/stores/logStore";
 import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain } from "@/lib/chartTypes";
 import {
   Bar,
@@ -74,6 +76,8 @@ export function ChartViewer({
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
   const signalDomain = chartConfig.signalDomain ?? "time";
   const latestPoint = chartData[chartData.length - 1];
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const addLog = useLogStore((s) => s.addLog);
 
   const chartDataFormatted = useMemo(() => {
     if (chartData.length === 0) return [];
@@ -233,28 +237,42 @@ export function ChartViewer({
     });
   };
 
-  const handleExport = () => {
+  const handleExportCsv = async () => {
     if (chartData.length === 0) return;
-    const headers = ["时间戳", "相对时间(s)"];
-    const keys = chartData.length > 0 ? Object.keys(chartData[0].values) : [];
-    headers.push(...keys);
-    const firstTimestamp = chartData[0].timestamp;
-    const rows = chartData.map((point) => {
-      const relativeTime = ((point.timestamp - firstTimestamp) / 1000).toFixed(6);
-      return [
-        point.timestamp.toString(),
-        relativeTime,
-        ...keys.map((key) => (point.values[key] ?? "").toString()),
-      ].join(",");
-    });
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `chart-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const path = await exportChartDataAsCsv(chartData, chartConfig);
+      if (path) addLog("success", `图表数据已导出: ${path}`);
+    } catch (err) {
+      addLog("error", `导出 CSV 失败: ${err}`);
+    }
+  };
+
+  const handleExportPng = async () => {
+    if (chartData.length === 0) return;
+    const container = chartContainerRef.current;
+    if (!container) return;
+    try {
+      const canvas = container.querySelector<HTMLCanvasElement>("canvas");
+      if (canvas) {
+        const path = await exportCanvasAsPng(canvas);
+        if (path) addLog("success", `图表图像已导出: ${path}`);
+        return;
+      }
+      const svg = container.querySelector<SVGSVGElement>("svg");
+      if (svg) {
+        const rect = svg.getBoundingClientRect();
+        const path = await exportSvgAsPng(
+          svg,
+          Math.max(Math.round(rect.width), 1),
+          Math.max(Math.round(rect.height), 1)
+        );
+        if (path) addLog("success", `图表图像已导出: ${path}`);
+        return;
+      }
+      addLog("warn", "未找到可导出的图表元素");
+    } catch (err) {
+      addLog("error", `导出 PNG 失败: ${err}`);
+    }
   };
 
   const handleClearSeries = () => {
@@ -447,12 +465,23 @@ export function ChartViewer({
         <Button
           size="sm"
           variant="outline"
-          onClick={handleExport}
+          onClick={handleExportCsv}
           disabled={chartData.length === 0}
           className="gap-1"
         >
           <Download className="h-3.5 w-3.5" />
-          导出
+          导出 CSV
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleExportPng}
+          disabled={chartData.length === 0}
+          className="gap-1"
+        >
+          <Download className="h-3.5 w-3.5" />
+          导出 PNG
         </Button>
 
         {chartConfig.chartType === "waveform" && (
@@ -575,7 +604,7 @@ export function ChartViewer({
 
       <div className="grid min-h-[360px] flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-h-[360px] flex-col gap-3">
-          <div className="min-h-[320px] flex-1">
+          <div ref={chartContainerRef} className="min-h-[320px] flex-1">
             {chartDataFormatted.length === 0 ? (
               <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
                 <div className="space-y-2 text-center">
