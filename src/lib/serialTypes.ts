@@ -132,4 +132,6 @@ export type Encoding = "utf-8" | "ascii" | "gbk";
 export interface SerialTerminalSettings {
   localEcho: boolean;
   interceptShortcuts: boolean;
+  /** 行编辑模式：本地累积输入并由 ↑↓ 翻历史，回车后整行发送；关闭则按字符直通发送。 */
+  lineMode: boolean;
 }

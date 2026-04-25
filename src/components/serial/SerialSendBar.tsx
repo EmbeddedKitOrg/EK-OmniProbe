@@ -7,30 +7,7 @@ import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
 import { writeSerialString, writeSerial } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
-
-// History persistence key
-const SEND_HISTORY_KEY = "serial_send_history";
-const MAX_HISTORY = 20;
-
-function loadHistory(): string[] {
-  try {
-    const saved = localStorage.getItem(SEND_HISTORY_KEY);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch {
-    // Use default
-  }
-  return [];
-}
-
-function saveHistory(history: string[]) {
-  try {
-    localStorage.setItem(SEND_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
-  } catch {
-    // Silent fail
-  }
-}
+import { loadSendHistory, pushSendHistory, saveSendHistory } from "@/lib/serialHistory";
 
 function getLineEndingText(lineEnding: LineEnding) {
   switch (lineEnding) {
@@ -59,7 +36,7 @@ export function SerialSendBar() {
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
-  const [history, setHistory] = useState<string[]>(loadHistory);
+  const [history, setHistory] = useState<string[]>(loadSendHistory);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -170,9 +147,7 @@ export function SerialSendBar() {
       }
 
       // Save to history
-      const newHistory = [inputText, ...history.filter(h => h !== inputText)].slice(0, MAX_HISTORY);
-      setHistory(newHistory);
-      saveHistory(newHistory);
+      setHistory((prev) => pushSendHistory(prev, inputText));
 
       setInputText("");
       setHistoryIndex(-1);
@@ -188,7 +163,6 @@ export function SerialSendBar() {
     addLog,
     addLine,
     appendTerminalChunk,
-    history,
     terminalSettings.localEcho,
     textViewMode,
   ]);
@@ -237,7 +211,7 @@ export function SerialSendBar() {
   // Clear history
   const clearHistory = () => {
     setHistory([]);
-    saveHistory([]);
+    saveSendHistory([]);
     setHistoryIndex(-1);
   };
 
