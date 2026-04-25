@@ -199,11 +199,11 @@ export function LogPanel() {
       {!collapsed && (
         <div
           ref={scrollRef}
-          className="overflow-y-auto p-3 font-mono text-xs"
+          className="overflow-y-auto p-3 font-mono text-xs leading-relaxed"
           style={{ height: `calc(100% - 46px)` }}
         >
           {logs.map((log) => (
-            <div key={log.id} className="flex gap-2 rounded-xl px-2 py-1">
+            <div key={log.id} className="flex gap-3 rounded-xl px-2 py-1.5">
               <span className="text-muted-foreground shrink-0">
                 [{formatTime(log.timestamp)}]
               </span>
@@ -214,7 +214,7 @@ export function LogPanel() {
             </div>
           ))}
           {logs.length === 0 && (
-            <div className="text-muted-foreground text-center py-4">
+            <div className="text-muted-foreground text-center py-6">
               暂无日志
             </div>
           )}

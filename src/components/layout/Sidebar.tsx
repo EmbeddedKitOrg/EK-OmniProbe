@@ -164,10 +164,10 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-3 space-y-3">
+    <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-4 space-y-3">
       {/* 探针选择 */}
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm">调试探针</CardTitle>
@@ -186,7 +186,7 @@ export function Sidebar() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           <Select
             value={selectedProbe?.probe_id || ""}
             onValueChange={(value) => {
@@ -229,13 +229,13 @@ export function Sidebar() {
 
       {/* 芯片选择 */}
       <Card>
-        <CardHeader className="py-3">
+        <CardHeader className="py-4">
           <CardTitle className="text-sm">目标芯片</CardTitle>
           <CardDescription className="text-xs">
             {selectedChip || "先搜索并锁定目标芯片，再进入 RTT 或烧录工作流。"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-3">
           <div className="space-y-2">
             <Input
               placeholder="搜索芯片型号..."
@@ -244,11 +244,11 @@ export function Sidebar() {
               disabled={connected}
             />
             {searchResults.length > 0 && (
-              <div className="max-h-48 overflow-y-auto rounded-2xl border border-border/70 bg-white/88 shadow-[0_12px_28px_rgba(72,92,140,0.12)] backdrop-blur">
+              <div className="max-h-64 overflow-y-auto rounded-2xl border border-border/70 bg-white/88 shadow-[0_12px_28px_rgba(72,92,140,0.12)] backdrop-blur">
                 {searchResults.map((chip) => (
                   <button
                     key={chip}
-                    className="w-full border-b border-border/50 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-accent/60"
+                    className="w-full border-b border-border/50 px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-accent/60"
                     onClick={() => handleChipSelect(chip)}
                   >
                     {chip}
@@ -267,7 +267,7 @@ export function Sidebar() {
       <Collapsible open={interfaceSettingsOpen} onOpenChange={setInterfaceSettingsOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <CardHeader className="py-4 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">接口设置</CardTitle>
@@ -373,7 +373,7 @@ export function Sidebar() {
       <Collapsible open={autoDisconnectOpen} onOpenChange={setAutoDisconnectOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <CardHeader className="py-4 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">自动断开</CardTitle>
@@ -467,7 +467,7 @@ export function Sidebar() {
       {/* 连接信息 */}
       {connected && connectionInfo && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-sm">连接信息</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-xs">

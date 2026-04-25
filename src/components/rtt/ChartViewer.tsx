@@ -432,7 +432,7 @@ export function ChartViewer({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-3 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[24px] border border-border/50 bg-secondary/70 px-3 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2.5 rounded-[24px] border border-border/50 bg-secondary/70 px-3.5 py-2.5">
         <Button
           size="sm"
           variant={chartPaused ? "secondary" : "outline"}
@@ -452,6 +452,8 @@ export function ChartViewer({
           )}
         </Button>
 
+        <span className="h-5 w-px bg-border/70" aria-hidden />
+
         <Button size="sm" variant="outline" onClick={clearChartData} className="gap-1">
           <Trash2 className="h-3.5 w-3.5" />
           清空
@@ -461,6 +463,8 @@ export function ChartViewer({
           <Trash2 className="h-3.5 w-3.5" />
           清除曲线
         </Button>
+
+        <span className="h-5 w-px bg-border/70" aria-hidden />
 
         <Button
           size="sm"
@@ -485,7 +489,9 @@ export function ChartViewer({
         </Button>
 
         {chartConfig.chartType === "waveform" && (
-          <div className="ml-1 flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-sm">
+          <>
+            <span className="h-5 w-px bg-border/70" aria-hidden />
+            <div className="flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-sm">
             <Button
               size="sm"
               variant={signalDomain === "time" ? "default" : "ghost"}
@@ -503,6 +509,7 @@ export function ChartViewer({
               FFT
             </Button>
           </div>
+          </>
         )}
 
         {statistics && Object.keys(statistics).length > 0 && (
