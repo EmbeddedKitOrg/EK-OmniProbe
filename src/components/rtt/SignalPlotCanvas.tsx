@@ -6,6 +6,8 @@ import type {
   SignalDomain,
 } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
+import { downsamplePoints } from "@/lib/downsampling";
+import { formatChartNumber } from "@/lib/formatters";
 
 interface SignalPlotCanvasProps {
   chartData: ChartDataPoint[];
@@ -86,33 +88,6 @@ function estimateSampleRate(chartData: ChartDataPoint[], configuredRate: number)
   return sampleCount / durationSec;
 }
 
-function downsamplePoints<T>(points: T[], limit: number) {
-  if (limit <= 0 || points.length <= limit) {
-    return points;
-  }
-
-  if (limit === 1) {
-    return [points[points.length - 1]];
-  }
-
-  const step = (points.length - 1) / (limit - 1);
-  const sampled: T[] = [];
-  for (let index = 0; index < limit; index += 1) {
-    sampled.push(points[Math.round(index * step)]);
-  }
-  return sampled;
-}
-
-function formatAxisValue(value: number) {
-  const abs = Math.abs(value);
-  if (abs >= 1000 || (abs > 0 && abs < 0.01)) {
-    return value.toExponential(2);
-  }
-  if (abs >= 100) return value.toFixed(1);
-  if (abs >= 10) return value.toFixed(2);
-  return value.toFixed(3);
-}
-
 function formatRelativeTime(seconds: number, visibleDurationSec: number) {
   const absSec = Math.abs(seconds);
   if (visibleDurationSec < 0.01) {
@@ -127,15 +102,40 @@ function formatRelativeTime(seconds: number, visibleDurationSec: number) {
   return `${(seconds / 60).toFixed(2)} min`;
 }
 
-function createWindow(size: number) {
-  if (size <= 1) return [1];
-  return Array.from({ length: size }, (_, index) => (
-    0.5 * (1 - Math.cos((2 * Math.PI * index) / (size - 1)))
-  ));
+// Hann 窗函数按 size 缓存，FFT 窗口尺寸通常只有少数几个固定值
+const windowCache = new Map<number, Float64Array>();
+
+function getHannWindow(size: number): Float64Array {
+  let cached = windowCache.get(size);
+  if (cached) return cached;
+  cached = new Float64Array(size);
+  if (size <= 1) {
+    cached[0] = 1;
+  } else {
+    const factor = (2 * Math.PI) / (size - 1);
+    for (let i = 0; i < size; i += 1) {
+      cached[i] = 0.5 * (1 - Math.cos(factor * i));
+    }
+  }
+  windowCache.set(size, cached);
+  return cached;
 }
 
-function fftInPlace(re: number[], im: number[]) {
-  const size = re.length;
+// 跨调用复用的 FFT 缓冲区，按需扩容；computeSpectrum 在 useMemo 中串行调用
+let fftReBuf: Float64Array = new Float64Array(0);
+let fftImBuf: Float64Array = new Float64Array(0);
+
+function ensureFftBuffers(size: number) {
+  if (fftReBuf.length < size) {
+    fftReBuf = new Float64Array(size);
+    fftImBuf = new Float64Array(size);
+  } else {
+    fftReBuf.fill(0, 0, size);
+    fftImBuf.fill(0, 0, size);
+  }
+}
+
+function fftInPlace(re: Float64Array, im: Float64Array, size: number) {
   let j = 0;
 
   for (let i = 1; i < size; i += 1) {
@@ -146,8 +146,8 @@ function fftInPlace(re: number[], im: number[]) {
     }
     j ^= bit;
     if (i < j) {
-      [re[i], re[j]] = [re[j], re[i]];
-      [im[i], im[j]] = [im[j], im[i]];
+      const tr = re[i]; re[i] = re[j]; re[j] = tr;
+      const ti = im[i]; im[i] = im[j]; im[j] = ti;
     }
   }
 
@@ -181,24 +181,27 @@ function fftInPlace(re: number[], im: number[]) {
 
 function computeSpectrum(values: number[], sampleRateHz: number) {
   const fftSize = nextPowerOfTwo(values.length);
-  const re = new Array<number>(fftSize).fill(0);
-  const im = new Array<number>(fftSize).fill(0);
-  const window = createWindow(values.length);
+  ensureFftBuffers(fftSize);
+  const re = fftReBuf;
+  const im = fftImBuf;
+  const window = getHannWindow(values.length);
 
   for (let index = 0; index < values.length; index += 1) {
     re[index] = values[index] * window[index];
   }
 
-  fftInPlace(re, im);
+  fftInPlace(re, im, fftSize);
 
-  const result: Array<{ freq: number; magnitude: number }> = [];
   const half = fftSize >> 1;
+  const result: Array<{ freq: number; magnitude: number }> = new Array(half);
+  const freqStep = sampleRateHz / fftSize;
+  const ampScale = 2 / fftSize;
   for (let bin = 0; bin < half; bin += 1) {
-    const amplitude = (2 / fftSize) * Math.hypot(re[bin], im[bin]);
-    result.push({
-      freq: (bin * sampleRateHz) / fftSize,
+    const amplitude = ampScale * Math.hypot(re[bin], im[bin]);
+    result[bin] = {
+      freq: bin * freqStep,
       magnitude: amplitude > 1e-12 ? 20 * Math.log10(amplitude) : -240,
-    });
+    };
   }
   return result;
 }
@@ -600,7 +603,7 @@ export function SignalPlotCanvas({
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="font-medium text-foreground">{item.name}</span>
                 {Number.isFinite(latestValue) && (
-                  <span className="ml-2 text-muted-foreground">{formatAxisValue(latestValue as number)}{item.unit ? ` ${item.unit}` : ""}</span>
+                  <span className="ml-2 text-muted-foreground">{formatChartNumber(latestValue as number)}{item.unit ? ` ${item.unit}` : ""}</span>
                 )}
               </div>
             );
@@ -638,7 +641,7 @@ function drawTimeChart(
       plotHeight,
       yMin,
       yMax,
-      (value) => formatAxisValue(value),
+      (value) => formatChartNumber(value),
       (ratio) => formatRelativeTime(startSec + ratio * visibleDurationSec - latestSec, visibleDurationSec)
     );
   }
@@ -696,7 +699,7 @@ function drawTimeChart(
         `t = ${formatRelativeTime(nearestPoint.timeSec - latestSec, visibleDurationSec)}`,
         ...visibleSeries.map((item) => {
           const value = nearestPoint.values[item.key];
-          return `${item.name}: ${Number.isFinite(value) ? formatAxisValue(value) : "NaN"}${item.unit ? ` ${item.unit}` : ""}`;
+          return `${item.name}: ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${item.unit ? ` ${item.unit}` : ""}`;
         }),
       ]
     );

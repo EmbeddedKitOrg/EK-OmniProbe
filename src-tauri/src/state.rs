@@ -1,7 +1,6 @@
 use parking_lot::Mutex;
 use probe_rs::Session;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -13,12 +12,6 @@ pub struct RttState {
     pub poll_interval_ms: Mutex<u64>,
     /// RTT 控制块地址
     pub control_block_address: Mutex<Option<u64>>,
-    /// 各通道缓冲区 (用于累积未完整的行)
-    pub line_buffers: Mutex<HashMap<usize, Vec<u8>>>,
-    /// 各通道的读取偏移量 (用于直接内存读取)
-    pub channel_read_offsets: Mutex<HashMap<usize, u32>>,
-    /// 各通道的缓冲区信息 (地址, 大小)
-    pub channel_buffers: Mutex<HashMap<usize, (u64, u32)>>,
 }
 
 impl Default for RttState {
@@ -27,9 +20,6 @@ impl Default for RttState {
             running: AtomicBool::new(false),
             poll_interval_ms: Mutex::new(10),
             control_block_address: Mutex::new(None),
-            line_buffers: Mutex::new(HashMap::new()),
-            channel_read_offsets: Mutex::new(HashMap::new()),
-            channel_buffers: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -46,9 +36,6 @@ impl RttState {
     pub fn reset(&self) {
         self.running.store(false, Ordering::SeqCst);
         *self.control_block_address.lock() = None;
-        self.line_buffers.lock().clear();
-        self.channel_read_offsets.lock().clear();
-        self.channel_buffers.lock().clear();
     }
 }
 
