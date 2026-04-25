@@ -497,8 +497,10 @@ pub async fn get_rtt_status(state: State<'_, AppState>) -> AppResult<RttStatusEv
 }
 
 /// 清空 RTT 缓冲区 (前端调用)
+///
+/// 后端目前不缓存任何 RTT 行数据，行缓冲完全在前端 store 中维护，
+/// 此命令保留是为了与前端 invoke("clear_rtt_buffer") 调用兼容。
 #[tauri::command]
-pub async fn clear_rtt_buffer(state: State<'_, AppState>) -> AppResult<()> {
-    state.rtt_state.line_buffers.lock().clear();
+pub async fn clear_rtt_buffer(_state: State<'_, AppState>) -> AppResult<()> {
     Ok(())
 }

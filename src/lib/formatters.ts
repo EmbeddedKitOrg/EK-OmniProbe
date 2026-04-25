@@ -24,3 +24,12 @@ export function formatTime(timestamp: number): string {
 export function formatHex(value: number, width = 2): string {
   return "0x" + value.toString(16).toUpperCase().padStart(width, "0");
 }
+
+/** 图表轴/读数显示用的数值格式化：按数量级自动选择有效位数或科学计数法 */
+export function formatChartNumber(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1000 || (abs > 0 && abs < 0.01)) return value.toExponential(2);
+  if (abs >= 100) return value.toFixed(1);
+  if (abs >= 10) return value.toFixed(2);
+  return value.toFixed(3);
+}

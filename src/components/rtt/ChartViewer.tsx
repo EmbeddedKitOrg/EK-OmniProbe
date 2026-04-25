@@ -20,6 +20,8 @@ import { Download, Info, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { downsamplePoints } from "@/lib/downsampling";
+import { formatChartNumber } from "@/lib/formatters";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
 interface BrushDomain {
@@ -44,27 +46,8 @@ interface SeriesInspectorEntry {
   configured: boolean;
 }
 
-function downsampleChartData<T>(points: T[], limit: number) {
-  if (limit <= 0 || points.length <= limit) return points;
-  if (limit === 1) return [points[points.length - 1]];
-  const step = (points.length - 1) / (limit - 1);
-  const sampled: T[] = [];
-  for (let index = 0; index < limit; index += 1) {
-    sampled.push(points[Math.round(index * step)]);
-  }
-  return sampled;
-}
-
 function fallbackSeriesColor(index: number) {
   return `hsl(${(index * 53) % 360} 72% 48%)`;
-}
-
-function formatNumericValue(value: number) {
-  const abs = Math.abs(value);
-  if (abs >= 1000 || (abs > 0 && abs < 0.01)) return value.toExponential(2);
-  if (abs >= 100) return value.toFixed(1);
-  if (abs >= 10) return value.toFixed(2);
-  return value.toFixed(3);
 }
 
 export interface ChartViewerProps {
@@ -101,7 +84,7 @@ export function ChartViewer({
       time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
       ...point.values,
     }));
-    return downsampleChartData(
+    return downsamplePoints(
       formatted,
       chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : formatted.length
     );
@@ -514,10 +497,10 @@ export function ChartViewer({
                         <span className="text-sm font-medium">{series.name}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 pl-5 text-xs text-muted-foreground">
-                        <div>最小值: {formatNumericValue(stat.min)}</div>
-                        <div>最大值: {formatNumericValue(stat.max)}</div>
-                        <div>平均值: {formatNumericValue(stat.avg)}</div>
-                        <div>当前值: {formatNumericValue(stat.latest)}</div>
+                        <div>最小值: {formatChartNumber(stat.min)}</div>
+                        <div>最大值: {formatChartNumber(stat.max)}</div>
+                        <div>平均值: {formatChartNumber(stat.avg)}</div>
+                        <div>当前值: {formatChartNumber(stat.latest)}</div>
                       </div>
                     </div>
                   );
@@ -585,7 +568,7 @@ export function ChartViewer({
               className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
               style={{ backgroundColor: item.color }}
             />
-            {item.name} {formatNumericValue(item.latest)}
+            {item.name} {formatChartNumber(item.latest)}
           </span>
         ))}
       </div>
@@ -660,7 +643,7 @@ export function ChartViewer({
                 {latestSeriesSnapshot[0] && (
                   <span className="rounded-full bg-secondary px-3 py-1">
                     当前 {latestSeriesSnapshot[0].name}{" "}
-                    {formatNumericValue(latestSeriesSnapshot[0].latest)}
+                    {formatChartNumber(latestSeriesSnapshot[0].latest)}
                   </span>
                 )}
               </div>
@@ -756,7 +739,7 @@ export function ChartViewer({
                     <div className="text-right">
                       <div className="text-[11px] text-muted-foreground">最新值</div>
                       <div className="text-base font-semibold text-foreground">
-                        {series.latestValue === null ? "—" : formatNumericValue(series.latestValue)}
+                        {series.latestValue === null ? "—" : formatChartNumber(series.latestValue)}
                         {series.unit ? (
                           <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span>
                         ) : null}
