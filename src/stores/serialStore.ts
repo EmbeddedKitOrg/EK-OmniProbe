@@ -318,12 +318,17 @@ function processTerminalChunk(
     | "maxTerminalLines"
   >
 ) {
-  const lines = [...state.terminalLines];
-  const activeUnits = [...state.terminalActiveUnits];
+  // 只在真正提交新行时才复制 terminalLines，避免无 \n 的 chunk
+  // (如键盘回显、连续刷新) 反复深拷贝 4000 元素的数组
+  let lines: SerialTerminalLine[] | null = null;
+  const activeUnits = state.terminalActiveUnits.slice();
   let cursorColumn = state.terminalCursorColumn;
   let lineCounter = state.terminalLineCounter;
 
   const pushCommittedLine = () => {
+    if (lines === null) {
+      lines = state.terminalLines.slice();
+    }
     lineCounter += 1;
     lines.push({
       id: lineCounter,
@@ -385,7 +390,7 @@ function processTerminalChunk(
   }
 
   return {
-    terminalLines: lines,
+    terminalLines: lines ?? state.terminalLines,
     terminalActiveUnits: activeUnits,
     terminalActiveLine: unitsToText(activeUnits),
     terminalCursorColumn: cursorColumn,
