@@ -37,7 +37,7 @@ const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
 const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
 const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
-const SERIAL_TERMINAL_SETTINGS_VERSION = 2;
+const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -87,7 +87,11 @@ const defaultSerialConfigBundle = {
   activeType: "local" as DataSourceType,
 };
 const defaultSendSettings: SendSettings = { encoding: "utf-8", lineEnding: "lf", hexMode: false };
-const defaultTerminalSettings: SerialTerminalSettings = { localEcho: false, interceptShortcuts: true };
+const defaultTerminalSettings: SerialTerminalSettings = {
+  localEcho: false,
+  interceptShortcuts: true,
+  lineMode: false,
+};
 
 interface SerialState {
   // Connection state

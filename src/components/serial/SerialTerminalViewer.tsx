@@ -7,6 +7,7 @@ import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 import { writeSerial, writeSerialString } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
+import { loadSendHistory, pushSendHistory } from "@/lib/serialHistory";
 
 interface SerialTerminalViewerProps {
   title?: string;
@@ -51,11 +52,42 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLTextAreaElement>(null);
 
+  // 行编辑模式状态
+  const lineMode = terminalSettings.lineMode;
+  const [editBuffer, setEditBuffer] = useState("");
+  const [history, setHistory] = useState<string[]>(() => loadSendHistory());
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  // 切换 lineMode 关闭时清空编辑缓冲，避免遗留状态
+  useEffect(() => {
+    if (!lineMode) {
+      setEditBuffer("");
+      setHistoryIndex(-1);
+    }
+  }, [lineMode]);
+
   const displayLines = useMemo(() => {
     const committedLines = terminalLines.map((line) => ({
       ...line,
       isActive: false,
     }));
+
+    if (lineMode) {
+      // 行编辑模式：显示设备已经回显的行 + 本地编辑缓冲（带 > 提示符）
+      const promptLine = {
+        id: -2,
+        text: `> ${editBuffer}`,
+        isActive: true,
+      };
+      if (terminalActiveLine.length > 0) {
+        return [
+          ...committedLines,
+          { id: -1, text: terminalActiveLine, isActive: false },
+          promptLine,
+        ];
+      }
+      return [...committedLines, promptLine];
+    }
 
     if (terminalActiveLine.length > 0 || focused) {
       return [
@@ -69,7 +101,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
     }
 
     return committedLines;
-  }, [focused, terminalActiveLine, terminalLines]);
+  }, [editBuffer, focused, lineMode, terminalActiveLine, terminalLines]);
 
   const rowVirtualizer = useVirtualizer({
     count: displayLines.length,
@@ -195,6 +227,80 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         return;
       }
 
+      // 行编辑模式：本地累积，回车后整行发送，↑↓ 翻历史
+      if (lineMode) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const text = editBuffer;
+          const ending = getLineEndingText(sendSettings.lineEnding);
+          setEditBuffer("");
+          setHistoryIndex(-1);
+          if (text.length === 0) {
+            if (ending) {
+              void sendRawChunk(
+                Array.from(new TextEncoder().encode(ending)),
+                ending
+              );
+            }
+            return;
+          }
+          void sendTextChunk(text + ending);
+          setHistory((prev) => pushSendHistory(prev, text));
+          return;
+        }
+
+        if (event.key === "Backspace") {
+          event.preventDefault();
+          setEditBuffer((prev) => prev.slice(0, -1));
+          return;
+        }
+
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          if (history.length === 0) return;
+          const next = Math.min(historyIndex + 1, history.length - 1);
+          setHistoryIndex(next);
+          setEditBuffer(history[next] ?? "");
+          return;
+        }
+
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          if (historyIndex <= 0) {
+            setHistoryIndex(-1);
+            setEditBuffer("");
+            return;
+          }
+          const next = historyIndex - 1;
+          setHistoryIndex(next);
+          setEditBuffer(history[next] ?? "");
+          return;
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setEditBuffer("");
+          setHistoryIndex(-1);
+          return;
+        }
+
+        if (event.key === "Tab") {
+          event.preventDefault();
+          setEditBuffer((prev) => prev + "\t");
+          return;
+        }
+
+        if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+          event.preventDefault();
+          setEditBuffer((prev) => prev + event.key);
+          setHistoryIndex(-1);
+          return;
+        }
+
+        // 其余键 (左右箭头、Home、End 等) 在行编辑模式下不向设备直通
+        return;
+      }
+
       if (event.key === "Enter") {
         event.preventDefault();
         void sendRawChunk(
@@ -242,36 +348,55 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
       sendRawChunk,
       sendTextChunk,
       copySelectionToClipboard,
+      lineMode,
+      editBuffer,
+      history,
+      historyIndex,
     ]
   );
 
   const handlePaste = useCallback(
     (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const text = event.clipboardData.getData("text");
-      if (!text || !connected || !running || sending) {
+      if (!text) return;
+      event.preventDefault();
+      // 行编辑模式：粘贴到编辑缓冲，不立即发送
+      if (lineMode) {
+        setEditBuffer((prev) => prev + text);
+        setHistoryIndex(-1);
         return;
       }
-
-      event.preventDefault();
+      if (!connected || !running || sending) {
+        return;
+      }
       void sendTextChunk(text);
     },
-    [connected, running, sendTextChunk, sending]
+    [connected, lineMode, running, sendTextChunk, sending]
   );
 
   const handleCompositionEnd = useCallback(
     (event: React.CompositionEvent<HTMLTextAreaElement>) => {
+      const text = event.data;
+      // 行编辑模式：IME 输入累积到缓冲区
+      if (lineMode) {
+        if (text) {
+          setEditBuffer((prev) => prev + text);
+          setHistoryIndex(-1);
+        }
+        event.currentTarget.value = "";
+        return;
+      }
       if (!connected || !running || sending) {
         event.currentTarget.value = "";
         return;
       }
 
-      const text = event.data;
       if (text) {
         void sendTextChunk(text);
       }
       event.currentTarget.value = "";
     },
-    [connected, running, sendTextChunk, sending]
+    [connected, lineMode, running, sendTextChunk, sending]
   );
 
   const handleInput = useCallback((event: React.FormEvent<HTMLTextAreaElement>) => {
@@ -297,9 +422,13 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
       )}
 
       <div className="border-b border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-        {focused
-          ? "终端已获取焦点，直接输入即可发送。复制：选中后 Ctrl+C 或 Ctrl+Shift+C；Ctrl+C 在无选区时会发送 SIGINT。"
-          : "点击终端区域以激活键盘输入；选中文本可直接 Ctrl+C 复制，粘贴会发送到串口。"}
+        {lineMode
+          ? focused
+            ? "行编辑模式：输入会先在本地累积，回车整行发送；↑↓ 翻历史，Esc 清空。复制：选中后 Ctrl+C 或 Ctrl+Shift+C。"
+            : "行编辑模式已启用。点击终端区域以聚焦，输入会显示在 > 提示行后；回车后整行发送。"
+          : focused
+            ? "终端已获取焦点，直接输入即可发送。复制：选中后 Ctrl+C 或 Ctrl+Shift+C；Ctrl+C 在无选区时会发送 SIGINT。"
+            : "点击终端区域以激活键盘输入；选中文本可直接 Ctrl+C 复制，粘贴会发送到串口。"}
       </div>
 
       <div

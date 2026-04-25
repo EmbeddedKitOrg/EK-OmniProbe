@@ -428,6 +428,20 @@ export function SerialToolbar() {
                         <Tags className="h-3.5 w-3.5" />
                         控制键拦截
                       </Button>
+                      <Button
+                        size="sm"
+                        variant={terminalSettings.lineMode ? "secondary" : "outline"}
+                        onClick={() =>
+                          setTerminalSettings({
+                            lineMode: !terminalSettings.lineMode,
+                          })
+                        }
+                        className="gap-1"
+                        title="开启后键盘输入先在本地累积，回车整行发送，↑↓ 翻历史"
+                      >
+                        <SquareTerminal className="h-3.5 w-3.5" />
+                        行编辑模式
+                      </Button>
                     </>
                   )}
                 </div>
