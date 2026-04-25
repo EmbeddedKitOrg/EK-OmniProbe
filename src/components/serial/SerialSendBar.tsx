@@ -76,20 +76,24 @@ export function SerialSendBar() {
       try {
         setSending(true);
         await writeSerial(bytes);
-        addLine({
-          timestamp: new Date(),
-          text: label,
-          level: "info",
-          rawData: bytes,
-          direction: "tx",
-        });
+        // 仅在日志模式下把 TX 写进 lines；终端模式有自己的本地回显路径，
+        // 不应往不可见的 log store 里塞幽灵 TX 行
+        if (textViewMode === "log") {
+          addLine({
+            timestamp: new Date(),
+            text: label,
+            level: "info",
+            rawData: bytes,
+            direction: "tx",
+          });
+        }
       } catch (error) {
         addLog("error", `发送失败: ${error}`);
       } finally {
         setSending(false);
       }
     },
-    [addLine, addLog, connected]
+    [addLine, addLog, connected, textViewMode]
   );
 
   // Send text
@@ -121,27 +125,30 @@ export function SerialSendBar() {
 
         await writeSerial(bytes);
 
-        // Add to terminal as TX
-        addLine({
-          timestamp: new Date(),
-          text: `HEX: ${inputText}`,
-          level: "info",
-          rawData: bytes,
-          direction: "tx",
-        });
+        // 仅在日志模式下记录 TX；终端模式不写日志，避免切回来看到幽灵 TX
+        if (textViewMode === "log") {
+          addLine({
+            timestamp: new Date(),
+            text: `HEX: ${inputText}`,
+            level: "info",
+            rawData: bytes,
+            direction: "tx",
+          });
+        }
       } else {
         await writeSerialString(inputText, sendSettings.encoding, sendSettings.lineEnding);
 
-        // Add to terminal as TX
-        addLine({
-          timestamp: new Date(),
-          text: inputText,
-          level: "info",
-          rawData: Array.from(new TextEncoder().encode(inputText)),
-          direction: "tx",
-        });
-
-        if (textViewMode === "terminal" && terminalSettings.localEcho) {
+        if (textViewMode === "log") {
+          // 日志模式：把发送内容作为一行 TX 记录
+          addLine({
+            timestamp: new Date(),
+            text: inputText,
+            level: "info",
+            rawData: Array.from(new TextEncoder().encode(inputText)),
+            direction: "tx",
+          });
+        } else if (textViewMode === "terminal" && terminalSettings.localEcho) {
+          // 终端模式：本地回显由 appendTerminalChunk 负责，不污染日志
           appendTerminalChunk(`${inputText}${getLineEndingText(sendSettings.lineEnding)}`);
         }
       }
