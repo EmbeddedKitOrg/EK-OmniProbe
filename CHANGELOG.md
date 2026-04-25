@@ -5,6 +5,40 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.0] - 2026-04-25
+
+首个正式版本。集中迭代了**数据导出**、**断线重连**、**终端体验**、**图表解析**与**整体 UI 密度**。
+
+### 新增功能
+- ✨ **数据导出** - 全方位导出能力：日志面板、串口/RTT 文本均支持 TXT/CSV 导出，图表区支持 CSV（含时间戳与系列值）和 PNG（自适配 Canvas 波形与 Recharts 业务图）；统一走 Tauri 原生保存对话框，不再使用浏览器下载兜底
+- ✨ **断线自动重连** - 本地串口和 TCP 串口都支持读取出错后自动重连（指数退避 1s 起、上限 5s），重连过程会持续发送状态事件，恢复后自动接续轮询；左侧串口配置卡新增"断线自动重连"开关
+- ✨ **终端行编辑模式** - 终端选项新增"行编辑模式"开关，开启后键盘输入先在本地累积成一行（带 `>` 提示符），回车整行发送，`↑/↓` 翻发送历史，`Esc` 清空；与 SendBar 共用一份 localStorage 历史
+- ✨ **KV 解析模式** - 图表解析新增 `key=value` 模式，自动抽取行内所有 `key=number` 对，非数值字段（如 `filter=none`）和单位词（如 `Hz`）自动跳过；自动模式下置信度 ≥ 0.7 时直接命中 KV 配置
+- ✨ **窗口状态记忆** - 集成 `tauri-plugin-window-state`，主窗口尺寸/位置自动保存与恢复
+- ✨ **全局快捷键扩展** - `Ctrl+L` 清空当前模式数据、`Ctrl+F` 聚焦当前模式搜索框、`Space` 在 RTT 模式切换图表暂停
+
+### 改进
+- 🔧 **整体 UI 密度放松** - 顶栏 chip、工具栏分组、Popover 内卡片三处高频区统一升一档（`text-[11px]` → `text-xs`、`py-1` → `py-1.5`、`gap-1` → `gap-1.5`），主壳 padding/gap 由 `12px` 升 `16px`，与 32px 大圆角更协调
+- 🔧 **TopBar 响应式** - 单行布局断点从 `2xl` 提前到 `lg`，1024-1535px 窄屏不再出现 Workspace 卡撑满空行的问题；非装饰性的状态 chip（如串口 FFT 提示）移除
+- 🔧 **图表工具栏分组** - 7 个按钮按"暂停 / 清空 / 导出 / Time-FFT"加竖线分组，工具栏外壳 padding 同步放松
+- 🔧 **LogPanel/Sidebar 呼吸感** - 日志行加 `leading-relaxed`、CardHeader 由 `py-3` 升 `py-4`、CardContent `space-y-3`、芯片搜索结果 `max-h-48` → `max-h-64`
+- 🔧 **终端复制体验** - 选中文字后 `Ctrl+C` 复制（无选区时才发送 SIGINT），`Ctrl+Shift+C/V` 强制复制/粘贴；用户正在选择时点击不再夺焦
+
+### 性能优化
+- 🚀 **高速串口刷新率** - 921600bps 等高速场景下，把 `appendTerminalChunk`、`addChartData`、`incrementParseSuccess/Fail` 全部并入 `requestAnimationFrame` 批量节流，每帧最多 4-5 次 setState；新增 `addChartDataBatch` 和 `incrementParseCounts` 两个 store 批量 setter
+- 🚀 **终端 chunk 处理** - `processTerminalChunk` 改为按需复制 `terminalLines`（无 `\n` 的 chunk 不再深拷贝 4000 项数组），订阅 `terminalLines` 的组件在键盘回显场景跳过 re-render
+- 🚀 **FFT 计算** - Hann 窗按 size 缓存到 `Map<number, Float64Array>`，FFT 缓冲区跨调用复用，避免每帧重新分配
+
+### 修复
+- 🐛 **终端无法复制选区** - 之前点击始终把焦点偷到隐藏 textarea + Ctrl+C 全部当 SIGINT，导致框选完一松手就丢、永远复制不了；按主流终端约定重写
+- 🐛 **虚拟列表行重叠** - SerialViewer / RttViewer / SerialTerminalViewer 的 `useVirtualizer` 给每行加 `data-index` + `ref={rowVirtualizer.measureElement}`，让 ResizeObserver 测量长行换行后的真实高度，修复行 absolute 定位重叠造成的"文字叠加"
+- 🐛 **Popover 背景透明** - shadcn 默认 `bg-popover` token 在本项目 tailwind 配置里没有定义，导致 SerialSendBar / 各工具栏的 Popover 背景全透；改用项目已有的 `surface-card` 样式（带 border / 半透白底 / backdrop-blur）
+- 🐛 **日志/终端模式 TX 混淆** - SendBar 之前不论 textViewMode 总是往日志 store 塞 TX 行，终端模式发送后切回日志会看到"幽灵 TX"；改为只在 `textViewMode === "log"` 时记录 TX，终端模式仍由 `appendTerminalChunk` 走本地回显
+
+### 重构
+- 🔧 **抽取 downsampling.ts / formatChartNumber** - ChartViewer 与 SignalPlotCanvas 中重复的降采样和数值格式化函数合并到 `src/lib/`
+- 🔧 **删除 RTT 死状态** - `RttState` 中的 `line_buffers / channel_read_offsets / channel_buffers` 三个 HashMap 字段从未被写入，仅在 `default()`/`reset()` 中被清空；按 KISS/YAGNI 直接删除
+
 ## [0.9.5] - 2026-04-06
 
 ### 改进
