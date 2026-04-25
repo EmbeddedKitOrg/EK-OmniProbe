@@ -262,7 +262,7 @@ export function RttToolbar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-border/60 bg-white/72 px-3 py-2 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
+    <div className="flex flex-wrap items-center gap-2.5 rounded-[24px] border border-border/60 bg-white/72 px-3.5 py-2.5 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
       <ToolbarGroup label="连接">
         {!rttConnected ? (
           <Button
@@ -453,11 +453,11 @@ export function RttToolbar() {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
-                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
                   查看
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   <Button
                     size="sm"
                     variant={autoScroll ? "secondary" : "outline"}
@@ -478,11 +478,11 @@ export function RttToolbar() {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
-                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
                   配置
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   <ChartConfigDialog
                     chartConfig={chartConfig}
                     setChartConfig={setChartConfig}
@@ -505,11 +505,11 @@ export function RttToolbar() {
                 </div>
               </div>
 
-              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
-                <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
                   输出
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-2.5">
                   <Button size="sm" variant="outline" onClick={handleExportTxt} className="gap-1">
                     <Download className="h-3.5 w-3.5" />
                     导出 TXT
@@ -530,8 +530,8 @@ export function RttToolbar() {
 
 function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 rounded-[20px] border border-border/60 bg-white/58 px-1.5 py-1">
-      <span className="px-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-border/60 bg-white/58 px-2 py-1.5">
+      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">
         {label}
       </span>
       {children}
