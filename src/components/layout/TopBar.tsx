@@ -35,8 +35,8 @@ export function TopBar() {
   const ModeIcon = modeMeta[mode].icon;
 
   return (
-    <header className="surface-shell no-select flex flex-col gap-3 rounded-[28px] px-4 py-3 2xl:flex-row 2xl:items-center 2xl:gap-4 2xl:px-5 2xl:py-3">
-      <div className="flex w-full items-center justify-between gap-3 2xl:w-auto 2xl:flex-shrink-0 2xl:justify-start">
+    <header className="surface-shell no-select flex flex-col gap-3 rounded-[28px] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 2xl:gap-4 2xl:px-5">
+      <div className="flex w-full items-center justify-between gap-3 lg:w-auto lg:flex-shrink-0 lg:justify-start">
         <div className="min-w-0 flex items-center gap-3">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(73,110,214,0.28)] 2xl:h-9 2xl:w-9">
             <Cpu className="h-4 w-4" />
@@ -121,7 +121,7 @@ export function TopBar() {
         </div>
       </div>
 
-      <div className="flex w-full items-center justify-end gap-2 text-xs text-muted-foreground 2xl:w-auto 2xl:flex-shrink-0 2xl:gap-3">
+      <div className="flex w-full items-center justify-end gap-2 text-xs text-muted-foreground lg:w-auto lg:flex-shrink-0 lg:gap-3">
         <UpdateChecker showTrigger={false} />
         <AuthorAboutDialog />
         <SettingsCenterDialog />
