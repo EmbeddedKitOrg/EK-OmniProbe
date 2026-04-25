@@ -5,7 +5,7 @@ import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { useChipStore } from "@/stores/chipStore";
 import { useAppStore } from "@/stores/appStore";
-import { Activity, Cpu, FileCode, Loader2, Radar, Waves, Wifi } from "lucide-react";
+import { Activity, Cpu, FileCode, Loader2, Radar, Wifi } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
@@ -99,17 +99,10 @@ export function TopBar() {
             </TooltipWrapper>
           )}
 
-          {mode === "rtt" && (
+          {mode === "rtt" && rttRunning && (
             <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
               <Radar className="h-3.5 w-3.5" />
-              <span className="text-xs">{rttRunning ? `RTT 数据 ${formatBytes(totalBytes)}` : rttConnected ? "RTT 已连接" : "等待 RTT 连接"}</span>
-            </div>
-          )}
-
-          {mode === "serial" && (
-            <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
-              <Waves className="h-3.5 w-3.5" />
-              <span className="text-xs">串口图表与 FFT 已共用同一工作流</span>
+              <span className="text-xs">{formatBytes(totalBytes)}</span>
             </div>
           )}
 

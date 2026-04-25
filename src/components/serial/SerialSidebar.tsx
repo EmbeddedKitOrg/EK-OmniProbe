@@ -122,10 +122,10 @@ export function SerialSidebar() {
   };
 
   return (
-    <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-3 space-y-3">
+    <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-4 space-y-3">
       {/* Data Source Selection */}
       <Card>
-        <CardHeader className="py-3">
+        <CardHeader className="py-4">
           <CardTitle className="text-sm">数据源</CardTitle>
           <CardDescription className="text-xs">
             {activeSourceType === "local"
@@ -161,7 +161,7 @@ export function SerialSidebar() {
       {/* Local Serial Config */}
       {activeSourceType === "local" && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm">串口配置</CardTitle>
@@ -236,7 +236,7 @@ export function SerialSidebar() {
         <Collapsible open={serialSettingsOpen} onOpenChange={setSerialSettingsOpen}>
           <Card>
             <CollapsibleTrigger asChild>
-              <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
+              <CardHeader className="py-4 cursor-pointer hover:bg-accent/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-sm">高级设置</CardTitle>
@@ -347,7 +347,7 @@ export function SerialSidebar() {
       {/* TCP Config */}
       {activeSourceType === "tcp" && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-sm">TCP 配置</CardTitle>
             <CardDescription className="text-xs">
               适合 ser2net、ESP-Link 等远程串口桥接场景。
@@ -395,7 +395,7 @@ export function SerialSidebar() {
       <Collapsible open={sendSettingsOpen} onOpenChange={setSendSettingsOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <CardHeader className="py-4 cursor-pointer hover:bg-accent/50 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">发送设置</CardTitle>
@@ -477,7 +477,7 @@ export function SerialSidebar() {
       {/* Statistics */}
       {connected && (
         <Card>
-          <CardHeader className="py-3">
+          <CardHeader className="py-4">
             <CardTitle className="text-sm">统计信息</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-xs">
