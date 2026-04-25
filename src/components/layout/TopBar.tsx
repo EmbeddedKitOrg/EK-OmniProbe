@@ -35,7 +35,7 @@ export function TopBar() {
   const ModeIcon = modeMeta[mode].icon;
 
   return (
-    <header className="surface-shell no-select flex flex-col gap-3 rounded-[28px] px-3 py-3 2xl:flex-row 2xl:items-center 2xl:gap-4 2xl:px-4 2xl:py-2.5">
+    <header className="surface-shell no-select flex flex-col gap-3 rounded-[28px] px-4 py-3 2xl:flex-row 2xl:items-center 2xl:gap-4 2xl:px-5 2xl:py-3">
       <div className="flex w-full items-center justify-between gap-3 2xl:w-auto 2xl:flex-shrink-0 2xl:justify-start">
         <div className="min-w-0 flex items-center gap-3">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_10px_24px_rgba(73,110,214,0.28)] 2xl:h-9 2xl:w-9">
@@ -43,7 +43,7 @@ export function TopBar() {
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold tracking-[0.02em] text-primary">EK-OmniProbe</div>
-            <div className="hidden text-[11px] text-muted-foreground xl:block 2xl:block">Embedded Toolkit Workspace</div>
+            <div className="hidden text-xs text-muted-foreground xl:block 2xl:block">Embedded Toolkit Workspace</div>
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export function TopBar() {
             <ModeIcon className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Workspace</div>
+            <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Workspace</div>
             <div className="truncate text-sm font-semibold text-foreground">{modeMeta[mode].label}</div>
           </div>
         </div>
@@ -65,9 +65,9 @@ export function TopBar() {
         <div className="hidden min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground 2xl:flex">
           {selectedChip && (
             <TooltipWrapper tooltip="当前目标芯片">
-              <div className="toolbar-chip-strong flex min-w-0 items-center gap-1.5 px-3 py-1.5">
-                <Cpu className="h-3 w-3" />
-                <span className="truncate font-mono text-[11px]">{selectedChip}</span>
+              <div className="toolbar-chip-strong flex min-w-0 items-center gap-1.5 px-3 py-2">
+                <Cpu className="h-3.5 w-3.5" />
+                <span className="truncate font-mono text-xs">{selectedChip}</span>
               </div>
             </TooltipWrapper>
           )}
@@ -83,46 +83,46 @@ export function TopBar() {
                 </>
               }
             >
-              <div className="toolbar-chip flex min-w-0 items-center gap-1.5 px-3 py-1.5">
-                <Activity className="h-3 w-3" />
-                <span className="max-w-[140px] truncate text-[11px]">{selectedProbe.identifier}</span>
+              <div className="toolbar-chip flex min-w-0 items-center gap-1.5 px-3 py-2">
+                <Activity className="h-3.5 w-3.5" />
+                <span className="max-w-[140px] truncate text-xs">{selectedProbe.identifier}</span>
               </div>
             </TooltipWrapper>
           )}
 
           {mode === "flash" && firmwareFileName && (
             <TooltipWrapper tooltip={<p className="max-w-[300px] break-all">{firmwarePath}</p>}>
-              <div className="toolbar-chip flex max-w-[220px] items-center gap-1.5 px-3 py-1.5">
-                <FileCode className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate text-[11px]">{firmwareFileName}</span>
+              <div className="toolbar-chip flex max-w-[220px] items-center gap-1.5 px-3 py-2">
+                <FileCode className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate text-xs">{firmwareFileName}</span>
               </div>
             </TooltipWrapper>
           )}
 
           {mode === "rtt" && (
-            <div className="toolbar-chip flex items-center gap-1.5 px-3 py-1.5">
-              <Radar className="h-3 w-3" />
-              <span className="text-[11px]">{rttRunning ? `RTT 数据 ${formatBytes(totalBytes)}` : rttConnected ? "RTT 已连接" : "等待 RTT 连接"}</span>
+            <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
+              <Radar className="h-3.5 w-3.5" />
+              <span className="text-xs">{rttRunning ? `RTT 数据 ${formatBytes(totalBytes)}` : rttConnected ? "RTT 已连接" : "等待 RTT 连接"}</span>
             </div>
           )}
 
           {mode === "serial" && (
-            <div className="toolbar-chip flex items-center gap-1.5 px-3 py-1.5">
-              <Waves className="h-3 w-3" />
-              <span className="text-[11px]">串口图表与 FFT 已共用同一工作流</span>
+            <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
+              <Waves className="h-3.5 w-3.5" />
+              <span className="text-xs">串口图表与 FFT 已共用同一工作流</span>
             </div>
           )}
 
           {flashing && (
-            <div className="toolbar-chip flex items-center gap-2 px-3 py-1.5">
-              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <div className="toolbar-chip flex items-center gap-2 px-3 py-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full bg-primary transition-all duration-200"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className="w-8 text-[10px] font-medium text-primary">{Math.round(progress)}%</span>
+              <span className="w-9 text-xs font-medium text-primary">{Math.round(progress)}%</span>
             </div>
           )}
         </div>
@@ -134,15 +134,15 @@ export function TopBar() {
         <SettingsCenterDialog />
 
         {rttConnected && !rttRunning && (
-          <div className="toolbar-chip hidden items-center gap-1.5 px-3 py-1.5 xl:flex">
-            <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+          <div className="toolbar-chip hidden items-center gap-1.5 px-3 py-2 xl:flex">
+            <div className="h-2 w-2 rounded-full bg-yellow-500" />
             <span className="text-yellow-600">RTT就绪</span>
           </div>
         )}
 
-        <div className="toolbar-chip flex items-center gap-1.5 px-3 py-1.5">
+        <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
           <div
-            className={`w-1.5 h-1.5 rounded-full ${
+            className={`h-2 w-2 rounded-full ${
               connected ? "bg-green-500" : "bg-red-500"
             }`}
           />

@@ -199,9 +199,9 @@ function MainApp() {
         />
       )}
 
-      <div className="relative z-[1] flex h-full flex-col overflow-hidden px-3 pb-3 pt-3">
+      <div className="relative z-[1] flex h-full flex-col overflow-hidden px-4 pb-4 pt-4">
         <TopBar />
-        <div className="mt-3 flex flex-1 gap-3 overflow-hidden">
+        <div className="mt-4 flex flex-1 gap-4 overflow-hidden">
           {/* Sidebar: switch based on mode */}
           {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
 
