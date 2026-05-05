@@ -5,6 +5,28 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.1] - 2026-05-05
+
+蓝牙模式新增**经典蓝牙 SPP** 入口，与 BLE 并列。SPP 走系统虚拟 COM 路由——配对后由 OS 映射成 COMxx / `/dev/rfcommN`，应用内一键跳转到串口模式直接复用全部串口能力。
+
+### 新增功能
+- ✨ **蓝牙工作模式切换** - 蓝牙侧边栏顶部新增 BLE / SPP 单选；模式偏好持久化到 localStorage
+- ✨ **SPP 虚拟串口列表** - 通过 `serialport::SerialPortType::BluetoothPort` + 描述/名称关键字双重识别（"Bluetooth"、"蓝牙"、"rfcomm"、"spp"），覆盖 Windows/Linux/macOS
+- ✨ **一键连接并跳转** - 点击 SPP 端口右侧「连接」自动断开旧串口、用当前串口默认参数连接、启动轮询并切到串口工作台
+- ✨ **SPP 引导提示** - SPP 模式主区显示使用步骤卡片，避免新用户搞不清「为什么连完会跳到串口模式」
+
+### 改进
+- 🔧 **README / 用户手册** - 新增 SPP 章节，明确「先在系统蓝牙设置配对 → 再回应用刷新」的操作流程
+- 🔧 **已知限制** - 更新蓝牙限制描述：SPP 走系统虚拟 COM 路由，不在应用内做配对
+
+### 重构
+- 🔧 `bleTypes.ts` 新增 `BluetoothConnectionMode = "ble" | "spp"`，bluetoothStore 增加 `connectionMode` / `sppPorts` / `sppLoading` 三个字段；BleSidebar 拆出 `SppPortsCard` 子组件，BluetoothPanel 在 SPP 模式下渲染 `SppGuidanceCard`
+
+### 构建脚本
+- 🔧 **build.ps1 自动加载 Tauri updater 签名密钥** - 按"环境变量 → 本地 `.tauri-signing.local.ps1` → 自动探测 `~/.tauri/zuolandaplink.key`"三级优先级解析私钥，省掉每次手动 `$env:` 设值
+- 🔧 **签名失败不再阻断构建** - 若 msi/nsis 安装包已产出但仅签名步骤失败，build.ps1 改为打 warning 并以 0 退出码结束；既保证手动分发流程畅通（GitHub Release 直传安装包），又不会让 `.\build.ps1` 因为缺密码就整段失败
+- ✨ **新增 `.tauri-signing.local.ps1.example`** - 样例文件演示如何在本地存私钥路径与密码；正式名加入 `.gitignore`
+
 ## [1.2.0] - 2026-05-05
 
 新增 **BLE 蓝牙模式**，与烧录、RTT、串口并列的第 4 种工作模式（Ctrl+4）。基于 `btleplug` 跨平台 BLE 中央设备实现，数据流复用现有解析、波形、FFT 工作台。

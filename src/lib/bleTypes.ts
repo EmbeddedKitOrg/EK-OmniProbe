@@ -1,6 +1,9 @@
-// BLE 蓝牙类型定义
+// 蓝牙类型定义（含 BLE 与经典 SPP）
 
 import type { SerialLine } from "./serialTypes";
+
+/** 蓝牙工作模式 */
+export type BluetoothConnectionMode = "ble" | "spp";
 
 export interface BleDeviceInfo {
   id: string;

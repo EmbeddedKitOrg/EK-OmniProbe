@@ -1,10 +1,14 @@
-import { useState, useCallback } from "react";
-import { RefreshCw, Bluetooth, Sparkles, Radio, Edit3 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { RefreshCw, Bluetooth, Sparkles, Radio, Edit3, Plug2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { useBluetoothStore, pickDefaultNotifyChar, pickDefaultWriteChar } from "@/stores/bluetoothStore";
 import { useBluetoothStats } from "@/hooks/useBluetoothEvents";
 import { useLogStore } from "@/stores/logStore";
+import { useSerialStore } from "@/stores/serialStore";
+import { useAppStore } from "@/stores/appStore";
 import {
   bleStartScan,
   bleStopScan,
@@ -14,14 +18,24 @@ import {
   bleDetectNus,
   bleSubscribe,
   bleUnsubscribe,
+  listSerialPorts,
+  connectSerial,
+  disconnectSerial,
+  startSerial,
+  stopSerial,
 } from "@/lib/tauri";
-import type { BleCharacteristic, BleDeviceInfo } from "@/lib/bleTypes";
+import type { BleCharacteristic, BleDeviceInfo, BluetoothConnectionMode } from "@/lib/bleTypes";
+import type { SerialPortInfo } from "@/lib/serialTypes";
+import { filterBluetoothSppPorts } from "@/lib/bluetoothSpp";
 import { cn } from "@/lib/utils";
 
 const SCAN_TIMEOUT_MS = 6000;
 
 export function BleSidebar() {
   const {
+    connectionMode,
+    sppPorts,
+    sppLoading,
     scanning,
     connecting,
     connected,
@@ -31,6 +45,9 @@ export function BleSidebar() {
     services,
     notifyCharUuid,
     writeCharUuid,
+    setConnectionMode,
+    setSppPorts,
+    setSppLoading,
     setScanning,
     setConnecting,
     setConnected,
@@ -180,8 +197,141 @@ export function BleSidebar() {
     }
   }, [addLog, setRunning]);
 
+  // ===== SPP =====
+  const refreshSppPorts = useCallback(async () => {
+    try {
+      setSppLoading(true);
+      const all = await listSerialPorts();
+      const filtered = filterBluetoothSppPorts(all);
+      setSppPorts(filtered);
+      if (filtered.length === 0) {
+        addLog(
+          "info",
+          "未找到经典蓝牙 SPP 虚拟串口；请先在系统蓝牙设置中配对设备"
+        );
+      } else {
+        addLog("success", `检测到 ${filtered.length} 个蓝牙 SPP 端口`);
+      }
+    } catch (error) {
+      addLog("error", `枚举串口失败: ${error}`);
+    } finally {
+      setSppLoading(false);
+    }
+  }, [addLog, setSppLoading, setSppPorts]);
+
+  const handleConnectSpp = useCallback(
+    async (port: SerialPortInfo) => {
+      try {
+        setBusy(true);
+
+        const serialState = useSerialStore.getState();
+        const baseConfig = serialState.localConfig;
+
+        // 如果当前串口已连接（可能连着别的 COM），先断开
+        if (serialState.connected) {
+          if (serialState.running) {
+            try {
+              await stopSerial();
+            } catch (e) {
+              addLog("warn", `停止旧串口轮询失败: ${e}`);
+            }
+            serialState.setRunning(false);
+          }
+          try {
+            await disconnectSerial();
+          } catch (e) {
+            addLog("warn", `断开旧串口失败: ${e}`);
+          }
+          serialState.setConnected(false);
+        }
+
+        // 用现有串口默认参数 + 当前选中的 SPP 端口
+        const cfg = {
+          ...baseConfig,
+          type: "local" as const,
+          port: port.name,
+        };
+
+        // 同步到 serialStore：以后用户回到串口模式仍然看到该端口
+        serialState.setLocalConfig({ port: port.name });
+        serialState.setActiveSourceType("local");
+
+        addLog("info", `通过蓝牙 SPP 连接 ${port.name} (${baseConfig.baud_rate} bps)...`);
+        await connectSerial(cfg);
+        serialState.setConnected(true);
+        await startSerial(10);
+        serialState.setRunning(true);
+        addLog("success", `已连接 ${port.name}，已切换到串口模式`);
+
+        // 切到串口模式
+        useAppStore.getState().setMode("serial");
+      } catch (error) {
+        addLog("error", `连接失败: ${error}`);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [addLog]
+  );
+
+  // 进入 SPP 模式时自动刷一次
+  useEffect(() => {
+    if (connectionMode === "spp" && sppPorts.length === 0 && !sppLoading) {
+      void refreshSppPorts();
+    }
+    // 仅在模式切到 SPP 的瞬间触发一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionMode]);
+
   return (
     <aside className="surface-sidebar w-72 space-y-3 overflow-y-auto rounded-[32px] p-4">
+      {/* 工作模式切换 */}
+      <Card>
+        <CardHeader className="py-4">
+          <CardTitle className="text-sm">工作模式</CardTitle>
+          <CardDescription className="text-xs">
+            {connectionMode === "ble"
+              ? "BLE 中央设备：扫描、连接、订阅 Notify"
+              : "经典蓝牙 SPP：使用系统已配对的虚拟 COM"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={connectionMode}
+            onValueChange={(v) => setConnectionMode(v as BluetoothConnectionMode)}
+            className="space-y-2"
+            disabled={connecting || running}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="ble" id="ble-mode" />
+              <Label htmlFor="ble-mode" className="flex cursor-pointer items-center gap-2">
+                <Bluetooth className="h-4 w-4" />
+                BLE
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="spp" id="spp-mode" />
+              <Label htmlFor="spp-mode" className="flex cursor-pointer items-center gap-2">
+                <Plug2 className="h-4 w-4" />
+                经典蓝牙 SPP
+              </Label>
+            </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
+
+      {connectionMode === "spp" && (
+        <SppPortsCard
+          ports={sppPorts}
+          loading={sppLoading}
+          busy={busy}
+          onRefresh={refreshSppPorts}
+          onConnect={handleConnectSpp}
+        />
+      )}
+
+      {connectionMode === "ble" && (
+        <>
       {/* 扫描卡片 */}
       <Card>
         <CardHeader className="py-4">
@@ -346,7 +496,83 @@ export function BleSidebar() {
           </CardContent>
         </Card>
       )}
+        </>
+      )}
     </aside>
+  );
+}
+
+interface SppPortsCardProps {
+  ports: SerialPortInfo[];
+  loading: boolean;
+  busy: boolean;
+  onRefresh: () => void | Promise<void>;
+  onConnect: (port: SerialPortInfo) => void | Promise<void>;
+}
+
+function SppPortsCard({ ports, loading, busy, onRefresh, onConnect }: SppPortsCardProps) {
+  return (
+    <Card>
+      <CardHeader className="py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm">SPP 虚拟串口</CardTitle>
+            <CardDescription className="text-xs">
+              {loading
+                ? "正在枚举..."
+                : `检测到 ${ports.length} 个蓝牙 SPP 端口`}
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 rounded-full px-3 text-xs"
+            onClick={() => void onRefresh()}
+            disabled={loading || busy}
+          >
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            刷新
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-1.5">
+        <div className="rounded-[18px] border border-dashed border-border/70 bg-white/40 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+          SPP 设备需先在系统蓝牙设置中**配对**，配对后才会被映射成虚拟 COM；点击下方按钮会用串口模块连接并跳转到串口工作台。
+        </div>
+        {ports.length === 0 ? (
+          <div className="rounded-[18px] border border-dashed border-border/70 bg-white/40 px-3 py-4 text-center text-xs text-muted-foreground">
+            未检测到蓝牙 SPP 端口；请在系统中配对设备后点击「刷新」
+          </div>
+        ) : (
+          ports.map((port) => (
+            <div
+              key={port.name}
+              className="flex items-center justify-between gap-2 rounded-[18px] border border-border/60 bg-white/65 px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <Plug2 className="h-3.5 w-3.5 text-primary" />
+                  <span className="truncate text-xs font-medium">{port.name}</span>
+                </div>
+                {port.description && (
+                  <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                    {port.description}
+                  </div>
+                )}
+              </div>
+              <Button
+                size="sm"
+                className="h-7 gap-1 rounded-full px-3 text-xs"
+                onClick={() => void onConnect(port)}
+                disabled={busy}
+              >
+                连接
+              </Button>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

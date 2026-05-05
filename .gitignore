@@ -27,6 +27,9 @@ npm-debug.log*
 # Tauri
 src-tauri/gen/
 
+# Tauri 签名密码（本地，不入库）
+.tauri-signing.local.ps1
+
 # User data
 packs/*.pack
 

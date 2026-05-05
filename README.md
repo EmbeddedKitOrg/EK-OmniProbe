@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发四合一工具，集成**固件烧录**、**RTT 调试**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -66,12 +66,12 @@
 - 发送历史记录、终端本地回显和常用控制键快捷发送
 - 完整串口参数配置（波特率、数据位、停止位、校验位、流控制）
 
-**📶 BLE 蓝牙模式** - 跨平台 BLE 调试工具
-- 跨平台 BLE 中央设备：扫描附近设备、查看 RSSI、点击连接
-- 自动识别 Nordic UART Service（NUS）：连接后一键定位 RX/TX 特征值
+**📶 蓝牙模式** - 跨平台 BLE 调试工具 + 经典蓝牙 SPP 入口
+- **BLE 中央设备**：扫描附近设备、查看 RSSI、点击连接，自动识别 Nordic UART Service（NUS）一键定位 RX/TX 特征值
 - 手动浏览所有 GATT 服务，按属性（Read / Write / Notify / Indicate）选择 Notify 与 Write 特征值
 - 订阅 notify 后字节流复用现有解析链：颜色标记、波形示波器、FFT、CSV/JSON 字段拆分
 - 支持文本 / HEX 两种发送模式，可配置编码、换行符与是否需要响应（Write / Write Without Response）
+- **经典蓝牙 SPP**：列出系统已配对的蓝牙虚拟 COM，一键跳转到串口模式直接复用收发分屏、终端、波形、发送历史等全部能力
 - 与烧录、RTT、串口完全独立，无须探针即可使用
 
 ### 探针和接口支持
@@ -349,6 +349,23 @@ Windows PowerShell 也可以直接运行：
 - `nsis/` - Windows NSIS 安装包
 - `msi/` - Windows MSI 安装包（可选）
 
+#### Tauri 自动更新签名（可选）
+
+`tauri.conf.json` 启用了 updater，build 时会额外生成签名 updater 包。`build.ps1` 按以下顺序定位私钥：
+
+1. 已设的 `TAURI_SIGNING_PRIVATE_KEY` 环境变量
+2. 项目根目录的 `.tauri-signing.local.ps1`（已加入 `.gitignore`，本地填密码）
+3. 自动探测 `~/.tauri/zuolandaplink.key`
+
+最简单的做法是复制样例文件并填入密码：
+
+```powershell
+Copy-Item .tauri-signing.local.ps1.example .tauri-signing.local.ps1
+# 编辑 .tauri-signing.local.ps1，把 your_password_here 换成你的 minisign 密码
+```
+
+如果没有配置签名，`build.ps1` **不会**因签名步骤失败而报错——msi/nsis 安装包仍然会照常产出，只是不生成 updater 签名包。这种情况适合"只走 GitHub Release 手动下载"的发布方式。
+
 ## 📖 使用说明
 
 ### 快速开始
@@ -538,7 +555,12 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - **复制选区**：选中文字后 `Ctrl+C` 即复制（无选区时才发送 SIGINT），或 `Ctrl+Shift+C` 强制复制；`Ctrl+Shift+V` 强制粘贴
 - 终端区会处理常见的 `CR`、`LF` 和退格回写，适合 MCU CLI、Bootloader 命令台和串口 shell
 
-### BLE 蓝牙模式使用
+### 蓝牙模式使用
+
+蓝牙模式提供两种工作方式，由左侧顶部「工作模式」卡片切换：
+
+- **BLE**：扫描、连接、订阅 Notify、写入特征值（默认）
+- **经典蓝牙 SPP**：列出系统已配对设备的虚拟 COM，一键跳转到串口模式
 
 #### 连接 BLE 设备
 
@@ -559,13 +581,24 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - 底部发送栏支持文本与 HEX，可在「选项」里切换编码、换行符以及「写入响应」（自动 / Write / Write Without Response）。
 - 数据流复用 RTT / 串口的颜色解析、波形示波器与 FFT 工作台，同样可以解析 CSV / JSON 数值。
 
+#### 经典蓝牙 SPP
+
+适合 HC-05/06、串口蓝牙模块、车载 OBD 等老设备。SPP 设备配对后操作系统会自动把它映射成虚拟 COM 口，因此 EK-OmniProbe 直接复用串口模式：
+
+1. 在系统蓝牙设置中和目标设备完成配对
+2. 在蓝牙模式左侧「工作模式」选择 `经典蓝牙 SPP`
+3. 「SPP 虚拟串口」卡片会自动列出所有蓝牙虚拟 COM；如果没列出请点「刷新」
+4. 点击目标端口右侧「连接」，应用会用当前串口默认参数连上并跳转到串口工作台
+
+> SPP 进入串口模式后，所有串口能力（终端 / 收发分屏 / HEX / 发送历史 / 波形 / FFT）都可直接使用。如需调整波特率，请先到串口模式调整再连。
+
 #### 平台说明
 
 - Windows 10 1809+ 直接使用系统 BLE 栈，无需驱动。
-- Linux 需要 BlueZ 5.x，普通用户进程即可扫描；权限不足时请按发行版指引把账户加入 `bluetooth` 组。
+- Linux 需要 BlueZ 5.x，普通用户进程即可扫描；权限不足时请按发行版指引把账户加入 `bluetooth` 组。SPP 设备需要先 `rfcomm bind` 才会出现 `/dev/rfcommN`。
 - macOS 需要在「系统设置 → 隐私与安全 → 蓝牙」中授予 EK-OmniProbe 蓝牙权限。
 
-详细使用方法请参考 **[BLE 用户手册](docs/BLUETOOTH_USER_MANUAL.md)**。
+详细使用方法请参考 **[蓝牙用户手册](docs/BLUETOOTH_USER_MANUAL.md)**。
 
 ### 自动断开配置（可选）
 
@@ -581,7 +614,7 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - **CMSIS-DAP RTT**：读取时需要暂停目标芯片（1-2ms），可能影响时序敏感应用
 - **大数据量图表**：图表数据点超过 1000 时建议使用采样
 - **图表导出**：仅支持 CSV 格式（图片导出待实现）
-- **BLE 模式**：第一版只做 BLE Central（不支持经典蓝牙 SPP，不支持 PIN 配对绑定，不支持自定义 MTU）；macOS 首次扫描需在系统设置中给予蓝牙权限
+- **蓝牙模式**：BLE 仅支持 Central 角色，不支持 PIN 配对绑定与自定义 MTU；SPP 走系统虚拟 COM 路由（不在应用内做配对，需先在系统蓝牙设置中配对）；macOS 首次扫描需在系统设置中给予蓝牙权限
 
 ## 🆕 更新日志
 

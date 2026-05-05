@@ -5,8 +5,9 @@ import type {
   BleLine,
   BleService,
   BleStats,
+  BluetoothConnectionMode,
 } from "@/lib/bleTypes";
-import type { Encoding, LineEnding } from "@/lib/serialTypes";
+import type { Encoding, LineEnding, SerialPortInfo } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
@@ -30,7 +31,9 @@ const BLE_SHOW_DIRECTION_PREFIX_KEY = "ble_show_direction_prefix";
 const BLE_AUTO_SCROLL_KEY = "ble_auto_scroll";
 const BLE_SHOW_TIMESTAMP_KEY = "ble_show_timestamp";
 const BLE_DISPLAY_MODE_KEY = "ble_display_mode";
+const BLE_CONNECTION_MODE_KEY = "ble_connection_mode";
 
+const CONNECTION_MODE_VALUES = ["ble", "spp"] as const;
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const DISPLAY_MODE_VALUES = ["text", "hex"] as const;
@@ -50,6 +53,13 @@ const defaultSendSettings: SendSettings = {
 };
 
 interface BluetoothState {
+  // 工作模式（BLE / SPP）
+  connectionMode: BluetoothConnectionMode;
+
+  // 经典蓝牙 SPP：本地虚拟 COM 端口列表（由前端过滤 listSerialPorts 得到）
+  sppPorts: SerialPortInfo[];
+  sppLoading: boolean;
+
   // 连接 / 扫描
   scanning: boolean;
   connecting: boolean;
@@ -96,6 +106,10 @@ interface BluetoothState {
   sendSettings: SendSettings;
 
   // Actions
+  setConnectionMode: (mode: BluetoothConnectionMode) => void;
+  setSppPorts: (ports: SerialPortInfo[]) => void;
+  setSppLoading: (loading: boolean) => void;
+
   setScanning: (scanning: boolean) => void;
   setConnecting: (connecting: boolean) => void;
   setConnected: (connected: boolean) => void;
@@ -148,6 +162,15 @@ function findCharByProps(
 }
 
 export const useBluetoothStore = create<BluetoothState>((set, get) => ({
+  connectionMode: loadStringFromStorage(
+    BLE_CONNECTION_MODE_KEY,
+    CONNECTION_MODE_VALUES,
+    "ble"
+  ),
+
+  sppPorts: [],
+  sppLoading: false,
+
   scanning: false,
   connecting: false,
   connected: false,
@@ -188,6 +211,13 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   parseFailCount: 0,
 
   sendSettings: loadFromStorage(BLE_SEND_SETTINGS_KEY, defaultSendSettings),
+
+  setConnectionMode: (mode) => {
+    saveToStorage(BLE_CONNECTION_MODE_KEY, mode);
+    set({ connectionMode: mode });
+  },
+  setSppPorts: (ports) => set({ sppPorts: ports }),
+  setSppLoading: (loading) => set({ sppLoading: loading }),
 
   setScanning: (scanning) => set({ scanning }),
   setConnecting: (connecting) => set({ connecting }),
