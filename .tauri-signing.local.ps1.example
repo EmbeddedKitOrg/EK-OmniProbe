@@ -1,0 +1,13 @@
+# Tauri updater signing config (local only, do NOT commit)
+#
+# Copy this file to `.tauri-signing.local.ps1` (without the .example suffix)
+# and fill in your private key path and password. The real file is gitignored.
+#
+# build.ps1 will dot-source this file before invoking `tauri build`.
+
+# Path to the rsign-encrypted secret key.
+# Default: $env:USERPROFILE\.tauri\zuolandaplink.key
+$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\zuolandaplink.key"
+
+# Password used to encrypt the secret key. Leave empty if the key is not encrypted.
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "your_password_here"

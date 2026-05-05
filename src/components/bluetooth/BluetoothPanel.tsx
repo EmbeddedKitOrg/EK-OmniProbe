@@ -5,7 +5,7 @@ import { BleSendBar } from "./BleSendBar";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
-import { Activity, AlertCircle, FileText } from "lucide-react";
+import { Activity, AlertCircle, FileText, Plug2 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 interface BluetoothPanelProps {
@@ -40,6 +40,7 @@ function BleChartViewer() {
 
 export function BluetoothPanel({ className }: BluetoothPanelProps) {
   const {
+    connectionMode,
     error,
     viewMode,
     splitRatio,
@@ -52,6 +53,14 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
   } = useBluetoothStore();
 
   const isVerticalSplit = splitOrientation === "vertical";
+
+  if (connectionMode === "spp") {
+    return (
+      <div className={cn("flex h-full flex-col gap-2", className)}>
+        <SppGuidanceCard />
+      </div>
+    );
+  }
 
   const workflowHint = !connected
     ? {
@@ -170,6 +179,35 @@ interface PanelShellProps {
   subtitle: string;
   badge: string;
   children: ReactNode;
+}
+
+function SppGuidanceCard() {
+  return (
+    <div className="flex flex-1 items-center justify-center overflow-auto rounded-[28px] border border-border/60 bg-white/75 p-8 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
+      <div className="max-w-xl space-y-4 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Plug2 className="h-6 w-6" />
+        </div>
+        <div className="text-lg font-semibold text-foreground">经典蓝牙 SPP 模式</div>
+        <p className="text-sm leading-6 text-muted-foreground">
+          经典蓝牙 SPP 设备配对后会被操作系统映射成{" "}
+          <span className="font-medium text-foreground">虚拟串口</span>，因此
+          EK-OmniProbe 直接复用「串口模式」的全部能力（终端、收发分屏、波形、HEX、发送历史）。
+        </p>
+        <div className="rounded-[18px] border border-border/70 bg-white/55 px-4 py-3 text-left text-sm leading-6 text-foreground">
+          <div className="font-medium">使用步骤</div>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+            <li>在系统蓝牙设置中和目标设备完成配对</li>
+            <li>回到本页，点左侧「SPP 虚拟串口」卡片的「刷新」</li>
+            <li>点击对应端口右侧「连接」，会自动跳转到串口工作台并开始接收</li>
+          </ol>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Windows 一般会显示成「Standard Serial over Bluetooth link (COMxx)」；Linux 用 <code>rfcomm bind</code> 后会得到 <code>/dev/rfcommN</code>。
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
