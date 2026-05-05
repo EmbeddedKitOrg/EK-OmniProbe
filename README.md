@@ -1,8 +1,8 @@
 # EK-OmniProbe
 
-一个开源的嵌入式开发三合一工具，集成**固件烧录**、**RTT 调试**和**串口终端**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
+一个开源的嵌入式开发四合一工具，集成**固件烧录**、**RTT 调试**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -41,7 +41,7 @@
 
 ## ✨ 核心特性
 
-### 三种工作模式
+### 四种工作模式
 
 **🔥 烧录模式** - 专业的固件烧录工具
 - 支持 ELF/HEX/BIN/AXF/OUT/IHEX 格式固件烧录
@@ -65,6 +65,14 @@
 - 复用 RTT 的颜色解析、波形示波器和 FFT 频谱功能
 - 发送历史记录、终端本地回显和常用控制键快捷发送
 - 完整串口参数配置（波特率、数据位、停止位、校验位、流控制）
+
+**📶 BLE 蓝牙模式** - 跨平台 BLE 调试工具
+- 跨平台 BLE 中央设备：扫描附近设备、查看 RSSI、点击连接
+- 自动识别 Nordic UART Service（NUS）：连接后一键定位 RX/TX 特征值
+- 手动浏览所有 GATT 服务，按属性（Read / Write / Notify / Indicate）选择 Notify 与 Write 特征值
+- 订阅 notify 后字节流复用现有解析链：颜色标记、波形示波器、FFT、CSV/JSON 字段拆分
+- 支持文本 / HEX 两种发送模式，可配置编码、换行符与是否需要响应（Write / Write Without Response）
+- 与烧录、RTT、串口完全独立，无须探针即可使用
 
 ### 探针和接口支持
 
@@ -193,9 +201,11 @@ EK-OmniProbe/
 │   │   ├── modes/               # 模式组件
 │   │   │   ├── flash/           # 烧录模式组件
 │   │   │   ├── RttMode.tsx      # RTT 模式
-│   │   │   └── SerialMode.tsx   # 串口模式
+│   │   │   ├── SerialMode.tsx   # 串口模式
+│   │   │   └── BluetoothMode.tsx # 蓝牙 BLE 模式
 │   │   ├── rtt/                 # RTT 组件（面板、查看器、波形/FFT 图表）
 │   │   ├── serial/              # 串口组件（面板、查看器、发送栏）
+│   │   ├── bluetooth/           # 蓝牙组件（面板、扫描列表、特征值选择、发送栏）
 │   │   ├── log/                 # 日志面板
 │   │   ├── config/              # 配置组件（PackManager）
 │   │   └── ui/                  # 基础 UI 组件（shadcn/ui）
@@ -206,10 +216,12 @@ EK-OmniProbe/
 │   │   ├── flashStore.ts        # 烧录状态
 │   │   ├── rttStore.ts          # RTT 状态
 │   │   ├── serialStore.ts       # 串口状态
+│   │   ├── bluetoothStore.ts    # 蓝牙 BLE 状态
 │   │   └── logStore.ts          # 日志状态
 │   ├── hooks/                   # React Hooks
 │   │   ├── useRttEvents.ts      # RTT 事件监听
 │   │   ├── useSerialEvents.ts   # 串口事件监听
+│   │   ├── useBluetoothEvents.ts # 蓝牙事件监听
 │   │   └── useUserActivity.ts   # 用户活动检测
 │   ├── lib/                     # 工具库和类型定义
 │   │   ├── rttColorParser.ts    # RTT 颜色解析引擎
@@ -225,11 +237,14 @@ EK-OmniProbe/
 │   │   │   ├── memory.rs        # 内存操作
 │   │   │   ├── rtt.rs           # RTT 调试
 │   │   │   ├── serial.rs        # 串口操作
+│   │   │   ├── ble.rs           # BLE 蓝牙操作
 │   │   │   └── config.rs        # 芯片配置
 │   │   ├── serial/              # 串口模块
 │   │   │   ├── mod.rs           # DataSource trait 定义
 │   │   │   ├── local.rs         # 本地串口实现
 │   │   │   └── tcp.rs           # TCP 串口实现
+│   │   ├── ble/                 # BLE 蓝牙模块（基于 btleplug）
+│   │   │   └── mod.rs           # BLE 状态、扫描、连接、订阅
 │   │   ├── pack/                # CMSIS-Pack 处理
 │   │   │   ├── manager.rs       # Pack 管理器
 │   │   │   ├── parser.rs        # PDSC 解析器
@@ -363,6 +378,7 @@ Windows PowerShell 也可以直接运行：
 - **Ctrl+1**：烧录模式
 - **Ctrl+2**：RTT 模式
 - **Ctrl+3**：串口模式
+- **Ctrl+4**：蓝牙模式
 - **Ctrl+L**：清空当前模式数据
 - **Ctrl+F**：聚焦当前模式搜索框
 - **Space**：在 RTT 模式下暂停/恢复图表
@@ -522,6 +538,35 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - **复制选区**：选中文字后 `Ctrl+C` 即复制（无选区时才发送 SIGINT），或 `Ctrl+Shift+C` 强制复制；`Ctrl+Shift+V` 强制粘贴
 - 终端区会处理常见的 `CR`、`LF` 和退格回写，适合 MCU CLI、Bootloader 命令台和串口 shell
 
+### BLE 蓝牙模式使用
+
+#### 连接 BLE 设备
+
+1. 切换到蓝牙模式（顶栏「蓝牙」按钮或 Ctrl+4）。蓝牙模式不依赖调试探针。
+2. 在左侧「设备扫描」卡片点击「扫描」，等待 6 秒后会列出发现的设备（按是否有名称、信号强度排序）。
+3. 点击目标设备一项即可连接。连接成功后程序会自动发现 GATT 服务并优先尝试匹配 Nordic UART Service。
+
+#### 选择特征值
+
+- 如果设备实现了 NUS：连接完成后 RX/TX 特征值会自动配置好，可直接点击「开始接收 (Notify)」。
+- 否则在「特征值」卡片里浏览所有服务，按需点击：
+  - **作为 Notify**：把当前特征值设为接收订阅源（仅支持 Notify / Indicate 的特征值可选）
+  - **作为 Write**：把当前特征值设为发送目标（仅支持 Write / Write Without Response 的特征值可选）
+
+#### 接收与发送
+
+- 点击「开始接收 (Notify)」后底部会持续刷新 BLE 数据；可在工具栏切换 `仅文本 / 分屏 / 仅图表`，或一键进入 `波形 / FFT`。
+- 底部发送栏支持文本与 HEX，可在「选项」里切换编码、换行符以及「写入响应」（自动 / Write / Write Without Response）。
+- 数据流复用 RTT / 串口的颜色解析、波形示波器与 FFT 工作台，同样可以解析 CSV / JSON 数值。
+
+#### 平台说明
+
+- Windows 10 1809+ 直接使用系统 BLE 栈，无需驱动。
+- Linux 需要 BlueZ 5.x，普通用户进程即可扫描；权限不足时请按发行版指引把账户加入 `bluetooth` 组。
+- macOS 需要在「系统设置 → 隐私与安全 → 蓝牙」中授予 EK-OmniProbe 蓝牙权限。
+
+详细使用方法请参考 **[BLE 用户手册](docs/BLUETOOTH_USER_MANUAL.md)**。
+
 ### 自动断开配置（可选）
 
 在侧边栏"自动断开"卡片中：
@@ -536,6 +581,7 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 - **CMSIS-DAP RTT**：读取时需要暂停目标芯片（1-2ms），可能影响时序敏感应用
 - **大数据量图表**：图表数据点超过 1000 时建议使用采样
 - **图表导出**：仅支持 CSV 格式（图片导出待实现）
+- **BLE 模式**：第一版只做 BLE Central（不支持经典蓝牙 SPP，不支持 PIN 配对绑定，不支持自定义 MTU）；macOS 首次扫描需在系统设置中给予蓝牙权限
 
 ## 🆕 更新日志
 

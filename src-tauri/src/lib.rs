@@ -1,3 +1,4 @@
+pub mod ble;
 pub mod commands;
 pub mod error;
 pub mod pack;
@@ -6,7 +7,7 @@ pub mod state;
 pub mod udev;
 pub mod app_config;
 
-use commands::{config, export, flash, memory, probe, rtt, serial as serial_cmd};
+use commands::{ble as ble_cmd, config, export, flash, memory, probe, rtt, serial as serial_cmd};
 use state::AppState;
 use tauri::Manager;
 
@@ -99,6 +100,19 @@ pub fn run() {
             serial_cmd::stop_serial,
             serial_cmd::get_serial_status,
             serial_cmd::clear_serial_buffer,
+            // BLE 蓝牙命令
+            ble_cmd::ble_get_status,
+            ble_cmd::ble_start_scan,
+            ble_cmd::ble_stop_scan,
+            ble_cmd::ble_connect,
+            ble_cmd::ble_disconnect,
+            ble_cmd::ble_list_services,
+            ble_cmd::ble_detect_nus,
+            ble_cmd::ble_subscribe,
+            ble_cmd::ble_unsubscribe,
+            ble_cmd::ble_write,
+            ble_cmd::ble_write_string,
+            ble_cmd::ble_clear_stats,
         ])
         .run(tauri::generate_context!())
         .expect("启动应用程序时出错");

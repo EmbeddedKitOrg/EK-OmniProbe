@@ -1,3 +1,4 @@
+pub mod ble;
 pub mod config;
 pub mod export;
 pub mod flash;

@@ -5,7 +5,7 @@ import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { useChipStore } from "@/stores/chipStore";
 import { useAppStore } from "@/stores/appStore";
-import { Activity, Cpu, FileCode, Loader2, Radar, Wifi } from "lucide-react";
+import { Activity, Bluetooth, Cpu, FileCode, Loader2, Radar, Wifi } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
@@ -30,6 +30,7 @@ export function TopBar() {
     flash: { label: "烧录工作台", icon: Cpu },
     rtt: { label: "RTT 调试工作台", icon: Radar },
     serial: { label: "串口工作台", icon: Wifi },
+    bluetooth: { label: "蓝牙工作台", icon: Bluetooth },
   } as const;
 
   const ModeIcon = modeMeta[mode].icon;

@@ -1,6 +1,6 @@
 [package]
 name = "ek-omniprobe"
-version = "1.1.0"
+version = "1.2.0"
 description = "EK-OmniProbe - RTTVIEW"
 authors = ["zuolan"]
 edition = "2021"
@@ -38,6 +38,9 @@ object = "0.36"
 base64 = "0.22"
 serialport = "4.3"
 async-trait = "0.1"
+btleplug = "0.11"
+uuid = { version = "1", features = ["serde", "v4"] }
+futures = "0.3"
 
 [features]
 default = ["custom-protocol"]

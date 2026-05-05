@@ -242,3 +242,75 @@ export async function getPacksDirectory(): Promise<string> {
 export async function setCustomPacksDirectory(path: string | null): Promise<void> {
   return await invoke("set_custom_packs_directory", { path });
 }
+
+// BLE 蓝牙命令
+import type {
+  BleDeviceInfo,
+  BleService,
+  BleStatus,
+  NusAutoConfig,
+} from "./bleTypes";
+
+export async function bleGetStatus(): Promise<BleStatus> {
+  return await invoke<BleStatus>("ble_get_status");
+}
+
+export async function bleStartScan(timeoutMs?: number): Promise<BleDeviceInfo[]> {
+  return await invoke<BleDeviceInfo[]>("ble_start_scan", { timeoutMs });
+}
+
+export async function bleStopScan(): Promise<void> {
+  return await invoke("ble_stop_scan");
+}
+
+export async function bleConnect(deviceId: string): Promise<BleDeviceInfo> {
+  return await invoke<BleDeviceInfo>("ble_connect", { deviceId });
+}
+
+export async function bleDisconnect(): Promise<void> {
+  return await invoke("ble_disconnect");
+}
+
+export async function bleListServices(): Promise<BleService[]> {
+  return await invoke<BleService[]>("ble_list_services");
+}
+
+export async function bleDetectNus(): Promise<NusAutoConfig | null> {
+  return await invoke<NusAutoConfig | null>("ble_detect_nus");
+}
+
+export async function bleSubscribe(charUuid: string): Promise<void> {
+  return await invoke("ble_subscribe", { charUuid });
+}
+
+export async function bleUnsubscribe(): Promise<void> {
+  return await invoke("ble_unsubscribe");
+}
+
+export async function bleWrite(
+  charUuid: string,
+  data: number[],
+  withResponse: boolean | null
+): Promise<number> {
+  return await invoke<number>("ble_write", { charUuid, data, withResponse });
+}
+
+export async function bleWriteString(
+  charUuid: string,
+  text: string,
+  encoding: string,
+  lineEnding: string,
+  withResponse: boolean | null
+): Promise<number> {
+  return await invoke<number>("ble_write_string", {
+    charUuid,
+    text,
+    encoding,
+    lineEnding,
+    withResponse,
+  });
+}
+
+export async function bleClearStats(): Promise<void> {
+  return await invoke("ble_clear_stats");
+}

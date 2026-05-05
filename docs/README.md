@@ -16,6 +16,9 @@
 - **[SETTINGS_GUIDE.md](SETTINGS_GUIDE.md)** - 设置中心、背景显示、默认工作台和日志面板等全局偏好说明
 - **[SERIAL_TERMINAL_GUIDE.md](SERIAL_TERMINAL_GUIDE.md)** - 串口日志视图、终端视图与控制键发送说明
 
+### 蓝牙
+- **[BLUETOOTH_USER_MANUAL.md](BLUETOOTH_USER_MANUAL.md)** - BLE 蓝牙模式使用手册（扫描、连接、Notify、写入、图表）
+
 ### 更新功能
 - **[UPDATE_GUIDE.md](UPDATE_GUIDE.md)** - 应用自动更新功能详细指南
 - **[UPDATE_SETUP.md](UPDATE_SETUP.md)** - 更新功能快速设置说明
