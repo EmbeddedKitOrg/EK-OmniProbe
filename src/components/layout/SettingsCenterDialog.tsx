@@ -51,6 +51,7 @@ const workspaceOptions: Array<{ value: AppMode; label: string }> = [
   { value: "flash", label: "烧录工作台" },
   { value: "rtt", label: "RTT 工作台" },
   { value: "serial", label: "串口工作台" },
+  { value: "bluetooth", label: "蓝牙工作台" },
 ];
 
 const viewModeOptions: Array<{ value: ViewMode; label: string }> = [
@@ -75,7 +76,7 @@ const quickActions = [
   },
   {
     title: "快捷键",
-    description: "Ctrl+1 烧录，Ctrl+2 RTT，Ctrl+3 串口。",
+    description: "Ctrl+1 烧录，Ctrl+2 RTT，Ctrl+3 串口，Ctrl+4 蓝牙。",
   },
 ];
 

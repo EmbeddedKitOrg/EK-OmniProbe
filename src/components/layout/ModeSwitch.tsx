@@ -1,4 +1,4 @@
-import { Zap, Terminal, Plug2 } from "lucide-react";
+import { Zap, Terminal, Plug2, Bluetooth } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { useAppStore, type AppMode } from "@/stores/appStore";
@@ -100,6 +100,22 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           >
             <Plug2 className="h-3.5 w-3.5" />
             <span className="text-xs font-medium">串口</span>
+          </Button>
+        </TooltipWrapper>
+
+        <TooltipWrapper tooltip={<p>蓝牙 BLE 模式 - 扫描、连接、收发与绘图 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+4</kbd></p>}>
+          <Button
+            variant={mode === "bluetooth" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => handleModeChange("bluetooth")}
+            disabled={flashing}
+            className={cn(
+              "h-8 gap-1 rounded-full px-3 xl:px-3.5",
+              mode === "bluetooth" && "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(73,110,214,0.22)]"
+            )}
+          >
+            <Bluetooth className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">蓝牙</span>
           </Button>
         </TooltipWrapper>
       </div>

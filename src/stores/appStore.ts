@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // Application mode type
-export type AppMode = "flash" | "rtt" | "serial";
+export type AppMode = "flash" | "rtt" | "serial" | "bluetooth";
 
 // App mode persistence key
 const APP_MODE_KEY = "app_mode";
@@ -9,7 +9,7 @@ const APP_MODE_KEY = "app_mode";
 function loadAppMode(): AppMode {
   try {
     const saved = localStorage.getItem(APP_MODE_KEY);
-    if (saved === "flash" || saved === "rtt" || saved === "serial") {
+    if (saved === "flash" || saved === "rtt" || saved === "serial" || saved === "bluetooth") {
       return saved;
     }
   } catch {

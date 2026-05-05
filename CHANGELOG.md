@@ -5,6 +5,30 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-05-05
+
+新增 **BLE 蓝牙模式**，与烧录、RTT、串口并列的第 4 种工作模式（Ctrl+4）。基于 `btleplug` 跨平台 BLE 中央设备实现，数据流复用现有解析、波形、FFT 工作台。
+
+### 新增功能
+- ✨ **BLE 设备扫描与连接** - 6 秒主动扫描，按是否有名称 + RSSI 排序展示；点击即可连接，支持随时断开重连
+- ✨ **NUS 自动识别** - 检测到 Nordic UART Service（`6E40000x-...`）后自动定位 RX/TX 特征值，一键开始接收
+- ✨ **GATT 服务浏览** - 对所有服务及特征值按属性（Read / Write / Notify / Indicate）打 tag，点击即可分别指定 Notify 与 Write 特征值
+- ✨ **Notify 订阅** - 后端用独立 tokio task 拉取 `peripheral.notifications()`，按 10ms / 4 KB 批处理后通过 `ble-data` 事件 emit 到前端，与串口同样的低延迟管线
+- ✨ **数据写入** - 支持文本 / HEX 两种发送模式，可配置编码、换行符；写入响应可在「自动 / Write / Write Without Response」之间手动切换
+- ✨ **图表复用** - BLE 字节流复用现有颜色解析与图表工作台，单数值波形、CSV / JSON 字段拆分、FFT 频谱、XY 散点图均可直接使用
+
+### 集成
+- 🔧 **顶栏 / 设置中心** - 模式切换器新增「蓝牙」按钮和 Ctrl+4 快捷键；设置中心默认工作台选项加入「蓝牙工作台」
+- 🔧 **快捷键** - Ctrl+L 在蓝牙模式下清空数据与图表；Ctrl+F 聚焦工具栏搜索框
+
+### 依赖
+- 📦 **btleplug 0.11** - 跨平台 BLE 中央设备库（Windows / macOS / Linux 均使用系统蓝牙栈）
+- 📦 **uuid 1 / futures 0.3** - 配套 UUID 解析与异步 stream 处理
+
+### 已知限制
+- 第一版只做 BLE Central，不支持经典蓝牙 SPP、PIN 配对绑定与自定义 MTU
+- macOS 首次扫描需要在系统设置 → 隐私与安全 → 蓝牙 中给予 EK-OmniProbe 权限
+
 ## [1.1.0] - 2026-04-25
 
 本次集中修复了 **921600 高 baud 串口丢字节** 的老问题，并对图表配置做了破坏性重构（合并字段/系列/X 轴为统一的「通道」模型）。

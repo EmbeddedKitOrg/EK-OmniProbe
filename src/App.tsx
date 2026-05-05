@@ -1,13 +1,15 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
-import { FlashMode, RttMode, SerialMode } from "./components/modes";
+import { FlashMode, RttMode, SerialMode, BluetoothMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
+import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
 import { useEffect, useCallback, useMemo } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
 import { useSerialStore } from "./stores/serialStore";
+import { useBluetoothStore } from "./stores/bluetoothStore";
 import { useAppStore } from "./stores/appStore";
 import { useFlashStore } from "./stores/flashStore";
 import { useUserActivity } from "./hooks/useUserActivity";
@@ -108,6 +110,13 @@ function MainApp() {
       return;
     }
 
+    if (e.ctrlKey && e.key === "4") {
+      if (isInInput) return;
+      e.preventDefault();
+      if (!flashing) setMode("bluetooth");
+      return;
+    }
+
     // Ctrl+F：聚焦当前模式搜索框（即使在某些 input 中也允许，方便切焦点）
     if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "f") {
       const target = document.querySelector<HTMLInputElement>(
@@ -132,6 +141,10 @@ function MainApp() {
         const serialState = useSerialStore.getState();
         serialState.clearLines();
         serialState.clearTerminalBuffer();
+      } else if (mode === "bluetooth") {
+        const bleState = useBluetoothStore.getState();
+        bleState.clearLines();
+        bleState.clearChartData();
       }
       return;
     }
@@ -203,7 +216,13 @@ function MainApp() {
         <TopBar />
         <div className="mt-4 flex flex-1 gap-4 overflow-hidden">
           {/* Sidebar: switch based on mode */}
-          {mode === "serial" ? <SerialSidebar /> : <Sidebar />}
+          {mode === "serial" ? (
+            <SerialSidebar />
+          ) : mode === "bluetooth" ? (
+            <BleSidebar />
+          ) : (
+            <Sidebar />
+          )}
 
           {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
           <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">
@@ -211,6 +230,7 @@ function MainApp() {
               {mode === "flash" && <FlashMode />}
               {mode === "rtt" && <RttMode />}
               {mode === "serial" && <SerialMode />}
+              {mode === "bluetooth" && <BluetoothMode />}
             </div>
           </div>
         </div>
