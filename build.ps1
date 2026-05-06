@@ -79,18 +79,23 @@ function Initialize-TauriSigningEnv {
         }
     }
 
-    # 3) Auto-detect ~/.tauri/zuolandaplink.key
-    $candidate = Join-Path -Path $env:USERPROFILE -ChildPath ".tauri\zuolandaplink.key"
-    if (Test-Path -LiteralPath $candidate) {
-        $env:TAURI_SIGNING_PRIVATE_KEY = $candidate
-        Write-Host "Auto-detected signing key at $candidate" -ForegroundColor Cyan
-        if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
-            Write-Host "Warning: TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set." -ForegroundColor Yellow
-            Write-Host "         Updater bundle signing will fail, but msi/nsis installers will still be produced." -ForegroundColor Yellow
-            Write-Host "         To enable updater signing, create .tauri-signing.local.ps1 with:" -ForegroundColor Yellow
-            Write-Host '           $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<your_password>"' -ForegroundColor Yellow
+    # 3) Auto-detect ~/.tauri/ek-omniprobe.key (legacy: zuolandaplink.key)
+    $candidates = @(
+        (Join-Path -Path $env:USERPROFILE -ChildPath ".tauri\ek-omniprobe.key"),
+        (Join-Path -Path $env:USERPROFILE -ChildPath ".tauri\zuolandaplink.key")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            $env:TAURI_SIGNING_PRIVATE_KEY = $candidate
+            Write-Host "Auto-detected signing key at $candidate" -ForegroundColor Cyan
+            if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+                Write-Host "Warning: TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set." -ForegroundColor Yellow
+                Write-Host "         Updater bundle signing will fail, but msi/nsis installers will still be produced." -ForegroundColor Yellow
+                Write-Host "         To enable updater signing, create .tauri-signing.local.ps1 with:" -ForegroundColor Yellow
+                Write-Host '           $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<your_password>"' -ForegroundColor Yellow
+            }
+            return
         }
-        return
     }
 
     Write-Host "No signing key configured; updater bundle will not be signed (installers still build)." -ForegroundColor Yellow

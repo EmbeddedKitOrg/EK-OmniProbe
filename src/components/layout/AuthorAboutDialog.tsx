@@ -43,7 +43,7 @@ export function AuthorAboutDialog() {
             关于作者
           </DialogTitle>
           <DialogDescription className="text-sm text-[hsl(var(--secondary-foreground))]/88">
-            EK-OmniProbe 由作者左岚发起与长期维护，下面提供作者主页和项目仓库入口。
+            EK-OmniProbe 由左岚发起并长期维护，下方是作者主页与项目仓库的链接。
           </DialogDescription>
         </DialogHeader>
 
@@ -54,7 +54,7 @@ export function AuthorAboutDialog() {
             </div>
             <div className="mt-2 text-2xl font-semibold text-foreground">{AUTHOR_NAME}</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              嵌入式工具链与桌面工作流方向的持续维护者，负责 EK-OmniProbe 的产品演进与核心实现。
+              专注嵌入式工具链与桌面端开发，主导 EK-OmniProbe 的功能设计与核心实现。
             </p>
           </section>
 

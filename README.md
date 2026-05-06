@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发四合一工具，集成**固件烧录**、**RTT 调试**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue)
+![Version](https://img.shields.io/badge/version-1.2.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -259,6 +259,8 @@ EK-OmniProbe/
 │   ├── SEGGER_RTT.h
 │   ├── SEGGER_RTT_Conf.h
 │   └── SEGGER_RTT_printf.c
+├── examples/                    # 目标固件示例工程
+│   └── gd32-rtt/                # STM32F407 / GD32F407 + Keil 的 RTT 示例
 ├── docs/                        # 用户文档
 │   ├── README.md                # 文档索引
 │   ├── RTT_USER_MANUAL.md       # RTT 用户手册
@@ -355,7 +357,7 @@ Windows PowerShell 也可以直接运行：
 
 1. 已设的 `TAURI_SIGNING_PRIVATE_KEY` 环境变量
 2. 项目根目录的 `.tauri-signing.local.ps1`（已加入 `.gitignore`，本地填密码）
-3. 自动探测 `~/.tauri/zuolandaplink.key`
+3. 自动探测 `~/.tauri/ek-omniprobe.key`（兼容旧路径 `~/.tauri/zuolandaplink.key`）
 
 最简单的做法是复制样例文件并填入密码：
 
@@ -489,6 +491,9 @@ printf("{\"temp\":%.1f,\"humi\":%.1f}\n", temp, humi);
 #### 目标固件要求
 
 RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` 目录提供所需文件，可直接复制到工程中使用。
+
+> 💡 在 RTT 模式工具栏点击「**接入指南**」按钮，可以直接在应用内看到完整的代码示例与常见坑。
+> 一个开箱即用的最小工程见 [`examples/gd32-rtt/`](examples/gd32-rtt)。
 
 #### CMSIS-DAP 注意事项
 

@@ -1,0 +1,10 @@
+# Keil 编译产物 / 个人配置
+**/MDK-ARM/test/
+**/MDK-ARM/DebugConfig/
+**/MDK-ARM/Listings/
+**/MDK-ARM/Objects/
+**/*.uvguix.*
+**/*.lst
+**/*.bak
+**/*.dep
+**/*.uvgui.*

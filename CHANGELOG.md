@@ -5,6 +5,41 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.2] - 2026-05-06
+
+清理向版本：去掉项目早期"RTTVIEW / ZUOLANDAPLINK"残留品牌名，整理一批开发自言自语风格的 UI 文案，新增**应用内 RTT 接入指南**和一个干净的 Keil 示例工程。无功能性破坏，可直接覆盖升级。
+
+### 新增功能
+
+- ✨ **应用内 RTT 接入指南弹窗** - RTT 工具栏「连接」组新增「接入指南」按钮，5 步带可复制代码片段：4 个 SEGGER 文件加入工程 / `#include` / `printf` 风格调用 / 4 种数据格式（单数值、XY、CSV、JSON） / ANSI 颜色码；底部列了 `%f` 不支持、Include Path、扫不到控制块、中文乱码 4 个常见坑；附带一键跳转到仓库内 `RTTBSP/` 与 `examples/gd32-rtt/`
+- ✨ **示例工程 `examples/gd32-rtt/`** - 完整可编译的 Keil MDK 工程（STM32F407 / GD32F407），主循环以 `SEGGER_RTT_printf` 输出李萨如曲线 XY 数据，配合 RTT 图表「智能启用」直接出波形；附 `examples/.gitignore` 防止误入库编译产物
+
+### 文案修整
+
+- 🔧 **去掉 "RTTVIEW" 旧定位** - 项目已是烧录/RTT/串口/蓝牙四合一，但窗口标题、Cargo.toml description、index.html title、App 启动日志、release.yml release body 仍残留 "RTTVIEW"，统一改为 "嵌入式调试工作台" 或直接去掉
+- 🔧 **设置中心「工具」页清理开发口吻** - "当前设置中心先收口主题、背景与更新，后续会继续并入..." → "外观、背景与更新检查在这里集中管理；通用偏好和图表默认值在「偏好」页"；"保留几个高频提示。" → "几个常用功能的速查。"
+- 🔧 **设置中心其他副标题** - 背景显示 / 主题方案 / 日志面板高度 / 背景模式两张卡片说明全部重写，去掉 "首屏直接设置背景"、"按需展开"、"叠加本地图片" 这种简洁但费解的描述
+- 🔧 **偏好页"波形默认域"** - "波形示波器默认优先展示时域还是频域。" / "串口进入波形工作流时默认优先展示的观察域。" → "RTT 进入波形 / FFT 时，默认显示时域还是频域。" / 串口同句式
+- 🔧 **AuthorAboutDialog 作者介绍** - "嵌入式工具链与桌面工作流方向的持续维护者，负责 EK-OmniProbe 的产品演进与核心实现。" → "专注嵌入式工具链与桌面端开发，主导 EK-OmniProbe 的功能设计与核心实现。"；"由作者左岚发起与长期维护，下面提供作者主页和项目仓库入口。" → "由左岚发起并长期维护，下方是作者主页与项目仓库的链接。"
+- 🔧 **ThemeSchemeDialog** - "参考 Entrance 风格整理了一组柔和的 Material 风格主题。" → "一组柔和的 Material 风格配色，挑一款喜欢的吧。"（"Entrance 风格"是只有作者知道的内部引用）
+- 🔧 **ModeSwitch tooltip & 切换确认** - "RTT 模式 - 实时数据传输和调试" → "RTT 模式 - 实时调试输出与数据图表"（避免误解为串口）；"RTT 正在运行中。…确定要继续吗？" → "RTT 正在运行。…确定继续吗？"
+- 🔧 **RttPanel / SerialPanel / BluetoothPanel 分屏副标题统一** - 单视图模式下"波形、FFT 与趋势图。"，分屏模式下却变成"图表主视图。"；三处统一为前者
+- 🔧 **SerialPanel 终端模式副标题** - "单会话终端。" / "终端会话。" → "终端视图（单会话）。"
+- 🔧 **RttToolbar / SerialToolbar 「更多」popover** - "XXX 统一收在这里。" → "XXX 都在这里。"；"低频查看项" → "显示选项"（用户不思考"高频/低频"）
+- 🔧 **BluetoothPanel SPP 引导卡** - "EK-OmniProbe 直接复用「串口模式」的全部能力（…）。" → "EK-OmniProbe 直接在「串口模式」里使用，终端、收发分屏、波形、HEX、发送历史都正常可用。"
+
+### 兼容性
+
+- 🔧 **Linux Pack 数据目录命名** - `~/.local/share/zuolan-daplink/packs` → `~/.local/share/EK-OmniProbe/packs`，与 tauri identifier `org.embeddedkit.omniprobe` 对齐；老用户的旧目录如果有 Pack 数据会**继续沿用旧路径**，不会丢包
+- 🔧 **Tauri 签名密钥默认路径** - `~/.tauri/zuolandaplink.key` → `~/.tauri/ek-omniprobe.key`；`build.ps1` 优先找新路径，找不到自动回退到旧路径，本地已有签名配置无需迁移
+
+### 清理
+
+- 🗑️ **删除未使用的 Playwright e2e** - `tests/e2e/` 只有一个 28 行测配色弹窗位置的 spec，CI 没跑，桌面应用核心功能（探针/烧录/RTT/蓝牙）也无法纯前端测；同步移除 `playwright.config.ts`、`@playwright/test` devDep、3 个 `test:e2e*` script
+- 🗑️ **删除 `TEST_KEIL/` 私人测试目录** - 该目录原本就在 `.gitignore` 里没入库，存的是作者本地 Keil 工程 + .pack 文件 + 视频例程压缩包；其中 GD32 RTT 工程清理掉编译产物后已迁到 `examples/gd32-rtt/`，剩下的 stc32 / pack / 视频教程整体清理，`.gitignore` 同步去掉对应条目
+- 🔧 **`.github/latest.json.template`** - 旧 `zuoliangyu/ZUOLANDAPLINK` 仓库 URL + 旧产物名 → 新 `EmbeddedKitOrg/EK-OmniProbe` 占位模板（之前的模板若被发布脚本误用，updater 会直接 404）
+- 🔧 **CLAUDE.md 标题** - `# ZUOLANDAPLINK 项目开发规范` → `# EK-OmniProbe 项目开发规范`
+
 ## [1.2.1] - 2026-05-05
 
 蓝牙模式新增**经典蓝牙 SPP** 入口，与 BLE 并列。SPP 走系统虚拟 COM 路由——配对后由 OS 映射成 COMxx / `/dev/rfcommN`，应用内一键跳转到串口模式直接复用全部串口能力。

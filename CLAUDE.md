@@ -1,4 +1,4 @@
-# ZUOLANDAPLINK 项目开发规范
+# EK-OmniProbe 项目开发规范
 
 ## 文档规范
 

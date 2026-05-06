@@ -178,7 +178,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
             title="文本区"
             subtitle={
               textViewMode === "terminal"
-                ? "单会话终端。"
+                ? "终端视图（单会话）。"
                 : splitByDirection
                   ? "按收发方向分栏。"
                   : "原始串口输出。"
@@ -224,7 +224,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
                   title="文本区"
                   subtitle={
                     textViewMode === "terminal"
-                      ? "终端会话。"
+                      ? "终端视图（单会话）。"
                       : splitByDirection
                         ? "按收发方向分栏。"
                         : "原始串口输出。"
@@ -245,7 +245,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
                 <PanelShell
                   title="图表区"
-                  subtitle="图表主视图。"
+                  subtitle="波形、FFT 与趋势图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
                   actions={
                     <ChartWindowActions

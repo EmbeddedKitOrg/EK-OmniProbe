@@ -355,8 +355,8 @@ export function SerialToolbar() {
                 <div className="text-sm font-medium text-foreground">更多操作</div>
                 <div className="text-xs text-muted-foreground">
                   {textViewMode === "terminal"
-                    ? "终端会话的本地回显、快捷键拦截和颜色配置统一收在这里。"
-                    : "收发分屏、时间戳、显示方式和导出统一收在这里。"}
+                    ? "终端的本地回显、快捷键拦截和颜色配置都在这里。"
+                    : "收发分屏、时间戳、显示方式和导出都在这里。"}
                 </div>
               </div>
 
