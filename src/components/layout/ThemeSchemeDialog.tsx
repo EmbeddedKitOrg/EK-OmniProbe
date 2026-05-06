@@ -43,7 +43,7 @@ export function ThemeSchemeDialog() {
             配色方案
           </DialogTitle>
           <DialogDescription className="text-[15px] text-[hsl(var(--secondary-foreground))]/88">
-            参考 Entrance 风格整理了一组柔和的 Material 风格主题。当前方案：{currentScheme.name}
+            一组柔和的 Material 风格配色，挑一款喜欢的吧。当前方案：{currentScheme.name}
           </DialogDescription>
         </DialogHeader>
 

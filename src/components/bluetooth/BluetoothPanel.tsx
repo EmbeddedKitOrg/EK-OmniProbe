@@ -140,7 +140,7 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
                 <PanelShell
                   title="图表区"
-                  subtitle="图表主视图。"
+                  subtitle="波形、FFT 与趋势图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
                 >
                   <BleChartViewer />
@@ -192,7 +192,7 @@ function SppGuidanceCard() {
         <p className="text-sm leading-6 text-muted-foreground">
           经典蓝牙 SPP 设备配对后会被操作系统映射成{" "}
           <span className="font-medium text-foreground">虚拟串口</span>，因此
-          EK-OmniProbe 直接复用「串口模式」的全部能力（终端、收发分屏、波形、HEX、发送历史）。
+          EK-OmniProbe 直接在「串口模式」里使用，终端、收发分屏、波形、HEX、发送历史都正常可用。
         </p>
         <div className="rounded-[18px] border border-border/70 bg-white/55 px-4 py-3 text-left text-sm leading-6 text-foreground">
           <div className="font-medium">使用步骤</div>

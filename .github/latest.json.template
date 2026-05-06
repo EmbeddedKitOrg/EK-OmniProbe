@@ -1,23 +1,23 @@
 {
-  "version": "v0.5.0",
-  "notes": "更新内容:\n- 修复 CMSIS Pack 解析bug，支持更多设备型号\n- 添加 Pack 扫描进度反馈\n- 添加扫描报告和算法配置展示\n- 添加应用自动更新功能",
-  "pub_date": "2026-01-24T12:00:00Z",
+  "version": "vX.Y.Z",
+  "notes": "更新内容:\n- 在此填写本次发布的更新说明",
+  "pub_date": "YYYY-MM-DDTHH:MM:SSZ",
   "platforms": {
     "windows-x86_64": {
       "signature": "",
-      "url": "https://github.com/zuoliangyu/ZUOLANDAPLINK/releases/download/v0.5.0/ZUOLAN.DAPLINK_0.5.0_x64_en-US.msi.zip"
+      "url": "https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/download/vX.Y.Z/EK-OmniProbe_X.Y.Z_x64-setup.nsis.zip"
     },
     "linux-x86_64": {
       "signature": "",
-      "url": "https://github.com/zuoliangyu/ZUOLANDAPLINK/releases/download/v0.5.0/zuolan-daplink_0.5.0_amd64.AppImage.tar.gz"
+      "url": "https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/download/vX.Y.Z/ek-omniprobe_X.Y.Z_amd64.AppImage.tar.gz"
     },
     "darwin-x86_64": {
       "signature": "",
-      "url": "https://github.com/zuoliangyu/ZUOLANDAPLINK/releases/download/v0.5.0/ZUOLAN.DAPLINK_x64.app.tar.gz"
+      "url": "https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/download/vX.Y.Z/EK-OmniProbe_X.Y.Z_x64.app.tar.gz"
     },
     "darwin-aarch64": {
       "signature": "",
-      "url": "https://github.com/zuoliangyu/ZUOLANDAPLINK/releases/download/v0.5.0/ZUOLAN.DAPLINK_aarch64.app.tar.gz"
+      "url": "https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/download/vX.Y.Z/EK-OmniProbe_X.Y.Z_aarch64.app.tar.gz"
     }
   }
 }

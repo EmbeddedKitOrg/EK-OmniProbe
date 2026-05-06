@@ -1,7 +1,7 @@
 [package]
 name = "ek-omniprobe"
-version = "1.2.1"
-description = "EK-OmniProbe - RTTVIEW"
+version = "1.2.2"
+description = "EK-OmniProbe - 嵌入式调试工作台（烧录 / RTT / 串口 / 蓝牙）"
 authors = ["zuolan"]
 edition = "2021"
 

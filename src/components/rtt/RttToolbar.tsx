@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ColorSettingsDialog } from "./ColorSettingsDialog";
 import { ChartConfigDialog } from "./ChartConfigDialog";
+import { RttIntegrationGuideDialog } from "./RttIntegrationGuideDialog";
 import { useEffect } from "react";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import { exportRttLinesAsTxt, exportRttLinesAsCsv } from "@/lib/exporters";
@@ -286,6 +287,7 @@ export function RttToolbar() {
             断开 RTT
           </Button>
         )}
+        <RttIntegrationGuideDialog />
       </ToolbarGroup>
 
       <ToolbarGroup label="采集">
@@ -449,7 +451,7 @@ export function RttToolbar() {
               <div>
                 <div className="text-sm font-medium text-foreground">更多操作</div>
                 <div className="text-xs text-muted-foreground">
-                  低频查看项、图表设置和导出统一收在这里。
+                  显示选项、图表设置和导出都在这里。
                 </div>
               </div>
 

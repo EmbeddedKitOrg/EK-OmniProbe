@@ -1,17 +1,14 @@
 {
   "name": "ek-omniprobe",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "check": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:install": "playwright install chromium"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -43,7 +40,6 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

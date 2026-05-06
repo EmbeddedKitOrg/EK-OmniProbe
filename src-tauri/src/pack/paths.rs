@@ -9,7 +9,8 @@ use std::path::PathBuf;
 ///
 /// 优先级：
 /// 1. 用户自定义路径
-/// 2. Linux: XDG 标准目录 ~/.local/share/zuolan-daplink/packs
+/// 2. Linux: XDG 标准目录 ~/.local/share/EK-OmniProbe/packs
+///    （若存在旧目录 ~/.local/share/zuolan-daplink/packs 则继续沿用，便于平滑迁移）
 /// 3. 其他平台: 可执行文件同级目录 <exe_dir>/data/packs
 pub fn get_packs_dir() -> PathBuf {
     // 1. 优先使用用户自定义路径
@@ -21,7 +22,14 @@ pub fn get_packs_dir() -> PathBuf {
     // 2. Linux: 使用 XDG 标准目录
     #[cfg(target_os = "linux")]
     {
-        if let Some(proj_dirs) = ProjectDirs::from("com", "zuolan", "daplink") {
+        // 兼容旧路径：若旧的 zuolan-daplink 目录已有数据，先继续使用以避免用户丢包
+        if let Some(legacy) = ProjectDirs::from("com", "zuolan", "daplink") {
+            let legacy_dir = legacy.data_dir().join("packs");
+            if legacy_dir.exists() {
+                return legacy_dir;
+            }
+        }
+        if let Some(proj_dirs) = ProjectDirs::from("org", "EmbeddedKit", "EK-OmniProbe") {
             return proj_dirs.data_dir().join("packs");
         }
     }

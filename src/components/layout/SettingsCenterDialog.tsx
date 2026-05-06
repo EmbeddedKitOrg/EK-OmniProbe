@@ -193,22 +193,22 @@ export function SettingsCenterDialog() {
                 <ImagePlus className="h-3.5 w-3.5 text-primary" />
                 <div>
                   <h3 className="text-sm font-semibold">背景显示</h3>
-                  <p className="text-xs text-muted-foreground">首屏直接设置背景。</p>
+                  <p className="text-xs text-muted-foreground">直接调整主界面背景。</p>
                 </div>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <BackgroundModeCard
                   mode="default"
-                  title="保留当前背景"
-                  description="继续使用主题渐变。"
+                  title="主题默认背景"
+                  description="跟随当前主题的渐变色。"
                   active={backgroundMode === "default"}
                   onClick={() => setBackgroundMode("default")}
                 />
                 <BackgroundModeCard
                   mode="custom"
                   title="自定义图片"
-                  description="叠加本地图片。"
+                  description="使用本地图片作为背景。"
                   active={backgroundMode === "custom"}
                   onClick={() => setBackgroundMode("custom")}
                 />
@@ -252,7 +252,7 @@ export function SettingsCenterDialog() {
                   <div className="mb-1 flex items-center justify-between gap-3">
                     <div>
                       <div className="text-xs font-medium text-foreground">图片透明度</div>
-                      <div className="text-xs text-muted-foreground">只影响背景图片。</div>
+                      <div className="text-xs text-muted-foreground">仅作用于背景图片。</div>
                     </div>
                     <span className="w-12 text-right text-xs text-muted-foreground">
                       {Math.round(backgroundImageOpacity * 100)}%
@@ -286,7 +286,7 @@ export function SettingsCenterDialog() {
                       <Palette className="h-3.5 w-3.5 text-primary" />
                       <div>
                         <h3 className="text-sm font-semibold">主题方案</h3>
-                        <p className="text-xs text-muted-foreground">按需展开。</p>
+                        <p className="text-xs text-muted-foreground">点击展开切换配色。</p>
                       </div>
                     </div>
                     {themeSectionOpen ? (
@@ -368,7 +368,7 @@ export function SettingsCenterDialog() {
 
                 <PreferenceRow
                   label="RTT 波形默认域"
-                  description="波形示波器默认优先展示时域还是频域。"
+                  description="RTT 进入波形 / FFT 时，默认显示时域还是频域。"
                   value={rttChartConfig.signalDomain}
                   options={signalDomainOptions}
                   onChange={(value) => updateSignalPreference("rtt", value as SignalDomain)}
@@ -384,7 +384,7 @@ export function SettingsCenterDialog() {
 
                 <PreferenceRow
                   label="串口波形默认域"
-                  description="串口进入波形工作流时默认优先展示的观察域。"
+                  description="串口进入波形 / FFT 时，默认显示时域还是频域。"
                   value={serialChartConfig.signalDomain}
                   options={signalDomainOptions}
                   onChange={(value) => updateSignalPreference("serial", value as SignalDomain)}
@@ -393,7 +393,7 @@ export function SettingsCenterDialog() {
                 <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
                   <div className="mb-1 text-xs font-medium text-foreground">日志面板高度</div>
                   <p className="mb-3 text-xs text-muted-foreground">
-                    支持拖动后自动记忆，也可在这里微调。
+                    主界面拖拽后会自动记忆，也可以在这里精确调整。
                   </p>
                   <div className="flex items-center gap-3">
                     <input
@@ -433,7 +433,7 @@ export function SettingsCenterDialog() {
                   )}
                 />
                 <div className="rounded-[18px] border border-border/60 bg-white/60 p-3 text-xs text-muted-foreground">
-                  当前设置中心先收口主题、背景与更新，后续会继续并入通用偏好、RTT/串口图表偏好和实验功能开关。
+                  外观、背景与更新检查在这里集中管理；通用偏好和图表默认值在「偏好」页。
                 </div>
               </div>
             </section>
@@ -443,7 +443,7 @@ export function SettingsCenterDialog() {
                 <Keyboard className="h-3.5 w-3.5 text-primary" />
                 <div>
                   <h3 className="text-sm font-semibold">工作流提示</h3>
-                  <p className="text-xs text-muted-foreground">保留几个高频提示。</p>
+                  <p className="text-xs text-muted-foreground">几个常用功能的速查。</p>
                 </div>
               </div>
 

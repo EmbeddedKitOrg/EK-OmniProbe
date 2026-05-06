@@ -186,7 +186,7 @@ jobs:
           tagName: ${{ github.event.inputs.version || github.ref_name }}
           releaseName: 'EK-OmniProbe ${{ github.event.inputs.version || github.ref_name }}'
           releaseBody: |
-            ## EK-OmniProbe RTTVIEW
+            ## EK-OmniProbe
 
             ### 🆕 本次更新
 

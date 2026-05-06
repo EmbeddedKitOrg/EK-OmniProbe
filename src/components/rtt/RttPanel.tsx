@@ -80,7 +80,7 @@ export function RttPanel({ className }: RttPanelProps) {
         ? {
             icon: FileText,
             title: "RTT 正在运行，等待目标输出",
-            description: "如果固件已经输出数值流，可以稍后直接切到“波形 / FFT”工作流。",
+            description: "如果固件已经在输出数值流，可以直接切到「波形 / FFT」查看图表。",
           }
         : null;
 
@@ -153,7 +153,7 @@ export function RttPanel({ className }: RttPanelProps) {
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pb-1" : "pr-1")}>
                 <PanelShell
                   title="文本区"
-                  subtitle="原始 RTT 文本。"
+                  subtitle="原始 RTT 输出。"
                   badge="Console"
                 >
                   <RttViewer />
@@ -170,7 +170,7 @@ export function RttPanel({ className }: RttPanelProps) {
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
                 <PanelShell
                   title="图表区"
-                  subtitle="图表主视图。"
+                  subtitle="波形、FFT 与趋势图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
                   actions={
                     <ChartWindowActions

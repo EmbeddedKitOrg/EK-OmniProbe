@@ -71,7 +71,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           </Button>
         </TooltipWrapper>
 
-        <TooltipWrapper tooltip={<p>RTT 模式 - 实时数据传输和调试 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+2</kbd></p>}>
+        <TooltipWrapper tooltip={<p>RTT 模式 - 实时调试输出与数据图表 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+2</kbd></p>}>
           <Button
             variant={mode === "rtt" ? "default" : "ghost"}
             size="sm"
@@ -129,7 +129,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           <DialogHeader>
             <DialogTitle>确认切换模式</DialogTitle>
             <DialogDescription>
-              RTT 正在运行中。切换到烧录模式将停止 RTT 数据接收。确定要继续吗？
+              RTT 正在运行。切换到烧录模式会停止 RTT 数据接收，确定继续吗？
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
