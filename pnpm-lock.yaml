@@ -68,6 +68,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dockview-react:
+        specifier: ^6.0.5
+        version: 6.0.5(react@18.3.1)
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@18.3.1)
@@ -1288,6 +1291,17 @@ packages:
 
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
+
+  dockview-core@6.0.5:
+    resolution: {integrity: sha512-tBxKG7rLuTZ/OMg/9cy20ZD+MAvm3ZQe5WR7QacV38+1d7IYsd1ThDA+OKLrtMEwjalBSKS4UOeXVLW8fdSgww==}
+
+  dockview-react@6.0.5:
+    resolution: {integrity: sha512-Wbi57DDEdwhHJ5hiogooBEK9Gfrk7Xc82aspbaKx3ekAJ1lUdzU94dRVgFNA0EIVV3/jyShPXoN5SIWtIJRElA==}
+
+  dockview@6.0.5:
+    resolution: {integrity: sha512-1ZohyDtZL5hLnKOgrPwXpLUE2PAo1jI5dhOxsLrmlZfkMBOTxiggu+N2Frgcww+DCIPBIGL+fsLXokVL7ZL9ug==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   electron-to-chromium@1.5.267:
     resolution: {integrity: sha512-0Drusm6MVRXSOJpGbaSVgcQsuB4hEkMpHXaVstcPmhu5LIedxs1xNK/nIxmQIU/RPC0+1/o0AVZfBTkTNJOdUw==}
@@ -2831,6 +2845,19 @@ snapshots:
   didyoumean@1.2.2: {}
 
   dlv@1.1.3: {}
+
+  dockview-core@6.0.5: {}
+
+  dockview-react@6.0.5(react@18.3.1):
+    dependencies:
+      dockview: 6.0.5(react@18.3.1)
+    transitivePeerDependencies:
+      - react
+
+  dockview@6.0.5(react@18.3.1):
+    dependencies:
+      dockview-core: 6.0.5
+      react: 18.3.1
 
   electron-to-chromium@1.5.267: {}
 

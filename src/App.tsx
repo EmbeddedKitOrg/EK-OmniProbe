@@ -1,6 +1,6 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
-import { FlashMode, RttMode, SerialMode, BluetoothMode } from "./components/modes";
+import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
@@ -117,6 +117,13 @@ function MainApp() {
         return;
       }
 
+      if (e.ctrlKey && e.key === "5") {
+        if (isInInput) return;
+        e.preventDefault();
+        if (!flashing) setMode("debug");
+        return;
+      }
+
       // Ctrl+F：聚焦当前模式搜索框（即使在某些 input 中也允许，方便切焦点）
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "f") {
         const target = document.querySelector<HTMLInputElement>("[data-shortcut-search]:not([disabled])");
@@ -219,6 +226,7 @@ function MainApp() {
               {mode === "rtt" && <RttMode />}
               {mode === "serial" && <SerialMode />}
               {mode === "bluetooth" && <BluetoothMode />}
+              {mode === "debug" && <DebugMode />}
             </div>
           </div>
         </div>
