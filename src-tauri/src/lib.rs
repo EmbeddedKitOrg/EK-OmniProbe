@@ -76,8 +76,6 @@ pub fn run() {
             config::list_imported_packs,
             config::delete_pack,
             config::get_flash_algorithms,
-            config::save_project_config,
-            config::load_project_config,
             config::get_pack_scan_report,
             config::get_devices_without_algorithm,
             // Pack版本管理命令

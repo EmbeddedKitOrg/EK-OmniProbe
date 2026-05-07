@@ -208,7 +208,13 @@ pub async fn init_packs() -> AppResult<usize> {
         #[cfg(debug_assertions)]
         println!("\n🔄 正在注册 Pack: {}", pack.name);
 
-        let pack_dir = manager.get_pack_dir(&pack.name);
+        let pack_dir = match manager.get_pack_dir(&pack.name) {
+            Ok(p) => p,
+            Err(e) => {
+                log::warn!("跳过名称非法的 Pack {}: {}", pack.name, e);
+                continue;
+            }
+        };
 
         match register_pack_devices(&pack_dir, &pack.name, None) {
             Ok(count) => {
@@ -431,7 +437,7 @@ pub async fn import_pack(app: tauri::AppHandle, pack_path: String) -> AppResult<
     let pack_info = manager.import_pack(&path)?;
 
     // 导入后，尝试从 Pack 中提取设备定义并注册到 probe-rs
-    let pack_dir = manager.get_pack_dir(&pack_info.name);
+    let pack_dir = manager.get_pack_dir(&pack_info.name)?;
 
     // 创建进度回调，通过Tauri事件发送进度
     use crate::pack::progress::{PackScanProgress, ProgressCallback};
@@ -485,36 +491,11 @@ pub async fn get_flash_algorithms(chip_name: String) -> AppResult<Vec<FlashAlgor
     Ok(algorithms)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProjectConfig {
-    pub name: String,
-    pub chip: String,
-    pub interface_type: String,
-    pub clock_speed: u32,
-    pub firmware_path: Option<String>,
-    pub verify_after_flash: bool,
-    pub reset_after_flash: bool,
-}
-
-#[tauri::command]
-pub async fn save_project_config(config: ProjectConfig, file_path: String) -> AppResult<()> {
-    let json = serde_json::to_string_pretty(&config)?;
-    std::fs::write(&file_path, json)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn load_project_config(file_path: String) -> AppResult<ProjectConfig> {
-    let content = std::fs::read_to_string(&file_path)?;
-    let config: ProjectConfig = serde_json::from_str(&content)?;
-    Ok(config)
-}
-
 /// 获取Pack扫描报告
 #[tauri::command]
 pub async fn get_pack_scan_report(pack_name: String) -> AppResult<crate::pack::scan_report::PackScanReport> {
     let manager = PackManager::new()?;
-    let pack_dir = manager.get_pack_dir(&pack_name);
+    let pack_dir = manager.get_pack_dir(&pack_name)?;
 
     target_gen::load_scan_report(&pack_dir)
 }
@@ -523,7 +504,7 @@ pub async fn get_pack_scan_report(pack_name: String) -> AppResult<crate::pack::s
 #[tauri::command]
 pub async fn get_devices_without_algorithm(pack_name: String) -> AppResult<Vec<String>> {
     let manager = PackManager::new()?;
-    let pack_dir = manager.get_pack_dir(&pack_name);
+    let pack_dir = manager.get_pack_dir(&pack_name)?;
 
     let report = target_gen::load_scan_report(&pack_dir)?;
     Ok(report.get_devices_without_algorithm())
@@ -538,7 +519,10 @@ pub async fn check_outdated_packs() -> AppResult<Vec<PackInfo>> {
     let mut outdated_packs = Vec::new();
 
     for pack in packs {
-        let pack_dir = manager.get_pack_dir(&pack.name);
+        let pack_dir = match manager.get_pack_dir(&pack.name) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
         if target_gen::needs_rescan(&pack_dir) {
             outdated_packs.push(pack);
         }
@@ -551,7 +535,7 @@ pub async fn check_outdated_packs() -> AppResult<Vec<PackInfo>> {
 #[tauri::command]
 pub async fn rescan_pack(app: tauri::AppHandle, pack_name: String) -> AppResult<usize> {
     let manager = PackManager::new()?;
-    let pack_dir = manager.get_pack_dir(&pack_name);
+    let pack_dir = manager.get_pack_dir(&pack_name)?;
 
     if !pack_dir.exists() {
         return Err(AppError::PackError(format!("Pack {} 不存在", pack_name)));

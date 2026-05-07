@@ -2,8 +2,53 @@ use crate::error::{AppError, AppResult};
 use crate::pack::paths;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use zip::ZipArchive;
+
+/// 校验 Pack 名称：作为目录名时拒绝路径分隔符、相对路径、控制字符与平台保留字符。
+pub fn validate_pack_name(name: &str) -> AppResult<()> {
+    if name.is_empty() {
+        return Err(AppError::InvalidInput("Pack 名称不能为空".into()));
+    }
+    if name.len() > 128 {
+        return Err(AppError::InvalidInput("Pack 名称过长".into()));
+    }
+    if name == "." || name == ".." {
+        return Err(AppError::InvalidInput("Pack 名称非法".into()));
+    }
+    let forbidden = ['/', '\\', '\0', ':', '*', '?', '"', '<', '>', '|'];
+    if name.chars().any(|c| forbidden.contains(&c) || c.is_control()) {
+        return Err(AppError::InvalidInput(
+            "Pack 名称包含路径分隔符或保留字符".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// 校验 zip 条目名称并构造目标路径，防御 Zip Slip。
+fn safe_zip_extract_path(base: &Path, entry_name: &str) -> AppResult<PathBuf> {
+    if entry_name.contains('\0') {
+        return Err(AppError::PackError("zip 条目名包含 NUL".into()));
+    }
+    let entry_path = Path::new(entry_name);
+    if entry_path.is_absolute() {
+        return Err(AppError::PackError(format!(
+            "zip 条目使用了绝对路径: {entry_name}"
+        )));
+    }
+    // 仅允许 Normal 组件（拒绝 ParentDir/CurDir/Prefix/RootDir）
+    for component in entry_path.components() {
+        match component {
+            Component::Normal(_) => {}
+            _ => {
+                return Err(AppError::PackError(format!(
+                    "zip 条目包含非法路径成分: {entry_name}"
+                )));
+            }
+        }
+    }
+    Ok(base.join(entry_path))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackInfo {
@@ -137,6 +182,9 @@ impl PackManager {
         log::info!("🔍 开始解析 PDSC 文件...");
         let pack_info = super::parser::parse_pdsc(&pdsc_content)?;
 
+        // PDSC 中的 name 来自不可信的 .pack 文件，必须按目录名规则校验
+        validate_pack_name(&pack_info.name)?;
+
         // 创建Pack目录
         let pack_dir = self.packs_dir.join(&pack_info.name);
         log::info!("📁 创建 Pack 目录: {:?}", pack_dir);
@@ -153,7 +201,15 @@ impl PackManager {
                 .by_index(i)
                 .map_err(|e| AppError::PackError(e.to_string()))?;
 
-            let outpath = pack_dir.join(file.name());
+            // Zip Slip 防御：拒绝绝对路径、`..`、符号链接
+            const SYMLINK_MODE: u32 = 0o120000;
+            if let Some(mode) = file.unix_mode() {
+                if mode & 0o170000 == SYMLINK_MODE {
+                    log::warn!("跳过 zip 中的符号链接条目: {}", file.name());
+                    continue;
+                }
+            }
+            let outpath = safe_zip_extract_path(&pack_dir, file.name())?;
 
             if file.name().ends_with('/') {
                 fs::create_dir_all(&outpath)?;
@@ -208,15 +264,17 @@ impl PackManager {
         Ok(packs)
     }
 
-    pub fn get_pack_dir(&self, pack_name: &str) -> PathBuf {
-        self.packs_dir.join(pack_name)
+    /// 仅在校验通过后才返回 pack 目录路径，避免 IPC 入参直接拼路径。
+    pub fn get_pack_dir(&self, pack_name: &str) -> AppResult<PathBuf> {
+        validate_pack_name(pack_name)?;
+        Ok(self.packs_dir.join(pack_name))
     }
 
     pub fn delete_pack(&self, pack_name: &str) -> AppResult<()> {
         log::info!("=== 开始删除Pack ===");
         log::info!("Pack名称: {}", pack_name);
 
-        let pack_dir = self.get_pack_dir(pack_name);
+        let pack_dir = self.get_pack_dir(pack_name)?;
         log::info!("Pack目录路径: {:?}", pack_dir);
 
         if !pack_dir.exists() {
