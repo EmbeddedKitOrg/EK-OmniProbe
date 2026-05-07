@@ -61,6 +61,23 @@ jobs:
           echo "version=$VERSION_NUM" >> $GITHUB_OUTPUT
           echo "tag=$VERSION" >> $GITHUB_OUTPUT
 
+      # Windows: 把构建目录排除出 Defender 实时扫描，显著加速 Rust 编译与 cache 还原
+      - name: Disable Defender for build dirs (Windows)
+        if: matrix.os_name == 'windows'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}\src-tauri\target"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo"
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.rustup"
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\pnpm"
+          Add-MpPreference -ExclusionProcess "rustc.exe"
+          Add-MpPreference -ExclusionProcess "cargo.exe"
+          Add-MpPreference -ExclusionProcess "link.exe"
+          Add-MpPreference -ExclusionProcess "node.exe"
+          Add-MpPreference -ExclusionProcess "pnpm.exe"
+
       # Linux 依赖
       - name: Install Linux dependencies
         if: matrix.os_name == 'linux'
