@@ -9,7 +9,6 @@ import {
   RotateCcw,
   Settings2,
   SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ import { useAppStore, type AppMode } from "@/stores/appStore";
 import { useRttStore } from "@/stores/rttStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useUiPreferencesStore, type BackgroundMode } from "@/stores/uiPreferencesStore";
-import { UpdateChecker } from "../UpdateChecker";
 import type { SignalDomain, ViewMode } from "@/lib/chartTypes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -388,31 +386,6 @@ export function SettingsCenterDialog() {
             </TabsContent>
 
             <TabsContent value="tools" className="mt-0 space-y-4">
-              <section className="glass-section rounded-[22px] p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  <div>
-                    <h3 className="text-sm font-semibold">应用工具</h3>
-                    <p className="text-xs text-muted-foreground">常用全局操作。</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <UpdateChecker
-                    autoCheck={false}
-                    trigger={
-                      <Button variant="outline" className="w-full justify-start gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        检查更新
-                      </Button>
-                    }
-                  />
-                  <div className="rounded-[18px] border border-border/60 bg-white/60 p-3 text-xs text-muted-foreground">
-                    外观、背景与更新检查在这里集中管理；通用偏好和图表默认值在「偏好」页。
-                  </div>
-                </div>
-              </section>
-
               <section className="glass-section rounded-[22px] p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Keyboard className="h-3.5 w-3.5 text-primary" />
