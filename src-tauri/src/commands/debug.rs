@@ -757,11 +757,12 @@ pub async fn debug_read_source(path: String) -> AppResult<DebugReadSourceResult>
     Ok(DebugReadSourceResult { path, content })
 }
 
-/// 阶段 3 仅返回单帧（基于当前 PC）。多帧栈回溯留给后续阶段。
+/// 调用栈：当前 PC（必出）+ 由 LR 推出来的调用者（如果 LR 非零、非 PC
+/// 自身且能取到）。受限于不做 .debug_frame 解栈，深度限于 2 帧；
+/// 真实 N 帧展开是阶段 6 的事。
 #[tauri::command]
 pub async fn debug_get_call_stack(state: State<'_, AppState>) -> AppResult<Vec<DebugFrame>> {
-    // 1. 取当前 PC（要求已 halt）
-    let pc: u64 = {
+    let (pc, lr): (u64, Option<u64>) = {
         let mut guard = state.debug_session.lock();
         let session = guard.as_mut().ok_or(AppError::NotConnected)?;
         let mut core = session
@@ -770,27 +771,54 @@ pub async fn debug_get_call_stack(state: State<'_, AppState>) -> AppResult<Vec<D
         if !core.core_halted().unwrap_or(false) {
             return Ok(Vec::new());
         }
+
         let pc_reg = core
             .registers()
             .pc()
             .ok_or_else(|| AppError::DebugError("当前架构无 PC 寄存器描述".to_string()))?;
-        core.read_core_reg(pc_reg)
-            .map_err(|e| AppError::DebugError(format!("读 PC 失败: {}", e)))?
+        let pc = core
+            .read_core_reg(pc_reg)
+            .map_err(|e| AppError::DebugError(format!("读 PC 失败: {}", e)))?;
+
+        // LR 可能拿不到（架构无）或读取失败：失败就只回单帧
+        let lr_opt = core
+            .registers()
+            .core_registers()
+            .find(|r| r.name().eq_ignore_ascii_case("LR"))
+            .and_then(|reg| core.read_core_reg(reg).ok());
+        (pc, lr_opt)
     };
 
-    // 2. 用 ELF 符号信息把 PC 映射成 (function, file, line)
-    let location = {
-        let guard = state.debug_symbols.lock();
-        guard.as_ref().map(|s| s.resolve(pc)).unwrap_or_default()
-    };
+    let symbols_guard = state.debug_symbols.lock();
+    let symbols = symbols_guard.as_ref();
 
-    Ok(vec![DebugFrame {
+    let mut frames = Vec::with_capacity(2);
+    let l0 = symbols.map(|s| s.resolve(pc)).unwrap_or_default();
+    frames.push(DebugFrame {
         id: 0,
         pc,
-        function: location.function,
-        file: location.file,
-        line: location.line,
-    }])
+        function: l0.function,
+        file: l0.file,
+        line: l0.line,
+    });
+
+    if let Some(lr) = lr {
+        // ARM Thumb: LR 最低位 = 1 表示 thumb；解析地址需清零
+        let return_addr = lr & !1u64;
+        // 跳过明显无效的 LR：0（启动初态 / Cortex-M reset）、与 PC 相同
+        if return_addr != 0 && return_addr != pc {
+            let l1 = symbols.map(|s| s.resolve(return_addr)).unwrap_or_default();
+            frames.push(DebugFrame {
+                id: 1,
+                pc: return_addr,
+                function: l1.function,
+                file: l1.file,
+                line: l1.line,
+            });
+        }
+    }
+
+    Ok(frames)
 }
 
 #[tauri::command]
