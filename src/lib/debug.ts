@@ -21,6 +21,36 @@ export interface DebugRegisterValue {
   value: number;
 }
 
+export type ElfSymbolCategory = "function" | "variable";
+
+export interface ElfSymbol {
+  name: string;
+  address: number;
+  size: number;
+  category: ElfSymbolCategory;
+}
+
+export interface DebugLoadElfResult {
+  path: string;
+  function_count: number;
+  variable_count: number;
+  symbols: ElfSymbol[];
+}
+
+export interface SourceLocation {
+  function: string | null;
+  file: string | null;
+  line: number | null;
+}
+
+export interface DebugFrame {
+  id: number;
+  pc: number;
+  function: string | null;
+  file: string | null;
+  line: number | null;
+}
+
 // Attach / Detach
 export async function debugAttach(options: DebugAttachOptions): Promise<DebugStatus> {
   return await invoke<DebugStatus>("debug_attach", { options });
@@ -71,4 +101,21 @@ export async function debugReadRegisters(): Promise<DebugRegisterValue[]> {
 
 export async function debugWriteRegister(name: string, value: number): Promise<void> {
   return await invoke("debug_write_register", { options: { name, value } });
+}
+
+// ELF / DWARF
+export async function debugLoadElf(path: string): Promise<DebugLoadElfResult> {
+  return await invoke<DebugLoadElfResult>("debug_load_elf", { path });
+}
+
+export async function debugClearSymbols(): Promise<void> {
+  return await invoke("debug_clear_symbols");
+}
+
+export async function debugResolvePc(pc: number): Promise<SourceLocation> {
+  return await invoke<SourceLocation>("debug_resolve_pc", { pc });
+}
+
+export async function debugGetCallStack(): Promise<DebugFrame[]> {
+  return await invoke<DebugFrame[]>("debug_get_call_stack");
 }

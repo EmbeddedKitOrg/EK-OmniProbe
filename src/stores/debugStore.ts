@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import type { DebugFrame, ElfSymbol } from "@/lib/debug";
+
+export type { DebugFrame };
 
 export type DebugState = "detached" | "attached" | "running" | "halted";
 
@@ -11,14 +14,6 @@ export interface DebugBreakpoint {
   line?: number;
   enabled: boolean;
   hitCount: number;
-}
-
-export interface DebugFrame {
-  id: number;
-  pc: number;
-  function?: string;
-  file?: string;
-  line?: number;
 }
 
 export type PanelId =
@@ -38,6 +33,9 @@ interface DebugStoreState {
   pc: number | null;
 
   loadedElfPath: string | null;
+  symbols: ElfSymbol[];
+  symbolFunctionCount: number;
+  symbolVariableCount: number;
 
   breakpoints: DebugBreakpoint[];
   frames: DebugFrame[];
@@ -49,6 +47,8 @@ interface DebugStoreState {
   // Actions
   setState: (state: DebugState, haltReason?: HaltReason, pc?: number | null) => void;
   setLoadedElfPath: (path: string | null) => void;
+  setSymbols: (symbols: ElfSymbol[], functionCount: number, variableCount: number) => void;
+  clearSymbols: () => void;
   setBreakpoints: (breakpoints: DebugBreakpoint[]) => void;
   setFrames: (frames: DebugFrame[]) => void;
   setCurrentFrameId: (frameId: number | null) => void;
@@ -74,6 +74,9 @@ export const useDebugStore = create<DebugStoreState>((set) => ({
   pc: null,
 
   loadedElfPath: null,
+  symbols: [],
+  symbolFunctionCount: 0,
+  symbolVariableCount: 0,
 
   breakpoints: [],
   frames: [],
@@ -83,6 +86,9 @@ export const useDebugStore = create<DebugStoreState>((set) => ({
 
   setState: (state, haltReason = null, pc = null) => set({ state, haltReason, pc }),
   setLoadedElfPath: (loadedElfPath) => set({ loadedElfPath }),
+  setSymbols: (symbols, functionCount, variableCount) =>
+    set({ symbols, symbolFunctionCount: functionCount, symbolVariableCount: variableCount }),
+  clearSymbols: () => set({ symbols: [], symbolFunctionCount: 0, symbolVariableCount: 0, loadedElfPath: null }),
   setBreakpoints: (breakpoints) => set({ breakpoints }),
   setFrames: (frames) => set({ frames }),
   setCurrentFrameId: (currentFrameId) => set({ currentFrameId }),

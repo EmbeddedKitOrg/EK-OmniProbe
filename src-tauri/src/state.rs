@@ -1,3 +1,4 @@
+use crate::debug_symbols::DebugSymbols;
 use parking_lot::Mutex;
 use probe_rs::Session;
 use serde::{Deserialize, Serialize};
@@ -145,6 +146,7 @@ pub struct AppState {
     pub session: Arc<Mutex<Option<Session>>>,           // 主连接（用于烧录）
     pub rtt_session: Arc<Mutex<Option<Session>>>,       // RTT 独立连接
     pub debug_session: Arc<Mutex<Option<Session>>>,     // 调试独立连接
+    pub debug_symbols: Arc<Mutex<Option<DebugSymbols>>>, // 当前加载的 ELF/DWARF 缓存
     pub connection_info: Arc<Mutex<Option<ConnectionInfo>>>,
     pub rtt_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // RTT 连接信息
     pub debug_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // 调试连接信息
@@ -166,6 +168,7 @@ impl AppState {
             session: Arc::new(Mutex::new(None)),
             rtt_session: Arc::new(Mutex::new(None)),
             debug_session: Arc::new(Mutex::new(None)),
+            debug_symbols: Arc::new(Mutex::new(None)),
             connection_info: Arc::new(Mutex::new(None)),
             rtt_connection_info: Arc::new(Mutex::new(None)),
             debug_connection_info: Arc::new(Mutex::new(None)),
