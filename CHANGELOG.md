@@ -5,6 +5,28 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.3] - 2026-05-07
+
+安全 + 体验小版本：闭合一次全局安全审计发现的 6 项漏洞（Zip Slip、PDSC 名称劫持、任意目录删除、任意文件写、CSP 缺失、capability 过宽），并给串口日志视图加了三档复制（纯文本 / 含时间戳 / 含 RX-TX 完整行）。无破坏性改动，可直接覆盖升级。
+
+### 安全修复
+
+- 🔒 **Zip Slip 防御** - `import_pack` 解压 .pack 时不再相信 zip 条目名，`..`、绝对路径、Windows 盘符与符号链接条目全部拒绝/跳过；恶意 .pack 不能再借此把任意文件落到 Startup、System32 等位置
+- 🔒 **PDSC `<package name>` 校验** - .pack 内 PDSC 文件里的 `name` 字段会作为解压目录名，现在通过 `validate_pack_name` 校验（拒绝路径分隔符、控制字符、`:*?"<>|` 等保留字符），防止恶意 pack 把整个解压根目录劫持出 packs 目录
+- 🔒 **任意目录删除收口** - `delete_pack` / `rescan_pack` / `get_pack_scan_report` / `get_devices_without_algorithm` 这 4 个 IPC 命令收到的 `pack_name` 现在都走名称校验，不再可能用 `..\..\Documents` 之类的串触发 `remove_dir_all` 任意路径
+- 🔒 **导出文件路径白名单** - `write_text_file` / `write_binary_file` 现在校验绝对路径 + 扩展名白名单（文本: txt/csv/log/json/yaml/yml/md；二进制: png/jpg/jpeg/bin/hex），即使前端被注入也无法落 .cmd/.bat/.dll 等可执行文件
+- 🔒 **CSP 启用** - `tauri.conf.json` 的 `security.csp` 从 `null` 改为严格策略：只允许 `'self'` 脚本源、禁用 `unsafe-eval`、禁 inline script、`object-src 'none'`、`frame-ancestors 'none'`，大幅抬高 XSS 门槛
+- 🔒 **能力声明瘦身** - `capabilities/default.json` 移除前端从未使用的 6 条 `fs:*` 权限（`allow-write-text-file`、`allow-write-file`、`allow-mkdir`、`allow-read-file`、`allow-read-text-file`、`allow-exists`、`allow-read-dir`），即使将来某条路径出现 XSS，也无法直接调用 `@tauri-apps/plugin-fs` 全盘读写
+- 🧹 **删除死代码命令** - `save_project_config` / `load_project_config` 在前端从未被调用，但暴露了任意路径写。后端 IPC 注册、Rust 实现、TS wrapper 与 `ProjectConfig` 类型整套移除
+
+### 新增功能
+
+- ✨ **串口日志三档复制** - 默认 `Ctrl+C` 仍按 `select-none` 只复制纯正文（不含时间戳和 `【RX】/【TX】` 前缀），新增 `Ctrl+Shift+C` 一键复制完整行（`[时间戳] 【RX/TX】 正文`），右键弹出菜单可在三种模式间临时切换；多行选择会按整行展开拼接，单行半选则严格只复制选中字符。复制结果会在「输出日志」里提示行数
+
+### 文档
+
+- 📖 **`docs/SERIAL_TERMINAL_GUIDE.md`** - 新增「2.1 复制日志行」一节，含三种复制方式的对照表与边界规则说明
+
 ## [1.2.2] - 2026-05-06
 
 清理向版本：去掉项目早期"RTTVIEW / ZUOLANDAPLINK"残留品牌名，整理一批开发自言自语风格的 UI 文案，新增**应用内 RTT 接入指南**和一个干净的 Keil 示例工程。无功能性破坏，可直接覆盖升级。
