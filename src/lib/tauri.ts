@@ -9,7 +9,6 @@ import type {
   FirmwareFileInfo,
   PackInfo,
   PackScanReport,
-  ProjectConfig,
   RttConfig,
   RttStartOptions,
   RttStatusEvent,
@@ -160,14 +159,6 @@ export async function rescanAllOutdatedPacks(): Promise<string[]> {
 
 export async function getFlashAlgorithms(chipName: string): Promise<FlashAlgorithmInfo[]> {
   return await invoke<FlashAlgorithmInfo[]>("get_flash_algorithms", { chipName });
-}
-
-export async function saveProjectConfig(config: ProjectConfig, filePath: string): Promise<void> {
-  return await invoke("save_project_config", { config, filePath });
-}
-
-export async function loadProjectConfig(filePath: string): Promise<ProjectConfig> {
-  return await invoke<ProjectConfig>("load_project_config", { filePath });
 }
 
 // 串口命令

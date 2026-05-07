@@ -143,17 +143,6 @@ export interface DeviceScanResult {
   status: "Success" | "Warning" | "Error";
 }
 
-// 项目配置
-export interface ProjectConfig {
-  name: string;
-  chip: string;
-  interface_type: string;
-  clock_speed: number;
-  firmware_path: string | null;
-  verify_after_flash: boolean;
-  reset_after_flash: boolean;
-}
-
 // RTT 扫描模式
 export type RttScanMode = "auto" | "exact" | "range";
 
