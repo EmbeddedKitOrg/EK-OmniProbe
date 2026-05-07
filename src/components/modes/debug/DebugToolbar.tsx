@@ -7,8 +7,11 @@ import { useProbeStore } from "@/stores/probeStore";
 import { useLogStore } from "@/stores/logStore";
 import {
   debugAttach,
+  debugClearSymbols,
   debugDetach,
+  debugGetCallStack,
   debugHalt,
+  debugLoadElf,
   debugReset,
   debugRun,
   debugStepIn,
@@ -27,6 +30,10 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
   const loadedElfPath = useDebugStore((s) => s.loadedElfPath);
   const setDebugState = useDebugStore((s) => s.setState);
   const setLoadedElfPath = useDebugStore((s) => s.setLoadedElfPath);
+  const setSymbols = useDebugStore((s) => s.setSymbols);
+  const clearSymbolsStore = useDebugStore((s) => s.clearSymbols);
+  const setFrames = useDebugStore((s) => s.setFrames);
+  const setCurrentFrameId = useDebugStore((s) => s.setCurrentFrameId);
 
   const selectedProbe = useProbeStore((s) => s.selectedProbe);
   const selectedChipName = useProbeStore((s) => s.selectedChipName);
@@ -114,17 +121,32 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
       applyCoreState(core);
     });
 
+  // halt 后顺手取一次调用栈（阶段 3 是单帧）
+  const refreshCallStack = async () => {
+    try {
+      const frames = await debugGetCallStack();
+      setFrames(frames);
+      setCurrentFrameId(frames[0]?.id ?? null);
+    } catch (error) {
+      addLog("warn", `读调用栈失败: ${error}`);
+      setFrames([]);
+      setCurrentFrameId(null);
+    }
+  };
+
   const handleHalt = () =>
     withBusy("halt", async () => {
       const core = await debugHalt();
       applyCoreState(core);
       addLog("info", `已停止 @ 0x${(core.pc ?? 0).toString(16).padStart(8, "0")}`);
+      await refreshCallStack();
     });
 
   const handleStepIn = () =>
     withBusy("step-in", async () => {
       const core = await debugStepIn();
       setDebugState(core.state, "step", core.pc ?? null);
+      await refreshCallStack();
     });
 
   const handleReset = () =>
@@ -145,9 +167,18 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         ],
       });
       if (typeof selected === "string") {
-        setLoadedElfPath(selected);
-        addLog("info", `已选择 ELF: ${selected}`);
-        // 阶段 3 才会真正解析 DWARF
+        addLog("info", `加载 ELF: ${selected}`);
+        try {
+          // 切换到新 ELF：先清掉旧符号，再解析新文件
+          await debugClearSymbols();
+          clearSymbolsStore();
+          const result = await debugLoadElf(selected);
+          setLoadedElfPath(result.path);
+          setSymbols(result.symbols, result.function_count, result.variable_count);
+          addLog("success", `ELF 已加载: ${result.function_count} 个函数 / ${result.variable_count} 个变量`);
+        } catch (error) {
+          addLog("error", `解析 ELF 失败: ${error}`);
+        }
       }
     } catch (error) {
       addLog("error", `选择 ELF 失败: ${error}`);

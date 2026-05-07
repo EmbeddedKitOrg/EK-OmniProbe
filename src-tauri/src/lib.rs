@@ -1,11 +1,12 @@
+pub mod app_config;
 pub mod ble;
 pub mod commands;
+pub mod debug_symbols;
 pub mod error;
 pub mod pack;
 pub mod serial;
 pub mod state;
 pub mod udev;
-pub mod app_config;
 
 use commands::{
     ble as ble_cmd, config, debug as debug_cmd, export, flash, memory, probe, rtt,
@@ -114,6 +115,10 @@ pub fn run() {
             debug_cmd::debug_write_memory,
             debug_cmd::debug_read_registers,
             debug_cmd::debug_write_register,
+            debug_cmd::debug_load_elf,
+            debug_cmd::debug_clear_symbols,
+            debug_cmd::debug_resolve_pc,
+            debug_cmd::debug_get_call_stack,
             // BLE 蓝牙命令
             ble_cmd::ble_get_status,
             ble_cmd::ble_start_scan,

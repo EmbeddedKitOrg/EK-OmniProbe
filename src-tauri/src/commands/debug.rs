@@ -5,6 +5,7 @@
 //! 断点、源码级单步、调用栈等留给后续阶段。
 
 use crate::commands::config::TARGET_REGISTRY;
+use crate::debug_symbols::{DebugSymbols, ElfSymbol, SourceLocation};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, ConnectMode, ConnectionInfo, InterfaceType};
 use probe_rs::{
@@ -69,6 +70,23 @@ pub struct DebugWriteMemoryOptions {
 pub struct DebugWriteRegisterOptions {
     pub name: String,
     pub value: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DebugLoadElfResult {
+    pub path: String,
+    pub function_count: usize,
+    pub variable_count: usize,
+    pub symbols: Vec<ElfSymbol>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DebugFrame {
+    pub id: u32,
+    pub pc: u64,
+    pub function: Option<String>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
 }
 
 // ============================================================================
@@ -408,6 +426,91 @@ pub async fn debug_read_registers(state: State<'_, AppState>) -> AppResult<Vec<R
     }
 
     Ok(registers)
+}
+
+// ============================================================================
+// ELF / DWARF 符号
+// ============================================================================
+
+#[tauri::command]
+pub async fn debug_load_elf(
+    path: String,
+    state: State<'_, AppState>,
+) -> AppResult<DebugLoadElfResult> {
+    let symbols = DebugSymbols::load(&path).map_err(AppError::DebugError)?;
+    let summary = symbols.summary();
+    let symbol_list = symbols.symbols.clone();
+    {
+        let mut guard = state.debug_symbols.lock();
+        *guard = Some(symbols);
+    }
+    log::info!(
+        "ELF loaded: {} ({} 函数 / {} 变量)",
+        summary.path,
+        summary.function_count,
+        summary.variable_count
+    );
+    Ok(DebugLoadElfResult {
+        path: summary.path,
+        function_count: summary.function_count,
+        variable_count: summary.variable_count,
+        symbols: symbol_list,
+    })
+}
+
+#[tauri::command]
+pub async fn debug_clear_symbols(state: State<'_, AppState>) -> AppResult<()> {
+    let mut guard = state.debug_symbols.lock();
+    *guard = None;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn debug_resolve_pc(
+    pc: u64,
+    state: State<'_, AppState>,
+) -> AppResult<SourceLocation> {
+    let guard = state.debug_symbols.lock();
+    let symbols = guard
+        .as_ref()
+        .ok_or_else(|| AppError::DebugError("尚未加载 ELF".to_string()))?;
+    Ok(symbols.resolve(pc))
+}
+
+/// 阶段 3 仅返回单帧（基于当前 PC）。多帧栈回溯留给阶段 4。
+#[tauri::command]
+pub async fn debug_get_call_stack(state: State<'_, AppState>) -> AppResult<Vec<DebugFrame>> {
+    // 1. 取当前 PC（要求已 halt）
+    let pc: u64 = {
+        let mut guard = state.debug_session.lock();
+        let session = guard.as_mut().ok_or(AppError::NotConnected)?;
+        let mut core = session
+            .core(0)
+            .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
+        if !core.core_halted().unwrap_or(false) {
+            return Ok(Vec::new());
+        }
+        let pc_reg = core
+            .registers()
+            .pc()
+            .ok_or_else(|| AppError::DebugError("当前架构无 PC 寄存器描述".to_string()))?;
+        core.read_core_reg(pc_reg)
+            .map_err(|e| AppError::DebugError(format!("读 PC 失败: {}", e)))?
+    };
+
+    // 2. 用 ELF 符号信息把 PC 映射成 (function, file, line)
+    let location = {
+        let guard = state.debug_symbols.lock();
+        guard.as_ref().map(|s| s.resolve(pc)).unwrap_or_default()
+    };
+
+    Ok(vec![DebugFrame {
+        id: 0,
+        pc,
+        function: location.function,
+        file: location.file,
+        line: location.line,
+    }])
 }
 
 #[tauri::command]
