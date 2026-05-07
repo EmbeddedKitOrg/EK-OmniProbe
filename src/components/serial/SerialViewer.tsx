@@ -1,6 +1,7 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSerialStore } from "@/stores/serialStore";
+import { useLogStore } from "@/stores/logStore";
 import { cn } from "@/lib/utils";
 import type { SerialLine } from "@/lib/serialTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
@@ -11,8 +12,64 @@ interface SerialViewerProps {
   title?: string;
 }
 
+type CopyMode = "plain" | "with-timestamp" | "full";
+
+const formatTimestamp = (date: Date) => {
+  const hh = date.getHours().toString().padStart(2, "0");
+  const mm = date.getMinutes().toString().padStart(2, "0");
+  const ss = date.getSeconds().toString().padStart(2, "0");
+  const ms = date.getMilliseconds().toString().padStart(3, "0");
+  return `${hh}:${mm}:${ss}.${ms}`;
+};
+
+const formatLineForCopy = (line: SerialLine, mode: CopyMode): string => {
+  const ts = `[${formatTimestamp(line.timestamp)}]`;
+  const dir = line.direction === "rx" ? "【RX】" : "【TX】";
+  switch (mode) {
+    case "plain":
+      return line.text;
+    case "with-timestamp":
+      return `${ts} ${line.text}`;
+    case "full":
+      return `${ts} ${dir} ${line.text}`;
+  }
+};
+
+const findLineIndex = (node: Node | null, container: HTMLElement): number | null => {
+  let el: HTMLElement | null =
+    node?.nodeType === Node.ELEMENT_NODE
+      ? (node as HTMLElement)
+      : node?.parentElement ?? null;
+  while (el && el !== container) {
+    const attr = el.getAttribute?.("data-line-index");
+    if (attr != null) return Number(attr);
+    el = el.parentElement;
+  }
+  return null;
+};
+
+const getSelectedLineRange = (
+  container: HTMLElement
+): { start: number; end: number } | null => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  if (
+    !container.contains(range.startContainer) ||
+    !container.contains(range.endContainer)
+  ) {
+    return null;
+  }
+  const a = findLineIndex(range.startContainer, container);
+  const b = findLineIndex(range.endContainer, container);
+  if (a == null || b == null) return null;
+  return { start: Math.min(a, b), end: Math.max(a, b) };
+};
+
 export function SerialViewer({ direction, title }: SerialViewerProps) {
   const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } = useSerialStore();
+  const addLog = useLogStore((state) => state.addLog);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   // Filter lines - cached with useMemo to avoid infinite loops
   const filteredLines = useMemo(() => {
@@ -49,6 +106,86 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       rowVirtualizer.scrollToIndex(filteredLines.length - 1, { align: "end" });
     }
   }, [filteredLines.length, autoScroll, rowVirtualizer]);
+
+  const writeToClipboard = useCallback(
+    (text: string, label: string) => {
+      if (!text) return;
+      if (navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch((err) => {
+          addLog("warn", `复制到剪贴板失败: ${err}`);
+        });
+      }
+      addLog("info", `已复制 ${label}（${text.split("\n").length} 行）`);
+    },
+    [addLog]
+  );
+
+  const copySelection = useCallback(
+    (mode: CopyMode) => {
+      const container = scrollRef.current;
+      if (!container) return false;
+      const sel = window.getSelection();
+      const rawText = sel ? sel.toString() : "";
+
+      if (mode === "plain") {
+        if (!rawText) return false;
+        writeToClipboard(rawText, "纯文本");
+        return true;
+      }
+
+      const range = getSelectedLineRange(container);
+      if (!range) return false;
+
+      const slice = filteredLines.slice(range.start, range.end + 1);
+      if (slice.length === 0) return false;
+      const text = slice.map((line) => formatLineForCopy(line, mode)).join("\n");
+      writeToClipboard(text, mode === "with-timestamp" ? "含时间戳" : "完整行");
+      return true;
+    },
+    [filteredLines, writeToClipboard]
+  );
+
+  // Ctrl+Shift+C：复制完整行（时间戳 + 方向 + 正文）
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c")) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      if (!scrollRef.current?.contains(sel.anchorNode)) return;
+      if (copySelection("full")) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [copySelection]);
+
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().length === 0) {
+      // 无选区时让浏览器原生菜单出现
+      return;
+    }
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  // 点击外部 / 滚动 / Esc 关闭右键菜单
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onPointerDown = () => closeContextMenu();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeContextMenu();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [contextMenu, closeContextMenu]);
 
   // Empty state message based on direction
   const getEmptyMessage = () => {
@@ -93,6 +230,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background"
+        onContextMenu={handleContextMenu}
       >
         <div
           style={{
@@ -107,6 +245,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
               <div
                 key={virtualRow.key}
                 data-index={virtualRow.index}
+                data-line-index={virtualRow.index}
                 ref={rowVirtualizer.measureElement}
                 style={{
                   position: "absolute",
@@ -127,6 +266,53 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
           })}
         </div>
       </div>
+      {contextMenu && (
+        <CopyContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onPick={(mode) => {
+            copySelection(mode);
+            closeContextMenu();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+interface CopyContextMenuProps {
+  x: number;
+  y: number;
+  onPick: (mode: CopyMode) => void;
+}
+
+function CopyContextMenu({ x, y, onPick }: CopyContextMenuProps) {
+  const items: Array<{ mode: CopyMode; label: string; hint?: string }> = [
+    { mode: "plain", label: "复制（纯文本）", hint: "Ctrl+C" },
+    { mode: "with-timestamp", label: "复制（含时间戳）" },
+    { mode: "full", label: "复制（含时间戳 + RX/TX）", hint: "Ctrl+Shift+C" },
+  ];
+  return (
+    <div
+      role="menu"
+      className="fixed z-50 min-w-[220px] rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      style={{ left: x, top: y }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {items.map((item) => (
+        <button
+          key={item.mode}
+          type="button"
+          role="menuitem"
+          className="flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left hover:bg-muted"
+          onClick={() => onPick(item.mode)}
+        >
+          <span>{item.label}</span>
+          {item.hint && (
+            <span className="text-xs text-muted-foreground">{item.hint}</span>
+          )}
+        </button>
+      ))}
     </div>
   );
 }
