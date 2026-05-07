@@ -240,9 +240,8 @@ export function WatchPanel() {
 
       {expressions.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-          添加表达式：符号名（如 <span className="font-mono">counter</span>）、地址
-          （<span className="font-mono">0x20000010</span>）或带长度
-          （<span className="font-mono">name:16</span>）
+          添加表达式：符号名（如 <span className="font-mono">counter</span>）、地址 （
+          <span className="font-mono">0x20000010</span>）或带长度 （<span className="font-mono">name:16</span>）
         </div>
       ) : (
         <div className="flex-1 overflow-auto px-2 pb-3 text-xs">
