@@ -7,7 +7,10 @@ pub mod state;
 pub mod udev;
 pub mod app_config;
 
-use commands::{ble as ble_cmd, config, export, flash, memory, probe, rtt, serial as serial_cmd};
+use commands::{
+    ble as ble_cmd, config, debug as debug_cmd, export, flash, memory, probe, rtt,
+    serial as serial_cmd,
+};
 use state::AppState;
 use tauri::Manager;
 
@@ -98,6 +101,19 @@ pub fn run() {
             serial_cmd::stop_serial,
             serial_cmd::get_serial_status,
             serial_cmd::clear_serial_buffer,
+            // 调试命令
+            debug_cmd::debug_attach,
+            debug_cmd::debug_detach,
+            debug_cmd::debug_get_status,
+            debug_cmd::debug_run,
+            debug_cmd::debug_halt,
+            debug_cmd::debug_step_in,
+            debug_cmd::debug_reset,
+            debug_cmd::debug_reset_halt,
+            debug_cmd::debug_read_memory,
+            debug_cmd::debug_write_memory,
+            debug_cmd::debug_read_registers,
+            debug_cmd::debug_write_register,
             // BLE 蓝牙命令
             ble_cmd::ble_get_status,
             ble_cmd::ble_start_scan,
