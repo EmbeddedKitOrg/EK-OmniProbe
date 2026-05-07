@@ -36,6 +36,7 @@ hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 object = "0.36"
 addr2line = "0.24"
+gimli = "0.31"
 base64 = "0.22"
 serialport = "4.3"
 async-trait = "0.1"

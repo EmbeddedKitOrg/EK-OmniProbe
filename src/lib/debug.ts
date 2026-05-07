@@ -56,6 +56,8 @@ export interface DebugBreakpointEntry {
   address: number;
   enabled: boolean;
   hit_count: number;
+  file: string | null;
+  line: number | null;
 }
 
 export interface DebugReadSourceResult {
@@ -135,6 +137,12 @@ export async function debugGetCallStack(): Promise<DebugFrame[]> {
 // 断点
 export async function debugSetBreakpoint(address: number): Promise<DebugBreakpointEntry> {
   return await invoke<DebugBreakpointEntry>("debug_set_breakpoint", { options: { address } });
+}
+
+export async function debugSetSourceBreakpoint(file: string, line: number): Promise<DebugBreakpointEntry> {
+  return await invoke<DebugBreakpointEntry>("debug_set_source_breakpoint", {
+    options: { file, line },
+  });
 }
 
 export async function debugClearBreakpoint(address: number): Promise<void> {

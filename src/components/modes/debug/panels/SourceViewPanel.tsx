@@ -4,7 +4,7 @@ import { cpp } from "@codemirror/lang-cpp";
 import { EditorView, gutter, GutterMarker } from "@codemirror/view";
 import { useDebugStore } from "@/stores/debugStore";
 import { useLogStore } from "@/stores/logStore";
-import { debugReadSource } from "@/lib/debug";
+import { debugClearBreakpoint, debugListBreakpoints, debugReadSource, debugSetSourceBreakpoint } from "@/lib/debug";
 
 class PcArrowMarker extends GutterMarker {
   toDOM() {
@@ -16,24 +16,72 @@ class PcArrowMarker extends GutterMarker {
   }
 }
 
+class BpDotMarker extends GutterMarker {
+  toDOM() {
+    const span = document.createElement("span");
+    span.textContent = "●";
+    span.style.color = "#ef4444";
+    span.style.fontSize = "12px";
+    span.style.cursor = "pointer";
+    return span;
+  }
+}
+
+class BpEmptyMarker extends GutterMarker {
+  toDOM() {
+    const span = document.createElement("span");
+    span.textContent = "●";
+    span.style.color = "transparent";
+    span.style.fontSize = "12px";
+    span.style.cursor = "pointer";
+    return span;
+  }
+}
+
 const PC_MARKER = new PcArrowMarker();
+const BP_DOT = new BpDotMarker();
+const BP_EMPTY = new BpEmptyMarker();
 
 function makePcGutter(line: number | null) {
   return gutter({
     class: "cm-pc-gutter",
-    lineMarker(_view, blockInfo) {
+    lineMarker(view, blockInfo) {
       if (line === null) return null;
-      const docLine = _view.state.doc.lineAt(blockInfo.from).number;
+      const docLine = view.state.doc.lineAt(blockInfo.from).number;
       return docLine === line ? PC_MARKER : null;
     },
     initialSpacer: () => PC_MARKER,
   });
 }
 
+function makeBpGutter(activeLines: Set<number>, onToggle: (line: number) => void) {
+  return gutter({
+    class: "cm-bp-gutter",
+    lineMarker(view, blockInfo) {
+      const docLine = view.state.doc.lineAt(blockInfo.from).number;
+      return activeLines.has(docLine) ? BP_DOT : BP_EMPTY;
+    },
+    domEventHandlers: {
+      click(view, blockInfo) {
+        const docLine = view.state.doc.lineAt(blockInfo.from).number;
+        onToggle(docLine);
+        return true;
+      },
+    },
+    initialSpacer: () => BP_DOT,
+  });
+}
+
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
 export function SourceViewPanel() {
   const frames = useDebugStore((s) => s.frames);
   const currentFrameId = useDebugStore((s) => s.currentFrameId);
   const currentFrame = frames.find((f) => f.id === currentFrameId) ?? null;
+  const breakpoints = useDebugStore((s) => s.breakpoints);
+  const setBreakpoints = useDebugStore((s) => s.setBreakpoints);
   const addLog = useLogStore((s) => s.addLog);
 
   const [loadedPath, setLoadedPath] = useState<string | null>(null);
@@ -92,7 +140,45 @@ export function SourceViewPanel() {
     });
   }, [content, currentFrame?.line]);
 
-  const extensions = useMemo(() => [cpp(), makePcGutter(currentFrame?.line ?? null)], [currentFrame?.line]);
+  // 当前文件中有断点的行号集合
+  const breakpointLines = useMemo(() => {
+    if (!loadedPath) return new Set<number>();
+    const target = normalizePath(loadedPath);
+    const set = new Set<number>();
+    for (const bp of breakpoints) {
+      if (!bp.file || !bp.line) continue;
+      if (normalizePath(bp.file) === target) {
+        set.add(bp.line);
+      }
+    }
+    return set;
+  }, [breakpoints, loadedPath]);
+
+  const handleToggleBreakpoint = async (line: number) => {
+    if (!loadedPath) return;
+    const target = normalizePath(loadedPath);
+    const existing = breakpoints.find((bp) => bp.file && normalizePath(bp.file) === target && bp.line === line);
+    try {
+      if (existing) {
+        await debugClearBreakpoint(existing.address);
+        addLog("info", `断点已清除: ${target}:${line}`);
+      } else {
+        await debugSetSourceBreakpoint(loadedPath, line);
+        addLog("success", `断点已设置: ${target}:${line}`);
+      }
+      const list = await debugListBreakpoints();
+      setBreakpoints(list);
+    } catch (error) {
+      addLog("error", `切换断点失败: ${error}`);
+    }
+  };
+
+  const extensions = useMemo(
+    () => [cpp(), makeBpGutter(breakpointLines, handleToggleBreakpoint), makePcGutter(currentFrame?.line ?? null)],
+    // handleToggleBreakpoint 闭包只捕获 loadedPath 与 breakpoints；后两者足以触发重建
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [breakpointLines, currentFrame?.line, loadedPath, breakpoints]
+  );
 
   const fileName = loadedPath ? loadedPath.split(/[\\/]/).pop() : null;
 

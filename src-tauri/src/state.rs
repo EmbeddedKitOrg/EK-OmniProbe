@@ -189,6 +189,9 @@ pub struct DebugBreakpointEntry {
     pub address: u64,
     pub enabled: bool,
     pub hit_count: u64,
+    /// 源码断点会带源文件路径与行号；按地址加的断点这两项为 None
+    pub file: Option<String>,
+    pub line: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
