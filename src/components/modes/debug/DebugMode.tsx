@@ -3,11 +3,12 @@ import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockvie
 import "dockview-react/dist/styles/dockview.css";
 import { useDebugStore, type PanelId } from "@/stores/debugStore";
 import { useLogStore } from "@/stores/logStore";
-import { debugGetCallStack, debugGetStatus } from "@/lib/debug";
+import { debugGetCallStack, debugGetStatus, debugListBreakpoints, debugSetSourceBreakpoint } from "@/lib/debug";
 import { DebugToolbar } from "./DebugToolbar";
 import { PANEL_ORDER, PANEL_REGISTRY } from "./panels/panelRegistry";
 
 const HALT_POLL_INTERVAL_MS = 300;
+const BP_STORAGE_PREFIX = "debug_bp_";
 
 // dockview 要求每个面板组件接受 IDockviewPanelProps；我们的面板内容自己不需要 props，包一层。
 const dockviewComponents = Object.fromEntries(
@@ -134,7 +135,69 @@ export function DebugMode() {
   const setDebugState = useDebugStore((s) => s.setState);
   const setFrames = useDebugStore((s) => s.setFrames);
   const setCurrentFrameId = useDebugStore((s) => s.setCurrentFrameId);
+  const loadedElfPath = useDebugStore((s) => s.loadedElfPath);
+  const breakpoints = useDebugStore((s) => s.breakpoints);
+  const setBreakpoints = useDebugStore((s) => s.setBreakpoints);
   const addLog = useLogStore((s) => s.addLog);
+
+  // 断点持久化：每个 ELF 一份；attached + ELF 都齐了才恢复一次
+  const restoredKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (state === "detached") {
+      restoredKeyRef.current = null;
+      return;
+    }
+    if (!loadedElfPath) return;
+    const key = `${BP_STORAGE_PREFIX}${loadedElfPath}`;
+    if (restoredKeyRef.current === key) return;
+    restoredKeyRef.current = key;
+
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    let saved: { file: string; line: number }[] = [];
+    try {
+      saved = JSON.parse(raw);
+      if (!Array.isArray(saved)) return;
+    } catch {
+      return;
+    }
+    if (saved.length === 0) return;
+
+    (async () => {
+      let restored = 0;
+      for (const item of saved) {
+        try {
+          await debugSetSourceBreakpoint(item.file, item.line);
+          restored += 1;
+        } catch {
+          // 忽略单个失败：可能行表里这一行已不再存在（重新编译后偏移）
+        }
+      }
+      try {
+        const list = await debugListBreakpoints();
+        setBreakpoints(list);
+      } catch {
+        // ignore
+      }
+      if (restored > 0) {
+        addLog("info", `已恢复 ${restored}/${saved.length} 个源码断点`);
+      }
+    })();
+  }, [state, loadedElfPath, addLog, setBreakpoints]);
+
+  // 断点变化 → 落盘（仅源码断点；按地址加的不持久化，避免下次 ELF 重编址错位）
+  useEffect(() => {
+    if (!loadedElfPath || state === "detached") return;
+    const key = `${BP_STORAGE_PREFIX}${loadedElfPath}`;
+    const sourceBps = breakpoints
+      .filter((b) => b.file && b.line !== null)
+      .map((b) => ({ file: b.file as string, line: b.line as number }));
+    try {
+      localStorage.setItem(key, JSON.stringify(sourceBps));
+    } catch {
+      // 静默
+    }
+  }, [breakpoints, loadedElfPath, state]);
 
   // 运行态轮询：检测断点命中或异步停机
   useEffect(() => {
