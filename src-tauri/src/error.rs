@@ -17,6 +17,9 @@ pub enum AppError {
     #[error("RTT错误: {0}")]
     RttError(String),
 
+    #[error("调试错误: {0}")]
+    DebugError(String),
+
     #[error("Pack解析错误: {0}")]
     PackError(String),
 

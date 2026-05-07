@@ -144,8 +144,10 @@ impl SerialState {
 pub struct AppState {
     pub session: Arc<Mutex<Option<Session>>>,           // 主连接（用于烧录）
     pub rtt_session: Arc<Mutex<Option<Session>>>,       // RTT 独立连接
+    pub debug_session: Arc<Mutex<Option<Session>>>,     // 调试独立连接
     pub connection_info: Arc<Mutex<Option<ConnectionInfo>>>,
     pub rtt_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // RTT 连接信息
+    pub debug_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // 调试连接信息
     pub settings: Arc<Mutex<DeviceSettings>>,
     pub rtt_state: Arc<RttState>,
     pub serial_state: Arc<SerialState>,  // Serial port state
@@ -163,8 +165,10 @@ impl AppState {
         Self {
             session: Arc::new(Mutex::new(None)),
             rtt_session: Arc::new(Mutex::new(None)),
+            debug_session: Arc::new(Mutex::new(None)),
             connection_info: Arc::new(Mutex::new(None)),
             rtt_connection_info: Arc::new(Mutex::new(None)),
+            debug_connection_info: Arc::new(Mutex::new(None)),
             settings: Arc::new(Mutex::new(DeviceSettings::default())),
             rtt_state: Arc::new(RttState::default()),
             serial_state: Arc::new(SerialState::default()),
