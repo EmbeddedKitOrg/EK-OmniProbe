@@ -1,4 +1,4 @@
-import { Zap, Terminal, Plug2, Bluetooth } from "lucide-react";
+import { Zap, Terminal, Plug2, Bluetooth, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { useAppStore, type AppMode } from "@/stores/appStore";
@@ -148,6 +148,29 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           >
             <Bluetooth className="h-3.5 w-3.5" />
             <span className="text-xs font-medium">蓝牙</span>
+          </Button>
+        </TooltipWrapper>
+
+        <TooltipWrapper
+          tooltip={
+            <p>
+              调试模式 - 源码级断点、单步、寄存器/内存查看{" "}
+              <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+5</kbd>
+            </p>
+          }
+        >
+          <Button
+            variant={mode === "debug" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => handleModeChange("debug")}
+            disabled={flashing}
+            className={cn(
+              "h-8 gap-1 rounded-full px-3 xl:px-3.5",
+              mode === "debug" && "bg-primary text-primary-foreground shadow-[0_10px_20px_rgba(73,110,214,0.22)]"
+            )}
+          >
+            <Bug className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">调试</span>
           </Button>
         </TooltipWrapper>
       </div>

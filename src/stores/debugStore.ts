@@ -1,0 +1,91 @@
+import { create } from "zustand";
+
+export type DebugState = "detached" | "attached" | "running" | "halted";
+
+export type HaltReason = "manual" | "breakpoint" | "step" | "exception" | "watchpoint" | "unknown" | null;
+
+export interface DebugBreakpoint {
+  id: string;
+  address: number;
+  file?: string;
+  line?: number;
+  enabled: boolean;
+  hitCount: number;
+}
+
+export interface DebugFrame {
+  id: number;
+  pc: number;
+  function?: string;
+  file?: string;
+  line?: number;
+}
+
+export type PanelId =
+  | "symbols"
+  | "source"
+  | "registers"
+  | "locals"
+  | "watch"
+  | "memory"
+  | "callStack"
+  | "breakpoints"
+  | "output";
+
+interface DebugStoreState {
+  state: DebugState;
+  haltReason: HaltReason;
+  pc: number | null;
+
+  loadedElfPath: string | null;
+
+  breakpoints: DebugBreakpoint[];
+  frames: DebugFrame[];
+  currentFrameId: number | null;
+
+  // 视图菜单：每个面板是否在 dock 中可见
+  visiblePanels: Record<PanelId, boolean>;
+
+  // Actions
+  setState: (state: DebugState, haltReason?: HaltReason, pc?: number | null) => void;
+  setLoadedElfPath: (path: string | null) => void;
+  setBreakpoints: (breakpoints: DebugBreakpoint[]) => void;
+  setFrames: (frames: DebugFrame[]) => void;
+  setCurrentFrameId: (frameId: number | null) => void;
+  setPanelVisible: (panel: PanelId, visible: boolean) => void;
+  resetPanelLayout: () => void;
+}
+
+const ALL_PANELS_VISIBLE: Record<PanelId, boolean> = {
+  symbols: true,
+  source: true,
+  registers: true,
+  locals: true,
+  watch: true,
+  memory: true,
+  callStack: true,
+  breakpoints: true,
+  output: true,
+};
+
+export const useDebugStore = create<DebugStoreState>((set) => ({
+  state: "detached",
+  haltReason: null,
+  pc: null,
+
+  loadedElfPath: null,
+
+  breakpoints: [],
+  frames: [],
+  currentFrameId: null,
+
+  visiblePanels: { ...ALL_PANELS_VISIBLE },
+
+  setState: (state, haltReason = null, pc = null) => set({ state, haltReason, pc }),
+  setLoadedElfPath: (loadedElfPath) => set({ loadedElfPath }),
+  setBreakpoints: (breakpoints) => set({ breakpoints }),
+  setFrames: (frames) => set({ frames }),
+  setCurrentFrameId: (currentFrameId) => set({ currentFrameId }),
+  setPanelVisible: (panel, visible) => set((s) => ({ visiblePanels: { ...s.visiblePanels, [panel]: visible } })),
+  resetPanelLayout: () => set({ visiblePanels: { ...ALL_PANELS_VISIBLE } }),
+}));
