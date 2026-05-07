@@ -119,6 +119,11 @@ pub fn run() {
             debug_cmd::debug_clear_symbols,
             debug_cmd::debug_resolve_pc,
             debug_cmd::debug_get_call_stack,
+            debug_cmd::debug_set_breakpoint,
+            debug_cmd::debug_clear_breakpoint,
+            debug_cmd::debug_list_breakpoints,
+            debug_cmd::debug_clear_all_breakpoints,
+            debug_cmd::debug_read_source,
             // BLE 蓝牙命令
             ble_cmd::ble_get_status,
             ble_cmd::ble_start_scan,

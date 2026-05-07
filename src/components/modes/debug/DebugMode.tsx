@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useDebugStore, type PanelId } from "@/stores/debugStore";
+import { useLogStore } from "@/stores/logStore";
+import { debugGetCallStack, debugGetStatus } from "@/lib/debug";
 import { DebugToolbar } from "./DebugToolbar";
 import { PANEL_ORDER, PANEL_REGISTRY } from "./panels/panelRegistry";
+
+const HALT_POLL_INTERVAL_MS = 300;
 
 // dockview 要求每个面板组件接受 IDockviewPanelProps；我们的面板内容自己不需要 props，包一层。
 const dockviewComponents = Object.fromEntries(
@@ -126,6 +130,48 @@ export function DebugMode() {
   const visiblePanels = useDebugStore((s) => s.visiblePanels);
   const setPanelVisible = useDebugStore((s) => s.setPanelVisible);
   const resetPanelLayout = useDebugStore((s) => s.resetPanelLayout);
+  const state = useDebugStore((s) => s.state);
+  const setDebugState = useDebugStore((s) => s.setState);
+  const setFrames = useDebugStore((s) => s.setFrames);
+  const setCurrentFrameId = useDebugStore((s) => s.setCurrentFrameId);
+  const addLog = useLogStore((s) => s.addLog);
+
+  // 运行态轮询：检测断点命中或异步停机
+  useEffect(() => {
+    if (state !== "running") return;
+    let cancelled = false;
+    const tick = async () => {
+      while (!cancelled) {
+        await new Promise((resolve) => setTimeout(resolve, HALT_POLL_INTERVAL_MS));
+        if (cancelled) return;
+        try {
+          const status = await debugGetStatus();
+          if (!status.attached) {
+            setDebugState("detached", null, null);
+            return;
+          }
+          if (status.core?.state === "halted") {
+            setDebugState("halted", "breakpoint", status.core.pc ?? null);
+            try {
+              const frames = await debugGetCallStack();
+              setFrames(frames);
+              setCurrentFrameId(frames[0]?.id ?? null);
+            } catch {
+              // 忽略，halt 已经记录
+            }
+            addLog("info", `命中断点 @ 0x${(status.core.pc ?? 0).toString(16).padStart(8, "0")}`);
+            return;
+          }
+        } catch {
+          // 单次轮询失败不致命，继续
+        }
+      }
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, setDebugState, setFrames, setCurrentFrameId, addLog]);
 
   const handleReady = useCallback(
     (event: DockviewReadyEvent) => {

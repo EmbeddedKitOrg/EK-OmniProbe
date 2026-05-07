@@ -147,6 +147,7 @@ pub struct AppState {
     pub rtt_session: Arc<Mutex<Option<Session>>>,       // RTT 独立连接
     pub debug_session: Arc<Mutex<Option<Session>>>,     // 调试独立连接
     pub debug_symbols: Arc<Mutex<Option<DebugSymbols>>>, // 当前加载的 ELF/DWARF 缓存
+    pub debug_breakpoints: Arc<Mutex<Vec<DebugBreakpointEntry>>>, // 已注册的硬断点
     pub connection_info: Arc<Mutex<Option<ConnectionInfo>>>,
     pub rtt_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // RTT 连接信息
     pub debug_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // 调试连接信息
@@ -169,6 +170,7 @@ impl AppState {
             rtt_session: Arc::new(Mutex::new(None)),
             debug_session: Arc::new(Mutex::new(None)),
             debug_symbols: Arc::new(Mutex::new(None)),
+            debug_breakpoints: Arc::new(Mutex::new(Vec::new())),
             connection_info: Arc::new(Mutex::new(None)),
             rtt_connection_info: Arc::new(Mutex::new(None)),
             debug_connection_info: Arc::new(Mutex::new(None)),
@@ -178,6 +180,15 @@ impl AppState {
             ble_state: Arc::new(crate::ble::BleState::default()),
         }
     }
+}
+
+/// 已注册的硬断点
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DebugBreakpointEntry {
+    pub id: u32,
+    pub address: u64,
+    pub enabled: bool,
+    pub hit_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

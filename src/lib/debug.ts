@@ -51,6 +51,18 @@ export interface DebugFrame {
   line: number | null;
 }
 
+export interface DebugBreakpointEntry {
+  id: number;
+  address: number;
+  enabled: boolean;
+  hit_count: number;
+}
+
+export interface DebugReadSourceResult {
+  path: string;
+  content: string;
+}
+
 // Attach / Detach
 export async function debugAttach(options: DebugAttachOptions): Promise<DebugStatus> {
   return await invoke<DebugStatus>("debug_attach", { options });
@@ -118,4 +130,26 @@ export async function debugResolvePc(pc: number): Promise<SourceLocation> {
 
 export async function debugGetCallStack(): Promise<DebugFrame[]> {
   return await invoke<DebugFrame[]>("debug_get_call_stack");
+}
+
+// 断点
+export async function debugSetBreakpoint(address: number): Promise<DebugBreakpointEntry> {
+  return await invoke<DebugBreakpointEntry>("debug_set_breakpoint", { options: { address } });
+}
+
+export async function debugClearBreakpoint(address: number): Promise<void> {
+  return await invoke("debug_clear_breakpoint", { options: { address } });
+}
+
+export async function debugListBreakpoints(): Promise<DebugBreakpointEntry[]> {
+  return await invoke<DebugBreakpointEntry[]>("debug_list_breakpoints");
+}
+
+export async function debugClearAllBreakpoints(): Promise<void> {
+  return await invoke("debug_clear_all_breakpoints");
+}
+
+// 源码
+export async function debugReadSource(path: string): Promise<DebugReadSourceResult> {
+  return await invoke<DebugReadSourceResult>("debug_read_source", { path });
 }
