@@ -80,11 +80,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         isActive: true,
       };
       if (terminalActiveLine.length > 0) {
-        return [
-          ...committedLines,
-          { id: -1, text: terminalActiveLine, isActive: false },
-          promptLine,
-        ];
+        return [...committedLines, { id: -1, text: terminalActiveLine, isActive: false }, promptLine];
       }
       return [...committedLines, promptLine];
     }
@@ -237,10 +233,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
           setHistoryIndex(-1);
           if (text.length === 0) {
             if (ending) {
-              void sendRawChunk(
-                Array.from(new TextEncoder().encode(ending)),
-                ending
-              );
+              void sendRawChunk(Array.from(new TextEncoder().encode(ending)), ending);
             }
             return;
           }
@@ -437,9 +430,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         onClick={focusTerminal}
       >
         {displayLines.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {emptyMessage}
-          </div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyMessage}</div>
         ) : (
           <div
             style={{
@@ -543,9 +534,7 @@ const SerialTerminalLineItem = React.memo(function SerialTerminalLineItem({
             {segment.text}
           </span>
         ))}
-        {showCursor && (
-          <span className="ml-px inline-block h-3.5 w-1.5 animate-pulse bg-foreground align-middle" />
-        )}
+        {showCursor && <span className="ml-px inline-block h-3.5 w-1.5 animate-pulse bg-foreground align-middle" />}
       </span>
     </div>
   );

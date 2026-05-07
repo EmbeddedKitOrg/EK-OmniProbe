@@ -67,14 +67,7 @@ export function detectDataFormat(sampleLines: string[]): DetectionResult {
     return csvResult;
   }
 
-  const results = [
-    singleValueResult,
-    xyWithSeqResult,
-    xyDataResult,
-    jsonResult,
-    kvResult,
-    csvResult,
-  ];
+  const results = [singleValueResult, xyWithSeqResult, xyDataResult, jsonResult, kvResult, csvResult];
   results.sort((a, b) => b.confidence - a.confidence);
   return results[0];
 }
@@ -200,7 +193,10 @@ function detectXyData(lines: string[]): DetectionResult {
   for (const delimiter of delimiters) {
     let validCount = 0;
     for (const line of trimmedLines) {
-      const parts = line.split(delimiter).map((p) => p.trim()).filter((p) => p.length > 0);
+      const parts = line
+        .split(delimiter)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
       if (parts.length === 2 && parts.every((p) => /^-?\d+\.?\d*$/.test(p))) {
         validCount++;
       }
@@ -282,7 +278,10 @@ function detectXyWithSeq(lines: string[]): DetectionResult {
     const seqValues: number[] = [];
 
     for (const line of trimmedLines) {
-      const parts = line.split(delimiter).map((p) => p.trim()).filter((p) => p.length > 0);
+      const parts = line
+        .split(delimiter)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
       if (parts.length !== 3) continue;
       const isInt = /^-?\d+$/.test(parts[0]);
       const allNumeric = parts.every((p) => /^-?\d+\.?\d*$/.test(p));
@@ -436,12 +435,9 @@ function detectCsv(lines: string[]): DetectionResult {
     }
 
     const avgFieldCount = totalFields / validCount || 0;
-    const consistentFields = fieldCounts.every(
-      (count) => Math.abs(count - avgFieldCount) < 1
-    );
+    const consistentFields = fieldCounts.every((count) => Math.abs(count - avgFieldCount) < 1);
 
-    const confidence =
-      trimmedLines.length > 0 && consistentFields ? validCount / trimmedLines.length : 0;
+    const confidence = trimmedLines.length > 0 && consistentFields ? validCount / trimmedLines.length : 0;
 
     if (confidence > bestConfidence) {
       bestConfidence = confidence;
@@ -491,10 +487,7 @@ function detectCsv(lines: string[]): DetectionResult {
 /**
  * 应用自动配置
  */
-export function applyAutoConfig(
-  currentConfig: ChartConfig,
-  detectionResult: DetectionResult
-): ChartConfig {
+export function applyAutoConfig(currentConfig: ChartConfig, detectionResult: DetectionResult): ChartConfig {
   return {
     ...currentConfig,
     ...detectionResult.suggestedConfig,

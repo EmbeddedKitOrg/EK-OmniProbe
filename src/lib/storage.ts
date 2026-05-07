@@ -26,11 +26,7 @@ export function saveToStorage<T>(key: string, value: T): void {
 }
 
 /** 从 localStorage 读取枚举字符串，不在白名单时返回默认值 */
-export function loadStringFromStorage<T extends string>(
-  key: string,
-  allowedValues: readonly T[],
-  defaultValue: T
-): T {
+export function loadStringFromStorage<T extends string>(key: string, allowedValues: readonly T[], defaultValue: T): T {
   try {
     const saved = localStorage.getItem(key);
     if (saved && (allowedValues as readonly string[]).includes(saved)) {

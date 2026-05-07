@@ -266,13 +266,7 @@ export function RttToolbar() {
     <div className="flex flex-wrap items-center gap-2.5 rounded-[24px] border border-border/60 bg-white/72 px-3.5 py-2.5 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
       <ToolbarGroup label="连接">
         {!rttConnected ? (
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleRttConnect}
-            disabled={rttConnecting}
-            className="gap-1"
-          >
+          <Button size="sm" variant="default" onClick={handleRttConnect} disabled={rttConnecting} className="gap-1">
             <Link className={`h-3.5 w-3.5 ${rttConnecting ? "animate-pulse" : ""}`} />
             {rttConnecting ? "连接中..." : "连接 RTT"}
           </Button>
@@ -308,13 +302,7 @@ export function RttToolbar() {
           </Button>
         )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleTogglePause}
-          disabled={!isRunning}
-          className="gap-1"
-        >
+        <Button size="sm" variant="outline" onClick={handleTogglePause} disabled={!isRunning} className="gap-1">
           {isPaused ? (
             <>
               <RotateCcw className="h-3.5 w-3.5" />
@@ -405,7 +393,9 @@ export function RttToolbar() {
         <div className="flex gap-1">
           <Button
             size="sm"
-            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"}
+            variant={
+              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"
+            }
             onClick={() => activateSignalWorkspace("time")}
             className="gap-1"
             title="直接进入波形示波器"
@@ -415,7 +405,9 @@ export function RttToolbar() {
           </Button>
           <Button
             size="sm"
-            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"}
+            variant={
+              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"
+            }
             onClick={() => activateSignalWorkspace("fft")}
             className="gap-1"
             title="直接进入 FFT 频谱"
@@ -424,7 +416,6 @@ export function RttToolbar() {
             FFT
           </Button>
         </div>
-
       </ToolbarGroup>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -450,15 +441,11 @@ export function RttToolbar() {
             <div className="space-y-3">
               <div>
                 <div className="text-sm font-medium text-foreground">更多操作</div>
-                <div className="text-xs text-muted-foreground">
-                  显示选项、图表设置和导出都在这里。
-                </div>
+                <div className="text-xs text-muted-foreground">显示选项、图表设置和导出都在这里。</div>
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  查看
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">查看</div>
                 <div className="flex flex-wrap gap-2.5">
                   <Button
                     size="sm"
@@ -481,9 +468,7 @@ export function RttToolbar() {
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  配置
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
                 <div className="flex flex-wrap gap-2.5">
                   <ChartConfigDialog
                     chartConfig={chartConfig}
@@ -508,9 +493,7 @@ export function RttToolbar() {
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  输出
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">输出</div>
                 <div className="flex flex-wrap gap-2.5">
                   <Button size="sm" variant="outline" onClick={handleExportTxt} className="gap-1">
                     <Download className="h-3.5 w-3.5" />
@@ -533,9 +516,7 @@ export function RttToolbar() {
 function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-border/60 bg-white/58 px-2 py-1.5">
-      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
       {children}
     </div>
   );

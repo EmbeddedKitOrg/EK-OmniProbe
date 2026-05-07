@@ -19,15 +19,7 @@ export function useUserActivity(timeoutMs: number = 10000) {
 
   useEffect(() => {
     // 监听的事件类型
-    const events = [
-      "mousedown",
-      "mousemove",
-      "keydown",
-      "scroll",
-      "touchstart",
-      "click",
-      "wheel",
-    ];
+    const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click", "wheel"];
 
     // 添加事件监听器
     events.forEach((event) => {

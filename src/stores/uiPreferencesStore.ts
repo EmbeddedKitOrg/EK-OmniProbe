@@ -1,10 +1,5 @@
 import { create } from "zustand";
-import {
-  loadFromStorage,
-  loadNumberFromStorage,
-  saveNumberToStorage,
-  saveToStorage,
-} from "@/lib/storage";
+import { loadFromStorage, loadNumberFromStorage, saveNumberToStorage, saveToStorage } from "@/lib/storage";
 
 const LOG_PANEL_HEIGHT_KEY = "log_panel_height";
 const BACKGROUND_PREFERENCES_KEY = "background_preferences";
@@ -26,8 +21,7 @@ const DEFAULT_BACKGROUND_PREFERENCES: BackgroundPreferences = {
 function loadBackgroundPreferences(): BackgroundPreferences {
   const saved = loadFromStorage(BACKGROUND_PREFERENCES_KEY, DEFAULT_BACKGROUND_PREFERENCES);
   const backgroundMode: BackgroundMode = saved.backgroundMode === "custom" ? "custom" : "default";
-  const backgroundImagePath =
-    typeof saved.backgroundImagePath === "string" ? saved.backgroundImagePath : "";
+  const backgroundImagePath = typeof saved.backgroundImagePath === "string" ? saved.backgroundImagePath : "";
   const rawOpacity = Number(saved.backgroundImageOpacity);
   const backgroundImageOpacity =
     Number.isFinite(rawOpacity) && rawOpacity >= 0 && rawOpacity <= 1
@@ -66,11 +60,7 @@ export const useUiPreferencesStore = create<UiPreferencesState>((set) => {
   };
 
   return {
-    logPanelHeight: loadNumberFromStorage(
-      LOG_PANEL_HEIGHT_KEY,
-      104,
-      (value) => value >= 80 && value <= 600
-    ),
+    logPanelHeight: loadNumberFromStorage(LOG_PANEL_HEIGHT_KEY, 104, (value) => value >= 80 && value <= 600),
     ...backgroundPreferences,
     setLogPanelHeight: (height) => {
       saveNumberToStorage(LOG_PANEL_HEIGHT_KEY, height);

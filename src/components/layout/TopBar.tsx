@@ -111,10 +111,7 @@ export function TopBar() {
             <div className="toolbar-chip flex items-center gap-2 px-3 py-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full bg-primary transition-all duration-200"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="h-full bg-primary transition-all duration-200" style={{ width: `${progress}%` }} />
               </div>
               <span className="w-9 text-xs font-medium text-primary">{Math.round(progress)}%</span>
             </div>
@@ -135,14 +132,8 @@ export function TopBar() {
         )}
 
         <div className="toolbar-chip flex items-center gap-1.5 px-3 py-2">
-          <div
-            className={`h-2 w-2 rounded-full ${
-              connected ? "bg-green-500" : "bg-red-500"
-            }`}
-          />
-          <span className={connected ? "text-green-600" : "text-red-500"}>
-            {connected ? "已连接" : "未连接"}
-          </span>
+          <div className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
+          <span className={connected ? "text-green-600" : "text-red-500"}>{connected ? "已连接" : "未连接"}</span>
         </div>
       </div>
     </header>

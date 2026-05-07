@@ -149,10 +149,7 @@ interface BluetoothState {
   reset: () => void;
 }
 
-function findCharByProps(
-  services: BleService[],
-  pred: (c: BleCharacteristic) => boolean
-): string | null {
+function findCharByProps(services: BleService[], pred: (c: BleCharacteristic) => boolean): string | null {
   for (const s of services) {
     for (const c of s.characteristics) {
       if (pred(c)) return c.uuid;
@@ -162,11 +159,7 @@ function findCharByProps(
 }
 
 export const useBluetoothStore = create<BluetoothState>((set, get) => ({
-  connectionMode: loadStringFromStorage(
-    BLE_CONNECTION_MODE_KEY,
-    CONNECTION_MODE_VALUES,
-    "ble"
-  ),
+  connectionMode: loadStringFromStorage(BLE_CONNECTION_MODE_KEY, CONNECTION_MODE_VALUES, "ble"),
 
   sppPorts: [],
   sppLoading: false,
@@ -198,11 +191,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
 
   viewMode: loadStringFromStorage(BLE_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
   splitRatio: loadNumberFromStorage(BLE_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
-  splitOrientation: loadStringFromStorage(
-    BLE_SPLIT_ORIENTATION_KEY,
-    SPLIT_ORIENTATION_VALUES,
-    "vertical"
-  ),
+  splitOrientation: loadStringFromStorage(BLE_SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
 
   chartData: [],
   chartConfig: migrateChartConfig(loadFromStorage(BLE_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
@@ -221,8 +210,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
 
   setScanning: (scanning) => set({ scanning }),
   setConnecting: (connecting) => set({ connecting }),
-  setConnected: (connected) =>
-    set((state) => ({ connected, running: connected ? state.running : false })),
+  setConnected: (connected) => set((state) => ({ connected, running: connected ? state.running : false })),
   setRunning: (running) => set({ running, error: null }),
   setError: (error) => set({ error }),
 
@@ -233,12 +221,8 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
     const state = get();
     // 服务变更时若当前选择已不存在，则清空
     const flatChars = services.flatMap((s) => s.characteristics);
-    const notifyExists = state.notifyCharUuid
-      ? flatChars.some((c) => c.uuid === state.notifyCharUuid)
-      : false;
-    const writeExists = state.writeCharUuid
-      ? flatChars.some((c) => c.uuid === state.writeCharUuid)
-      : false;
+    const notifyExists = state.notifyCharUuid ? flatChars.some((c) => c.uuid === state.notifyCharUuid) : false;
+    const writeExists = state.writeCharUuid ? flatChars.some((c) => c.uuid === state.writeCharUuid) : false;
     set({
       services,
       notifyCharUuid: notifyExists ? state.notifyCharUuid : null,
@@ -361,8 +345,5 @@ export function pickDefaultNotifyChar(services: BleService[]): string | null {
 
 /** 找到第一个支持 write 的特征 UUID */
 export function pickDefaultWriteChar(services: BleService[]): string | null {
-  return findCharByProps(
-    services,
-    (c) => c.properties.write || c.properties.write_without_response
-  );
+  return findCharByProps(services, (c) => c.properties.write || c.properties.write_without_response);
 }

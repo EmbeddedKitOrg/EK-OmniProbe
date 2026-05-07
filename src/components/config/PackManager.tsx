@@ -1,19 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
@@ -27,7 +17,18 @@ import {
 } from "@/lib/tauri";
 import type { PackInfo, PackScanReport, AlgorithmStat, DeviceScanResult } from "@/lib/types";
 import { useLogStore } from "@/stores/logStore";
-import { Package, Upload, Trash2, ChevronDown, ChevronRight, FileText, AlertCircle, CheckCircle, FolderOpen, Settings } from "lucide-react";
+import {
+  Package,
+  Upload,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+  FolderOpen,
+  Settings,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Pack扫描进度类型
@@ -179,33 +180,36 @@ export function PackManager() {
   };
 
   // Import multiple Pack files
-  const importMultiplePacks = useCallback(async (filePaths: string[]) => {
-    if (filePaths.length === 0) return;
+  const importMultiplePacks = useCallback(
+    async (filePaths: string[]) => {
+      if (filePaths.length === 0) return;
 
-    setImporting(true);
-    addLog("info", `开始导入 ${filePaths.length} 个Pack文件...`);
+      setImporting(true);
+      addLog("info", `开始导入 ${filePaths.length} 个Pack文件...`);
 
-    let successCount = 0;
-    let failCount = 0;
+      let successCount = 0;
+      let failCount = 0;
 
-    for (const filePath of filePaths) {
-      try {
-        const packInfo = await importPack(filePath);
-        addLog("success", `成功导入: ${packInfo.name} v${packInfo.version}`);
-        successCount++;
-      } catch (error) {
-        addLog("error", `导入失败 ${filePath.split(/[\\/]/).pop()}: ${error}`);
-        failCount++;
+      for (const filePath of filePaths) {
+        try {
+          const packInfo = await importPack(filePath);
+          addLog("success", `成功导入: ${packInfo.name} v${packInfo.version}`);
+          successCount++;
+        } catch (error) {
+          addLog("error", `导入失败 ${filePath.split(/[\\/]/).pop()}: ${error}`);
+          failCount++;
+        }
       }
-    }
 
-    if (successCount > 0) {
-      addLog("info", `导入完成: ${successCount} 成功, ${failCount} 失败`);
-      await loadPacks();
-    }
+      if (successCount > 0) {
+        addLog("info", `导入完成: ${successCount} 成功, ${failCount} 失败`);
+        await loadPacks();
+      }
 
-    setImporting(false);
-  }, [addLog]);
+      setImporting(false);
+    },
+    [addLog]
+  );
 
   // Import Pack file via dialog (supports multiple files)
   const handleImport = async () => {
@@ -256,21 +260,19 @@ export function PackManager() {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className={cn(
-        "transition-all duration-200",
-        isDragging && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-      )}>
+      <Card
+        className={cn(
+          "transition-all duration-200",
+          isDragging && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+        )}
+      >
         <CollapsibleTrigger asChild>
           <CardHeader className="py-3 cursor-pointer hover:bg-accent/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
                 <CardTitle className="text-sm">CMSIS-Pack 管理</CardTitle>
-                {packs.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    ({packs.length})
-                  </span>
-                )}
+                {packs.length > 0 && <span className="text-xs text-muted-foreground">({packs.length})</span>}
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -315,21 +317,11 @@ export function PackManager() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Pack存储目录</span>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleChangeDirectory}
-                      className="h-7 gap-1"
-                    >
+                    <Button size="sm" variant="outline" onClick={handleChangeDirectory} className="h-7 gap-1">
                       <FolderOpen className="h-3 w-3" />
                       更改目录
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleResetDirectory}
-                      className="h-7"
-                    >
+                    <Button size="sm" variant="outline" onClick={handleResetDirectory} className="h-7">
                       重置
                     </Button>
                   </div>
@@ -337,9 +329,7 @@ export function PackManager() {
                 <div className="text-xs text-muted-foreground break-all bg-background/50 p-2 rounded">
                   {packsDirectory || "加载中..."}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  更改Pack目录后需要重启应用才能生效
-                </p>
+                <p className="text-xs text-muted-foreground">更改Pack目录后需要重启应用才能生效</p>
               </div>
             )}
 
@@ -356,30 +346,26 @@ export function PackManager() {
               <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">扫描进度</span>
-                  <span className="text-xs text-muted-foreground">
-                    {Math.round(scanProgress.progress * 100)}%
-                  </span>
+                  <span className="text-xs text-muted-foreground">{Math.round(scanProgress.progress * 100)}%</span>
                 </div>
                 <Progress value={scanProgress.progress * 100} className="h-2" />
                 <div className="text-xs text-muted-foreground space-y-1">
                   <div className="flex items-center justify-between">
                     <span>阶段: {getPhaseLabel(scanProgress.phase)}</span>
                     {scanProgress.current > 0 && scanProgress.total > 0 && (
-                      <span>{scanProgress.current}/{scanProgress.total}</span>
+                      <span>
+                        {scanProgress.current}/{scanProgress.total}
+                      </span>
                     )}
                   </div>
-                  {scanProgress.current_item && (
-                    <div className="truncate">当前: {scanProgress.current_item}</div>
-                  )}
+                  {scanProgress.current_item && <div className="truncate">当前: {scanProgress.current_item}</div>}
                   <div>{scanProgress.message}</div>
                 </div>
               </div>
             )}
 
             {loading ? (
-              <div className="text-center text-sm text-muted-foreground py-4">
-                加载中...
-              </div>
+              <div className="text-center text-sm text-muted-foreground py-4">加载中...</div>
             ) : packs.length === 0 && !isDragging ? (
               <div className="text-center text-sm text-muted-foreground py-4">
                 <p>暂无已导入的Pack包</p>
@@ -387,10 +373,7 @@ export function PackManager() {
               </div>
             ) : (
               packs.map((pack) => (
-                <div
-                  key={pack.name}
-                  className="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors"
-                >
+                <div key={pack.name} className="border rounded-lg p-3 space-y-2 hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="font-medium text-sm">{pack.name}</div>
@@ -427,13 +410,9 @@ export function PackManager() {
                     </div>
                   </div>
                   {pack.description && (
-                    <div className="text-xs text-muted-foreground line-clamp-2">
-                      {pack.description}
-                    </div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">{pack.description}</div>
                   )}
-                  <div className="text-xs text-muted-foreground">
-                    包含 {pack.device_count} 个设备
-                  </div>
+                  <div className="text-xs text-muted-foreground">包含 {pack.device_count} 个设备</div>
                 </div>
               ))
             )}
@@ -460,15 +439,11 @@ export function PackManager() {
                   <div className="text-xs text-muted-foreground">总设备数</div>
                 </div>
                 <div className="glass-section rounded-2xl p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {selectedPackReport.devices_with_algo}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{selectedPackReport.devices_with_algo}</div>
                   <div className="text-xs text-muted-foreground">有算法</div>
                 </div>
                 <div className="glass-section rounded-2xl p-3 text-center">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {selectedPackReport.devices_without_algo}
-                  </div>
+                  <div className="text-2xl font-bold text-yellow-600">{selectedPackReport.devices_without_algo}</div>
                   <div className="text-xs text-muted-foreground">无算法</div>
                 </div>
               </div>
@@ -479,7 +454,10 @@ export function PackManager() {
                   <h3 className="text-sm font-medium">算法使用统计</h3>
                   <div className="space-y-1">
                     {selectedPackReport.algorithm_stats.slice(0, 5).map((stat: AlgorithmStat) => (
-                      <div key={stat.algorithm_name} className="glass-section flex items-center justify-between rounded-2xl p-2 text-xs">
+                      <div
+                        key={stat.algorithm_name}
+                        className="glass-section flex items-center justify-between rounded-2xl p-2 text-xs"
+                      >
                         <span className="font-mono">{stat.algorithm_name}</span>
                         <span className="text-muted-foreground">{stat.device_count} 个设备</span>
                       </div>

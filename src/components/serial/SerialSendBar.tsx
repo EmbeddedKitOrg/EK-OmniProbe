@@ -24,15 +24,8 @@ function getLineEndingText(lineEnding: LineEnding) {
 }
 
 export function SerialSendBar() {
-  const {
-    connected,
-    sendSettings,
-    terminalSettings,
-    textViewMode,
-    setSendSettings,
-    addLine,
-    appendTerminalChunk,
-  } = useSerialStore();
+  const { connected, sendSettings, terminalSettings, textViewMode, setSendSettings, addLine, appendTerminalChunk } =
+    useSerialStore();
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
@@ -227,12 +220,7 @@ export function SerialSendBar() {
       <div className="flex items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1"
-              title="发送选项"
-            >
+            <Button size="sm" variant="outline" className="gap-1" title="发送选项">
               <Settings2 className="h-3.5 w-3.5" />
               选项
             </Button>
@@ -243,7 +231,8 @@ export function SerialSendBar() {
                 <div>
                   <div className="text-sm font-medium text-foreground">发送选项</div>
                   <div className="text-xs text-muted-foreground">
-                    {sendSettings.encoding.toUpperCase()} · {sendSettings.lineEnding.toUpperCase()} · {sendSettings.hexMode ? "HEX" : "文本"}
+                    {sendSettings.encoding.toUpperCase()} · {sendSettings.lineEnding.toUpperCase()} ·{" "}
+                    {sendSettings.hexMode ? "HEX" : "文本"}
                   </div>
                 </div>
                 <Button
@@ -264,13 +253,7 @@ export function SerialSendBar() {
                     <History className="h-3.5 w-3.5" />
                     发送历史
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={clearHistory}
-                    title="清空历史"
-                  >
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={clearHistory} title="清空历史">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -287,9 +270,7 @@ export function SerialSendBar() {
                       </button>
                     ))
                   ) : (
-                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                      暂无历史记录
-                    </div>
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">暂无历史记录</div>
                   )}
                 </div>
               </div>
@@ -323,9 +304,7 @@ export function SerialSendBar() {
         </Popover>
 
         {sendSettings.hexMode && (
-          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-            HEX
-          </span>
+          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">HEX</span>
         )}
 
         {textViewMode === "terminal" && (

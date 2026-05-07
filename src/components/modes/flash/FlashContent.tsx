@@ -23,7 +23,7 @@ export function FlashContent() {
     resetAfterFlash,
     useCustomAddress,
     customFlashAddress,
-    customFlashSize
+    customFlashSize,
   } = useFlashStore();
   const setVerifyAfterFlash = useFlashStore((state) => state.setVerifyAfterFlash);
   const setResetAfterFlash = useFlashStore((state) => state.setResetAfterFlash);
@@ -67,9 +67,7 @@ export function FlashContent() {
                 )}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground text-center py-4">
-                请选择目标芯片
-              </div>
+              <div className="text-sm text-muted-foreground text-center py-4">请选择目标芯片</div>
             )}
           </CardContent>
         </Card>
@@ -109,21 +107,15 @@ export function FlashContent() {
                             {region.kind}
                           </span>
                         </td>
-                        <td className="text-right font-mono py-1">
-                          {formatHex(region.address)}
-                        </td>
-                        <td className="text-right font-mono py-1">
-                          {formatBytes(region.size)}
-                        </td>
+                        <td className="text-right font-mono py-1">{formatHex(region.address)}</td>
+                        <td className="text-right font-mono py-1">{formatBytes(region.size)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground text-center py-4">
-                无Flash映射信息
-              </div>
+              <div className="text-sm text-muted-foreground text-center py-4">无Flash映射信息</div>
             )}
           </CardContent>
         </Card>
@@ -151,9 +143,7 @@ export function FlashContent() {
                   >
                     <span className="font-mono text-xs">{algo.name}</span>
                     <div className="flex items-center gap-2">
-                      {algo.default && (
-                        <span className="text-xs text-green-500">默认</span>
-                      )}
+                      {algo.default && <span className="text-xs text-green-500">默认</span>}
                       {selectedFlashAlgorithm === algo.name && (
                         <span className="text-xs text-primary font-medium">✓</span>
                       )}
@@ -162,9 +152,7 @@ export function FlashContent() {
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground text-center py-4">
-                无烧录算法
-              </div>
+              <div className="text-sm text-muted-foreground text-center py-4">无烧录算法</div>
             )}
           </CardContent>
         </Card>
@@ -227,13 +215,11 @@ export function FlashContent() {
                   <div className="space-y-2 mt-2">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs text-muted-foreground">
-                          IROM1 起始地址
-                        </label>
+                        <label className="text-xs text-muted-foreground">IROM1 起始地址</label>
                         {chipInfo && chipInfo.memory_regions.length > 0 && (
                           <button
                             onClick={() => {
-                              const flashRegion = chipInfo.memory_regions.find(r => r.kind === "Flash");
+                              const flashRegion = chipInfo.memory_regions.find((r) => r.kind === "Flash");
                               if (flashRegion) {
                                 setCustomFlashAddress(flashRegion.address);
                                 setCustomFlashSize(flashRegion.size);
@@ -247,9 +233,9 @@ export function FlashContent() {
                       </div>
                       <input
                         type="text"
-                        value={`0x${customFlashAddress.toString(16).toUpperCase().padStart(8, '0')}`}
+                        value={`0x${customFlashAddress.toString(16).toUpperCase().padStart(8, "0")}`}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/^0x/i, '');
+                          const value = e.target.value.replace(/^0x/i, "");
                           const parsed = parseInt(value, 16);
                           if (!isNaN(parsed)) {
                             setCustomFlashAddress(parsed);
@@ -261,14 +247,12 @@ export function FlashContent() {
                     </div>
 
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">
-                        IROM1 大小
-                      </label>
+                      <label className="text-xs text-muted-foreground block mb-1">IROM1 大小</label>
                       <input
                         type="text"
                         value={`0x${customFlashSize.toString(16).toUpperCase()}`}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/^0x/i, '');
+                          const value = e.target.value.replace(/^0x/i, "");
                           const parsed = parseInt(value, 16);
                           if (!isNaN(parsed)) {
                             setCustomFlashSize(parsed);
@@ -278,7 +262,7 @@ export function FlashContent() {
                         placeholder="0x100000"
                       />
                       <div className="text-xs text-muted-foreground mt-1">
-                        {customFlashSize > 0 ? `${formatBytes(customFlashSize)} (${customFlashSize} 字节)` : '未设置'}
+                        {customFlashSize > 0 ? `${formatBytes(customFlashSize)} (${customFlashSize} 字节)` : "未设置"}
                       </div>
                     </div>
 
@@ -286,9 +270,7 @@ export function FlashContent() {
                       <div className="font-medium mb-1">参考 (Keil风格):</div>
                       <div>• IROM1: 0x08000000, 0x100000 (1MB)</div>
                       <div>• IRAM1: 0x20000000, 0x1C000 (112KB)</div>
-                      <div className="mt-1 text-[10px]">
-                        注：烧录时仅需配置ROM区域
-                      </div>
+                      <div className="mt-1 text-[10px]">注：烧录时仅需配置ROM区域</div>
                     </div>
                   </div>
                 )}

@@ -1,17 +1,7 @@
 import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Trash2,
-  Search,
-  FileText,
-  Binary,
-  SplitSquareHorizontal,
-  BarChart3,
-  Waves,
-  Pause,
-  Play,
-} from "lucide-react";
+import { Trash2, Search, FileText, Binary, SplitSquareHorizontal, BarChart3, Waves, Pause, Play } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import type { SignalDomain } from "@/lib/chartTypes";
 
@@ -84,9 +74,7 @@ export function BleToolbar() {
         <TooltipWrapper tooltip={<p>时域波形</p>}>
           <Button
             size="sm"
-            variant={
-              chartConfig.enabled && chartConfig.signalDomain !== "fft" ? "default" : "ghost"
-            }
+            variant={chartConfig.enabled && chartConfig.signalDomain !== "fft" ? "default" : "ghost"}
             className="h-7 gap-1 rounded-full px-2 text-xs"
             onClick={() => setSignalDomain("time")}
           >
@@ -112,9 +100,7 @@ export function BleToolbar() {
           size="sm"
           variant="ghost"
           className="h-7 gap-1 rounded-full px-2 text-xs"
-          onClick={() =>
-            setSplitOrientation(splitOrientation === "vertical" ? "horizontal" : "vertical")
-          }
+          onClick={() => setSplitOrientation(splitOrientation === "vertical" ? "horizontal" : "vertical")}
         >
           {splitOrientation === "vertical" ? "上下" : "左右"}
         </Button>

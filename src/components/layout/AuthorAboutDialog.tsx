@@ -26,12 +26,7 @@ export function AuthorAboutDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2 rounded-full px-4"
-          title="关于作者"
-        >
+        <Button size="sm" variant="outline" className="gap-2 rounded-full px-4" title="关于作者">
           <BadgeInfo className="h-4 w-4" />
           <span>关于作者</span>
         </Button>
@@ -49,9 +44,7 @@ export function AuthorAboutDialog() {
 
         <div className="grid gap-4 pt-2">
           <section className="rounded-[24px] border border-border/60 bg-white/70 p-5 shadow-[0_12px_26px_rgba(73,93,142,0.08)]">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              作者
-            </div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">作者</div>
             <div className="mt-2 text-2xl font-semibold text-foreground">{AUTHOR_NAME}</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               专注嵌入式工具链与桌面端开发，主导 EK-OmniProbe 的功能设计与核心实现。
@@ -71,9 +64,7 @@ export function AuthorAboutDialog() {
                 </div>
                 <ExternalLink className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
               </div>
-              <div className="mt-2 break-all text-xs leading-5 text-muted-foreground">
-                {BILIBILI_URL}
-              </div>
+              <div className="mt-2 break-all text-xs leading-5 text-muted-foreground">{BILIBILI_URL}</div>
             </button>
 
             <button
@@ -88,9 +79,7 @@ export function AuthorAboutDialog() {
                 </div>
                 <ExternalLink className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
               </div>
-              <div className="mt-2 break-all text-xs leading-5 text-muted-foreground">
-                {PROJECT_GITHUB_URL}
-              </div>
+              <div className="mt-2 break-all text-xs leading-5 text-muted-foreground">{PROJECT_GITHUB_URL}</div>
             </button>
           </section>
         </div>

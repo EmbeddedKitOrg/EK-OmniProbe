@@ -5,18 +5,13 @@ import { ArrowLeftRight, MonitorUp, X } from "lucide-react";
 import { ChartViewer } from "./ChartViewer";
 import type { ChartWorkspaceSnapshot, ChartWorkspaceSource } from "@/lib/chartWorkspace";
 import { CHART_WORKSPACE_SNAPSHOT_EVENT } from "@/lib/chartWorkspace";
-import {
-  dispatchChartWorkspaceAction,
-  notifyChartWorkspaceReady,
-} from "@/hooks/useChartWorkspaceHost";
+import { dispatchChartWorkspaceAction, notifyChartWorkspaceReady } from "@/hooks/useChartWorkspaceHost";
 
 interface ChartWorkspaceWindowPageProps {
   source: ChartWorkspaceSource;
 }
 
-export function ChartWorkspaceWindowPage({
-  source,
-}: ChartWorkspaceWindowPageProps) {
+export function ChartWorkspaceWindowPage({ source }: ChartWorkspaceWindowPageProps) {
   const currentWindow = useMemo(() => getCurrentWebviewWindow(), []);
   const [snapshot, setSnapshot] = useState<ChartWorkspaceSnapshot | null>(null);
   const restoringRef = useRef(false);

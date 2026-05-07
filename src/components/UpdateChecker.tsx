@@ -20,11 +20,7 @@ interface UpdateCheckerProps {
   trigger?: React.ReactNode;
 }
 
-export function UpdateChecker({
-  autoCheck = true,
-  showTrigger = true,
-  trigger,
-}: UpdateCheckerProps) {
+export function UpdateChecker({ autoCheck = true, showTrigger = true, trigger }: UpdateCheckerProps) {
   const [checking, setChecking] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -89,9 +85,7 @@ export function UpdateChecker({
           case "Progress": {
             const data = event.data as { chunkLength: number; contentLength: number };
             downloadedBytesRef.current += data.chunkLength;
-            const progress = data.contentLength > 0
-              ? (downloadedBytesRef.current / data.contentLength) * 100
-              : 0;
+            const progress = data.contentLength > 0 ? (downloadedBytesRef.current / data.contentLength) * 100 : 0;
             setDownloadProgress(Math.min(progress, 100));
             break;
           }
@@ -116,8 +110,8 @@ export function UpdateChecker({
 
   return (
     <>
-      {showTrigger && (
-        trigger && isValidElement(trigger) ? (
+      {showTrigger &&
+        (trigger && isValidElement(trigger) ? (
           cloneElement(trigger, {
             onClick: () => checkForUpdates(false),
             disabled: checking || downloading || (trigger.props as { disabled?: boolean }).disabled,
@@ -133,8 +127,7 @@ export function UpdateChecker({
             <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
             {checking ? "检查中..." : "检查更新"}
           </Button>
-        )
-      )}
+        ))}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -179,25 +172,15 @@ export function UpdateChecker({
           {downloading && (
             <div className="space-y-2">
               <Progress value={downloadProgress} className="h-2" />
-              <p className="text-xs text-center text-muted-foreground">
-                {Math.round(downloadProgress)}%
-              </p>
+              <p className="text-xs text-center text-muted-foreground">{Math.round(downloadProgress)}%</p>
             </div>
           )}
 
           <DialogFooter className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={downloading}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={downloading}>
               稍后更新
             </Button>
-            <Button
-              onClick={downloadAndInstall}
-              disabled={downloading}
-              className="gap-2"
-            >
+            <Button onClick={downloadAndInstall} disabled={downloading} className="gap-2">
               {downloading ? (
                 <>
                   <Download className="h-4 w-4 animate-bounce" />

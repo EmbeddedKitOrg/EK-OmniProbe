@@ -90,12 +90,7 @@ export function useSerialEvents() {
       batchStatsRef.current.bytes_received += data.length;
 
       // Parse data to lines
-      const { lines, pending } = parseSerialData(
-        data,
-        timestamp,
-        direction as "rx" | "tx",
-        pendingBufferRef.current
-      );
+      const { lines, pending } = parseSerialData(data, timestamp, direction as "rx" | "tx", pendingBufferRef.current);
       pendingBufferRef.current = pending;
 
       if (lines.length > 0) {
@@ -169,4 +164,3 @@ export function useSerialStats() {
     bytesSentFormatted: formatBytes(stats.bytes_sent),
   };
 }
-

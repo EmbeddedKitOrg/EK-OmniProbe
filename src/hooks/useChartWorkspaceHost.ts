@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { emit, emitTo, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type {
-  ChartWorkspaceAction,
-  ChartWorkspaceReadyPayload,
-  ChartWorkspaceSnapshot,
-} from "@/lib/chartWorkspace";
+import type { ChartWorkspaceAction, ChartWorkspaceReadyPayload, ChartWorkspaceSnapshot } from "@/lib/chartWorkspace";
 import {
   CHART_WORKSPACE_ACTION_EVENT,
   CHART_WORKSPACE_READY_EVENT,
@@ -107,9 +103,7 @@ export function useChartWorkspaceHost({
       openingRef.current = false;
       debugLog("独立窗口创建成功");
       setDetached(source, true);
-      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot).catch(
-        () => undefined
-      );
+      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot).catch(() => undefined);
     });
 
     void popup.once("tauri://error", (event) => {
@@ -138,43 +132,31 @@ export function useChartWorkspaceHost({
     let actionUnlisten: (() => void) | undefined;
 
     const setup = async () => {
-      readyUnlisten = await listen<ChartWorkspaceReadyPayload>(
-        CHART_WORKSPACE_READY_EVENT,
-        ({ payload }) => {
-          if (payload.source !== source || !detachedRef.current) return;
-          debugLog("独立窗口已就绪，开始同步快照");
-          void emitTo(
-            windowLabel,
-            CHART_WORKSPACE_SNAPSHOT_EVENT,
-            snapshotRef.current
-          ).catch(
-            () => undefined
-          );
-        }
-      );
+      readyUnlisten = await listen<ChartWorkspaceReadyPayload>(CHART_WORKSPACE_READY_EVENT, ({ payload }) => {
+        if (payload.source !== source || !detachedRef.current) return;
+        debugLog("独立窗口已就绪，开始同步快照");
+        void emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
+      });
 
-      actionUnlisten = await listen<ChartWorkspaceAction>(
-        CHART_WORKSPACE_ACTION_EVENT,
-        ({ payload }) => {
-          if (payload.source !== source) return;
+      actionUnlisten = await listen<ChartWorkspaceAction>(CHART_WORKSPACE_ACTION_EVENT, ({ payload }) => {
+        if (payload.source !== source) return;
 
-          switch (payload.type) {
-            case "set-paused":
-              setChartPaused(payload.paused);
-              break;
-            case "clear-data":
-              clearChartData();
-              break;
-            case "set-config":
-              setChartConfig(payload.config);
-              break;
-            case "restore-inline":
-              debugLog("收到独立窗口回收请求");
-              void restoreInline();
-              break;
-          }
+        switch (payload.type) {
+          case "set-paused":
+            setChartPaused(payload.paused);
+            break;
+          case "clear-data":
+            clearChartData();
+            break;
+          case "set-config":
+            setChartConfig(payload.config);
+            break;
+          case "restore-inline":
+            debugLog("收到独立窗口回收请求");
+            void restoreInline();
+            break;
         }
-      );
+      });
     };
 
     void setup();

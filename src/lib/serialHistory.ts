@@ -21,10 +21,7 @@ export function loadSendHistory(): string[] {
 
 export function saveSendHistory(history: string[]): void {
   try {
-    localStorage.setItem(
-      SEND_HISTORY_KEY,
-      JSON.stringify(history.slice(0, MAX_SEND_HISTORY))
-    );
+    localStorage.setItem(SEND_HISTORY_KEY, JSON.stringify(history.slice(0, MAX_SEND_HISTORY)));
   } catch {
     // silent fail
   }

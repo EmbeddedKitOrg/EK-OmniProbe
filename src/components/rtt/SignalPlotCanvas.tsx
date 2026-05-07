@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
-import type {
-  ChartConfig,
-  ChartDataPoint,
-  ChartSeries,
-  SignalDomain,
-} from "@/lib/chartTypes";
+import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
@@ -146,8 +141,12 @@ function fftInPlace(re: Float64Array, im: Float64Array, size: number) {
     }
     j ^= bit;
     if (i < j) {
-      const tr = re[i]; re[i] = re[j]; re[j] = tr;
-      const ti = im[i]; im[i] = im[j]; im[j] = ti;
+      const tr = re[i];
+      re[i] = re[j];
+      re[j] = tr;
+      const ti = im[i];
+      im[i] = im[j];
+      im[j] = ti;
     }
   }
 
@@ -206,13 +205,7 @@ function computeSpectrum(values: number[], sampleRateHz: number) {
   return result;
 }
 
-export function SignalPlotCanvas({
-  chartData,
-  series,
-  chartConfig,
-  domain,
-  className,
-}: SignalPlotCanvasProps) {
+export function SignalPlotCanvas({ chartData, series, chartConfig, domain, className }: SignalPlotCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -239,10 +232,7 @@ export function SignalPlotCanvas({
     startYOffset: 0,
   });
 
-  const visibleSeries = useMemo(
-    () => series.filter((item) => item.visible),
-    [series]
-  );
+  const visibleSeries = useMemo(() => series.filter((item) => item.visible), [series]);
 
   const effectiveSampleRate = useMemo(
     () => estimateSampleRate(chartData, chartConfig.sampleRateHz),
@@ -251,9 +241,7 @@ export function SignalPlotCanvas({
 
   const normalizedData = useMemo<NormalizedPoint[]>(() => {
     if (chartData.length === 0) return [];
-    const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate)
-      ? effectiveSampleRate
-      : 1;
+    const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate) ? effectiveSampleRate : 1;
 
     return chartData.map((point, index) => ({
       index,
@@ -271,7 +259,11 @@ export function SignalPlotCanvas({
     const latestSec = normalizedData[normalizedData.length - 1].timeSec;
     const totalDurationSec = Math.max(latestSec, 0.001);
     const baseVisibleDurationSec = Math.max(totalDurationSec * 1.05, 0.05);
-    const visibleDurationSec = clamp(baseVisibleDurationSec / timeZoom, 0.0005, Math.max(baseVisibleDurationSec * 1.5, 0.05));
+    const visibleDurationSec = clamp(
+      baseVisibleDurationSec / timeZoom,
+      0.0005,
+      Math.max(baseVisibleDurationSec * 1.5, 0.05)
+    );
     const maxPanSec = Math.max(totalDurationSec - visibleDurationSec, 0);
     const clampedPanSec = clamp(timePanSec, 0, maxPanSec);
     const startSec = Math.max(latestSec - clampedPanSec - visibleDurationSec, 0);
@@ -321,29 +313,15 @@ export function SignalPlotCanvas({
       yMin: center - range / 2,
       yMax: center + range / 2,
     };
-  }, [
-    chartConfig.visiblePointLimit,
-    normalizedData,
-    timePanSec,
-    timeZoom,
-    visibleSeries,
-    yOffset,
-    yZoom,
-  ]);
+  }, [chartConfig.visiblePointLimit, normalizedData, timePanSec, timeZoom, visibleSeries, yOffset, yZoom]);
 
   const fftView = useMemo<FftViewModel | null>(() => {
     if (normalizedData.length < 4 || visibleSeries.length === 0) return null;
 
     const windowSize = clamp(chartConfig.fftWindowSize || 1024, 32, 4096);
     const slice = normalizedData.slice(-windowSize);
-    const durationSec = Math.max(
-      (slice[slice.length - 1].timestamp - slice[0].timestamp) / 1000,
-      0.001
-    );
-    const sampleRateHz = Math.max(
-      effectiveSampleRate ?? Math.max((slice.length - 1) / durationSec, 1),
-      1
-    );
+    const durationSec = Math.max((slice[slice.length - 1].timestamp - slice[0].timestamp) / 1000, 0.001);
+    const sampleRateHz = Math.max(effectiveSampleRate ?? Math.max((slice.length - 1) / durationSec, 1), 1);
 
     const computedSeries: SpectrumSeries[] = [];
     for (const item of visibleSeries) {
@@ -488,16 +466,7 @@ export function SignalPlotCanvas({
       context.textAlign = "center";
       context.fillText("等待足够的数据样本…", size.width / 2, size.height / 2);
     }
-  }, [
-    chartConfig.showGrid,
-    chartConfig.showTooltip,
-    domain,
-    fftView,
-    hoverPoint,
-    size,
-    timeView,
-    visibleSeries,
-  ]);
+  }, [chartConfig.showGrid, chartConfig.showTooltip, domain, fftView, hoverPoint, size, timeView, visibleSeries]);
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -573,7 +542,10 @@ export function SignalPlotCanvas({
   return (
     <div
       ref={containerRef}
-      className={cn("relative h-full min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-white/80", className)}
+      className={cn(
+        "relative h-full min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-white/80",
+        className
+      )}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -603,7 +575,10 @@ export function SignalPlotCanvas({
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="font-medium text-foreground">{item.name}</span>
                 {Number.isFinite(latestValue) && (
-                  <span className="ml-2 text-muted-foreground">{formatChartNumber(latestValue as number)}{item.unit ? ` ${item.unit}` : ""}</span>
+                  <span className="ml-2 text-muted-foreground">
+                    {formatChartNumber(latestValue as number)}
+                    {item.unit ? ` ${item.unit}` : ""}
+                  </span>
                 )}
               </div>
             );
@@ -665,7 +640,7 @@ function drawTimeChart(
       }
 
       const x = MARGIN.left + ((point.timeSec - startSec) / (endSec - startSec || 1)) * plotWidth;
-      const y = MARGIN.top + (1 - ((value - yMin) / (yMax - yMin || 1))) * plotHeight;
+      const y = MARGIN.top + (1 - (value - yMin) / (yMax - yMin || 1)) * plotHeight;
 
       if (!started) {
         context.moveTo(x, y);
@@ -678,7 +653,14 @@ function drawTimeChart(
     context.stroke();
   }
 
-  if (showTooltip && hoverPoint && hoverPoint.x >= MARGIN.left && hoverPoint.x <= size.width - MARGIN.right && hoverPoint.y >= MARGIN.top && hoverPoint.y <= size.height - MARGIN.bottom) {
+  if (
+    showTooltip &&
+    hoverPoint &&
+    hoverPoint.x >= MARGIN.left &&
+    hoverPoint.x <= size.width - MARGIN.right &&
+    hoverPoint.y >= MARGIN.top &&
+    hoverPoint.y <= size.height - MARGIN.bottom
+  ) {
     const hoverTimeSec = startSec + ((hoverPoint.x - MARGIN.left) / plotWidth) * visibleDurationSec;
     let nearestPoint = points[0];
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -690,19 +672,13 @@ function drawTimeChart(
       }
     }
     drawHoverLine(context, hoverPoint.x, hoverPoint.y, plotWidth, plotHeight);
-    drawTooltip(
-      context,
-      hoverPoint.x,
-      hoverPoint.y,
-      size,
-      [
-        `t = ${formatRelativeTime(nearestPoint.timeSec - latestSec, visibleDurationSec)}`,
-        ...visibleSeries.map((item) => {
-          const value = nearestPoint.values[item.key];
-          return `${item.name}: ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${item.unit ? ` ${item.unit}` : ""}`;
-        }),
-      ]
-    );
+    drawTooltip(context, hoverPoint.x, hoverPoint.y, size, [
+      `t = ${formatRelativeTime(nearestPoint.timeSec - latestSec, visibleDurationSec)}`,
+      ...visibleSeries.map((item) => {
+        const value = nearestPoint.values[item.key];
+        return `${item.name}: ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${item.unit ? ` ${item.unit}` : ""}`;
+      }),
+    ]);
   }
 
   context.restore();
@@ -752,7 +728,7 @@ function drawFftChart(
       const point = item.bins[bin];
       if (!point) continue;
       const x = MARGIN.left + ((point.freq - firstFreq) / freqRange) * plotWidth;
-      const y = MARGIN.top + (1 - ((point.magnitude - yMin) / (yMax - yMin || 1))) * plotHeight;
+      const y = MARGIN.top + (1 - (point.magnitude - yMin) / (yMax - yMin || 1)) * plotHeight;
 
       if (bin === startBin) {
         context.moveTo(x, y);
@@ -764,22 +740,23 @@ function drawFftChart(
     context.stroke();
   }
 
-  if (showTooltip && hoverPoint && hoverPoint.x >= MARGIN.left && hoverPoint.x <= size.width - MARGIN.right && hoverPoint.y >= MARGIN.top && hoverPoint.y <= size.height - MARGIN.bottom) {
+  if (
+    showTooltip &&
+    hoverPoint &&
+    hoverPoint.x >= MARGIN.left &&
+    hoverPoint.x <= size.width - MARGIN.right &&
+    hoverPoint.y >= MARGIN.top &&
+    hoverPoint.y <= size.height - MARGIN.bottom
+  ) {
     const ratio = (hoverPoint.x - MARGIN.left) / plotWidth;
     const hoverBin = clamp(Math.round(startBin + ratio * (endBin - startBin - 1)), startBin, endBin - 1);
     const freq = series[0]?.bins[hoverBin]?.freq ?? 0;
 
     drawHoverLine(context, hoverPoint.x, hoverPoint.y, plotWidth, plotHeight);
-    drawTooltip(
-      context,
-      hoverPoint.x,
-      hoverPoint.y,
-      size,
-      [
-        `f = ${freq.toFixed(freqRange < 100 ? 2 : 0)} Hz`,
-        ...series.map((item) => `${item.name}: ${item.bins[hoverBin]?.magnitude.toFixed(2) ?? "NaN"} dB`),
-      ]
-    );
+    drawTooltip(context, hoverPoint.x, hoverPoint.y, size, [
+      `f = ${freq.toFixed(freqRange < 100 ? 2 : 0)} Hz`,
+      ...series.map((item) => `${item.name}: ${item.bins[hoverBin]?.magnitude.toFixed(2) ?? "NaN"} dB`),
+    ]);
   }
 
   context.restore();
@@ -830,13 +807,7 @@ function drawGrid(
   context.restore();
 }
 
-function drawHoverLine(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  plotWidth: number,
-  plotHeight: number
-) {
+function drawHoverLine(context: CanvasRenderingContext2D, x: number, y: number, plotWidth: number, plotHeight: number) {
   context.save();
   context.strokeStyle = "rgba(28, 27, 31, 0.28)";
   context.lineWidth = 1;

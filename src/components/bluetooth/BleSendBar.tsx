@@ -3,13 +3,7 @@ import { Send, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
@@ -38,8 +32,7 @@ function withResponseFlag(value: "auto" | "yes" | "no"): boolean | null {
 }
 
 export function BleSendBar() {
-  const { connected, writeCharUuid, sendSettings, addLines, setSendSettings } =
-    useBluetoothStore();
+  const { connected, writeCharUuid, sendSettings, addLines, setSendSettings } = useBluetoothStore();
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
@@ -83,13 +76,7 @@ export function BleSendBar() {
           },
         ]);
       } else {
-        await bleWriteString(
-          writeCharUuid,
-          inputText,
-          sendSettings.encoding,
-          sendSettings.lineEnding,
-          wr
-        );
+        await bleWriteString(writeCharUuid, inputText, sendSettings.encoding, sendSettings.lineEnding, wr);
         const fullText = inputText + getLineEndingText(sendSettings.lineEnding);
         const bytes = Array.from(new TextEncoder().encode(fullText));
         addLines([
@@ -124,10 +111,7 @@ export function BleSendBar() {
         <PopoverContent className="w-72 space-y-3">
           <div className="flex items-center justify-between">
             <Label className="text-xs">HEX 模式</Label>
-            <Switch
-              checked={sendSettings.hexMode}
-              onCheckedChange={(v) => setSendSettings({ hexMode: v })}
-            />
+            <Switch checked={sendSettings.hexMode} onCheckedChange={(v) => setSendSettings({ hexMode: v })} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">编码</Label>
@@ -148,9 +132,7 @@ export function BleSendBar() {
             <Label className="text-xs">换行符</Label>
             <Select
               value={sendSettings.lineEnding}
-              onValueChange={(v) =>
-                setSendSettings({ lineEnding: v as "none" | "lf" | "crlf" | "cr" })
-              }
+              onValueChange={(v) => setSendSettings({ lineEnding: v as "none" | "lf" | "crlf" | "cr" })}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />
@@ -167,9 +149,7 @@ export function BleSendBar() {
             <Label className="text-xs">写入响应</Label>
             <Select
               value={sendSettings.withResponse}
-              onValueChange={(v) =>
-                setSendSettings({ withResponse: v as "auto" | "yes" | "no" })
-              }
+              onValueChange={(v) => setSendSettings({ withResponse: v as "auto" | "yes" | "no" })}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />

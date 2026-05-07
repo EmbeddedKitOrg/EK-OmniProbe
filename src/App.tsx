@@ -85,78 +85,78 @@ function MainApp() {
   // Ctrl+L:    清空当前模式数据
   // Ctrl+F:    聚焦当前模式搜索框
   // Space:     在 RTT 模式下切换图表暂停
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    const isInInput =
-      e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      const isInInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
 
-    if (e.ctrlKey && e.key === "1") {
-      if (isInInput) return;
-      e.preventDefault();
-      if (!flashing) setMode("flash");
-      return;
-    }
-
-    if (e.ctrlKey && e.key === "2") {
-      if (isInInput) return;
-      e.preventDefault();
-      if (!flashing) setMode("rtt");
-      return;
-    }
-
-    if (e.ctrlKey && e.key === "3") {
-      if (isInInput) return;
-      e.preventDefault();
-      if (!flashing) setMode("serial");
-      return;
-    }
-
-    if (e.ctrlKey && e.key === "4") {
-      if (isInInput) return;
-      e.preventDefault();
-      if (!flashing) setMode("bluetooth");
-      return;
-    }
-
-    // Ctrl+F：聚焦当前模式搜索框（即使在某些 input 中也允许，方便切焦点）
-    if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "f") {
-      const target = document.querySelector<HTMLInputElement>(
-        '[data-shortcut-search]:not([disabled])'
-      );
-      if (target) {
+      if (e.ctrlKey && e.key === "1") {
+        if (isInInput) return;
         e.preventDefault();
-        target.focus();
-        target.select();
+        if (!flashing) setMode("flash");
+        return;
       }
-      return;
-    }
 
-    if (isInInput) return;
-
-    // Ctrl+L：清空当前模式数据
-    if (e.ctrlKey && e.key.toLowerCase() === "l") {
-      e.preventDefault();
-      if (mode === "rtt") {
-        useRttStore.getState().clearLines();
-      } else if (mode === "serial") {
-        const serialState = useSerialStore.getState();
-        serialState.clearLines();
-        serialState.clearTerminalBuffer();
-      } else if (mode === "bluetooth") {
-        const bleState = useBluetoothStore.getState();
-        bleState.clearLines();
-        bleState.clearChartData();
+      if (e.ctrlKey && e.key === "2") {
+        if (isInInput) return;
+        e.preventDefault();
+        if (!flashing) setMode("rtt");
+        return;
       }
-      return;
-    }
 
-    // Space：在 RTT 模式下切换图表暂停
-    if (e.key === " " && mode === "rtt") {
-      e.preventDefault();
-      const rttState = useRttStore.getState();
-      rttState.setChartPaused(!rttState.chartPaused);
-      return;
-    }
-  }, [flashing, mode, setMode]);
+      if (e.ctrlKey && e.key === "3") {
+        if (isInInput) return;
+        e.preventDefault();
+        if (!flashing) setMode("serial");
+        return;
+      }
+
+      if (e.ctrlKey && e.key === "4") {
+        if (isInInput) return;
+        e.preventDefault();
+        if (!flashing) setMode("bluetooth");
+        return;
+      }
+
+      // Ctrl+F：聚焦当前模式搜索框（即使在某些 input 中也允许，方便切焦点）
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "f") {
+        const target = document.querySelector<HTMLInputElement>("[data-shortcut-search]:not([disabled])");
+        if (target) {
+          e.preventDefault();
+          target.focus();
+          target.select();
+        }
+        return;
+      }
+
+      if (isInInput) return;
+
+      // Ctrl+L：清空当前模式数据
+      if (e.ctrlKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        if (mode === "rtt") {
+          useRttStore.getState().clearLines();
+        } else if (mode === "serial") {
+          const serialState = useSerialStore.getState();
+          serialState.clearLines();
+          serialState.clearTerminalBuffer();
+        } else if (mode === "bluetooth") {
+          const bleState = useBluetoothStore.getState();
+          bleState.clearLines();
+          bleState.clearChartData();
+        }
+        return;
+      }
+
+      // Space：在 RTT 模式下切换图表暂停
+      if (e.key === " " && mode === "rtt") {
+        e.preventDefault();
+        const rttState = useRttStore.getState();
+        rttState.setChartPaused(!rttState.chartPaused);
+        return;
+      }
+    },
+    [flashing, mode, setMode]
+  );
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -188,13 +188,7 @@ function MainApp() {
 
   // Show countdown hint (last 5 seconds)
   useEffect(() => {
-    if (
-      autoDisconnect &&
-      connected &&
-      !rttRunning &&
-      timeRemainingSeconds > 0 &&
-      timeRemainingSeconds <= 5
-    ) {
+    if (autoDisconnect && connected && !rttRunning && timeRemainingSeconds > 0 && timeRemainingSeconds <= 5) {
       // Can add countdown UI hint here
       // e.g.: show a toast or display countdown in TopBar
     }
@@ -216,13 +210,7 @@ function MainApp() {
         <TopBar />
         <div className="mt-4 flex flex-1 gap-4 overflow-hidden">
           {/* Sidebar: switch based on mode */}
-          {mode === "serial" ? (
-            <SerialSidebar />
-          ) : mode === "bluetooth" ? (
-            <BleSidebar />
-          ) : (
-            <Sidebar />
-          )}
+          {mode === "serial" ? <SerialSidebar /> : mode === "bluetooth" ? <BleSidebar /> : <Sidebar />}
 
           {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
           <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">

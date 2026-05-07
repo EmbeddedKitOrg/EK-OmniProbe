@@ -5,7 +5,13 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
-import { loadFromStorage, saveToStorage, loadStringFromStorage, loadNumberFromStorage, saveNumberToStorage } from "@/lib/storage";
+import {
+  loadFromStorage,
+  saveToStorage,
+  loadStringFromStorage,
+  loadNumberFromStorage,
+  saveNumberToStorage,
+} from "@/lib/storage";
 
 // 图表配置持久化
 const CHART_CONFIG_KEY = "rtt_chart_config";
@@ -98,7 +104,6 @@ interface RttState {
   addBytes: (count: number) => void;
   reset: () => void;
 }
-
 
 export const useRttStore = create<RttState>((set) => ({
   // 初始状态
@@ -225,11 +230,9 @@ export const useRttStore = create<RttState>((set) => ({
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 
-  incrementParseSuccess: () =>
-    set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),
+  incrementParseSuccess: () => set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),
 
-  incrementParseFail: () =>
-    set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
+  incrementParseFail: () => set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
 
   incrementParseCounts: (success, fail) =>
     set((state) => {
@@ -246,8 +249,7 @@ export const useRttStore = create<RttState>((set) => ({
 
   setPollInterval: (pollInterval) => set({ pollInterval }),
 
-  addBytes: (count) =>
-    set((state) => ({ totalBytes: state.totalBytes + count })),
+  addBytes: (count) => set((state) => ({ totalBytes: state.totalBytes + count })),
 
   reset: () =>
     set({

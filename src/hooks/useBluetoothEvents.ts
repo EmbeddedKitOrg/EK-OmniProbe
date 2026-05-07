@@ -11,15 +11,8 @@ import { formatBytes } from "@/lib/formatters";
  * 监听 BLE 后端事件，复用 serial 的解析与批量更新模式。
  */
 export function useBluetoothEvents() {
-  const {
-    addLines,
-    updateStats,
-    setRunning,
-    setConnected,
-    setError,
-    addChartDataBatch,
-    incrementParseCounts,
-  } = useBluetoothStore();
+  const { addLines, updateStats, setRunning, setConnected, setError, addChartDataBatch, incrementParseCounts } =
+    useBluetoothStore();
 
   const pendingBufferRef = useRef<{ text: string; rawData: number[] }>({
     text: "",
@@ -72,12 +65,7 @@ export function useBluetoothEvents() {
         batchStatsRef.current.bytes_sent += data.length;
       }
 
-      const { lines, pending } = parseSerialData(
-        data,
-        timestamp,
-        direction as "rx" | "tx",
-        pendingBufferRef.current
-      );
+      const { lines, pending } = parseSerialData(data, timestamp, direction as "rx" | "tx", pendingBufferRef.current);
       pendingBufferRef.current = pending;
 
       if (lines.length > 0) {
@@ -115,15 +103,7 @@ export function useBluetoothEvents() {
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };
-  }, [
-    addLines,
-    updateStats,
-    setRunning,
-    setConnected,
-    setError,
-    addChartDataBatch,
-    incrementParseCounts,
-  ]);
+  }, [addLines, updateStats, setRunning, setConnected, setError, addChartDataBatch, incrementParseCounts]);
 }
 
 export function useBluetoothStats() {

@@ -54,8 +54,20 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
 
   return (
     <>
-      <div className={cn("flex items-center gap-1 rounded-full border border-border/60 bg-white/78 p-1 shadow-[0_8px_20px_rgba(73,93,142,0.12)] backdrop-blur", className)}>
-        <TooltipWrapper tooltip={<p>烧录模式 - 固件烧录、擦除、校验 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+1</kbd></p>}>
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-full border border-border/60 bg-white/78 p-1 shadow-[0_8px_20px_rgba(73,93,142,0.12)] backdrop-blur",
+          className
+        )}
+      >
+        <TooltipWrapper
+          tooltip={
+            <p>
+              烧录模式 - 固件烧录、擦除、校验{" "}
+              <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+1</kbd>
+            </p>
+          }
+        >
           <Button
             variant={mode === "flash" ? "default" : "ghost"}
             size="sm"
@@ -71,7 +83,14 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           </Button>
         </TooltipWrapper>
 
-        <TooltipWrapper tooltip={<p>RTT 模式 - 实时调试输出与数据图表 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+2</kbd></p>}>
+        <TooltipWrapper
+          tooltip={
+            <p>
+              RTT 模式 - 实时调试输出与数据图表{" "}
+              <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+2</kbd>
+            </p>
+          }
+        >
           <Button
             variant={mode === "rtt" ? "default" : "ghost"}
             size="sm"
@@ -87,7 +106,13 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           </Button>
         </TooltipWrapper>
 
-        <TooltipWrapper tooltip={<p>串口模式 - 串口终端通信 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+3</kbd></p>}>
+        <TooltipWrapper
+          tooltip={
+            <p>
+              串口模式 - 串口终端通信 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+3</kbd>
+            </p>
+          }
+        >
           <Button
             variant={mode === "serial" ? "default" : "ghost"}
             size="sm"
@@ -103,7 +128,14 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
           </Button>
         </TooltipWrapper>
 
-        <TooltipWrapper tooltip={<p>蓝牙 BLE 模式 - 扫描、连接、收发与绘图 <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+4</kbd></p>}>
+        <TooltipWrapper
+          tooltip={
+            <p>
+              蓝牙 BLE 模式 - 扫描、连接、收发与绘图{" "}
+              <kbd className="ml-1 px-1 py-0.5 text-[10px] bg-muted rounded">Ctrl+4</kbd>
+            </p>
+          }
+        >
           <Button
             variant={mode === "bluetooth" ? "default" : "ghost"}
             size="sm"
@@ -128,15 +160,10 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>确认切换模式</DialogTitle>
-            <DialogDescription>
-              RTT 正在运行。切换到烧录模式会停止 RTT 数据接收，确定继续吗？
-            </DialogDescription>
+            <DialogDescription>RTT 正在运行。切换到烧录模式会停止 RTT 数据接收，确定继续吗？</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDialog({ open: false, targetMode: null })}
-            >
+            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, targetMode: null })}>
               取消
             </Button>
             <Button onClick={handleConfirmSwitch}>确认切换</Button>

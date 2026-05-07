@@ -87,11 +87,7 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
       <BleToolbar />
 
       {workflowHint && (
-        <PanelHintCard
-          icon={workflowHint.icon}
-          title={workflowHint.title}
-          description={workflowHint.description}
-        />
+        <PanelHintCard icon={workflowHint.icon} title={workflowHint.title} description={workflowHint.description} />
       )}
 
       {error && (
@@ -131,10 +127,7 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
               </div>
             </Panel>
             <Separator
-              className={cn(
-                "bg-border transition-colors hover:bg-primary/50",
-                isVerticalSplit ? "h-1" : "w-1"
-              )}
+              className={cn("bg-border transition-colors hover:bg-primary/50", isVerticalSplit ? "h-1" : "w-1")}
             />
             <Panel defaultSize={(1 - splitRatio) * 100} minSize={20}>
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
@@ -190,8 +183,7 @@ function SppGuidanceCard() {
         </div>
         <div className="text-lg font-semibold text-foreground">经典蓝牙 SPP 模式</div>
         <p className="text-sm leading-6 text-muted-foreground">
-          经典蓝牙 SPP 设备配对后会被操作系统映射成{" "}
-          <span className="font-medium text-foreground">虚拟串口</span>，因此
+          经典蓝牙 SPP 设备配对后会被操作系统映射成 <span className="font-medium text-foreground">虚拟串口</span>，因此
           EK-OmniProbe 直接在「串口模式」里使用，终端、收发分屏、波形、HEX、发送历史都正常可用。
         </p>
         <div className="rounded-[18px] border border-border/70 bg-white/55 px-4 py-3 text-left text-sm leading-6 text-foreground">
@@ -203,7 +195,8 @@ function SppGuidanceCard() {
           </ol>
         </div>
         <p className="text-xs text-muted-foreground">
-          Windows 一般会显示成「Standard Serial over Bluetooth link (COMxx)」；Linux 用 <code>rfcomm bind</code> 后会得到 <code>/dev/rfcommN</code>。
+          Windows 一般会显示成「Standard Serial over Bluetooth link (COMxx)」；Linux 用 <code>rfcomm bind</code>{" "}
+          后会得到 <code>/dev/rfcommN</code>。
         </p>
       </div>
     </div>

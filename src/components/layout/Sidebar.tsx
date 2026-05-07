@@ -2,18 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Plug, Unplug, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
@@ -166,22 +156,16 @@ export function Sidebar() {
   return (
     <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-4 space-y-3">
       {/* 探针选择 */}
-        <Card>
-          <CardHeader className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm">调试探针</CardTitle>
-                <CardDescription className="mt-1 text-xs">
-                  {selectedProbe ? selectedProbe.identifier : `已检测 ${probes.length} 个探针`}
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-              className="h-6 w-6"
-              onClick={refreshProbes}
-              disabled={loading}
-            >
+      <Card>
+        <CardHeader className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm">调试探针</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {selectedProbe ? selectedProbe.identifier : `已检测 ${probes.length} 个探针`}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={refreshProbes} disabled={loading}>
               <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
@@ -272,7 +256,9 @@ export function Sidebar() {
                 <div>
                   <CardTitle className="text-sm">接口设置</CardTitle>
                   <CardDescription className="mt-1 text-xs">
-                    {settings.interfaceType} · {(settings.clockSpeed / 1000000).toFixed(settings.clockSpeed >= 1000000 ? 0 : 1)} MHz · {settings.connectMode}
+                    {settings.interfaceType} ·{" "}
+                    {(settings.clockSpeed / 1000000).toFixed(settings.clockSpeed >= 1000000 ? 0 : 1)} MHz ·{" "}
+                    {settings.connectMode}
                   </CardDescription>
                 </div>
                 {interfaceSettingsOpen ? (
@@ -285,86 +271,78 @@ export function Sidebar() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="space-y-3">
-          <div>
-            <label className="text-xs text-muted-foreground">接口类型</label>
-            <Select
-              value={settings.interfaceType}
-              onValueChange={(value: "SWD" | "JTAG") =>
-                setSettings({ interfaceType: value })
-              }
-              disabled={connected}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SWD">SWD</SelectItem>
-                <SelectItem value="JTAG">JTAG</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="text-xs text-muted-foreground">接口类型</label>
+                <Select
+                  value={settings.interfaceType}
+                  onValueChange={(value: "SWD" | "JTAG") => setSettings({ interfaceType: value })}
+                  disabled={connected}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SWD">SWD</SelectItem>
+                    <SelectItem value="JTAG">JTAG</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">时钟速度</label>
-            <Select
-              value={String(settings.clockSpeed)}
-              onValueChange={(value) =>
-                setSettings({ clockSpeed: parseInt(value) })
-              }
-              disabled={connected}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="100000">100 kHz</SelectItem>
-                <SelectItem value="500000">500 kHz</SelectItem>
-                <SelectItem value="1000000">1 MHz</SelectItem>
-                <SelectItem value="2000000">2 MHz</SelectItem>
-                <SelectItem value="4000000">4 MHz</SelectItem>
-                <SelectItem value="10000000">10 MHz</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="text-xs text-muted-foreground">时钟速度</label>
+                <Select
+                  value={String(settings.clockSpeed)}
+                  onValueChange={(value) => setSettings({ clockSpeed: parseInt(value) })}
+                  disabled={connected}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="100000">100 kHz</SelectItem>
+                    <SelectItem value="500000">500 kHz</SelectItem>
+                    <SelectItem value="1000000">1 MHz</SelectItem>
+                    <SelectItem value="2000000">2 MHz</SelectItem>
+                    <SelectItem value="4000000">4 MHz</SelectItem>
+                    <SelectItem value="10000000">10 MHz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">连接模式</label>
-            <Select
-              value={settings.connectMode}
-              onValueChange={(value: "Normal" | "UnderReset") =>
-                setSettings({ connectMode: value })
-              }
-              disabled={connected}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Normal">正常</SelectItem>
-                <SelectItem value="UnderReset">复位下连接</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="text-xs text-muted-foreground">连接模式</label>
+                <Select
+                  value={settings.connectMode}
+                  onValueChange={(value: "Normal" | "UnderReset") => setSettings({ connectMode: value })}
+                  disabled={connected}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Normal">正常</SelectItem>
+                    <SelectItem value="UnderReset">复位下连接</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">复位方式</label>
-            <Select
-              value={settings.resetMode}
-              onValueChange={(value: "Software" | "Hardware") =>
-                setSettings({ resetMode: value })
-              }
-              disabled={connected}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Software">软件复位</SelectItem>
-                <SelectItem value="Hardware">硬件复位</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
+              <div>
+                <label className="text-xs text-muted-foreground">复位方式</label>
+                <Select
+                  value={settings.resetMode}
+                  onValueChange={(value: "Software" | "Hardware") => setSettings({ resetMode: value })}
+                  disabled={connected}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Software">软件复位</SelectItem>
+                    <SelectItem value="Hardware">硬件复位</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
@@ -391,45 +369,41 @@ export function Sidebar() {
           </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground">启用自动断开</label>
-            <Button
-              size="sm"
-              variant={autoDisconnect ? "secondary" : "outline"}
-              onClick={() => setAutoDisconnect(!autoDisconnect)}
-              className="h-7 text-xs"
-            >
-              {autoDisconnect ? "已启用" : "已禁用"}
-            </Button>
-          </div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-muted-foreground">启用自动断开</label>
+                <Button
+                  size="sm"
+                  variant={autoDisconnect ? "secondary" : "outline"}
+                  onClick={() => setAutoDisconnect(!autoDisconnect)}
+                  className="h-7 text-xs"
+                >
+                  {autoDisconnect ? "已启用" : "已禁用"}
+                </Button>
+              </div>
 
-          {autoDisconnect && (
-            <div>
-              <label className="text-xs text-muted-foreground">超时时间（秒）</label>
-              <Select
-                value={String(autoDisconnectTimeout / 1000)}
-                onValueChange={(value) =>
-                  setAutoDisconnectTimeout(parseInt(value) * 1000)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 秒</SelectItem>
-                  <SelectItem value="10">10 秒</SelectItem>
-                  <SelectItem value="30">30 秒</SelectItem>
-                  <SelectItem value="60">60 秒</SelectItem>
-                  <SelectItem value="120">120 秒</SelectItem>
-                  <SelectItem value="300">300 秒</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                无操作超时后自动断开连接（RTT运行时不会断开）
-              </p>
-            </div>
-          )}
-        </CardContent>
+              {autoDisconnect && (
+                <div>
+                  <label className="text-xs text-muted-foreground">超时时间（秒）</label>
+                  <Select
+                    value={String(autoDisconnectTimeout / 1000)}
+                    onValueChange={(value) => setAutoDisconnectTimeout(parseInt(value) * 1000)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 秒</SelectItem>
+                      <SelectItem value="10">10 秒</SelectItem>
+                      <SelectItem value="30">30 秒</SelectItem>
+                      <SelectItem value="60">60 秒</SelectItem>
+                      <SelectItem value="120">120 秒</SelectItem>
+                      <SelectItem value="300">300 秒</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">无操作超时后自动断开连接（RTT运行时不会断开）</p>
+                </div>
+              )}
+            </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
@@ -438,9 +412,7 @@ export function Sidebar() {
       <Button
         className={cn(
           "w-full transition-all",
-          connected
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-primary hover:bg-primary/90",
+          connected ? "bg-red-500 hover:bg-red-600 text-white" : "bg-primary hover:bg-primary/90",
           loading && "animate-pulse"
         )}
         onClick={connected ? handleDisconnect : handleConnect}
@@ -495,7 +467,7 @@ export function Sidebar() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">芯片ID:</span>
                 <span className="font-mono">
-                  0x{connectionInfo.chip_id.toString(16).toUpperCase().padStart(8, '0')}
+                  0x{connectionInfo.chip_id.toString(16).toUpperCase().padStart(8, "0")}
                 </span>
               </div>
             )}
@@ -503,7 +475,7 @@ export function Sidebar() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">DP IDCODE:</span>
                 <span className="font-mono">
-                  0x{connectionInfo.target_idcode.toString(16).toUpperCase().padStart(8, '0')}
+                  0x{connectionInfo.target_idcode.toString(16).toUpperCase().padStart(8, "0")}
                 </span>
               </div>
             )}

@@ -33,8 +33,7 @@ export function RttPanel({ className }: RttPanelProps) {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } =
-    useRttStore();
+  } = useRttStore();
   const isVerticalSplit = splitOrientation === "vertical";
 
   const chartSnapshot = useMemo(
@@ -91,11 +90,7 @@ export function RttPanel({ className }: RttPanelProps) {
       <RttToolbar />
 
       {workflowHint && (
-        <PanelHintCard
-          icon={workflowHint.icon}
-          title={workflowHint.title}
-          description={workflowHint.description}
-        />
+        <PanelHintCard icon={workflowHint.icon} title={workflowHint.title} description={workflowHint.description} />
       )}
 
       {/* 错误提示 */}
@@ -112,11 +107,7 @@ export function RttPanel({ className }: RttPanelProps) {
       {/* 数据显示区 */}
       <div className="flex-1 overflow-hidden">
         {viewMode === "text" ? (
-          <PanelShell
-            title="文本区"
-            subtitle="原始 RTT 输出。"
-            badge="Console"
-          >
+          <PanelShell title="文本区" subtitle="原始 RTT 输出。" badge="Console">
             <RttViewer />
           </PanelShell>
         ) : viewMode === "chart" ? (
@@ -134,10 +125,7 @@ export function RttPanel({ className }: RttPanelProps) {
             }
           >
             {chartDetached ? (
-              <ChartDetachedPlaceholder
-                onFocus={focusDetachedWindow}
-                onRestore={restoreInline}
-              />
+              <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
             ) : (
               <RttChartViewer />
             )}
@@ -151,20 +139,13 @@ export function RttPanel({ className }: RttPanelProps) {
               onResize={(panelSize) => setSplitRatio(panelSize.asPercentage / 100)}
             >
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pb-1" : "pr-1")}>
-                <PanelShell
-                  title="文本区"
-                  subtitle="原始 RTT 输出。"
-                  badge="Console"
-                >
+                <PanelShell title="文本区" subtitle="原始 RTT 输出。" badge="Console">
                   <RttViewer />
                 </PanelShell>
               </div>
             </Panel>
             <Separator
-              className={cn(
-                "bg-border hover:bg-primary/50 transition-colors",
-                isVerticalSplit ? "h-1" : "w-1"
-              )}
+              className={cn("bg-border hover:bg-primary/50 transition-colors", isVerticalSplit ? "h-1" : "w-1")}
             />
             <Panel defaultSize={(1 - splitRatio) * 100} minSize={20}>
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
@@ -182,10 +163,7 @@ export function RttPanel({ className }: RttPanelProps) {
                   }
                 >
                   {chartDetached ? (
-                    <ChartDetachedPlaceholder
-                      onFocus={focusDetachedWindow}
-                      onRestore={restoreInline}
-                    />
+                    <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
                   ) : (
                     <RttChartViewer />
                   )}

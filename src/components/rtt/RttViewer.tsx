@@ -7,8 +7,7 @@ import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 
 export function RttViewer() {
-  const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } =
-    useRttStore();
+  const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } = useRttStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 过滤行
@@ -23,9 +22,7 @@ export function RttViewer() {
     // 按搜索词过滤
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((line) =>
-        line.text.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((line) => line.text.toLowerCase().includes(query));
     }
 
     return filtered;
@@ -35,7 +32,7 @@ export function RttViewer() {
     count: filteredLines.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 22, // 估算行高（像素）
-    overscan: 15,           // 额外渲染条数
+    overscan: 15, // 额外渲染条数
   });
 
   // 自动滚动到底部
@@ -55,10 +52,7 @@ export function RttViewer() {
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className="h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background"
-    >
+    <div ref={scrollRef} className="h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background">
       <div
         style={{
           height: `${rowVirtualizer.getTotalSize()}px`,
@@ -81,11 +75,7 @@ export function RttViewer() {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <RttLineItem
-                line={line}
-                showTimestamp={showTimestamp}
-                displayMode={displayMode}
-              />
+              <RttLineItem line={line} showTimestamp={showTimestamp} displayMode={displayMode} />
             </div>
           );
         })}
@@ -127,9 +117,7 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
         .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
         .join(" ");
     }
-    return data
-      .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-      .join(" ");
+    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   // 同时支持 ANSI 和自定义颜色标记
@@ -157,7 +145,7 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
       return result;
     } else {
       // 只使用 ANSI 解析
-      return ansiSegments.map(seg => ({
+      return ansiSegments.map((seg) => ({
         text: seg.text,
         className: seg.className,
         styles: {},
@@ -168,15 +156,11 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
   return (
     <div className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
       {showTimestamp && (
-        <span className="text-muted-foreground shrink-0 select-none">
-          [{formatTime(line.timestamp)}]
-        </span>
+        <span className="text-muted-foreground shrink-0 select-none">[{formatTime(line.timestamp)}]</span>
       )}
       <span className="text-muted-foreground shrink-0 select-none">[{line.channel}]</span>
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">
-          {formatHex(line.rawData || [])}
-        </span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((segment, index) => (

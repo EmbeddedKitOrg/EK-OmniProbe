@@ -11,11 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle, Terminal } from "lucide-react";
-import {
-  checkUsbPermissions,
-  installUdevRules,
-  getUdevInstallInstructions,
-} from "@/lib/tauri";
+import { checkUsbPermissions, installUdevRules, getUdevInstallInstructions } from "@/lib/tauri";
 import type { UsbPermissionStatus } from "@/lib/types";
 
 export function UdevPermissionDialog() {
@@ -85,9 +81,7 @@ export function UdevPermissionDialog() {
             <AlertCircle className="w-5 h-5 text-yellow-500" />
             USB 调试器权限配置
           </DialogTitle>
-          <DialogDescription>
-            检测到您的系统需要配置 udev 规则才能访问 USB 调试器
-          </DialogDescription>
+          <DialogDescription>检测到您的系统需要配置 udev 规则才能访问 USB 调试器</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -101,9 +95,7 @@ export function UdevPermissionDialog() {
                   ) : (
                     <AlertCircle className="w-4 h-4" />
                   )}
-                  <span className="font-medium">
-                    USB 权限: {status.has_permission ? "正常" : "需要配置"}
-                  </span>
+                  <span className="font-medium">USB 权限: {status.has_permission ? "正常" : "需要配置"}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {status.udev_rules_installed ? (
@@ -111,9 +103,7 @@ export function UdevPermissionDialog() {
                   ) : (
                     <AlertCircle className="w-4 h-4" />
                   )}
-                  <span className="font-medium">
-                    udev 规则: {status.udev_rules_installed ? "已安装" : "未安装"}
-                  </span>
+                  <span className="font-medium">udev 规则: {status.udev_rules_installed ? "已安装" : "未安装"}</span>
                 </div>
               </div>
             </AlertDescription>
@@ -149,11 +139,7 @@ export function UdevPermissionDialog() {
 
           {/* 安装结果 */}
           {installResult && (
-            <Alert
-              variant={
-                installResult.includes("成功") ? "default" : "destructive"
-              }
-            >
+            <Alert variant={installResult.includes("成功") ? "default" : "destructive"}>
               <AlertDescription>{installResult}</AlertDescription>
             </Alert>
           )}
@@ -165,9 +151,7 @@ export function UdevPermissionDialog() {
                 <Terminal className="w-4 h-4" />
                 <span className="font-medium text-sm">手动安装方法:</span>
               </div>
-              <pre className="text-xs whitespace-pre-wrap text-muted-foreground">
-                {instructions}
-              </pre>
+              <pre className="text-xs whitespace-pre-wrap text-muted-foreground">{instructions}</pre>
             </div>
           )}
         </div>
@@ -181,9 +165,7 @@ export function UdevPermissionDialog() {
               {installing ? "安装中..." : "自动安装 udev 规则"}
             </Button>
           )}
-          {status.udev_rules_installed && status.has_permission && (
-            <Button onClick={handleClose}>完成</Button>
-          )}
+          {status.udev_rules_installed && status.has_permission && <Button onClick={handleClose}>完成</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

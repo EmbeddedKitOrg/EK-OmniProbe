@@ -52,9 +52,7 @@ export function EraseDialog({ open, onOpenChange, onConfirm }: EraseDialogProps)
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
             擦除 Flash
           </DialogTitle>
-          <DialogDescription>
-            选择擦除模式。此操作不可恢复，请谨慎操作。
-          </DialogDescription>
+          <DialogDescription>选择擦除模式。此操作不可恢复，请谨慎操作。</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -65,9 +63,7 @@ export function EraseDialog({ open, onOpenChange, onConfirm }: EraseDialogProps)
                 全片擦除（推荐）
               </Label>
             </div>
-            <div className="text-xs text-muted-foreground ml-6">
-              擦除整个 Flash 存储器，速度快且彻底
-            </div>
+            <div className="text-xs text-muted-foreground ml-6">擦除整个 Flash 存储器，速度快且彻底</div>
 
             <div className="flex items-center space-x-2 mt-3">
               <RadioGroupItem value="custom" id="custom" />
@@ -75,9 +71,7 @@ export function EraseDialog({ open, onOpenChange, onConfirm }: EraseDialogProps)
                 自定义范围擦除
               </Label>
             </div>
-            <div className="text-xs text-muted-foreground ml-6">
-              擦除指定地址范围的扇区（高级选项）
-            </div>
+            <div className="text-xs text-muted-foreground ml-6">擦除指定地址范围的扇区（高级选项）</div>
           </RadioGroup>
 
           {eraseMode === "custom" && (
@@ -106,9 +100,7 @@ export function EraseDialog({ open, onOpenChange, onConfirm }: EraseDialogProps)
                   className="font-mono text-xs"
                 />
               </div>
-              <div className="text-xs text-muted-foreground">
-                示例：0x08000000 起始，0x10000 大小（64KB）
-              </div>
+              <div className="text-xs text-muted-foreground">示例：0x08000000 起始，0x10000 大小（64KB）</div>
             </div>
           )}
         </div>

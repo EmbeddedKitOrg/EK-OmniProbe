@@ -29,12 +29,7 @@ const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-
  * channels 仅用于约束输出键集合（若给出且非空，则只保留 channel.key 对应的命名捕获组）。
  * 实际值仍来自正则的命名捕获组。
  */
-export function parseWithRegex(
-  text: string,
-  pattern: string,
-  flags?: string,
-  channels?: Channel[]
-): ParseResult {
+export function parseWithRegex(text: string, pattern: string, flags?: string, channels?: Channel[]): ParseResult {
   try {
     const regex = new RegExp(pattern, flags);
     const match = regex.exec(text);
@@ -46,9 +41,7 @@ export function parseWithRegex(
       };
     }
 
-    const filter = channels && channels.length > 0
-      ? new Set(channels.map((c) => c.key))
-      : null;
+    const filter = channels && channels.length > 0 ? new Set(channels.map((c) => c.key)) : null;
 
     const values: Record<string, number> = {};
     for (const [key, value] of Object.entries(match.groups)) {
@@ -87,11 +80,7 @@ export function parseWithRegex(
  *
  * 每条 channel 对应一列；sourceIndex 缺失时退回到 channel 在数组里的位置。
  */
-export function parseWithDelimiter(
-  text: string,
-  delimiter: string,
-  channels: Channel[]
-): ParseResult {
+export function parseWithDelimiter(text: string, delimiter: string, channels: Channel[]): ParseResult {
   try {
     const parts = text.split(delimiter);
     const values: Record<string, number> = {};
@@ -137,10 +126,7 @@ export function parseWithDelimiter(
  *
  * channels 为空 → 自动提取所有数值字段；非空 → 只保留 channel.key 对应字段。
  */
-export function parseWithJson(
-  text: string,
-  channels?: Channel[]
-): ParseResult {
+export function parseWithJson(text: string, channels?: Channel[]): ParseResult {
   try {
     const data = JSON.parse(text);
 
@@ -152,9 +138,7 @@ export function parseWithJson(
     }
 
     const values: Record<string, number> = {};
-    const targetKeys = channels && channels.length > 0
-      ? channels.map((c) => c.key)
-      : Object.keys(data);
+    const targetKeys = channels && channels.length > 0 ? channels.map((c) => c.key) : Object.keys(data);
 
     for (const key of targetKeys) {
       const value = (data as Record<string, unknown>)[key];
@@ -191,14 +175,9 @@ export function parseWithJson(
  *
  * channels 为空 → 自动提取所有 key=number 对；非空 → 只保留 channel.key 对应键。
  */
-export function parseWithKv(
-  text: string,
-  channels?: Channel[]
-): ParseResult {
+export function parseWithKv(text: string, channels?: Channel[]): ParseResult {
   KV_PAIR_REGEX.lastIndex = 0;
-  const filter = channels && channels.length > 0
-    ? new Set(channels.map((c) => c.key))
-    : null;
+  const filter = channels && channels.length > 0 ? new Set(channels.map((c) => c.key)) : null;
   const values: Record<string, number> = {};
 
   let match: RegExpExecArray | null;
@@ -231,20 +210,12 @@ export function parseWithKv(
 /**
  * 自动解析（按 JSON → 正则 → KV → 分隔符 顺序尝试）
  */
-export function parseAuto(
-  text: string,
-  config: ChartConfig
-): ParseResult {
+export function parseAuto(text: string, config: ChartConfig): ParseResult {
   const jsonResult = parseWithJson(text, config.channels);
   if (jsonResult.success) return jsonResult;
 
   if (config.regexPattern) {
-    const regexResult = parseWithRegex(
-      text,
-      config.regexPattern,
-      config.regexFlags,
-      config.channels
-    );
+    const regexResult = parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels);
     if (regexResult.success) return regexResult;
   }
 
@@ -265,10 +236,7 @@ export function parseAuto(
 /**
  * 主解析函数
  */
-export function parseChartData(
-  text: string,
-  config: ChartConfig
-): ParseResult {
+export function parseChartData(text: string, config: ChartConfig): ParseResult {
   if (!config.enabled) {
     return {
       success: false,
@@ -284,12 +252,7 @@ export function parseChartData(
           error: "正则表达式未配置",
         };
       }
-      return parseWithRegex(
-        text,
-        config.regexPattern,
-        config.regexFlags,
-        config.channels
-      );
+      return parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels);
 
     case "delimiter":
       if (config.channels.length === 0) {

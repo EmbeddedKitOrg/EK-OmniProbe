@@ -57,11 +57,9 @@ export const useProbeStore = create<ProbeState>((set) => ({
 
   setSelectedChipName: (selectedChipName) => set({ selectedChipName }), // 新增
 
-  setConnected: (connected, info = null, target = null) =>
-    set({ connected, connectionInfo: info, targetInfo: target }),
+  setConnected: (connected, info = null, target = null) => set({ connected, connectionInfo: info, targetInfo: target }),
 
-  setSettings: (settings) =>
-    set((state) => ({ settings: { ...state.settings, ...settings } })),
+  setSettings: (settings) => set((state) => ({ settings: { ...state.settings, ...settings } })),
 
   setLoading: (loading) => set({ loading }),
 

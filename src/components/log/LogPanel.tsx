@@ -44,17 +44,20 @@ export function LogPanel() {
   }, [logs, isResizing]);
 
   // 开始拖动
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (collapsed) {
-      return;
-    }
-    setIsResizing(true);
-    startYRef.current = e.clientY;
-    startHeightRef.current = height;
-    e.preventDefault();
-    // 禁用文本选择
-    document.body.style.userSelect = "none";
-  }, [collapsed, height]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (collapsed) {
+        return;
+      }
+      setIsResizing(true);
+      startYRef.current = e.clientY;
+      startHeightRef.current = height;
+      e.preventDefault();
+      // 禁用文本选择
+      document.body.style.userSelect = "none";
+    },
+    [collapsed, height]
+  );
 
   const toggleCollapsed = useCallback(() => {
     if (collapsed) {
@@ -162,9 +165,7 @@ export function LogPanel() {
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
         <div>
           <div className="text-xs font-medium text-foreground">输出日志</div>
-          {!collapsed && (
-            <div className="text-xs text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>
-          )}
+          {!collapsed && <div className="text-xs text-muted-foreground">显示连接、解析、烧录和运行状态信息</div>}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -176,22 +177,10 @@ export function LogPanel() {
           >
             {collapsed ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleExport}
-            title="导出日志为 .txt"
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleExport} title="导出日志为 .txt">
             <Download className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={clearLogs}
-            title="清空日志"
-          >
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearLogs} title="清空日志">
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -204,20 +193,12 @@ export function LogPanel() {
         >
           {logs.map((log) => (
             <div key={log.id} className="flex gap-3 rounded-xl px-2 py-1.5">
-              <span className="text-muted-foreground shrink-0">
-                [{formatTime(log.timestamp)}]
-              </span>
-              <span className={`shrink-0 ${getLevelColor(log.level)}`}>
-                {getLevelIcon(log.level)}
-              </span>
+              <span className="text-muted-foreground shrink-0">[{formatTime(log.timestamp)}]</span>
+              <span className={`shrink-0 ${getLevelColor(log.level)}`}>{getLevelIcon(log.level)}</span>
               <span className={getLevelColor(log.level)}>{log.message}</span>
             </div>
           ))}
-          {logs.length === 0 && (
-            <div className="text-muted-foreground text-center py-6">
-              暂无日志
-            </div>
-          )}
+          {logs.length === 0 && <div className="text-muted-foreground text-center py-6">暂无日志</div>}
         </div>
       )}
     </div>

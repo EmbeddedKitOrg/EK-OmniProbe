@@ -99,10 +99,7 @@ export function ChartViewer({
   const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
   const xChannelKey = xChannel?.key;
 
-  const visibleSeries = useMemo(
-    () => getVisibleYChannels(chartConfig),
-    [chartConfig]
-  );
+  const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
 
   const yAxisDomain = useMemo(() => {
     if (chartData.length === 0) return [0, 100];
@@ -218,8 +215,7 @@ export function ChartViewer({
           color: channel?.color ?? fallbackChannelColor(index),
           visible: channel?.visible ?? false,
           unit: channel?.unit ?? "",
-          latestValue:
-            typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null,
+          latestValue: typeof rawValue === "number" && Number.isFinite(rawValue) ? rawValue : null,
           configured: Boolean(channel),
           role: (channel?.role ?? "y") as "x" | "y",
         };
@@ -289,22 +285,14 @@ export function ChartViewer({
     });
   };
 
-  const updateChannelConfig = (
-    channelKey: string,
-    updater: (channel: Channel) => Channel
-  ) => {
+  const updateChannelConfig = (channelKey: string, updater: (channel: Channel) => Channel) => {
     setChartConfig({
       ...chartConfig,
-      channels: chartConfig.channels.map((channel) =>
-        channel.key === channelKey ? updater(channel) : channel
-      ),
+      channels: chartConfig.channels.map((channel) => (channel.key === channelKey ? updater(channel) : channel)),
     });
   };
 
-  const addChannelFromField = (
-    entry: ChannelInspectorEntry,
-    overrides: Partial<Channel> = {}
-  ) => {
+  const addChannelFromField = (entry: ChannelInspectorEntry, overrides: Partial<Channel> = {}) => {
     const existing = chartConfig.channels.find((channel) => channel.key === entry.key);
     if (existing) {
       if (Object.keys(overrides).length === 0) return;
@@ -334,10 +322,7 @@ export function ChartViewer({
     });
   };
 
-  const updateNumericConfig = (
-    key: "maxDataPoints" | "visiblePointLimit" | "sampleRateHz",
-    rawValue: string
-  ) => {
+  const updateNumericConfig = (key: "maxDataPoints" | "visiblePointLimit" | "sampleRateHz", rawValue: string) => {
     if (key === "sampleRateHz") {
       setChartConfig({
         ...chartConfig,
@@ -365,13 +350,37 @@ export function ChartViewer({
       return (
         <LineChart data={chartDataFormatted}>
           {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-          <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
-          <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+          <XAxis
+            dataKey="time"
+            tick={{ fontSize: 12 }}
+            label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }}
+          />
+          <YAxis
+            tick={{ fontSize: 12 }}
+            domain={yAxisDomain}
+            label={{ value: "数值", angle: -90, position: "insideLeft" }}
+          />
           {chartConfig.showTooltip && <Tooltip />}
           {chartConfig.showLegend && <Legend />}
-          <Brush dataKey="index" height={28} stroke="#5f82ff" startIndex={zoomDomain.startIndex} endIndex={zoomDomain.endIndex} onChange={(domain) => setZoomDomain(domain || {})} />
+          <Brush
+            dataKey="index"
+            height={28}
+            stroke="#5f82ff"
+            startIndex={zoomDomain.startIndex}
+            endIndex={zoomDomain.endIndex}
+            onChange={(domain) => setZoomDomain(domain || {})}
+          />
           {visibleSeries.map((series) => (
-            <Line key={series.key} type="monotone" dataKey={series.key} stroke={series.color} name={series.name} dot={false} strokeWidth={2} isAnimationActive={chartConfig.animationEnabled} />
+            <Line
+              key={series.key}
+              type="monotone"
+              dataKey={series.key}
+              stroke={series.color}
+              name={series.name}
+              dot={false}
+              strokeWidth={2}
+              isAnimationActive={chartConfig.animationEnabled}
+            />
           ))}
         </LineChart>
       );
@@ -381,13 +390,34 @@ export function ChartViewer({
       return (
         <BarChart data={chartDataFormatted}>
           {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-          <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
-          <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+          <XAxis
+            dataKey="time"
+            tick={{ fontSize: 12 }}
+            label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }}
+          />
+          <YAxis
+            tick={{ fontSize: 12 }}
+            domain={yAxisDomain}
+            label={{ value: "数值", angle: -90, position: "insideLeft" }}
+          />
           {chartConfig.showTooltip && <Tooltip />}
           {chartConfig.showLegend && <Legend />}
-          <Brush dataKey="index" height={28} stroke="#5f82ff" startIndex={zoomDomain.startIndex} endIndex={zoomDomain.endIndex} onChange={(domain) => setZoomDomain(domain || {})} />
+          <Brush
+            dataKey="index"
+            height={28}
+            stroke="#5f82ff"
+            startIndex={zoomDomain.startIndex}
+            endIndex={zoomDomain.endIndex}
+            onChange={(domain) => setZoomDomain(domain || {})}
+          />
           {visibleSeries.map((series) => (
-            <Bar key={series.key} dataKey={series.key} fill={series.color} name={series.name} isAnimationActive={chartConfig.animationEnabled} />
+            <Bar
+              key={series.key}
+              dataKey={series.key}
+              fill={series.color}
+              name={series.name}
+              isAnimationActive={chartConfig.animationEnabled}
+            />
           ))}
         </BarChart>
       );
@@ -397,13 +427,37 @@ export function ChartViewer({
       return (
         <ScatterChart data={chartDataFormatted}>
           {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-          <XAxis type="number" dataKey={xChannelKey || "index"} domain={xAxisDomain || ["auto", "auto"]} tick={{ fontSize: 12 }} label={{ value: xChannel?.name || xChannelKey || "X", position: "insideBottom", offset: -5 }} />
-          <YAxis type="number" tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "Y", angle: -90, position: "insideLeft" }} />
+          <XAxis
+            type="number"
+            dataKey={xChannelKey || "index"}
+            domain={xAxisDomain || ["auto", "auto"]}
+            tick={{ fontSize: 12 }}
+            label={{ value: xChannel?.name || xChannelKey || "X", position: "insideBottom", offset: -5 }}
+          />
+          <YAxis
+            type="number"
+            tick={{ fontSize: 12 }}
+            domain={yAxisDomain}
+            label={{ value: "Y", angle: -90, position: "insideLeft" }}
+          />
           {chartConfig.showTooltip && <Tooltip />}
           {chartConfig.showLegend && <Legend />}
-          <Brush dataKey="index" height={28} stroke="#5f82ff" startIndex={zoomDomain.startIndex} endIndex={zoomDomain.endIndex} onChange={(domain) => setZoomDomain(domain || {})} />
+          <Brush
+            dataKey="index"
+            height={28}
+            stroke="#5f82ff"
+            startIndex={zoomDomain.startIndex}
+            endIndex={zoomDomain.endIndex}
+            onChange={(domain) => setZoomDomain(domain || {})}
+          />
           {visibleSeries.map((series) => (
-            <Scatter key={series.key} dataKey={series.key} fill={series.color} name={series.name} isAnimationActive={chartConfig.animationEnabled} />
+            <Scatter
+              key={series.key}
+              dataKey={series.key}
+              fill={series.color}
+              name={series.name}
+              isAnimationActive={chartConfig.animationEnabled}
+            />
           ))}
         </ScatterChart>
       );
@@ -412,13 +466,34 @@ export function ChartViewer({
     return (
       <ScatterChart data={chartDataFormatted}>
         {chartConfig.showGrid && <CartesianGrid strokeDasharray="3 3" />}
-        <XAxis dataKey="time" tick={{ fontSize: 12 }} label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }} />
-        <YAxis tick={{ fontSize: 12 }} domain={yAxisDomain} label={{ value: "数值", angle: -90, position: "insideLeft" }} />
+        <XAxis
+          dataKey="time"
+          tick={{ fontSize: 12 }}
+          label={{ value: "时间 (s)", position: "insideBottom", offset: -5 }}
+        />
+        <YAxis
+          tick={{ fontSize: 12 }}
+          domain={yAxisDomain}
+          label={{ value: "数值", angle: -90, position: "insideLeft" }}
+        />
         {chartConfig.showTooltip && <Tooltip />}
         {chartConfig.showLegend && <Legend />}
-        <Brush dataKey="index" height={28} stroke="#5f82ff" startIndex={zoomDomain.startIndex} endIndex={zoomDomain.endIndex} onChange={(domain) => setZoomDomain(domain || {})} />
+        <Brush
+          dataKey="index"
+          height={28}
+          stroke="#5f82ff"
+          startIndex={zoomDomain.startIndex}
+          endIndex={zoomDomain.endIndex}
+          onChange={(domain) => setZoomDomain(domain || {})}
+        />
         {visibleSeries.map((series) => (
-          <Scatter key={series.key} dataKey={series.key} fill={series.color} name={series.name} isAnimationActive={chartConfig.animationEnabled} />
+          <Scatter
+            key={series.key}
+            dataKey={series.key}
+            fill={series.color}
+            name={series.name}
+            isAnimationActive={chartConfig.animationEnabled}
+          />
         ))}
       </ScatterChart>
     );
@@ -429,9 +504,7 @@ export function ChartViewer({
       <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
         <div className="space-y-2 text-center">
           <p className="text-base font-medium text-foreground">图表功能未启用</p>
-          <p className="text-xs text-muted-foreground">
-            点击工具栏的“配置图表”或使用“智能启用”自动识别数据格式
-          </p>
+          <p className="text-xs text-muted-foreground">点击工具栏的“配置图表”或使用“智能启用”自动识别数据格式</p>
         </div>
       </div>
     );
@@ -499,23 +572,23 @@ export function ChartViewer({
           <>
             <span className="h-5 w-px bg-border/70" aria-hidden />
             <div className="flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-sm">
-            <Button
-              size="sm"
-              variant={signalDomain === "time" ? "default" : "ghost"}
-              onClick={() => updateSignalDomain("time")}
-              className="h-7 rounded-full px-3"
-            >
-              Time
-            </Button>
-            <Button
-              size="sm"
-              variant={signalDomain === "fft" ? "default" : "ghost"}
-              onClick={() => updateSignalDomain("fft")}
-              className="h-7 rounded-full px-3"
-            >
-              FFT
-            </Button>
-          </div>
+              <Button
+                size="sm"
+                variant={signalDomain === "time" ? "default" : "ghost"}
+                onClick={() => updateSignalDomain("time")}
+                className="h-7 rounded-full px-3"
+              >
+                Time
+              </Button>
+              <Button
+                size="sm"
+                variant={signalDomain === "fft" ? "default" : "ghost"}
+                onClick={() => updateSignalDomain("fft")}
+                className="h-7 rounded-full px-3"
+              >
+                FFT
+              </Button>
+            </div>
           </>
         )}
 
@@ -561,26 +634,18 @@ export function ChartViewer({
             </span>
           )}
           <span className="rounded-full bg-white/80 px-3 py-1">缓存: {chartData.length}</span>
-          <span className="rounded-full bg-white/80 px-3 py-1">
-            渲染: {chartDataFormatted.length}
-          </span>
+          <span className="rounded-full bg-white/80 px-3 py-1">渲染: {chartDataFormatted.length}</span>
           <span className="rounded-full bg-white/80 px-3 py-1">成功: {parseSuccessCount}</span>
           <span className="rounded-full bg-white/80 px-3 py-1">失败: {parseFailCount}</span>
           {estimatedSampleRate && (
-            <span className="rounded-full bg-white/80 px-3 py-1">
-              采样率: {estimatedSampleRate.toFixed(1)} Hz
-            </span>
+            <span className="rounded-full bg-white/80 px-3 py-1">采样率: {estimatedSampleRate.toFixed(1)} Hz</span>
           )}
         </div>
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3.5 py-2.5 text-xs text-muted-foreground">
         <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
-          {chartConfig.chartType === "waveform"
-            ? signalDomain === "fft"
-              ? "FFT 频谱"
-              : "Time 波形"
-            : "业务图表"}
+          {chartConfig.chartType === "waveform" ? (signalDomain === "fft" ? "FFT 频谱" : "Time 波形") : "业务图表"}
         </span>
         <span className="rounded-full bg-secondary px-3 py-1">
           {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "等待采样率"}
@@ -596,14 +661,10 @@ export function ChartViewer({
           可视 {chartConfig.visiblePointLimit === 0 ? "自动" : chartConfig.visiblePointLimit}
         </span>
         {chartConfig.chartType === "xy-scatter" && xChannelKey && (
-          <span className="rounded-full bg-secondary px-3 py-1">
-            X 轴 {xChannel?.name || xChannelKey}
-          </span>
+          <span className="rounded-full bg-secondary px-3 py-1">X 轴 {xChannel?.name || xChannelKey}</span>
         )}
         {chartConfig.chartType === "waveform" && (
-          <span className="rounded-full bg-secondary px-3 py-1">
-            FFT 窗口 {chartConfig.fftWindowSize}
-          </span>
+          <span className="rounded-full bg-secondary px-3 py-1">FFT 窗口 {chartConfig.fftWindowSize}</span>
         )}
         {latestSeriesSnapshot.slice(0, 2).map((item) => (
           <span key={item.key} className="rounded-full bg-secondary px-3 py-1">
@@ -632,9 +693,7 @@ export function ChartViewer({
               <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
                 <div className="space-y-2 text-center">
                   <p className="text-sm font-medium text-foreground">当前没有可见曲线</p>
-                  <p className="text-xs text-muted-foreground">
-                    在右侧字段栏打开显示开关，或把解析字段加入曲线。
-                  </p>
+                  <p className="text-xs text-muted-foreground">在右侧字段栏打开显示开关，或把解析字段加入曲线。</p>
                 </div>
               </div>
             ) : chartConfig.chartType === "waveform" ? (
@@ -677,16 +736,11 @@ export function ChartViewer({
                 <span className="rounded-full bg-secondary px-3 py-1">
                   缓存 {chartData.length} / {chartConfig.maxDataPoints}
                 </span>
-                <span className="rounded-full bg-secondary px-3 py-1">
-                  渲染 {chartDataFormatted.length} 点
-                </span>
-                <span className="rounded-full bg-secondary px-3 py-1">
-                  可见系列 {visibleSeries.length}
-                </span>
+                <span className="rounded-full bg-secondary px-3 py-1">渲染 {chartDataFormatted.length} 点</span>
+                <span className="rounded-full bg-secondary px-3 py-1">可见系列 {visibleSeries.length}</span>
                 {latestSeriesSnapshot[0] && (
                   <span className="rounded-full bg-secondary px-3 py-1">
-                    当前 {latestSeriesSnapshot[0].name}{" "}
-                    {formatChartNumber(latestSeriesSnapshot[0].latest)}
+                    当前 {latestSeriesSnapshot[0].name} {formatChartNumber(latestSeriesSnapshot[0].latest)}
                   </span>
                 )}
               </div>
@@ -698,9 +752,7 @@ export function ChartViewer({
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
             <div>
               <div className="text-sm font-medium text-foreground">解析字段</div>
-              <div className="text-xs text-muted-foreground">
-                实时值、曲线命名与显示控制
-              </div>
+              <div className="text-xs text-muted-foreground">实时值、曲线命名与显示控制</div>
             </div>
             <span className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
               {seriesInspectorEntries.length} 项
@@ -714,15 +766,9 @@ export function ChartViewer({
               </div>
             ) : (
               seriesInspectorEntries.map((series) => (
-                <div
-                  key={series.key}
-                  className="rounded-[20px] border border-border/60 bg-white/80 p-3"
-                >
+                <div key={series.key} className="rounded-[20px] border border-border/60 bg-white/80 p-3">
                   <div className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: series.color }}
-                    />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.color }} />
                     <Input
                       value={series.name}
                       onChange={(event) => {
@@ -734,10 +780,7 @@ export function ChartViewer({
                           }));
                           return;
                         }
-                        addChannelFromField(
-                          { ...series, name: nextName },
-                          { name: nextName, visible: false }
-                        );
+                        addChannelFromField({ ...series, name: nextName }, { name: nextName, visible: false });
                       }}
                       placeholder={series.key}
                       className="h-8 text-sm"
@@ -770,22 +813,13 @@ export function ChartViewer({
                       <div>
                         key: <span className="font-mono">{series.key}</span>
                       </div>
-                      <div>
-                        状态:{" "}
-                        {series.configured
-                          ? series.visible
-                            ? "显示中"
-                            : "已隐藏"
-                          : "仅解析，未入图"}
-                      </div>
+                      <div>状态: {series.configured ? (series.visible ? "显示中" : "已隐藏") : "仅解析，未入图"}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-muted-foreground">最新值</div>
                       <div className="text-base font-semibold text-foreground">
                         {series.latestValue === null ? "—" : formatChartNumber(series.latestValue)}
-                        {series.unit ? (
-                          <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span>
-                        ) : null}
+                        {series.unit ? <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span> : null}
                       </div>
                     </div>
                   </div>
