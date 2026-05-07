@@ -5,6 +5,66 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-05-08
+
+新增第 5 个工作台「调试」(Ctrl+5)，把项目从「烧录工具 + RTT 数据查看」升级成完整的源码级 ARM Cortex-M 调试器（参考 J-Link Ozone 的体验）。无破坏性改动，可直接覆盖升级。
+
+### 新增功能：调试工作台
+
+**底层（Rust + probe-rs 0.31 + addr2line 0.24 + gimli 0.31 + object 0.36）**
+
+- 独立 `debug_session` 通道：与 flash 主连接、RTT 连接互不抢锁，沿用现有架构再加一条
+- 23 条 IPC 命令：
+  - 连接：`debug_attach` / `debug_detach` / `debug_get_status`
+  - 执行控制：`debug_run` / `debug_halt` / `debug_step_in` / `debug_step_over` / `debug_step_out` / `debug_reset` / `debug_reset_halt`
+  - 内存与寄存器：`debug_read_memory` / `debug_write_memory` / `debug_read_registers` / `debug_write_register`
+  - ELF / DWARF：`debug_load_elf` / `debug_clear_symbols` / `debug_resolve_pc` / `debug_get_call_stack` / `debug_read_source`
+  - 断点：`debug_set_breakpoint` / `debug_set_source_breakpoint` / `debug_clear_breakpoint` / `debug_list_breakpoints` / `debug_clear_all_breakpoints`
+- ELF 解析（`debug_symbols.rs`）：object 枚举符号表（保留 Text/Data 类，过滤零地址零长度噪音）；addr2line::Loader 做正向 `PC → (function, file, line)` 解析（带 demangle，C++/Rust 都支持）；独立走一遍 line program 建 `(规范化 file 路径, line) → addr` 反向索引供源码级断点。Loader 自带 mmap 生命周期独立，与 object 借用不打架
+- step_over：基于 DWARF 行表循环单步直到 `file/line/function` 任一变化；上限 8000 条指令防失控；ELF 未加载或 PC 不在行表时退化为指令级 step_in
+- step_out：在 LR（清掉 thumb 位）下临时硬断点 + run + `wait_for_core_halted(5s)` + 清断点；超时防函数永不返回时卡死
+- get_call_stack：当前 PC 一帧 + LR 推出来的第二帧（真实 N 帧 unwind 需要解 `.debug_frame` CIE/FDE，留作后续）
+
+**前端（React + dockview-react 6 + CodeMirror 6 + @codemirror/lang-cpp）**
+
+- 9 块面板自由 dock / 浮动 / 合并 tab：Symbols / Source / Registers / Locals / Watch / Memory / Call Stack / Breakpoints / Output；默认布局 = 左 Symbols / 中 Source / 右 Inspectors（Registers·Locals·Watch·Memory tab 组）/ 底 Call Stack·Breakpoints·Output tab 组
+- 顶部「视图」下拉（Keil 风格）任意显隐面板 + 「重置布局」一键恢复默认
+- DebugToolbar：Attach / Load ELF / Run / Halt / Step In / Over / Out / Reset，状态机驱动 disabled，状态栏显示 ELF 文件名 + halted/running 指示
+- Symbols：函数 / 变量两 tab，react-virtual 虚拟滚动应对几万符号，搜索框模糊筛选
+- Source：CodeMirror 6 只读 + 自定义断点 gutter（点击 toggle 设/清源码断点，DWARF 行表反向查表）+ PC 箭头 gutter，halt 后自动 `EditorView.scrollIntoView` 当前行
+- Registers：halt 时自动读，run/detach 清缓存，附最近更新时间戳
+- Memory：标准 hex / ASCII viewer（16 字节/行，单次最多 64KB）
+- Locals：列出全局变量按需展开 hex（无 DWARF 类型解析；函数局部变量 / struct / array 待后续）
+- Watch：`符号名` / `0xADDR` / `name:N` 三种表达式，localStorage 持久化跨会话保留
+- Call Stack：halt 后展示帧表（PC + LR 两帧），点击切 currentFrameId 联动 Source 自动加载对应文件并跳到行
+- Breakpoints：列表 + 按地址增删 + 清空；展示对应 file:line 与命中次数
+- Output：粗筛 debug 相关日志，自动滚动开关
+
+**体验细节**
+
+- 运行态前端 300ms 轮询 `core_halted`，命中断点自动停机 + 刷新 Registers / CallStack / Source / Locals / Watch（不依赖后端事件主动推送）
+- 源码断点 per-ELF localStorage 持久化（key = `debug_bp_${path}`），attach + Load ELF 后逐条恢复，单条失败容忍（行表可能因重新编译偏移）
+- ModeSwitch 在 `debug` attached 时切到其他工作台会弹确认（与 RTT 运行 → 烧录的现有保护对齐，确认意图但不自动 Detach，避免误操作丢失调试会话）
+
+### 调整
+
+- 「检查更新」入口去重：移除设置中心 → 工具 → 应用工具 整段，统一收到「关于作者」弹窗一处
+
+### 已知不做（明确文档化为后续阶段）
+
+- DWARF 类型解析（结构体 / 数组 / typedef、函数局部变量 `DW_AT_location` 求值）
+- 真实 N 帧栈展开（解析 `.debug_frame` CIE/FDE + 应用 DW_CFA opcodes 还原 caller 寄存器）
+- HardFault 异常解码（CFSR / HFSR / BFAR 解读）
+- RTOS-aware（FreeRTOS / RT-Thread thread list）
+- 源码路径重映射弹窗（DWARF 绝对路径在另一台机器找不到时让用户挑根目录）
+- Live Watch（运行态轮询变量出曲线）
+
+### 依赖
+
+- 前端 +5 个 npm 包：`dockview-react ^6.0.5`、`@uiw/react-codemirror ^4.25.9`、`@codemirror/lang-cpp ^6.0.3`、`@codemirror/state ^6.6.0`、`@codemirror/view ^6.42.1`
+- 后端 +2 个 crate：`addr2line 0.24`、`gimli 0.31`（probe-rs 自带 0.32，多版本共存）
+- bundle 净增：JS 约 +540KB raw / +175KB gz（CodeMirror 6 全套是大头），CSS +0.5KB
+
 ## [1.2.5] - 2026-05-08
 
 体验小版本：把当前版本号和「检查更新」按钮搬进「关于作者」弹窗，无功能性破坏，可直接覆盖升级。

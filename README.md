@@ -1,8 +1,8 @@
 # EK-OmniProbe
 
-一个开源的嵌入式开发四合一工具，集成**固件烧录**、**RTT 调试**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
+一个开源的嵌入式开发五合一工具，集成**固件烧录**、**源码级调试**、**RTT 实时输出**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.2.5-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -41,7 +41,7 @@
 
 ## ✨ 核心特性
 
-### 四种工作模式
+### 五种工作模式
 
 **🔥 烧录模式** - 专业的固件烧录工具
 - 支持 ELF/HEX/BIN/AXF/OUT/IHEX 格式固件烧录
@@ -58,6 +58,14 @@
 - 智能配置：一键检测数据格式（单数值/XY/CSV/JSON）
 - ANSI 颜色支持和自定义颜色标记
 - 多通道支持、关键字搜索、数据导出
+
+**🐞 调试模式** - 源码级 Cortex-M 调试器（参考 J-Link Ozone）
+- Attach / Detach、Run / Halt / Reset、单步 In / Over / Out 完整执行控制
+- 加载 ELF 后用 object + addr2line + gimli 解析符号表与 DWARF 行表，PC↔(file:line) 双向映射
+- 9 块面板可自由 dock / 浮动 / 合并 tab：Symbols（虚拟滚动）、Source（CodeMirror 6 + lang-cpp + 断点 gutter + PC 箭头）、Registers、Locals（全局变量 hex）、Watch（符号名 / 地址 / `name:N` 表达式，localStorage 持久化）、Memory、Call Stack（PC + LR 两帧）、Breakpoints、Output
+- 顶部「视图」下拉（Keil 风格）任意显隐面板 + 一键重置布局
+- 硬断点支持：源码 gutter 点击 toggle / 按地址添加；命中后 ~300ms 自动停机并刷新所有面板
+- 源码断点 per-ELF localStorage 持久化，下次 attach 同一 ELF 自动恢复
 
 **🔌 串口终端模式** - 多功能串口工具
 - 支持本地串口（COM 口）和 TCP 远程串口（ser2net、ESP-Link）
