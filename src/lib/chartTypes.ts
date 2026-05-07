@@ -191,12 +191,9 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
   const source = raw as Record<string, unknown>;
 
   const enabled = typeof source.enabled === "boolean" ? source.enabled : DEFAULT_CHART_CONFIG.enabled;
-  const parseMode =
-    isParseMode(source.parseMode) ? source.parseMode : DEFAULT_CHART_CONFIG.parseMode;
-  const chartType =
-    isChartType(source.chartType) ? source.chartType : DEFAULT_CHART_CONFIG.chartType;
-  const signalDomain =
-    source.signalDomain === "fft" ? "fft" : DEFAULT_CHART_CONFIG.signalDomain;
+  const parseMode = isParseMode(source.parseMode) ? source.parseMode : DEFAULT_CHART_CONFIG.parseMode;
+  const chartType = isChartType(source.chartType) ? source.chartType : DEFAULT_CHART_CONFIG.chartType;
+  const signalDomain = source.signalDomain === "fft" ? "fft" : DEFAULT_CHART_CONFIG.signalDomain;
 
   // 优先使用新版 channels；否则从旧字段拼回
   let channels: Channel[];
@@ -211,13 +208,19 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
     parseMode,
     regexPattern: typeof source.regexPattern === "string" ? source.regexPattern : "",
     regexFlags: typeof source.regexFlags === "string" ? source.regexFlags : "",
-    delimiter: typeof source.delimiter === "string" && source.delimiter.length > 0
-      ? source.delimiter
-      : DEFAULT_CHART_CONFIG.delimiter,
+    delimiter:
+      typeof source.delimiter === "string" && source.delimiter.length > 0
+        ? source.delimiter
+        : DEFAULT_CHART_CONFIG.delimiter,
     channels,
     chartType,
     maxDataPoints: clampInt(source.maxDataPoints, 100, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.maxDataPoints),
-    visiblePointLimit: clampInt(source.visiblePointLimit, 0, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.visiblePointLimit),
+    visiblePointLimit: clampInt(
+      source.visiblePointLimit,
+      0,
+      Number.MAX_SAFE_INTEGER,
+      DEFAULT_CHART_CONFIG.visiblePointLimit
+    ),
     updateInterval: clampInt(source.updateInterval, 16, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.updateInterval),
     fftWindowSize: clampInt(source.fftWindowSize, 32, 4096, DEFAULT_CHART_CONFIG.fftWindowSize),
     sampleRateHz: clampNumber(source.sampleRateHz, 0, Number.MAX_SAFE_INTEGER, 0),
@@ -280,11 +283,12 @@ function buildChannelsFromLegacy(source: Record<string, unknown>): Channel[] {
     channels.push({
       key: input.key,
       sourceIndex: input.sourceIndex,
-      name: typeof existing?.name === "string" && existing.name ? existing.name : input.name ?? input.key,
+      name: typeof existing?.name === "string" && existing.name ? existing.name : (input.name ?? input.key),
       unit: typeof existing?.unit === "string" ? existing.unit : input.unit,
-      color: typeof existing?.color === "string" && existing.color
-        ? existing.color
-        : input.color ?? PRESET_COLORS[channels.length % PRESET_COLORS.length],
+      color:
+        typeof existing?.color === "string" && existing.color
+          ? existing.color
+          : (input.color ?? PRESET_COLORS[channels.length % PRESET_COLORS.length]),
       visible: existing ? existing.visible !== false : input.visible !== false,
       role: input.key === xAxisField ? "x" : "y",
     });

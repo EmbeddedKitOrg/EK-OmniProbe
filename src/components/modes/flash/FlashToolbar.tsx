@@ -3,26 +3,9 @@
  */
 
 import { useState, useEffect } from "react";
-import {
-  FolderOpen,
-  Save,
-  Unlock,
-  Trash2,
-  CheckCircle,
-  Upload,
-  Zap,
-  RotateCcw,
-  Square,
-  Play,
-} from "lucide-react";
+import { FolderOpen, Save, Unlock, Trash2, CheckCircle, Upload, Zap, RotateCcw, Square, Play } from "lucide-react";
 import { TooltipButton, TooltipWrapper } from "@/components/ui/tooltip-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
 import { useFlashStore } from "@/stores/flashStore";
@@ -168,7 +151,10 @@ export function FlashToolbar() {
         await eraseChip();
         addLog("success", "全片擦除完成");
       } else if (mode === "custom" && address !== undefined && size !== undefined) {
-        addLog("info", `开始擦除 0x${address.toString(16).toUpperCase()} - 0x${(address + size).toString(16).toUpperCase()} (${size} 字节)`);
+        addLog(
+          "info",
+          `开始擦除 0x${address.toString(16).toUpperCase()} - 0x${(address + size).toString(16).toUpperCase()} (${size} 字节)`
+        );
         await eraseSector(address, size);
         addLog("success", "自定义范围擦除完成");
       }
@@ -278,11 +264,7 @@ export function FlashToolbar() {
         <TooltipWrapper tooltip="烧录时的擦除模式：扇区擦除只擦除需要写入的区域（快），整片擦除会清空整个Flash（慢但彻底）">
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">烧录模式:</span>
-            <Select
-              value={eraseMode}
-              onValueChange={(value) => setEraseMode(value as EraseMode)}
-              disabled={flashing}
-            >
+            <Select value={eraseMode} onValueChange={(value) => setEraseMode(value as EraseMode)} disabled={flashing}>
               <SelectTrigger className="w-[100px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -360,11 +342,7 @@ export function FlashToolbar() {
       </div>
 
       {/* Erase dialog */}
-      <EraseDialog
-        open={eraseDialogOpen}
-        onOpenChange={setEraseDialogOpen}
-        onConfirm={handleEraseConfirm}
-      />
+      <EraseDialog open={eraseDialogOpen} onOpenChange={setEraseDialogOpen} onConfirm={handleEraseConfirm} />
     </div>
   );
 }

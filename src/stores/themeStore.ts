@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import { loadStringFromStorage, saveStringToStorage } from "@/lib/storage";
-import {
-  DEFAULT_THEME_SCHEME_ID,
-  THEME_SCHEMES,
-  applyThemeSchemeToDocument,
-} from "@/lib/themeSchemes";
+import { DEFAULT_THEME_SCHEME_ID, THEME_SCHEMES, applyThemeSchemeToDocument } from "@/lib/themeSchemes";
 
 const THEME_SCHEME_KEY = "theme_scheme";
 const THEME_IDS = THEME_SCHEMES.map((scheme) => scheme.id);

@@ -132,19 +132,19 @@ export function SerialPanel({ className }: SerialPanelProps) {
         title: "先连接串口",
         description: "在左侧选择本地 COM 或 TCP 串口并连接，再开始接收数据。",
       }
-      : !running
-        ? {
-            icon: Activity,
+    : !running
+      ? {
+          icon: Activity,
           title: "串口已连接，等待开始接收",
           description: "点击工具栏里的“开始”，即可进入持续接收状态。",
         }
-        : lines.length === 0
-          ? {
-              icon: FileText,
-              title: "串口正在接收，等待数据流入",
-              description: "收到结构化数值后，可以直接切到“波形 / FFT”，或保留分屏一起观察。",
-            }
-          : null;
+      : lines.length === 0
+        ? {
+            icon: FileText,
+            title: "串口正在接收，等待数据流入",
+            description: "收到结构化数值后，可以直接切到“波形 / FFT”，或保留分屏一起观察。",
+          }
+        : null;
 
   return (
     <div className={cn("flex h-full flex-col gap-2", className)}>
@@ -152,11 +152,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
       <SerialToolbar />
 
       {workflowHint && (
-        <PanelHintCard
-          icon={workflowHint.icon}
-          title={workflowHint.title}
-          description={workflowHint.description}
-        />
+        <PanelHintCard icon={workflowHint.icon} title={workflowHint.title} description={workflowHint.description} />
       )}
 
       {/* Error message */}
@@ -203,10 +199,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
             }
           >
             {chartDetached ? (
-              <ChartDetachedPlaceholder
-                onFocus={focusDetachedWindow}
-                onRestore={restoreInline}
-              />
+              <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
             ) : (
               <SerialChartViewer />
             )}
@@ -236,10 +229,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
               </div>
             </Panel>
             <Separator
-              className={cn(
-                "bg-border hover:bg-primary/50 transition-colors",
-                isVerticalSplit ? "h-1" : "w-1"
-              )}
+              className={cn("bg-border hover:bg-primary/50 transition-colors", isVerticalSplit ? "h-1" : "w-1")}
             />
             <Panel defaultSize={(1 - splitRatio) * 100} minSize={20}>
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pt-1" : "pl-1")}>
@@ -257,10 +247,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
                   }
                 >
                   {chartDetached ? (
-                    <ChartDetachedPlaceholder
-                      onFocus={focusDetachedWindow}
-                      onRestore={restoreInline}
-                    />
+                    <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
                   ) : (
                     <SerialChartViewer />
                   )}

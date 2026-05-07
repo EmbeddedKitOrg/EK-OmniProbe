@@ -44,11 +44,11 @@ export interface ConnectionStatus {
 
 export interface ConnectionInfo {
   probe_name: string;
-  probe_serial: string | null;  // DAP探针序列号
+  probe_serial: string | null; // DAP探针序列号
   target_name: string;
   core_type: string;
-  chip_id: number | null;        // 芯片DBGMCU_IDCODE
-  target_idcode: number | null;  // 目标芯片的真实IDCODE
+  chip_id: number | null; // 芯片DBGMCU_IDCODE
+  target_idcode: number | null; // 目标芯片的真实IDCODE
 }
 
 // 芯片信息
@@ -93,7 +93,7 @@ export interface FlashOptions {
   reset_after: boolean;
   erase_mode: EraseMode;
   flash_algorithm?: string; // 可选：指定使用的Flash算法名称
-  preverify?: boolean;      // 预校验：烧录前检查，跳过已正确的块（加速重复烧录）
+  preverify?: boolean; // 预校验：烧录前检查，跳过已正确的块（加速重复烧录）
 }
 
 // Flash进度事件
@@ -107,7 +107,7 @@ export interface FlashProgressEvent {
 export interface FirmwareFileInfo {
   path: string;
   size: number;
-  modified: number | null;  // Unix timestamp in seconds
+  modified: number | null; // Unix timestamp in seconds
   exists: boolean;
 }
 

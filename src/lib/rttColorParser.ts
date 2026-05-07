@@ -4,20 +4,20 @@
  */
 
 export interface ColorTag {
-  name: string;           // 标记名称，如 "red"
-  color?: string;         // 文本颜色
+  name: string; // 标记名称，如 "red"
+  color?: string; // 文本颜色
   backgroundColor?: string; // 背景色
-  fontWeight?: string;    // 字体粗细
-  fontStyle?: string;     // 字体样式
+  fontWeight?: string; // 字体粗细
+  fontStyle?: string; // 字体样式
   textDecoration?: string; // 文本装饰
 }
 
 export interface ColorParserConfig {
-  enabled: boolean;       // 是否启用颜色解析
-  tagPrefix: string;      // 标记前缀，默认 "["
-  tagSuffix: string;      // 标记后缀，默认 "]"
-  closeTag: string;       // 关闭标记，默认 "/"
-  tags: ColorTag[];       // 自定义标记列表
+  enabled: boolean; // 是否启用颜色解析
+  tagPrefix: string; // 标记前缀，默认 "["
+  tagSuffix: string; // 标记后缀，默认 "]"
+  closeTag: string; // 关闭标记，默认 "/"
+  tags: ColorTag[]; // 自定义标记列表
 }
 
 // 默认颜色标记配置
@@ -72,10 +72,7 @@ export interface TextSegment {
  * @param config 解析配置
  * @returns 解析后的文本片段数组
  */
-export function parseColoredText(
-  text: string,
-  config: ColorParserConfig = DEFAULT_PARSER_CONFIG
-): TextSegment[] {
+export function parseColoredText(text: string, config: ColorParserConfig = DEFAULT_PARSER_CONFIG): TextSegment[] {
   if (!config.enabled) {
     return [{ text, styles: {} }];
   }
@@ -85,19 +82,16 @@ export function parseColoredText(
 
   // 创建标记名称到样式的映射
   const tagMap = new Map<string, ColorTag>();
-  tags.forEach(tag => tagMap.set(tag.name, tag));
+  tags.forEach((tag) => tagMap.set(tag.name, tag));
 
   // 转义正则表达式特殊字符
-  const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const prefix = escapeRegex(tagPrefix);
   const suffix = escapeRegex(tagSuffix);
 
   // 匹配开始标记和结束标记的正则
   // 支持 [tag] 和 [/tag] 或 [/]
-  const tagRegex = new RegExp(
-    `${prefix}(/?)(\\w+)${suffix}`,
-    'g'
-  );
+  const tagRegex = new RegExp(`${prefix}(/?)(\\w+)${suffix}`, "g");
 
   let lastIndex = 0;
   let currentStyles: React.CSSProperties = {};
@@ -122,7 +116,7 @@ export function parseColoredText(
 
     if (isClosing === closeTag) {
       // 关闭标记
-      if (tagName === '' || styleStack.length > 0) {
+      if (tagName === "" || styleStack.length > 0) {
         // [/] 或有样式栈时，弹出最近的样式
         currentStyles = styleStack.pop() || {};
       }
@@ -171,7 +165,7 @@ export function parseColoredText(
  * 保存配置到 localStorage
  */
 export function saveColorParserConfig(config: ColorParserConfig) {
-  localStorage.setItem('rtt-color-parser-config', JSON.stringify(config));
+  localStorage.setItem("rtt-color-parser-config", JSON.stringify(config));
 }
 
 /**
@@ -179,7 +173,7 @@ export function saveColorParserConfig(config: ColorParserConfig) {
  */
 export function loadColorParserConfig(): ColorParserConfig {
   try {
-    const saved = localStorage.getItem('rtt-color-parser-config');
+    const saved = localStorage.getItem("rtt-color-parser-config");
     if (saved) {
       const config = JSON.parse(saved);
       // 合并默认配置，确保新增字段有默认值

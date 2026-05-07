@@ -162,11 +162,7 @@ export async function getFlashAlgorithms(chipName: string): Promise<FlashAlgorit
 }
 
 // 串口命令
-import type {
-  SerialPortInfo,
-  SerialConfig,
-  SerialStatus,
-} from "./serialTypes";
+import type { SerialPortInfo, SerialConfig, SerialStatus } from "./serialTypes";
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   return await invoke<SerialPortInfo[]>("list_serial_ports_cmd");
@@ -184,11 +180,7 @@ export async function writeSerial(data: number[]): Promise<number> {
   return await invoke<number>("write_serial", { data });
 }
 
-export async function writeSerialString(
-  text: string,
-  encoding: string,
-  lineEnding: string
-): Promise<number> {
+export async function writeSerialString(text: string, encoding: string, lineEnding: string): Promise<number> {
   return await invoke<number>("write_serial_string", { text, encoding, lineEnding });
 }
 
@@ -235,12 +227,7 @@ export async function setCustomPacksDirectory(path: string | null): Promise<void
 }
 
 // BLE 蓝牙命令
-import type {
-  BleDeviceInfo,
-  BleService,
-  BleStatus,
-  NusAutoConfig,
-} from "./bleTypes";
+import type { BleDeviceInfo, BleService, BleStatus, NusAutoConfig } from "./bleTypes";
 
 export async function bleGetStatus(): Promise<BleStatus> {
   return await invoke<BleStatus>("ble_get_status");
@@ -278,11 +265,7 @@ export async function bleUnsubscribe(): Promise<void> {
   return await invoke("ble_unsubscribe");
 }
 
-export async function bleWrite(
-  charUuid: string,
-  data: number[],
-  withResponse: boolean | null
-): Promise<number> {
+export async function bleWrite(charUuid: string, data: number[], withResponse: boolean | null): Promise<number> {
   return await invoke<number>("ble_write", { charUuid, data, withResponse });
 }
 

@@ -22,7 +22,7 @@ const FIRMWARE_EXTENSIONS = [".hex", ".bin", ".elf", ".axf", ".out", ".ihex"];
 // Check if file is a firmware file
 function isFirmwareFile(path: string): boolean {
   const lowerPath = path.toLowerCase();
-  return FIRMWARE_EXTENSIONS.some(ext => lowerPath.endsWith(ext));
+  return FIRMWARE_EXTENSIONS.some((ext) => lowerPath.endsWith(ext));
 }
 
 export function FlashMode() {
@@ -67,10 +67,9 @@ export function FlashMode() {
   }, [setFirmwarePath, addLog]);
 
   return (
-    <div className={cn(
-      "h-full flex flex-col overflow-hidden relative",
-      isDragging && "ring-2 ring-primary ring-inset"
-    )}>
+    <div
+      className={cn("h-full flex flex-col overflow-hidden relative", isDragging && "ring-2 ring-primary ring-inset")}
+    >
       {/* Drag overlay */}
       {isDragging && (
         <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">

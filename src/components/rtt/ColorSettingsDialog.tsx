@@ -50,10 +50,7 @@ export function ColorSettingsDialog({
   const addTag = () => {
     setLocalConfig({
       ...localConfig,
-      tags: [
-        ...localConfig.tags,
-        { name: "new-tag", color: "#ffffff" },
-      ],
+      tags: [...localConfig.tags, { name: "new-tag", color: "#ffffff" }],
     });
   };
 
@@ -67,9 +64,7 @@ export function ColorSettingsDialog({
   const updateTag = (index: number, updates: Partial<ColorTag>) => {
     setLocalConfig({
       ...localConfig,
-      tags: localConfig.tags.map((tag, i) =>
-        i === index ? { ...tag, ...updates } : tag
-      ),
+      tags: localConfig.tags.map((tag, i) => (i === index ? { ...tag, ...updates } : tag)),
     });
   };
 
@@ -95,9 +90,7 @@ export function ColorSettingsDialog({
             <Switch
               id="enabled"
               checked={localConfig.enabled}
-              onCheckedChange={(enabled) =>
-                setLocalConfig({ ...localConfig, enabled })
-              }
+              onCheckedChange={(enabled) => setLocalConfig({ ...localConfig, enabled })}
             />
           </div>
 
@@ -108,9 +101,7 @@ export function ColorSettingsDialog({
               <Input
                 id="prefix"
                 value={localConfig.tagPrefix}
-                onChange={(e) =>
-                  setLocalConfig({ ...localConfig, tagPrefix: e.target.value })
-                }
+                onChange={(e) => setLocalConfig({ ...localConfig, tagPrefix: e.target.value })}
                 placeholder="["
                 maxLength={2}
               />
@@ -120,9 +111,7 @@ export function ColorSettingsDialog({
               <Input
                 id="suffix"
                 value={localConfig.tagSuffix}
-                onChange={(e) =>
-                  setLocalConfig({ ...localConfig, tagSuffix: e.target.value })
-                }
+                onChange={(e) => setLocalConfig({ ...localConfig, tagSuffix: e.target.value })}
                 placeholder="]"
                 maxLength={2}
               />
@@ -132,9 +121,7 @@ export function ColorSettingsDialog({
               <Input
                 id="closeTag"
                 value={localConfig.closeTag}
-                onChange={(e) =>
-                  setLocalConfig({ ...localConfig, closeTag: e.target.value })
-                }
+                onChange={(e) => setLocalConfig({ ...localConfig, closeTag: e.target.value })}
                 placeholder="/"
                 maxLength={1}
               />
@@ -146,7 +133,8 @@ export function ColorSettingsDialog({
             <div className="font-medium mb-1">示例语法：</div>
             <code>
               {localConfig.tagPrefix}red{localConfig.tagSuffix}错误信息
-              {localConfig.tagPrefix}{localConfig.closeTag}
+              {localConfig.tagPrefix}
+              {localConfig.closeTag}
               {localConfig.tagSuffix}
             </code>
           </div>
@@ -172,9 +160,7 @@ export function ColorSettingsDialog({
                       <Label className="text-xs">标记名</Label>
                       <Input
                         value={tag.name}
-                        onChange={(e) =>
-                          updateTag(index, { name: e.target.value })
-                        }
+                        onChange={(e) => updateTag(index, { name: e.target.value })}
                         placeholder="red"
                         className="h-8"
                       />
@@ -185,27 +171,18 @@ export function ColorSettingsDialog({
                         <Input
                           type="color"
                           value={tag.color || "#ffffff"}
-                          onChange={(e) =>
-                            updateTag(index, { color: e.target.value })
-                          }
+                          onChange={(e) => updateTag(index, { color: e.target.value })}
                           className="h-8 w-16"
                         />
                         <Input
                           value={tag.color || ""}
-                          onChange={(e) =>
-                            updateTag(index, { color: e.target.value })
-                          }
+                          onChange={(e) => updateTag(index, { color: e.target.value })}
                           placeholder="#ffffff"
                           className="h-8 flex-1"
                         />
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeTag(index)}
-                      className="h-8 w-8"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => removeTag(index)} className="h-8 w-8">
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

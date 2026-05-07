@@ -17,11 +17,7 @@ const TEXT_FILTERS: DialogFilter[] = [{ name: "文本文件", extensions: ["txt"
 const CSV_FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
 const PNG_FILTERS: DialogFilter[] = [{ name: "PNG 图片", extensions: ["png"] }];
 
-async function saveTextFile(
-  content: string,
-  defaultName: string,
-  filters: DialogFilter[]
-): Promise<string | null> {
+async function saveTextFile(content: string, defaultName: string, filters: DialogFilter[]): Promise<string | null> {
   const path = await save({ defaultPath: defaultName, filters });
   if (!path) return null;
   await invoke("write_text_file", { path, content });
@@ -75,12 +71,9 @@ export async function exportRttLinesAsTxt(lines: RttLine[]): Promise<string | nu
 export async function exportRttLinesAsCsv(lines: RttLine[]): Promise<string | null> {
   const header = "timestamp,channel,level,text";
   const rows = lines.map((line) =>
-    [
-      escapeCsv(line.timestamp.toISOString()),
-      String(line.channel),
-      escapeCsv(line.level),
-      escapeCsv(line.text),
-    ].join(",")
+    [escapeCsv(line.timestamp.toISOString()), String(line.channel), escapeCsv(line.level), escapeCsv(line.text)].join(
+      ","
+    )
   );
   const content = [header, ...rows].join("\n");
   return saveTextFile(content, `rtt-${timestampSuffix()}.csv`, CSV_FILTERS);
@@ -101,11 +94,7 @@ export async function exportSerialLinesAsTxt(lines: SerialLine[]): Promise<strin
 export async function exportSerialLinesAsCsv(lines: SerialLine[]): Promise<string | null> {
   const header = "timestamp,direction,text";
   const rows = lines.map((line) =>
-    [
-      escapeCsv(line.timestamp.toISOString()),
-      line.direction,
-      escapeCsv(line.text),
-    ].join(",")
+    [escapeCsv(line.timestamp.toISOString()), line.direction, escapeCsv(line.text)].join(",")
   );
   const content = [header, ...rows].join("\n");
   return saveTextFile(content, `serial-${timestampSuffix()}.csv`, CSV_FILTERS);
@@ -113,10 +102,7 @@ export async function exportSerialLinesAsCsv(lines: SerialLine[]): Promise<strin
 
 // ============ Chart ============
 
-export async function exportChartDataAsCsv(
-  data: ChartDataPoint[],
-  config: ChartConfig
-): Promise<string | null> {
+export async function exportChartDataAsCsv(data: ChartDataPoint[], config: ChartConfig): Promise<string | null> {
   const channelKeys = config.channels.map((c) => c.key);
   const channelNames = config.channels.map((c) => c.name || c.key);
 

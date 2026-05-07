@@ -31,9 +31,7 @@ export function formatTime(date: Date): string {
 }
 
 /** 从文本内容推断日志级别 */
-export function parseLogLevel(
-  text: string
-): "error" | "warn" | "info" | "debug" {
+export function parseLogLevel(text: string): "error" | "warn" | "info" | "debug" {
   const lowerText = text.toLowerCase();
   if (lowerText.includes("[error]") || lowerText.includes("[err]") || lowerText.includes("error:")) {
     return "error";

@@ -122,13 +122,13 @@ export function RttIntegrationGuideDialog({ trigger }: RttIntegrationGuideDialog
               <div className="font-medium">几个常见坑</div>
               <ul className="mt-1 list-disc space-y-0.5 pl-5">
                 <li>
-                  <Code>SEGGER_RTT_printf</Code> 不支持 <Code>%f</Code>，要输出浮点请自己拆成整数部分
-                  和小数部分（例如 <Code>%d.%03d</Code>）。
+                  <Code>SEGGER_RTT_printf</Code> 不支持 <Code>%f</Code>，要输出浮点请自己拆成整数部分 和小数部分（例如{" "}
+                  <Code>%d.%03d</Code>）。
                 </li>
                 <li>编译报找不到头文件 → 检查 Include Path 是否加上了 RTTBSP 目录。</li>
                 <li>
-                  EK-OmniProbe 启动 RTT 后看不到输出 → 在「扫描模式」试试「全片扫描」，
-                  或在 map 文件里查 <Code>_SEGGER_RTT</Code> 地址手动指定。
+                  EK-OmniProbe 启动 RTT 后看不到输出 → 在「扫描模式」试试「全片扫描」， 或在 map 文件里查{" "}
+                  <Code>_SEGGER_RTT</Code> 地址手动指定。
                 </li>
                 <li>中文乱码 → 源文件保存为 UTF-8（含 BOM 也行），并避免 GB2312。</li>
               </ul>
@@ -140,15 +140,7 @@ export function RttIntegrationGuideDialog({ trigger }: RttIntegrationGuideDialog
   );
 }
 
-function Step({
-  number,
-  title,
-  children,
-}: {
-  number: number;
-  title: string;
-  children: ReactNode;
-}) {
+function Step({ number, title, children }: { number: number; title: string; children: ReactNode }) {
   return (
     <section className="rounded-[20px] border border-border/60 bg-white/65 p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -187,9 +179,7 @@ function CodeSnippet({ code, language }: { code: string; language?: string }) {
           onClick={handleCopy}
           className={cn(
             "flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors",
-            copied
-              ? "bg-green-500/15 text-green-600"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            copied ? "bg-green-500/15 text-green-600" : "text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -204,11 +194,7 @@ function CodeSnippet({ code, language }: { code: string; language?: string }) {
 }
 
 function Code({ children }: { children: ReactNode }) {
-  return (
-    <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] text-foreground">
-      {children}
-    </code>
-  );
+  return <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] text-foreground">{children}</code>;
 }
 
 function ExternalLinkButton({ url, label }: { url: string; label: string }) {

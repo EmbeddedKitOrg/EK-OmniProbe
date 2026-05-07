@@ -7,16 +7,8 @@ import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 
 export function BleViewer() {
-  const {
-    autoScroll,
-    showTimestamp,
-    showDirectionPrefix,
-    running,
-    displayMode,
-    connected,
-    lines,
-    searchQuery,
-  } = useBluetoothStore();
+  const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
+    useBluetoothStore();
 
   const filteredLines = useMemo(() => {
     if (!searchQuery.trim()) return lines;
@@ -46,19 +38,12 @@ export function BleViewer() {
       : "等待数据...";
 
   if (filteredLines.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        {emptyMessage}
-      </div>
-    );
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyMessage}</div>;
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto bg-background p-2 font-mono text-xs leading-5"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-background p-2 font-mono text-xs leading-5">
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
@@ -133,9 +118,7 @@ const BleLineItem = React.memo(function BleLineItem({
         .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
         .join(" ");
     }
-    return data
-      .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-      .join(" ");
+    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   const textSegments = useMemo(() => {
@@ -166,16 +149,9 @@ const BleLineItem = React.memo(function BleLineItem({
   }, [line.text, colorParserConfig]);
 
   return (
-    <div
-      className={cn(
-        "flex items-baseline gap-2 py-0.5 hover:bg-muted/50",
-        levelColors[line.level]
-      )}
-    >
+    <div className={cn("flex items-baseline gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
       {showTimestamp && (
-        <span className="shrink-0 select-none font-mono text-muted-foreground">
-          [{formatTime(line.timestamp)}]
-        </span>
+        <span className="shrink-0 select-none font-mono text-muted-foreground">[{formatTime(line.timestamp)}]</span>
       )}
       {showDirectionPrefix && (
         <span
@@ -188,9 +164,7 @@ const BleLineItem = React.memo(function BleLineItem({
         </span>
       )}
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">
-          {formatHex(line.rawData || [])}
-        </span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((seg, idx) => (

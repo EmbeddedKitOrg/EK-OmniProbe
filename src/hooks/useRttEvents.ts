@@ -11,14 +11,7 @@ import { formatBytes } from "@/lib/formatters";
  * 在组件挂载时自动订阅 RTT 数据和状态事件
  */
 export function useRttEvents() {
-  const {
-    addLines,
-    addBytes,
-    setRunning,
-    setError,
-    addChartDataBatch,
-    incrementParseCounts,
-  } = useRttStore();
+  const { addLines, addBytes, setRunning, setError, addChartDataBatch, incrementParseCounts } = useRttStore();
   const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
@@ -115,14 +108,7 @@ export function useRttEvents() {
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };
-  }, [
-    addLines,
-    addBytes,
-    setRunning,
-    setError,
-    addChartDataBatch,
-    incrementParseCounts,
-  ]);
+  }, [addLines, addBytes, setRunning, setError, addChartDataBatch, incrementParseCounts]);
 }
 
 /**
@@ -138,4 +124,3 @@ export function useRttStats() {
     bytesFormatted: formatBytes(totalBytes),
   };
 }
-

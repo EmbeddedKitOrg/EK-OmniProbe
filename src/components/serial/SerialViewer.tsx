@@ -37,9 +37,7 @@ const formatLineForCopy = (line: SerialLine, mode: CopyMode): string => {
 
 const findLineIndex = (node: Node | null, container: HTMLElement): number | null => {
   let el: HTMLElement | null =
-    node?.nodeType === Node.ELEMENT_NODE
-      ? (node as HTMLElement)
-      : node?.parentElement ?? null;
+    node?.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : (node?.parentElement ?? null);
   while (el && el !== container) {
     const attr = el.getAttribute?.("data-line-index");
     if (attr != null) return Number(attr);
@@ -48,16 +46,11 @@ const findLineIndex = (node: Node | null, container: HTMLElement): number | null
   return null;
 };
 
-const getSelectedLineRange = (
-  container: HTMLElement
-): { start: number; end: number } | null => {
+const getSelectedLineRange = (container: HTMLElement): { start: number; end: number } | null => {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
   const range = sel.getRangeAt(0);
-  if (
-    !container.contains(range.startContainer) ||
-    !container.contains(range.endContainer)
-  ) {
+  if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
     return null;
   }
   const a = findLineIndex(range.startContainer, container);
@@ -67,7 +60,8 @@ const getSelectedLineRange = (
 };
 
 export function SerialViewer({ direction, title }: SerialViewerProps) {
-  const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } = useSerialStore();
+  const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
+    useSerialStore();
   const addLog = useLogStore((state) => state.addLog);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -83,9 +77,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((line) =>
-        line.text.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((line) => line.text.toLowerCase().includes(query));
     }
 
     return filtered;
@@ -213,9 +205,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
             {title}
           </div>
         )}
-        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-          {getEmptyMessage()}
-        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">{getEmptyMessage()}</div>
       </div>
     );
   }
@@ -308,9 +298,7 @@ function CopyContextMenu({ x, y, onPick }: CopyContextMenuProps) {
           onClick={() => onPick(item.mode)}
         >
           <span>{item.label}</span>
-          {item.hint && (
-            <span className="text-xs text-muted-foreground">{item.hint}</span>
-          )}
+          {item.hint && <span className="text-xs text-muted-foreground">{item.hint}</span>}
         </button>
       ))}
     </div>
@@ -324,7 +312,12 @@ interface SerialLineItemProps {
   displayMode: "text" | "hex";
 }
 
-const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp, showDirectionPrefix, displayMode }: SerialLineItemProps) {
+const SerialLineItem = React.memo(function SerialLineItem({
+  line,
+  showTimestamp,
+  showDirectionPrefix,
+  displayMode,
+}: SerialLineItemProps) {
   const colorParserConfig = useSerialStore((state) => state.colorParserConfig);
 
   const levelColors: Record<SerialLine["level"], string> = {
@@ -350,9 +343,7 @@ const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp,
         .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
         .join(" ");
     }
-    return data
-      .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-      .join(" ");
+    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   // Parse ANSI and custom color markers
@@ -391,9 +382,7 @@ const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp,
   return (
     <div className={cn("flex items-baseline gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
       {showTimestamp && (
-        <span className="text-muted-foreground shrink-0 select-none font-mono">
-          [{formatTime(line.timestamp)}]
-        </span>
+        <span className="text-muted-foreground shrink-0 select-none font-mono">[{formatTime(line.timestamp)}]</span>
       )}
       {showDirectionPrefix && (
         <span
@@ -406,9 +395,7 @@ const SerialLineItem = React.memo(function SerialLineItem({ line, showTimestamp,
         </span>
       )}
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">
-          {formatHex(line.rawData || [])}
-        </span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((segment, index) => (

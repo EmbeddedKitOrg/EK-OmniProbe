@@ -1,24 +1,12 @@
 import { useMemo, useState } from "react";
 import type { Channel, ChartConfig, ChartType, ParseMode } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 
 interface ChartConfigDialogProps {
@@ -163,9 +151,7 @@ export function ChartConfigDialog({
                 <Label htmlFor="parseMode">解析模式</Label>
                 <Select
                   value={localConfig.parseMode}
-                  onValueChange={(value: ParseMode) =>
-                    setLocalConfig({ ...localConfig, parseMode: value })
-                  }
+                  onValueChange={(value: ParseMode) => setLocalConfig({ ...localConfig, parseMode: value })}
                 >
                   <SelectTrigger id="parseMode">
                     <SelectValue />
@@ -184,9 +170,7 @@ export function ChartConfigDialog({
                 <Label htmlFor="chartType">图表类型</Label>
                 <Select
                   value={localConfig.chartType}
-                  onValueChange={(value: ChartType) =>
-                    setLocalConfig({ ...localConfig, chartType: value })
-                  }
+                  onValueChange={(value: ChartType) => setLocalConfig({ ...localConfig, chartType: value })}
                 >
                   <SelectTrigger id="chartType">
                     <SelectValue />
@@ -225,12 +209,11 @@ export function ChartConfigDialog({
                     id="delimiter"
                     value={localConfig.delimiter}
                     placeholder=", / \t / ; / 空格"
-                    onChange={(event) =>
-                      setLocalConfig({ ...localConfig, delimiter: event.target.value })
-                    }
+                    onChange={(event) => setLocalConfig({ ...localConfig, delimiter: event.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">
-                    例如 <code className="font-mono">20,4997.32,122954.44</code> 用 <code className="font-mono">,</code>。
+                    例如 <code className="font-mono">20,4997.32,122954.44</code> 用 <code className="font-mono">,</code>
+                    。
                   </p>
                 </div>
               )}
@@ -244,9 +227,7 @@ export function ChartConfigDialog({
                       value={localConfig.regexPattern}
                       placeholder="temp:(?<temp>\d+\.\d+)"
                       className="font-mono"
-                      onChange={(event) =>
-                        setLocalConfig({ ...localConfig, regexPattern: event.target.value })
-                      }
+                      onChange={(event) => setLocalConfig({ ...localConfig, regexPattern: event.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -255,9 +236,7 @@ export function ChartConfigDialog({
                       id="regexFlags"
                       value={localConfig.regexFlags || ""}
                       placeholder="g / gi"
-                      onChange={(event) =>
-                        setLocalConfig({ ...localConfig, regexFlags: event.target.value })
-                      }
+                      onChange={(event) => setLocalConfig({ ...localConfig, regexFlags: event.target.value })}
                     />
                   </div>
                 </div>
@@ -270,9 +249,7 @@ export function ChartConfigDialog({
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium">通道</div>
-                <p className="text-xs text-muted-foreground">
-                  一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。
-                </p>
+                <p className="text-xs text-muted-foreground">一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。</p>
               </div>
               <Button size="sm" variant="outline" onClick={addChannel}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
@@ -283,7 +260,8 @@ export function ChartConfigDialog({
             {localConfig.channels.length === 0 ? (
               <div className="rounded-[20px] border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
                 还没有通道。
-                {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") && "（留空时会自动提取所有数值字段）"}
+                {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
+                  "（留空时会自动提取所有数值字段）"}
               </div>
             ) : (
               <div className="space-y-2">
@@ -317,33 +295,25 @@ export function ChartConfigDialog({
                 id="maxDataPoints"
                 label="最大数据点数"
                 value={localConfig.maxDataPoints}
-                onChange={(value) =>
-                  setLocalConfig({ ...localConfig, maxDataPoints: Math.max(value, 100) })
-                }
+                onChange={(value) => setLocalConfig({ ...localConfig, maxDataPoints: Math.max(value, 100) })}
               />
               <NumberField
                 id="visiblePointLimit"
                 label="可视点数 (0=自动)"
                 value={localConfig.visiblePointLimit}
-                onChange={(value) =>
-                  setLocalConfig({ ...localConfig, visiblePointLimit: Math.max(value, 0) })
-                }
+                onChange={(value) => setLocalConfig({ ...localConfig, visiblePointLimit: Math.max(value, 0) })}
               />
               <NumberField
                 id="updateInterval"
                 label="刷新间隔 (ms)"
                 value={localConfig.updateInterval}
-                onChange={(value) =>
-                  setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })
-                }
+                onChange={(value) => setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })}
               />
               <NumberField
                 id="sampleRateHz"
                 label="采样率 (Hz, 0=自动)"
                 value={localConfig.sampleRateHz}
-                onChange={(value) =>
-                  setLocalConfig({ ...localConfig, sampleRateHz: Math.max(value, 0) })
-                }
+                onChange={(value) => setLocalConfig({ ...localConfig, sampleRateHz: Math.max(value, 0) })}
               />
               <NumberField
                 id="fftWindowSize"
@@ -402,13 +372,7 @@ export function ChartConfigDialog({
   );
 }
 
-function ChannelHeaderRow({
-  isDelimiter,
-  isXyScatter,
-}: {
-  isDelimiter: boolean;
-  isXyScatter: boolean;
-}) {
+function ChannelHeaderRow({ isDelimiter, isXyScatter }: { isDelimiter: boolean; isXyScatter: boolean }) {
   return (
     <div
       className="grid items-center gap-2 px-2 text-[11px] uppercase tracking-wide text-muted-foreground"
@@ -490,10 +454,7 @@ function ChannelRow({
         aria-label="颜色"
       />
       {isXyScatter && (
-        <Select
-          value={channel.role ?? "y"}
-          onValueChange={(value) => onChange({ role: value as "x" | "y" })}
-        >
+        <Select value={channel.role ?? "y"} onValueChange={(value) => onChange({ role: value as "x" | "y" })}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
@@ -504,10 +465,7 @@ function ChannelRow({
         </Select>
       )}
       <div className="flex justify-center">
-        <Switch
-          checked={channel.visible}
-          onCheckedChange={(checked) => onChange({ visible: checked })}
-        />
+        <Switch checked={channel.visible} onCheckedChange={(checked) => onChange({ visible: checked })} />
       </div>
       <div className="flex items-center gap-1">
         <Button
@@ -596,12 +554,7 @@ function NumberField({
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        type="number"
-        value={value}
-        onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
-      />
+      <Input id={id} type="number" value={value} onChange={(event) => onChange(parseFloat(event.target.value) || 0)} />
     </div>
   );
 }

@@ -70,9 +70,7 @@ interface SendSettings {
   hexMode: boolean;
 }
 
-type TerminalUnit =
-  | { kind: "char"; value: string }
-  | { kind: "ansi"; value: string };
+type TerminalUnit = { kind: "char"; value: string } | { kind: "ansi"; value: string };
 
 type TerminalToken =
   | { type: "char"; value: string }
@@ -205,10 +203,7 @@ const savedTerminalSettingsVersion = loadNumberFromStorage(
   0,
   (value) => value >= 0
 );
-const loadedTerminalSettings = loadFromStorage(
-  SERIAL_TERMINAL_SETTINGS_KEY,
-  defaultTerminalSettings
-);
+const loadedTerminalSettings = loadFromStorage(SERIAL_TERMINAL_SETTINGS_KEY, defaultTerminalSettings);
 const savedTerminalSettings: SerialTerminalSettings =
   savedTerminalSettingsVersion < SERIAL_TERMINAL_SETTINGS_VERSION
     ? {
@@ -441,11 +436,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
   splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
-  splitOrientation: loadStringFromStorage(
-    SERIAL_SPLIT_ORIENTATION_KEY,
-    SPLIT_ORIENTATION_VALUES,
-    "vertical"
-  ),
+  splitOrientation: loadStringFromStorage(SERIAL_SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
 
   chartData: [],
   chartConfig: migrateChartConfig(loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
@@ -561,8 +552,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     set({ textViewMode });
   },
 
-  appendTerminalChunk: (text) =>
-    set((state) => processTerminalChunk(text, state)),
+  appendTerminalChunk: (text) => set((state) => processTerminalChunk(text, state)),
 
   clearTerminalBuffer: () =>
     set({
@@ -631,11 +621,9 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 
-  incrementParseSuccess: () =>
-    set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),
+  incrementParseSuccess: () => set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),
 
-  incrementParseFail: () =>
-    set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
+  incrementParseFail: () => set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
 
   incrementParseCounts: (success, fail) =>
     set((state) => {

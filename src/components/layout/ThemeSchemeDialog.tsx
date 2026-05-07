@@ -25,12 +25,7 @@ export function ThemeSchemeDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2 rounded-full px-4"
-          title="选择界面配色方案"
-        >
+        <Button size="sm" variant="outline" className="gap-2 rounded-full px-4" title="选择界面配色方案">
           <Palette className="h-4 w-4" />
           <span>配色</span>
           <span className="hidden text-muted-foreground md:inline">· {currentScheme.name}</span>
@@ -58,9 +53,7 @@ export function ThemeSchemeDialog() {
                 className={cn(
                   "glass-card group rounded-[28px] p-5 text-left transition-all duration-200",
                   "hover:-translate-y-0.5 hover:border-primary/28 hover:shadow-[0_18px_38px_rgba(72,92,140,0.14)]",
-                  active
-                    ? "glass-card-active"
-                    : ""
+                  active ? "glass-card-active" : ""
                 )}
               >
                 <div className="relative z-[1] mb-5 flex items-start justify-between gap-3">
@@ -81,9 +74,7 @@ export function ThemeSchemeDialog() {
                 </div>
 
                 <div className="relative z-[1] space-y-1">
-                  <div className="text-[1.9rem] font-semibold tracking-tight text-foreground">
-                    {scheme.name}
-                  </div>
+                  <div className="text-[1.9rem] font-semibold tracking-tight text-foreground">{scheme.name}</div>
                   <div className="text-[15px] text-muted-foreground">{scheme.subtitle}</div>
                 </div>
               </button>

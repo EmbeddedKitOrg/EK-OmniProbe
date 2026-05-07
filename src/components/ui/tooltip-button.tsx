@@ -1,10 +1,6 @@
 import * as React from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * TooltipButton - A button with built-in tooltip support
@@ -19,13 +15,7 @@ export interface TooltipButtonProps extends ButtonProps {
   tooltipSide?: "top" | "right" | "bottom" | "left";
 }
 
-export function TooltipButton({
-  tooltip,
-  icon,
-  tooltipSide = "bottom",
-  children,
-  ...buttonProps
-}: TooltipButtonProps) {
+export function TooltipButton({ tooltip, icon, tooltipSide = "bottom", children, ...buttonProps }: TooltipButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -34,9 +24,7 @@ export function TooltipButton({
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side={tooltipSide}>
-        {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
-      </TooltipContent>
+      <TooltipContent side={tooltipSide}>{typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}</TooltipContent>
     </Tooltip>
   );
 }
@@ -56,18 +44,11 @@ export interface TooltipWrapperProps {
   asChild?: boolean;
 }
 
-export function TooltipWrapper({
-  tooltip,
-  children,
-  side = "bottom",
-  asChild = true,
-}: TooltipWrapperProps) {
+export function TooltipWrapper({ tooltip, children, side = "bottom", asChild = true }: TooltipWrapperProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild={asChild}>{children}</TooltipTrigger>
-      <TooltipContent side={side}>
-        {typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}
-      </TooltipContent>
+      <TooltipContent side={side}>{typeof tooltip === "string" ? <p>{tooltip}</p> : tooltip}</TooltipContent>
     </Tooltip>
   );
 }

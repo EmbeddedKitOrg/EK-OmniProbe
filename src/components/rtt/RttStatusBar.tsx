@@ -16,9 +16,7 @@ export function RttStatusBar() {
             isRunning ? (isPaused ? "bg-yellow-500" : "bg-green-500 animate-pulse") : "bg-gray-500"
           )}
         />
-        <span>
-          {isRunning ? (isPaused ? "已暂停" : "运行中") : "已停止"}
-        </span>
+        <span>{isRunning ? (isPaused ? "已暂停" : "运行中") : "已停止"}</span>
       </div>
 
       <div className="w-px h-3 bg-border" />

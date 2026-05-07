@@ -307,7 +307,9 @@ export function SerialToolbar() {
         <div className="flex gap-1">
           <Button
             size="sm"
-            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"}
+            variant={
+              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"
+            }
             onClick={() => activateSignalWorkspace("time")}
             className="gap-1"
             title="直接进入波形示波器"
@@ -317,7 +319,9 @@ export function SerialToolbar() {
           </Button>
           <Button
             size="sm"
-            variant={chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"}
+            variant={
+              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"
+            }
             onClick={() => activateSignalWorkspace("fft")}
             className="gap-1"
             title="直接进入 FFT 频谱"
@@ -361,9 +365,7 @@ export function SerialToolbar() {
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  查看
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">查看</div>
                 <div className="flex flex-wrap gap-2.5">
                   {textViewMode === "log" ? (
                     <>
@@ -400,7 +402,11 @@ export function SerialToolbar() {
                         onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
                         className="gap-1"
                       >
-                        {displayMode === "hex" ? <Binary className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                        {displayMode === "hex" ? (
+                          <Binary className="h-3.5 w-3.5" />
+                        ) : (
+                          <FileText className="h-3.5 w-3.5" />
+                        )}
                         {displayMode === "hex" ? "Hex" : "文本"}
                       </Button>
                     </>
@@ -448,9 +454,7 @@ export function SerialToolbar() {
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  配置
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
                 <div className="flex flex-wrap gap-2.5">
                   <ChartConfigDialog
                     chartConfig={chartConfig}
@@ -477,9 +481,7 @@ export function SerialToolbar() {
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
-                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">
-                  输出
-                </div>
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">输出</div>
                 <div className="flex flex-wrap gap-2.5">
                   <Button size="sm" variant="outline" onClick={handleExportTxt} className="gap-1">
                     <Download className="h-3.5 w-3.5" />
@@ -502,9 +504,7 @@ export function SerialToolbar() {
 function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-border/60 bg-white/58 px-2 py-1.5">
-      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
       {children}
     </div>
   );

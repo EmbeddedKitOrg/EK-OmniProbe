@@ -3,18 +3,8 @@ import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -89,7 +79,10 @@ export function SerialSidebar() {
         return;
       }
 
-      addLog("info", `正在连接 ${activeSourceType === "local" ? localConfig.port : `${tcpConfig.host}:${tcpConfig.port}`}...`);
+      addLog(
+        "info",
+        `正在连接 ${activeSourceType === "local" ? localConfig.port : `${tcpConfig.host}:${tcpConfig.port}`}...`
+      );
 
       await connectSerial(config);
       setConnected(true);
@@ -129,7 +122,7 @@ export function SerialSidebar() {
           <CardTitle className="text-sm">数据源</CardTitle>
           <CardDescription className="text-xs">
             {activeSourceType === "local"
-              ? (localConfig.port || "本地串口未选择")
+              ? localConfig.port || "本地串口未选择"
               : `${tcpConfig.host}:${tcpConfig.port}`}
           </CardDescription>
         </CardHeader>
@@ -196,11 +189,7 @@ export function SerialSidebar() {
                     <SelectItem key={port.name} value={port.name}>
                       <div className="flex flex-col">
                         <span>{port.name}</span>
-                        {port.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {port.description}
-                          </span>
-                        )}
+                        {port.description && <span className="text-xs text-muted-foreground">{port.description}</span>}
                       </div>
                     </SelectItem>
                   ))}
@@ -312,7 +301,9 @@ export function SerialSidebar() {
                   <label className="text-xs text-muted-foreground">流控</label>
                   <Select
                     value={localConfig.flow_control}
-                    onValueChange={(value) => setLocalConfig({ flow_control: value as "none" | "hardware" | "software" })}
+                    onValueChange={(value) =>
+                      setLocalConfig({ flow_control: value as "none" | "hardware" | "software" })
+                    }
                     disabled={connected}
                   >
                     <SelectTrigger>
@@ -329,9 +320,7 @@ export function SerialSidebar() {
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="space-y-0.5">
                     <label className="text-xs font-medium">断线自动重连</label>
-                    <p className="text-xs text-muted-foreground">
-                      读取出错时尝试重连 (1s 起，指数退避到 5s)
-                    </p>
+                    <p className="text-xs text-muted-foreground">读取出错时尝试重连 (1s 起，指数退避到 5s)</p>
                   </div>
                   <Switch
                     checked={localConfig.reconnect ?? false}
@@ -349,9 +338,7 @@ export function SerialSidebar() {
         <Card>
           <CardHeader className="py-4">
             <CardTitle className="text-sm">TCP 配置</CardTitle>
-            <CardDescription className="text-xs">
-              适合 ser2net、ESP-Link 等远程串口桥接场景。
-            </CardDescription>
+            <CardDescription className="text-xs">适合 ser2net、ESP-Link 等远程串口桥接场景。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
@@ -378,9 +365,7 @@ export function SerialSidebar() {
             <div className="flex items-center justify-between gap-2 pt-1">
               <div className="space-y-0.5">
                 <label className="text-xs font-medium">断线自动重连</label>
-                <p className="text-[11px] text-muted-foreground">
-                  读取出错时尝试重连 (1s 起，指数退避到 5s)
-                </p>
+                <p className="text-[11px] text-muted-foreground">读取出错时尝试重连 (1s 起，指数退避到 5s)</p>
               </div>
               <Switch
                 checked={tcpConfig.reconnect ?? false}
@@ -455,9 +440,7 @@ export function SerialSidebar() {
       {/* Connect Button */}
       <Button
         className={`w-full transition-all ${
-          connected
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-primary hover:bg-primary/90"
+          connected ? "bg-red-500 hover:bg-red-600 text-white" : "bg-primary hover:bg-primary/90"
         } ${connecting && "animate-pulse"}`}
         onClick={connected ? handleDisconnect : handleConnect}
         disabled={connecting || (!connected && activeSourceType === "local" && !localConfig.port)}

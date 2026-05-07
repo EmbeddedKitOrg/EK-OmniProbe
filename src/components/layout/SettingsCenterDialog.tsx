@@ -27,25 +27,12 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useAppStore, type AppMode } from "@/stores/appStore";
 import { useRttStore } from "@/stores/rttStore";
 import { useSerialStore } from "@/stores/serialStore";
-import {
-  useUiPreferencesStore,
-  type BackgroundMode,
-} from "@/stores/uiPreferencesStore";
+import { useUiPreferencesStore, type BackgroundMode } from "@/stores/uiPreferencesStore";
 import { UpdateChecker } from "../UpdateChecker";
 import type { SignalDomain, ViewMode } from "@/lib/chartTypes";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const workspaceOptions: Array<{ value: AppMode; label: string }> = [
   { value: "flash", label: "烧录工作台" },
@@ -109,10 +96,7 @@ export function SettingsCenterDialog() {
     [schemeId]
   );
 
-  const updateSignalPreference = (
-    target: "rtt" | "serial",
-    domain: SignalDomain
-  ) => {
+  const updateSignalPreference = (target: "rtt" | "serial", domain: SignalDomain) => {
     if (target === "rtt") {
       setRttChartConfig({
         ...rttChartConfig,
@@ -152,12 +136,7 @@ export function SettingsCenterDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-2 rounded-full px-4"
-          title="打开设置中心"
-        >
+        <Button size="sm" variant="outline" className="gap-2 rounded-full px-4" title="打开设置中心">
           <Settings2 className="h-4 w-4" />
           <span>设置</span>
         </Button>
@@ -187,276 +166,272 @@ export function SettingsCenterDialog() {
           </TabsList>
 
           <div className="min-h-0 overflow-y-auto overscroll-contain pr-1">
-          <TabsContent value="appearance" className="mt-0 space-y-3">
-            <section className="glass-section rounded-[22px] p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <ImagePlus className="h-3.5 w-3.5 text-primary" />
-                <div>
-                  <h3 className="text-sm font-semibold">背景显示</h3>
-                  <p className="text-xs text-muted-foreground">直接调整主界面背景。</p>
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <BackgroundModeCard
-                  mode="default"
-                  title="主题默认背景"
-                  description="跟随当前主题的渐变色。"
-                  active={backgroundMode === "default"}
-                  onClick={() => setBackgroundMode("default")}
-                />
-                <BackgroundModeCard
-                  mode="custom"
-                  title="自定义图片"
-                  description="使用本地图片作为背景。"
-                  active={backgroundMode === "custom"}
-                  onClick={() => setBackgroundMode("custom")}
-                />
-              </div>
-
-              <div className="mt-2.5 rounded-[16px] border border-border/60 bg-white/72 p-3">
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground">
-                  <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                  图片资源
-                </div>
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs text-muted-foreground">当前图片</div>
-                    <div className="truncate text-xs text-foreground">{backgroundImageName}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={handleSelectBackgroundImage}
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      选择
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={clearBackgroundImage}
-                      disabled={!backgroundImagePath}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      默认
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-3">
-                  <div className="mb-1 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-medium text-foreground">图片透明度</div>
-                      <div className="text-xs text-muted-foreground">仅作用于背景图片。</div>
-                    </div>
-                    <span className="w-12 text-right text-xs text-muted-foreground">
-                      {Math.round(backgroundImageOpacity * 100)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={Math.round(backgroundImageOpacity * 100)}
-                      onChange={(event) =>
-                        setBackgroundImageOpacity(parseInt(event.target.value, 10) / 100)
-                      }
-                      className="w-full accent-[hsl(var(--primary))]"
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <Collapsible open={themeSectionOpen} onOpenChange={setThemeSectionOpen}>
+            <TabsContent value="appearance" className="mt-0 space-y-3">
               <section className="glass-section rounded-[22px] p-3">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 rounded-[16px] text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Palette className="h-3.5 w-3.5 text-primary" />
-                      <div>
-                        <h3 className="text-sm font-semibold">主题方案</h3>
-                        <p className="text-xs text-muted-foreground">点击展开切换配色。</p>
-                      </div>
+                <div className="mb-2 flex items-center gap-2">
+                  <ImagePlus className="h-3.5 w-3.5 text-primary" />
+                  <div>
+                    <h3 className="text-sm font-semibold">背景显示</h3>
+                    <p className="text-xs text-muted-foreground">直接调整主界面背景。</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <BackgroundModeCard
+                    mode="default"
+                    title="主题默认背景"
+                    description="跟随当前主题的渐变色。"
+                    active={backgroundMode === "default"}
+                    onClick={() => setBackgroundMode("default")}
+                  />
+                  <BackgroundModeCard
+                    mode="custom"
+                    title="自定义图片"
+                    description="使用本地图片作为背景。"
+                    active={backgroundMode === "custom"}
+                    onClick={() => setBackgroundMode("custom")}
+                  />
+                </div>
+
+                <div className="mt-2.5 rounded-[16px] border border-border/60 bg-white/72 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground">
+                    <FolderOpen className="h-3.5 w-3.5 text-primary" />
+                    图片资源
+                  </div>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs text-muted-foreground">当前图片</div>
+                      <div className="truncate text-xs text-foreground">{backgroundImageName}</div>
                     </div>
-                    {themeSectionOpen ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="pt-2.5">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {THEME_SCHEMES.map((scheme) => {
-                      const active = scheme.id === schemeId;
-                      return (
-                        <button
-                          key={scheme.id}
-                          type="button"
-                          onClick={() => setSchemeId(scheme.id)}
-                          className={cn(
-                            "rounded-[16px] border border-border/60 bg-white/72 p-2.5 text-left transition-all duration-200",
-                            "hover:-translate-y-0.5 hover:border-primary/28",
-                            active && "border-primary/40 bg-primary/8 shadow-[0_12px_28px_rgba(72,92,140,0.12)]"
-                          )}
-                        >
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <div className="flex gap-1.5">
-                              {scheme.swatches.map((swatch) => (
-                                <span
-                                  key={swatch}
-                                  className="h-3.5 w-3.5 rounded-full border border-black/5 shadow-sm"
-                                  style={{ backgroundColor: swatch }}
-                                />
-                              ))}
-                            </div>
-                            {active && (
-                              <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground shadow-sm">
-                                当前
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs font-semibold text-foreground">{scheme.name}</div>
-                          <div className="text-xs text-muted-foreground">{scheme.subtitle}</div>
-                        </button>
-                      );
-                    })}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={handleSelectBackgroundImage}
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        选择
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={clearBackgroundImage}
+                        disabled={!backgroundImagePath}
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        默认
+                      </Button>
+                    </div>
                   </div>
-                </CollapsibleContent>
+                  <div className="mt-3">
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-medium text-foreground">图片透明度</div>
+                        <div className="text-xs text-muted-foreground">仅作用于背景图片。</div>
+                      </div>
+                      <span className="w-12 text-right text-xs text-muted-foreground">
+                        {Math.round(backgroundImageOpacity * 100)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={Math.round(backgroundImageOpacity * 100)}
+                        onChange={(event) => setBackgroundImageOpacity(parseInt(event.target.value, 10) / 100)}
+                        className="w-full accent-[hsl(var(--primary))]"
+                      />
+                    </div>
+                  </div>
+                </div>
               </section>
-            </Collapsible>
-          </TabsContent>
 
-          <TabsContent value="preferences" className="mt-0">
-            <section className="glass-section rounded-[22px] p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                <div>
-                  <h3 className="text-sm font-semibold">全局偏好</h3>
-                  <p className="text-xs text-muted-foreground">启动与默认行为设置。</p>
-                </div>
-              </div>
+              <Collapsible open={themeSectionOpen} onOpenChange={setThemeSectionOpen}>
+                <section className="glass-section rounded-[22px] p-3">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 rounded-[16px] text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Palette className="h-3.5 w-3.5 text-primary" />
+                        <div>
+                          <h3 className="text-sm font-semibold">主题方案</h3>
+                          <p className="text-xs text-muted-foreground">点击展开切换配色。</p>
+                        </div>
+                      </div>
+                      {themeSectionOpen ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </CollapsibleTrigger>
 
-              <div className="space-y-4">
-                <PreferenceRow
-                  label="启动进入"
-                  description="应用下次打开时默认进入的工作台。"
-                  value={appMode}
-                  options={workspaceOptions}
-                  onChange={(value) => setAppMode(value as AppMode)}
-                />
+                  <CollapsibleContent className="pt-2.5">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {THEME_SCHEMES.map((scheme) => {
+                        const active = scheme.id === schemeId;
+                        return (
+                          <button
+                            key={scheme.id}
+                            type="button"
+                            onClick={() => setSchemeId(scheme.id)}
+                            className={cn(
+                              "rounded-[16px] border border-border/60 bg-white/72 p-2.5 text-left transition-all duration-200",
+                              "hover:-translate-y-0.5 hover:border-primary/28",
+                              active && "border-primary/40 bg-primary/8 shadow-[0_12px_28px_rgba(72,92,140,0.12)]"
+                            )}
+                          >
+                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                              <div className="flex gap-1.5">
+                                {scheme.swatches.map((swatch) => (
+                                  <span
+                                    key={swatch}
+                                    className="h-3.5 w-3.5 rounded-full border border-black/5 shadow-sm"
+                                    style={{ backgroundColor: swatch }}
+                                  />
+                                ))}
+                              </div>
+                              {active && (
+                                <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground shadow-sm">
+                                  当前
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs font-semibold text-foreground">{scheme.name}</div>
+                            <div className="text-xs text-muted-foreground">{scheme.subtitle}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </section>
+              </Collapsible>
+            </TabsContent>
 
-                <PreferenceRow
-                  label="RTT 默认视图"
-                  description="决定 RTT 模式默认是文本、图表还是分屏。"
-                  value={rttViewMode}
-                  options={viewModeOptions}
-                  onChange={(value) => setRttViewMode(value as ViewMode)}
-                />
-
-                <PreferenceRow
-                  label="RTT 波形默认域"
-                  description="RTT 进入波形 / FFT 时，默认显示时域还是频域。"
-                  value={rttChartConfig.signalDomain}
-                  options={signalDomainOptions}
-                  onChange={(value) => updateSignalPreference("rtt", value as SignalDomain)}
-                />
-
-                <PreferenceRow
-                  label="串口默认视图"
-                  description="决定串口模式默认是文本、图表还是分屏。"
-                  value={serialViewMode}
-                  options={viewModeOptions}
-                  onChange={(value) => setSerialViewMode(value as ViewMode)}
-                />
-
-                <PreferenceRow
-                  label="串口波形默认域"
-                  description="串口进入波形 / FFT 时，默认显示时域还是频域。"
-                  value={serialChartConfig.signalDomain}
-                  options={signalDomainOptions}
-                  onChange={(value) => updateSignalPreference("serial", value as SignalDomain)}
-                />
-
-                <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
-                  <div className="mb-1 text-xs font-medium text-foreground">日志面板高度</div>
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    主界面拖拽后会自动记忆，也可以在这里精确调整。
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={80}
-                      max={600}
-                      step={8}
-                      value={logPanelHeight}
-                      onChange={(event) => setLogPanelHeight(parseInt(event.target.value, 10))}
-                      className="w-full accent-[hsl(var(--primary))]"
-                    />
-                    <span className="w-14 text-right text-xs text-muted-foreground">{logPanelHeight}px</span>
+            <TabsContent value="preferences" className="mt-0">
+              <section className="glass-section rounded-[22px] p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                  <div>
+                    <h3 className="text-sm font-semibold">全局偏好</h3>
+                    <p className="text-xs text-muted-foreground">启动与默认行为设置。</p>
                   </div>
                 </div>
-              </div>
-            </section>
-          </TabsContent>
 
-          <TabsContent value="tools" className="mt-0 space-y-4">
-            <section className="glass-section rounded-[22px] p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <div>
-                  <h3 className="text-sm font-semibold">应用工具</h3>
-                  <p className="text-xs text-muted-foreground">常用全局操作。</p>
-                </div>
-              </div>
+                <div className="space-y-4">
+                  <PreferenceRow
+                    label="启动进入"
+                    description="应用下次打开时默认进入的工作台。"
+                    value={appMode}
+                    options={workspaceOptions}
+                    onChange={(value) => setAppMode(value as AppMode)}
+                  />
 
-              <div className="space-y-3">
-                <UpdateChecker
-                  autoCheck={false}
-                  trigger={(
-                    <Button variant="outline" className="w-full justify-start gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      检查更新
-                    </Button>
-                  )}
-                />
-                <div className="rounded-[18px] border border-border/60 bg-white/60 p-3 text-xs text-muted-foreground">
-                  外观、背景与更新检查在这里集中管理；通用偏好和图表默认值在「偏好」页。
-                </div>
-              </div>
-            </section>
+                  <PreferenceRow
+                    label="RTT 默认视图"
+                    description="决定 RTT 模式默认是文本、图表还是分屏。"
+                    value={rttViewMode}
+                    options={viewModeOptions}
+                    onChange={(value) => setRttViewMode(value as ViewMode)}
+                  />
 
-            <section className="glass-section rounded-[22px] p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <Keyboard className="h-3.5 w-3.5 text-primary" />
-                <div>
-                  <h3 className="text-sm font-semibold">工作流提示</h3>
-                  <p className="text-xs text-muted-foreground">几个常用功能的速查。</p>
-                </div>
-              </div>
+                  <PreferenceRow
+                    label="RTT 波形默认域"
+                    description="RTT 进入波形 / FFT 时，默认显示时域还是频域。"
+                    value={rttChartConfig.signalDomain}
+                    options={signalDomainOptions}
+                    onChange={(value) => updateSignalPreference("rtt", value as SignalDomain)}
+                  />
 
-              <div className="space-y-2">
-                {quickActions.map((item) => (
-                  <div key={item.title} className="rounded-[18px] border border-border/60 bg-white/62 p-3">
-                    <div className="mb-1 text-xs font-medium text-foreground">{item.title}</div>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  <PreferenceRow
+                    label="串口默认视图"
+                    description="决定串口模式默认是文本、图表还是分屏。"
+                    value={serialViewMode}
+                    options={viewModeOptions}
+                    onChange={(value) => setSerialViewMode(value as ViewMode)}
+                  />
+
+                  <PreferenceRow
+                    label="串口波形默认域"
+                    description="串口进入波形 / FFT 时，默认显示时域还是频域。"
+                    value={serialChartConfig.signalDomain}
+                    options={signalDomainOptions}
+                    onChange={(value) => updateSignalPreference("serial", value as SignalDomain)}
+                  />
+
+                  <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
+                    <div className="mb-1 text-xs font-medium text-foreground">日志面板高度</div>
+                    <p className="mb-3 text-xs text-muted-foreground">主界面拖拽后会自动记忆，也可以在这里精确调整。</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={80}
+                        max={600}
+                        step={8}
+                        value={logPanelHeight}
+                        onChange={(event) => setLogPanelHeight(parseInt(event.target.value, 10))}
+                        className="w-full accent-[hsl(var(--primary))]"
+                      />
+                      <span className="w-14 text-right text-xs text-muted-foreground">{logPanelHeight}px</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </section>
-          </TabsContent>
+                </div>
+              </section>
+            </TabsContent>
+
+            <TabsContent value="tools" className="mt-0 space-y-4">
+              <section className="glass-section rounded-[22px] p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <div>
+                    <h3 className="text-sm font-semibold">应用工具</h3>
+                    <p className="text-xs text-muted-foreground">常用全局操作。</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <UpdateChecker
+                    autoCheck={false}
+                    trigger={
+                      <Button variant="outline" className="w-full justify-start gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        检查更新
+                      </Button>
+                    }
+                  />
+                  <div className="rounded-[18px] border border-border/60 bg-white/60 p-3 text-xs text-muted-foreground">
+                    外观、背景与更新检查在这里集中管理；通用偏好和图表默认值在「偏好」页。
+                  </div>
+                </div>
+              </section>
+
+              <section className="glass-section rounded-[22px] p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <Keyboard className="h-3.5 w-3.5 text-primary" />
+                  <div>
+                    <h3 className="text-sm font-semibold">工作流提示</h3>
+                    <p className="text-xs text-muted-foreground">几个常用功能的速查。</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {quickActions.map((item) => (
+                    <div key={item.title} className="rounded-[18px] border border-border/60 bg-white/62 p-3">
+                      <div className="mb-1 text-xs font-medium text-foreground">{item.title}</div>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </TabsContent>
           </div>
         </Tabs>
       </DialogContent>
@@ -477,13 +452,7 @@ interface PreferenceRowProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-function PreferenceRow<T extends string>({
-  label,
-  description,
-  value,
-  options,
-  onChange,
-}: PreferenceRowProps<T>) {
+function PreferenceRow<T extends string>({ label, description, value, options, onChange }: PreferenceRowProps<T>) {
   return (
     <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
       <div className="mb-1 text-xs font-medium text-foreground">{label}</div>
@@ -512,13 +481,7 @@ interface BackgroundModeCardProps {
   onClick: () => void;
 }
 
-function BackgroundModeCard({
-  mode,
-  title,
-  description,
-  active,
-  onClick,
-}: BackgroundModeCardProps) {
+function BackgroundModeCard({ mode, title, description, active, onClick }: BackgroundModeCardProps) {
   return (
     <button
       type="button"

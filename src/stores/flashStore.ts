@@ -12,7 +12,7 @@ interface FlashSettings {
 }
 
 const defaultFlashSettings: FlashSettings = {
-  verifyAfterFlash: false,  // 默认不校验（加快烧录速度）
+  verifyAfterFlash: false, // 默认不校验（加快烧录速度）
   resetAfterFlash: true,
   eraseMode: "SectorErase",
 };

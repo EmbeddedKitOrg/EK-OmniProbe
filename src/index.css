@@ -165,16 +165,14 @@ textarea:focus {
 
 .surface-sidebar {
   border: 1px solid hsl(var(--border) / 0.55);
-  background:
-    linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
   box-shadow: var(--shadow-1);
   backdrop-filter: blur(18px);
 }
 
 .surface-card {
   border: 1px solid hsl(var(--border) / 0.6);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(249, 251, 255, 0.76) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(249, 251, 255, 0.76) 100%);
   box-shadow:
     0 16px 34px rgba(73, 93, 142, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -214,8 +212,7 @@ textarea:focus {
 
 .toolbar-chip-strong {
   border: 1px solid hsl(var(--border) / 0.64);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.86) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.86) 100%);
   border-radius: 18px;
   box-shadow:
     0 10px 24px rgba(73, 93, 142, 0.1),
@@ -224,8 +221,7 @@ textarea:focus {
 
 .workspace-summary {
   border: 1px solid hsl(var(--border) / 0.58);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(247, 250, 255, 0.8) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(247, 250, 255, 0.8) 100%);
   box-shadow:
     0 10px 24px rgba(73, 93, 142, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
@@ -233,9 +229,7 @@ textarea:focus {
 }
 
 .glass-overlay {
-  background:
-    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.08), transparent 20%),
-    rgba(28, 37, 56, 0.24);
+  background: radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.08), transparent 20%), rgba(28, 37, 56, 0.24);
 }
 
 .glass-dialog {
@@ -243,8 +237,7 @@ textarea:focus {
   overflow-x: hidden;
   border: 1px solid hsl(var(--border) / 0.9);
   background-color: rgba(251, 252, 255, 0.985);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.998) 0%, rgba(246, 249, 255, 0.985) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.998) 0%, rgba(246, 249, 255, 0.985) 100%);
   box-shadow:
     0 42px 120px rgba(34, 48, 79, 0.24),
     0 18px 42px rgba(88, 106, 147, 0.16),
@@ -283,8 +276,7 @@ textarea:focus {
   position: relative;
   overflow: hidden;
   border: 1px solid hsl(var(--border) / 0.72);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.84) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.84) 100%);
   box-shadow:
     0 16px 34px rgba(72, 92, 140, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -319,8 +311,7 @@ textarea:focus {
 
 .glass-section {
   border: 1px solid hsl(var(--border) / 0.68);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 250, 255, 0.82) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 250, 255, 0.82) 100%);
   box-shadow:
     0 10px 24px rgba(72, 92, 140, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
@@ -329,8 +320,7 @@ textarea:focus {
 
 .glass-section-strong {
   border: 1px solid hsl(var(--border) / 0.74);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.9) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.9) 100%);
   box-shadow:
     0 14px 28px rgba(72, 92, 140, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.92);
