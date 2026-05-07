@@ -17,15 +17,15 @@ export interface PanelMeta {
 }
 
 export const PANEL_REGISTRY: Record<PanelId, PanelMeta> = {
-  symbols: { id: "symbols", title: "Symbols", Component: SymbolsPanel },
-  source: { id: "source", title: "Source", Component: SourceViewPanel },
-  registers: { id: "registers", title: "Registers", Component: RegistersPanel },
-  locals: { id: "locals", title: "Locals", Component: LocalsPanel },
-  watch: { id: "watch", title: "Watch", Component: WatchPanel },
-  memory: { id: "memory", title: "Memory", Component: MemoryPanel },
-  callStack: { id: "callStack", title: "Call Stack", Component: CallStackPanel },
-  breakpoints: { id: "breakpoints", title: "Breakpoints", Component: BreakpointsPanel },
-  output: { id: "output", title: "Output", Component: OutputPanel },
+  symbols: { id: "symbols", title: "符号", Component: SymbolsPanel },
+  source: { id: "source", title: "源码", Component: SourceViewPanel },
+  registers: { id: "registers", title: "寄存器", Component: RegistersPanel },
+  locals: { id: "locals", title: "全局变量", Component: LocalsPanel },
+  watch: { id: "watch", title: "观察", Component: WatchPanel },
+  memory: { id: "memory", title: "内存", Component: MemoryPanel },
+  callStack: { id: "callStack", title: "调用栈", Component: CallStackPanel },
+  breakpoints: { id: "breakpoints", title: "断点", Component: BreakpointsPanel },
+  output: { id: "output", title: "输出", Component: OutputPanel },
 };
 
 export const PANEL_ORDER: PanelId[] = [

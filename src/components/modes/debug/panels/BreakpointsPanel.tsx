@@ -95,7 +95,7 @@ export function BreakpointsPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Breakpoints {breakpoints.length > 0 && `(${breakpoints.length})`}
+          断点 {breakpoints.length > 0 && `(${breakpoints.length})`}
         </span>
         {breakpoints.length > 0 && (
           <Button

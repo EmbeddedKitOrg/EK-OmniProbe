@@ -118,9 +118,9 @@ export function LocalsPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Locals
+          全局变量
           <span className="ml-2 normal-case tracking-normal text-[10px] text-muted-foreground/80">
-            （全局变量；DWARF 类型 / 函数局部变量待阶段 6）
+            （DWARF 类型 / 函数局部变量待后续）
           </span>
         </span>
         <button

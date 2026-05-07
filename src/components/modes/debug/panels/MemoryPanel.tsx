@@ -72,7 +72,7 @@ export function MemoryPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Memory</span>
+        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">内存</span>
       </div>
       <div className="flex items-center gap-2 px-4 pb-2">
         <Input

@@ -186,7 +186,7 @@ export function SourceViewPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Source
+          源码
           {fileName && (
             <span className="ml-2 normal-case tracking-normal text-foreground" title={loadedPath ?? ""}>
               {fileName}
