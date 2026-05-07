@@ -4,6 +4,7 @@ import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { useAppStore, type AppMode } from "@/stores/appStore";
 import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
+import { useDebugStore } from "@/stores/debugStore";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
@@ -23,21 +24,34 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
   const { mode, setMode } = useAppStore();
   const { isRunning: rttRunning } = useRttStore();
   const { flashing } = useFlashStore();
-  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; targetMode: AppMode | null }>({
+  const debugAttached = useDebugStore((s) => s.state) !== "detached";
+  type ConfirmReason = "rtt" | "debug";
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    targetMode: AppMode | null;
+    reason: ConfirmReason | null;
+  }>({
     open: false,
     targetMode: null,
+    reason: null,
   });
 
   const handleModeChange = (newMode: AppMode) => {
     if (newMode === mode) return;
 
-    // If RTT is running and switching to flash mode, show confirmation
+    // RTT 运行 → 烧录：旧的保护
     if (rttRunning && newMode === "flash") {
-      setConfirmDialog({ open: true, targetMode: newMode });
+      setConfirmDialog({ open: true, targetMode: newMode, reason: "rtt" });
       return;
     }
 
-    // If flashing is in progress, don't allow switching
+    // 调试已 attached → 切去任意非调试模式：提示「调试会话仍在，会占着探针」
+    if (debugAttached && mode === "debug" && newMode !== "debug") {
+      setConfirmDialog({ open: true, targetMode: newMode, reason: "debug" });
+      return;
+    }
+
+    // 烧录中不允许切换
     if (flashing) {
       return;
     }
@@ -49,8 +63,13 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
     if (confirmDialog.targetMode) {
       setMode(confirmDialog.targetMode);
     }
-    setConfirmDialog({ open: false, targetMode: null });
+    setConfirmDialog({ open: false, targetMode: null, reason: null });
   };
+
+  const dialogText =
+    confirmDialog.reason === "debug"
+      ? "调试会话仍在 attach 状态。切换工作台不会自动 Detach；如果你想用同一探针给其他模式连接，请先回到调试工作台点 Detach。确定继续？"
+      : "RTT 正在运行。切换到烧录模式会停止 RTT 数据接收，确定继续吗？";
 
   return (
     <>
@@ -175,18 +194,21 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
         </TooltipWrapper>
       </div>
 
-      {/* Confirmation dialog when RTT is running */}
+      {/* 切换工作台前的确认弹窗（RTT 运行 / 调试已 attached） */}
       <Dialog
         open={confirmDialog.open}
-        onOpenChange={(open) => !open && setConfirmDialog({ open: false, targetMode: null })}
+        onOpenChange={(open) => !open && setConfirmDialog({ open: false, targetMode: null, reason: null })}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>确认切换模式</DialogTitle>
-            <DialogDescription>RTT 正在运行。切换到烧录模式会停止 RTT 数据接收，确定继续吗？</DialogDescription>
+            <DialogDescription>{dialogText}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, targetMode: null })}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialog({ open: false, targetMode: null, reason: null })}
+            >
               取消
             </Button>
             <Button onClick={handleConfirmSwitch}>确认切换</Button>
