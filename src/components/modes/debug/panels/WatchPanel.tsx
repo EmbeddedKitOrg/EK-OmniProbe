@@ -202,7 +202,7 @@ export function WatchPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Watch {expressions.length > 0 && `(${expressions.length})`}
+          观察 {expressions.length > 0 && `(${expressions.length})`}
         </span>
         <button
           type="button"

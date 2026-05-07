@@ -37,56 +37,60 @@ const PANEL_REINSERT_GROUP: Record<PanelId, ReinsertGroup> = {
 function buildDefaultLayout(api: DockviewApi) {
   api.clear();
 
-  const source = api.addPanel({ id: "source", component: "source", title: "Source" });
+  const source = api.addPanel({
+    id: "source",
+    component: "source",
+    title: PANEL_REGISTRY.source.title,
+  });
   api.addPanel({
     id: "symbols",
     component: "symbols",
-    title: "Symbols",
+    title: PANEL_REGISTRY.symbols.title,
     position: { direction: "left", referencePanel: source.id },
     initialWidth: 220,
   });
   const registers = api.addPanel({
     id: "registers",
     component: "registers",
-    title: "Registers",
+    title: PANEL_REGISTRY.registers.title,
     position: { direction: "right", referencePanel: source.id },
     initialWidth: 340,
   });
   api.addPanel({
     id: "locals",
     component: "locals",
-    title: "Locals",
+    title: PANEL_REGISTRY.locals.title,
     position: { referencePanel: registers.id },
   });
   api.addPanel({
     id: "watch",
     component: "watch",
-    title: "Watch",
+    title: PANEL_REGISTRY.watch.title,
     position: { referencePanel: registers.id },
   });
   api.addPanel({
     id: "memory",
     component: "memory",
-    title: "Memory",
+    title: PANEL_REGISTRY.memory.title,
     position: { referencePanel: registers.id },
   });
   const callStack = api.addPanel({
     id: "callStack",
     component: "callStack",
-    title: "Call Stack",
+    title: PANEL_REGISTRY.callStack.title,
     position: { direction: "below", referencePanel: source.id },
     initialHeight: 220,
   });
   api.addPanel({
     id: "breakpoints",
     component: "breakpoints",
-    title: "Breakpoints",
+    title: PANEL_REGISTRY.breakpoints.title,
     position: { referencePanel: callStack.id },
   });
   api.addPanel({
     id: "output",
     component: "output",
-    title: "Output",
+    title: PANEL_REGISTRY.output.title,
     position: { referencePanel: callStack.id },
   });
 

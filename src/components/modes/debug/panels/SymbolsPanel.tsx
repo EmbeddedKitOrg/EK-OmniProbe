@@ -41,7 +41,7 @@ export function SymbolsPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Symbols</span>
+        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">符号</span>
         {loadedElfPath && (
           <span className="truncate font-mono text-[10px] text-muted-foreground" title={loadedElfPath}>
             {loadedElfPath.split(/[\\/]/).pop()}

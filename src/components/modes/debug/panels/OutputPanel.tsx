@@ -37,7 +37,7 @@ export function OutputPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          Output {debugLogs.length > 0 && `(${debugLogs.length})`}
+          输出 {debugLogs.length > 0 && `(${debugLogs.length})`}
         </span>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1 text-[10px] text-muted-foreground">

@@ -50,6 +50,15 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
 
   const elfFileName = loadedElfPath?.split(/[\\/]/).pop() ?? "未加载 ELF";
 
+  const haltReasonText: Record<string, string> = {
+    manual: "手动",
+    breakpoint: "断点",
+    step: "单步",
+    exception: "异常",
+    watchpoint: "观察点",
+    unknown: "未知",
+  };
+
   const statusText = (() => {
     switch (state) {
       case "detached":
@@ -58,10 +67,12 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         return "已附加";
       case "running":
         return "运行中";
-      case "halted":
-        return `已停止${haltReason ? ` · ${haltReason}` : ""}${
+      case "halted": {
+        const reason = haltReason ? haltReasonText[haltReason] ?? haltReason : null;
+        return `已停止${reason ? ` · ${reason}` : ""}${
           pc !== null ? ` · 0x${pc.toString(16).padStart(8, "0")}` : ""
         }`;
+      }
     }
   })();
 
@@ -211,12 +222,12 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         onClick={attached ? handleDetach : handleAttach}
       >
         <Plug className="h-3.5 w-3.5" />
-        <span className="text-xs">{attached ? "Detach" : "Attach"}</span>
+        <span className="text-xs">{attached ? "断开" : "连接"}</span>
       </Button>
 
       <Button size="sm" variant="outline" className="gap-1.5 rounded-full px-3" disabled={busy} onClick={handleLoadElf}>
         <FolderOpen className="h-3.5 w-3.5" />
-        <span className="text-xs">Load ELF…</span>
+        <span className="text-xs">加载 ELF…</span>
       </Button>
 
       <div className="mx-1 h-6 w-px bg-border/60" />
@@ -229,7 +240,7 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         onClick={handleRun}
       >
         <Play className="h-3.5 w-3.5" />
-        <span className="text-xs">Run</span>
+        <span className="text-xs">运行</span>
       </Button>
 
       <Button
@@ -240,7 +251,7 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         onClick={handleHalt}
       >
         <Pause className="h-3.5 w-3.5" />
-        <span className="text-xs">Halt</span>
+        <span className="text-xs">暂停</span>
       </Button>
 
       <Button
@@ -248,10 +259,11 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         variant="ghost"
         disabled={!halted || busy}
         className="gap-1.5 rounded-full px-3"
+        title="步入：执行一条指令"
         onClick={handleStepIn}
       >
         <StepForward className="h-3.5 w-3.5" />
-        <span className="text-xs">Step In</span>
+        <span className="text-xs">步入</span>
       </Button>
 
       <Button
@@ -259,11 +271,11 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         variant="ghost"
         disabled={!halted || busy}
         className="gap-1.5 rounded-full px-3"
-        title="单步跳过（DWARF 行级，无符号时退化为指令级）"
+        title="跨过：单步直到源码行变化（无符号时退化为步入）"
         onClick={handleStepOver}
       >
         <StepBack className="h-3.5 w-3.5 rotate-180" />
-        <span className="text-xs">Over</span>
+        <span className="text-xs">跨过</span>
       </Button>
 
       <Button
@@ -271,11 +283,11 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         variant="ghost"
         disabled={!halted || busy}
         className="gap-1.5 rounded-full px-3"
-        title="单步跳出（在 LR 处下临时硬断点）"
+        title="跳出：在 LR 处下临时硬断点并运行"
         onClick={handleStepOut}
       >
         <ArrowUpFromLine className="h-3.5 w-3.5" />
-        <span className="text-xs">Out</span>
+        <span className="text-xs">跳出</span>
       </Button>
 
       <div className="mx-1 h-6 w-px bg-border/60" />
@@ -288,7 +300,7 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         onClick={handleReset}
       >
         <RotateCw className="h-3.5 w-3.5" />
-        <span className="text-xs">Reset</span>
+        <span className="text-xs">复位</span>
       </Button>
 
       <div className="mx-1 h-6 w-px bg-border/60" />

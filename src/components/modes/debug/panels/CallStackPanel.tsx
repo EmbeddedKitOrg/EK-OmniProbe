@@ -16,7 +16,7 @@ export function CallStackPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Call Stack</span>
+        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">调用栈</span>
         {frames.length > 0 && (
           <span className="text-[10px] text-muted-foreground">
             {frames.length} 帧{frames.length <= 2 ? "（基于 LR，深栈展开待阶段 6）" : ""}
