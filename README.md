@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发四合一工具，集成**固件烧录**、**RTT 调试**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.2.2-blue)
+![Version](https://img.shields.io/badge/version-1.2.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -64,6 +64,7 @@
 - 同时提供日志视图和终端视图，支持收发分屏、文本/HEX 切换
 - 复用 RTT 的颜色解析、波形示波器和 FFT 频谱功能
 - 发送历史记录、终端本地回显和常用控制键快捷发送
+- 日志三档复制：`Ctrl+C` 纯文本 / `Ctrl+Shift+C` 含时间戳和方向 / 右键弹菜单临时切换
 - 完整串口参数配置（波特率、数据位、停止位、校验位、流控制）
 
 **📶 蓝牙模式** - 跨平台 BLE 调试工具 + 经典蓝牙 SPP 入口
