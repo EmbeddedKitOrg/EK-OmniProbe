@@ -32,10 +32,7 @@ export function LocalsPanel() {
   const state = useDebugStore((s) => s.state);
   const addLog = useLogStore((s) => s.addLog);
 
-  const variables = useMemo(
-    () => symbols.filter((s) => s.category === "variable" && s.size > 0),
-    [symbols]
-  );
+  const variables = useMemo(() => symbols.filter((s) => s.category === "variable" && s.size > 0), [symbols]);
 
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -179,10 +176,7 @@ export function LocalsPanel() {
                   ref={rowVirtualizer.measureElement}
                   data-index={vRow.index}
                 >
-                  <div
-                    className="flex cursor-pointer items-center gap-2 py-1"
-                    onClick={() => toggleExpand(sym)}
-                  >
+                  <div className="flex cursor-pointer items-center gap-2 py-1" onClick={() => toggleExpand(sym)}>
                     <ChevronRight
                       className={`h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform ${
                         isExpanded ? "rotate-90" : ""
