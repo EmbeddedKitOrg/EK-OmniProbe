@@ -1,20 +1,11 @@
 import { create } from "zustand";
-import type { DebugFrame, ElfSymbol } from "@/lib/debug";
+import type { DebugBreakpointEntry, DebugFrame, ElfSymbol } from "@/lib/debug";
 
-export type { DebugFrame };
+export type { DebugBreakpointEntry, DebugFrame };
 
 export type DebugState = "detached" | "attached" | "running" | "halted";
 
 export type HaltReason = "manual" | "breakpoint" | "step" | "exception" | "watchpoint" | "unknown" | null;
-
-export interface DebugBreakpoint {
-  id: string;
-  address: number;
-  file?: string;
-  line?: number;
-  enabled: boolean;
-  hitCount: number;
-}
 
 export type PanelId =
   | "symbols"
@@ -37,7 +28,7 @@ interface DebugStoreState {
   symbolFunctionCount: number;
   symbolVariableCount: number;
 
-  breakpoints: DebugBreakpoint[];
+  breakpoints: DebugBreakpointEntry[];
   frames: DebugFrame[];
   currentFrameId: number | null;
 
@@ -49,7 +40,7 @@ interface DebugStoreState {
   setLoadedElfPath: (path: string | null) => void;
   setSymbols: (symbols: ElfSymbol[], functionCount: number, variableCount: number) => void;
   clearSymbols: () => void;
-  setBreakpoints: (breakpoints: DebugBreakpoint[]) => void;
+  setBreakpoints: (breakpoints: DebugBreakpointEntry[]) => void;
   setFrames: (frames: DebugFrame[]) => void;
   setCurrentFrameId: (frameId: number | null) => void;
   setPanelVisible: (panel: PanelId, visible: boolean) => void;

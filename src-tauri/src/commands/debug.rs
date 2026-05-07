@@ -7,7 +7,7 @@
 use crate::commands::config::TARGET_REGISTRY;
 use crate::debug_symbols::{DebugSymbols, ElfSymbol, SourceLocation};
 use crate::error::{AppError, AppResult};
-use crate::state::{AppState, ConnectMode, ConnectionInfo, InterfaceType};
+use crate::state::{AppState, ConnectMode, ConnectionInfo, DebugBreakpointEntry, InterfaceType};
 use probe_rs::{
     probe::{list::Lister, WireProtocol},
     MemoryInterface, Permissions,
@@ -87,6 +87,17 @@ pub struct DebugFrame {
     pub function: Option<String>,
     pub file: Option<String>,
     pub line: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DebugBreakpointOptions {
+    pub address: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DebugReadSourceResult {
+    pub path: String,
+    pub content: String,
 }
 
 // ============================================================================
@@ -477,7 +488,115 @@ pub async fn debug_resolve_pc(
     Ok(symbols.resolve(pc))
 }
 
-/// 阶段 3 仅返回单帧（基于当前 PC）。多帧栈回溯留给阶段 4。
+// ============================================================================
+// 断点
+// ============================================================================
+
+#[tauri::command]
+pub async fn debug_set_breakpoint(
+    options: DebugBreakpointOptions,
+    state: State<'_, AppState>,
+) -> AppResult<DebugBreakpointEntry> {
+    {
+        let mut session_guard = state.debug_session.lock();
+        let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
+        let mut core = session
+            .core(0)
+            .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
+        core.set_hw_breakpoint(options.address)
+            .map_err(|e| AppError::DebugError(format!("设置断点失败: {}", e)))?;
+    }
+
+    let mut bp_guard = state.debug_breakpoints.lock();
+    if let Some(existing) = bp_guard.iter().find(|b| b.address == options.address) {
+        return Ok(existing.clone());
+    }
+    let id = bp_guard.iter().map(|b| b.id).max().unwrap_or(0) + 1;
+    let entry = DebugBreakpointEntry {
+        id,
+        address: options.address,
+        enabled: true,
+        hit_count: 0,
+    };
+    bp_guard.push(entry.clone());
+    log::info!("断点已设置: 0x{:08X} (id={})", options.address, id);
+    Ok(entry)
+}
+
+#[tauri::command]
+pub async fn debug_clear_breakpoint(
+    options: DebugBreakpointOptions,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    {
+        let mut session_guard = state.debug_session.lock();
+        let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
+        let mut core = session
+            .core(0)
+            .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
+        core.clear_hw_breakpoint(options.address)
+            .map_err(|e| AppError::DebugError(format!("清除断点失败: {}", e)))?;
+    }
+
+    let mut bp_guard = state.debug_breakpoints.lock();
+    bp_guard.retain(|b| b.address != options.address);
+    log::info!("断点已清除: 0x{:08X}", options.address);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn debug_list_breakpoints(state: State<'_, AppState>) -> AppResult<Vec<DebugBreakpointEntry>> {
+    Ok(state.debug_breakpoints.lock().clone())
+}
+
+#[tauri::command]
+pub async fn debug_clear_all_breakpoints(state: State<'_, AppState>) -> AppResult<()> {
+    let addresses: Vec<u64> = state.debug_breakpoints.lock().iter().map(|b| b.address).collect();
+
+    {
+        let mut session_guard = state.debug_session.lock();
+        if let Some(session) = session_guard.as_mut() {
+            if let Ok(mut core) = session.core(0) {
+                for addr in &addresses {
+                    let _ = core.clear_hw_breakpoint(*addr);
+                }
+            }
+        }
+    }
+
+    state.debug_breakpoints.lock().clear();
+    log::info!("已清除全部 {} 个断点", addresses.len());
+    Ok(())
+}
+
+// ============================================================================
+// 源码读取
+// ============================================================================
+
+#[tauri::command]
+pub async fn debug_read_source(path: String) -> AppResult<DebugReadSourceResult> {
+    use std::path::Path;
+    const MAX_SOURCE_SIZE: u64 = 4 * 1024 * 1024; // 4MB 上限
+
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(AppError::DebugError(format!("源文件不存在: {}", path)));
+    }
+    let metadata = std::fs::metadata(p)
+        .map_err(|e| AppError::DebugError(format!("无法读取源文件元数据: {}", e)))?;
+    if metadata.len() > MAX_SOURCE_SIZE {
+        return Err(AppError::DebugError(format!(
+            "源文件过大 ({} 字节)，超过 4MB 上限",
+            metadata.len()
+        )));
+    }
+
+    let content =
+        std::fs::read_to_string(p).map_err(|e| AppError::DebugError(format!("读源文件失败: {}", e)))?;
+    Ok(DebugReadSourceResult { path, content })
+}
+
+/// 阶段 3 仅返回单帧（基于当前 PC）。多帧栈回溯留给后续阶段。
 #[tauri::command]
 pub async fn debug_get_call_stack(state: State<'_, AppState>) -> AppResult<Vec<DebugFrame>> {
     // 1. 取当前 PC（要求已 halt）
