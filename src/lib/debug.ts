@@ -91,6 +91,14 @@ export async function debugStepIn(): Promise<DebugCoreState> {
   return await invoke<DebugCoreState>("debug_step_in");
 }
 
+export async function debugStepOver(): Promise<DebugCoreState> {
+  return await invoke<DebugCoreState>("debug_step_over");
+}
+
+export async function debugStepOut(): Promise<DebugCoreState> {
+  return await invoke<DebugCoreState>("debug_step_out");
+}
+
 export async function debugReset(): Promise<DebugCoreState> {
   return await invoke<DebugCoreState>("debug_reset");
 }

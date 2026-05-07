@@ -109,6 +109,8 @@ pub fn run() {
             debug_cmd::debug_run,
             debug_cmd::debug_halt,
             debug_cmd::debug_step_in,
+            debug_cmd::debug_step_over,
+            debug_cmd::debug_step_out,
             debug_cmd::debug_reset,
             debug_cmd::debug_reset_halt,
             debug_cmd::debug_read_memory,

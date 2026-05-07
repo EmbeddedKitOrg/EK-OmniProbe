@@ -315,6 +315,116 @@ pub async fn debug_step_in(state: State<'_, AppState>) -> AppResult<DebugCoreSta
     })
 }
 
+/// 行级 step over：从当前 source line 出发，单步执行直到 file:line 改变。
+/// 没加载 ELF / DWARF 行表里没匹配时退化为 step_in。
+/// 上限 8000 条指令防失控。
+#[tauri::command]
+pub async fn debug_step_over(state: State<'_, AppState>) -> AppResult<DebugCoreState> {
+    const MAX_STEPS: usize = 8000;
+
+    // 取起点 PC + source 位置
+    let mut session_guard = state.debug_session.lock();
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
+    let mut core = session
+        .core(0)
+        .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
+
+    let pc_reg = core
+        .registers()
+        .pc()
+        .ok_or_else(|| AppError::DebugError("当前架构无 PC 寄存器".to_string()))?;
+    let starting_pc: u64 = core
+        .read_core_reg(pc_reg)
+        .map_err(|e| AppError::DebugError(format!("读 PC 失败: {}", e)))?;
+
+    let sym_guard = state.debug_symbols.lock();
+    let symbols = sym_guard.as_ref();
+    let starting_loc = symbols.map(|s| s.resolve(starting_pc));
+    let starting_file = starting_loc.as_ref().and_then(|l| l.file.clone());
+    let starting_line = starting_loc.as_ref().and_then(|l| l.line);
+    let starting_function = starting_loc.as_ref().and_then(|l| l.function.clone());
+
+    let mut last_pc = starting_pc;
+    for _ in 0..MAX_STEPS {
+        let info = core
+            .step()
+            .map_err(|e| AppError::DebugError(format!("step 失败: {}", e)))?;
+        last_pc = info.pc;
+
+        let Some(syms) = symbols else {
+            // 没有符号信息：退化为 step_in
+            break;
+        };
+        let loc = syms.resolve(last_pc);
+        // file 或 line 改变 → 算"下一行"
+        if loc.file != starting_file || loc.line != starting_line {
+            // 函数变了说明已离开当前作用域，也停（避免 step over 跨调用栈）
+            // 同函数内只是行变化才是真正的 step over 完成
+            break;
+        }
+        // 即使 file/line 相同，但函数已变（如内联函数边界），也停
+        if loc.function != starting_function {
+            break;
+        }
+    }
+    drop(sym_guard);
+
+    Ok(DebugCoreState {
+        state: "halted".into(),
+        pc: Some(last_pc),
+    })
+}
+
+/// step out：在 LR 处下临时硬断点，run，等待命中后清除断点。
+/// 5 秒超时，避免目标永远不返回时卡死。
+#[tauri::command]
+pub async fn debug_step_out(state: State<'_, AppState>) -> AppResult<DebugCoreState> {
+    let mut session_guard = state.debug_session.lock();
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
+    let mut core = session
+        .core(0)
+        .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
+
+    let lr_reg = core
+        .registers()
+        .core_registers()
+        .find(|r| r.name().eq_ignore_ascii_case("LR"))
+        .ok_or_else(|| {
+            AppError::DebugError("当前架构未暴露 LR 寄存器，无法 step out".to_string())
+        })?;
+    let lr: u64 = core
+        .read_core_reg(lr_reg)
+        .map_err(|e| AppError::DebugError(format!("读 LR 失败: {}", e)))?;
+
+    // ARM Thumb: LR 最低位为 1 表示 thumb，硬断点地址必须清零最低位
+    let return_addr = lr & !1u64;
+
+    core.set_hw_breakpoint(return_addr)
+        .map_err(|e| AppError::DebugError(format!("step_out 临时断点失败: {}", e)))?;
+
+    let run_result = (|| -> AppResult<u64> {
+        core.run()
+            .map_err(|e| AppError::DebugError(format!("run 失败: {}", e)))?;
+        core.wait_for_core_halted(Duration::from_secs(5))
+            .map_err(|e| AppError::DebugError(format!("等待 step_out 命中超时: {}", e)))?;
+        let pc_reg = core
+            .registers()
+            .pc()
+            .ok_or_else(|| AppError::DebugError("当前架构无 PC 寄存器".to_string()))?;
+        core.read_core_reg(pc_reg)
+            .map_err(|e| AppError::DebugError(format!("读 PC 失败: {}", e)))
+    })();
+
+    // 清掉临时断点不论成功失败
+    let _ = core.clear_hw_breakpoint(return_addr);
+
+    let pc = run_result?;
+    Ok(DebugCoreState {
+        state: "halted".into(),
+        pc: Some(pc),
+    })
+}
+
 #[tauri::command]
 pub async fn debug_reset(state: State<'_, AppState>) -> AppResult<DebugCoreState> {
     let mut guard = state.debug_session.lock();
