@@ -5,6 +5,15 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.4] - 2026-05-07
+
+工程化小版本：CI 加速 + 代码风格统一，无功能改动，可直接覆盖升级。
+
+### CI / 工程化
+
+- ⚡ **Windows runner 加 Defender 排除** - GitHub-hosted Windows runner 默认开启实时扫描，对 cargo `target/` 与 `~/.cargo` 里几万个 `.rlib`/`.rmeta` 逐文件扫描是 Rust 项目慢的最大头之一。在 `release.yml` 的 Windows job 起手位置 `Add-MpPreference` 排除项目工作区、Rust toolchain 目录、pnpm 全局存储以及 `rustc/cargo/link/node/pnpm` 进程。runner 是用一次销毁的临时 VM，无持久副作用。预期 Windows 编译阶段提速 30-50%
+- 🛠️ **引入 Prettier 并统一全仓代码风格** - 新增 `.prettierrc.json`（双引号、分号、`tabWidth=2`、`printWidth=120`、LF 行尾）、`.prettierignore`、`format` / `format:check` 脚本；一次性 `prettier --write` 处理 73 个 `.ts`/`.tsx`/`.css` 文件，从此风格漂移可在 CI 拦下
+
 ## [1.2.3] - 2026-05-07
 
 安全 + 体验小版本：闭合一次全局安全审计发现的 6 项漏洞（Zip Slip、PDSC 名称劫持、任意目录删除、任意文件写、CSP 缺失、capability 过宽），并给串口日志视图加了三档复制（纯文本 / 含时间戳 / 含 RX-TX 完整行）。无破坏性改动，可直接覆盖升级。
