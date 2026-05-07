@@ -19,7 +19,7 @@ export function CallStackPanel() {
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Call Stack</span>
         {frames.length > 0 && (
           <span className="text-[10px] text-muted-foreground">
-            {frames.length} 帧{frames.length === 1 ? "（阶段 3 仅当前帧）" : ""}
+            {frames.length} 帧{frames.length <= 2 ? "（基于 LR，深栈展开待阶段 6）" : ""}
           </span>
         )}
       </div>
