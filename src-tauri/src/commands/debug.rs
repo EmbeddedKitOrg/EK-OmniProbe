@@ -94,6 +94,12 @@ pub struct DebugBreakpointOptions {
     pub address: u64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DebugSetSourceBreakpointOptions {
+    pub file: String,
+    pub line: u32,
+}
+
 #[derive(Debug, Serialize)]
 pub struct DebugReadSourceResult {
     pub path: String,
@@ -492,10 +498,12 @@ pub async fn debug_resolve_pc(
 // 断点
 // ============================================================================
 
-#[tauri::command]
-pub async fn debug_set_breakpoint(
-    options: DebugBreakpointOptions,
-    state: State<'_, AppState>,
+/// 在指定地址设硬断点，并把记录加入跟踪列表（幂等）。
+/// `source` 可选：源码断点会带 (file, line)，按地址加的断点为 None。
+fn register_breakpoint(
+    state: &AppState,
+    address: u64,
+    source: Option<(String, u32)>,
 ) -> AppResult<DebugBreakpointEntry> {
     {
         let mut session_guard = state.debug_session.lock();
@@ -503,24 +511,67 @@ pub async fn debug_set_breakpoint(
         let mut core = session
             .core(0)
             .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
-        core.set_hw_breakpoint(options.address)
+        core.set_hw_breakpoint(address)
             .map_err(|e| AppError::DebugError(format!("设置断点失败: {}", e)))?;
     }
 
     let mut bp_guard = state.debug_breakpoints.lock();
-    if let Some(existing) = bp_guard.iter().find(|b| b.address == options.address) {
+    if let Some(existing) = bp_guard.iter_mut().find(|b| b.address == address) {
+        // 重复设置：保留已有的 hit_count，仅在原本无 source 时补充 source 信息
+        if let Some((file, line)) = source {
+            if existing.file.is_none() {
+                existing.file = Some(file);
+                existing.line = Some(line);
+            }
+        }
         return Ok(existing.clone());
     }
     let id = bp_guard.iter().map(|b| b.id).max().unwrap_or(0) + 1;
+    let (file, line) = match source {
+        Some((f, l)) => (Some(f), Some(l)),
+        None => (None, None),
+    };
     let entry = DebugBreakpointEntry {
         id,
-        address: options.address,
+        address,
         enabled: true,
         hit_count: 0,
+        file,
+        line,
     };
     bp_guard.push(entry.clone());
-    log::info!("断点已设置: 0x{:08X} (id={})", options.address, id);
+    log::info!("断点已设置: 0x{:08X} (id={})", address, id);
     Ok(entry)
+}
+
+#[tauri::command]
+pub async fn debug_set_breakpoint(
+    options: DebugBreakpointOptions,
+    state: State<'_, AppState>,
+) -> AppResult<DebugBreakpointEntry> {
+    register_breakpoint(&state, options.address, None)
+}
+
+#[tauri::command]
+pub async fn debug_set_source_breakpoint(
+    options: DebugSetSourceBreakpointOptions,
+    state: State<'_, AppState>,
+) -> AppResult<DebugBreakpointEntry> {
+    let address = {
+        let guard = state.debug_symbols.lock();
+        let symbols = guard
+            .as_ref()
+            .ok_or_else(|| AppError::DebugError("未加载 ELF".to_string()))?;
+        symbols
+            .lookup_addr(&options.file, options.line)
+            .ok_or_else(|| {
+                AppError::DebugError(format!(
+                    "DWARF 行表中找不到 {}:{} 对应的指令地址（可能此行不是语句开头或被优化）",
+                    options.file, options.line
+                ))
+            })?
+    };
+    register_breakpoint(&state, address, Some((options.file, options.line)))
 }
 
 #[tauri::command]

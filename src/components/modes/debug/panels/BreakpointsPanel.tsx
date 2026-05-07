@@ -137,7 +137,7 @@ export function BreakpointsPanel() {
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">未连接调试会话</div>
       ) : breakpoints.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-muted-foreground">
-          暂无断点。在上方输入地址，或在源码视图（阶段 5）点击行号 gutter 添加。
+          暂无断点。在上方输入地址，或在源码视图行号左侧点击设置。
         </div>
       ) : (
         <div className="flex-1 overflow-auto px-2 pb-3 text-xs">
@@ -145,30 +145,40 @@ export function BreakpointsPanel() {
             <thead>
               <tr className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                 <th className="w-8 px-2 py-1 text-left">#</th>
-                <th className="px-2 py-1 text-left">地址</th>
+                <th className="px-2 py-1 text-left">地址 / 位置</th>
                 <th className="w-16 px-2 py-1 text-right">命中</th>
                 <th className="w-8 px-2 py-1" />
               </tr>
             </thead>
             <tbody>
-              {breakpoints.map((bp) => (
-                <tr key={bp.id} className="border-b border-border/30 last:border-b-0">
-                  <td className="px-2 py-1 text-muted-foreground">#{bp.id}</td>
-                  <td className="px-2 py-1 font-mono">{formatHex(bp.address)}</td>
-                  <td className="px-2 py-1 text-right text-muted-foreground">{bp.hit_count}</td>
-                  <td className="px-2 py-1 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(bp.address)}
-                      disabled={busy}
-                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
-                      title="删除"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {breakpoints.map((bp) => {
+                const fileShort = bp.file ? bp.file.split(/[\\/]/).pop() : null;
+                return (
+                  <tr key={bp.id} className="border-b border-border/30 last:border-b-0">
+                    <td className="px-2 py-1 text-muted-foreground">#{bp.id}</td>
+                    <td className="px-2 py-1">
+                      <div className="font-mono">{formatHex(bp.address)}</div>
+                      {fileShort && bp.line && (
+                        <div className="text-[10px] text-muted-foreground" title={bp.file ?? ""}>
+                          {fileShort}:{bp.line}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-1 text-right text-muted-foreground">{bp.hit_count}</td>
+                    <td className="px-2 py-1 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(bp.address)}
+                        disabled={busy}
+                        className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
+                        title="删除"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
