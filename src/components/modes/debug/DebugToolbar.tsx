@@ -15,6 +15,8 @@ import {
   debugReset,
   debugRun,
   debugStepIn,
+  debugStepOut,
+  debugStepOver,
   type DebugCoreState,
 } from "@/lib/debug";
 import { ViewMenu } from "./ViewMenu";
@@ -149,6 +151,20 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
       await refreshCallStack();
     });
 
+  const handleStepOver = () =>
+    withBusy("step-over", async () => {
+      const core = await debugStepOver();
+      setDebugState(core.state, "step", core.pc ?? null);
+      await refreshCallStack();
+    });
+
+  const handleStepOut = () =>
+    withBusy("step-out", async () => {
+      const core = await debugStepOut();
+      setDebugState(core.state, "step", core.pc ?? null);
+      await refreshCallStack();
+    });
+
   const handleReset = () =>
     withBusy("reset", async () => {
       const core = await debugReset();
@@ -243,8 +259,8 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         variant="ghost"
         disabled={!halted || busy}
         className="gap-1.5 rounded-full px-3"
-        title="阶段 4 接入（需要源码行信息）"
-        onClick={() => addLog("info", "Step Over 将在阶段 4 接入")}
+        title="单步跳过（DWARF 行级，无符号时退化为指令级）"
+        onClick={handleStepOver}
       >
         <StepBack className="h-3.5 w-3.5 rotate-180" />
         <span className="text-xs">Over</span>
@@ -255,8 +271,8 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
         variant="ghost"
         disabled={!halted || busy}
         className="gap-1.5 rounded-full px-3"
-        title="阶段 4 接入（需要调用栈信息）"
-        onClick={() => addLog("info", "Step Out 将在阶段 4 接入")}
+        title="单步跳出（在 LR 处下临时硬断点）"
+        onClick={handleStepOut}
       >
         <ArrowUpFromLine className="h-3.5 w-3.5" />
         <span className="text-xs">Out</span>
