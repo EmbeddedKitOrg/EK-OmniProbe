@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { SerialLine } from "@/lib/serialTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
+import { useViewerSelection, formatSerialLineForCopy } from "@/lib/viewerCopy";
 
 interface SerialViewerProps {
   direction?: "rx" | "tx";
@@ -14,49 +15,16 @@ interface SerialViewerProps {
 
 type CopyMode = "plain" | "with-timestamp" | "full";
 
-const formatTimestamp = (date: Date) => {
-  const hh = date.getHours().toString().padStart(2, "0");
-  const mm = date.getMinutes().toString().padStart(2, "0");
-  const ss = date.getSeconds().toString().padStart(2, "0");
-  const ms = date.getMilliseconds().toString().padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
+// CopyMode → 是否带时间戳 / 方向前缀
+const COPY_MODE_OPTS: Record<CopyMode, { ts: boolean; dir: boolean; label: string }> = {
+  plain: { ts: false, dir: false, label: "纯文本" },
+  "with-timestamp": { ts: true, dir: false, label: "含时间戳" },
+  full: { ts: true, dir: true, label: "完整行" },
 };
 
 const formatLineForCopy = (line: SerialLine, mode: CopyMode): string => {
-  const ts = `[${formatTimestamp(line.timestamp)}]`;
-  const dir = line.direction === "rx" ? "【RX】" : "【TX】";
-  switch (mode) {
-    case "plain":
-      return line.text;
-    case "with-timestamp":
-      return `${ts} ${line.text}`;
-    case "full":
-      return `${ts} ${dir} ${line.text}`;
-  }
-};
-
-const findLineIndex = (node: Node | null, container: HTMLElement): number | null => {
-  let el: HTMLElement | null =
-    node?.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : (node?.parentElement ?? null);
-  while (el && el !== container) {
-    const attr = el.getAttribute?.("data-line-index");
-    if (attr != null) return Number(attr);
-    el = el.parentElement;
-  }
-  return null;
-};
-
-const getSelectedLineRange = (container: HTMLElement): { start: number; end: number } | null => {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
-  const range = sel.getRangeAt(0);
-  if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
-    return null;
-  }
-  const a = findLineIndex(range.startContainer, container);
-  const b = findLineIndex(range.endContainer, container);
-  if (a == null || b == null) return null;
-  return { start: Math.min(a, b), end: Math.max(a, b) };
+  const o = COPY_MODE_OPTS[mode];
+  return formatSerialLineForCopy(line, o.ts, o.dir);
 };
 
 export function SerialViewer({ direction, title }: SerialViewerProps) {
@@ -83,7 +51,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
     return filtered;
   }, [lines, direction, searchQuery]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const { scrollRef, getSelectedRange, isSelectAll } = useViewerSelection(filteredLines.length);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
@@ -114,43 +82,55 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
 
   const copySelection = useCallback(
     (mode: CopyMode) => {
-      const container = scrollRef.current;
-      if (!container) return false;
+      const range = getSelectedRange();
       const sel = window.getSelection();
       const rawText = sel ? sel.toString() : "";
 
-      if (mode === "plain") {
-        if (!rawText) return false;
+      // 纯文本 + 单行选区 + 非全选：保留精确的字符级选区（行内半句）
+      if (mode === "plain" && rawText && !isSelectAll() && range && range.start === range.end) {
         writeToClipboard(rawText, "纯文本");
         return true;
       }
 
-      const range = getSelectedLineRange(container);
-      if (!range) return false;
-
+      // 其余一律按行号区间从数据数组重建，绕开虚拟滚动的 DOM 截断
+      if (!range) {
+        if (mode === "plain" && rawText) {
+          writeToClipboard(rawText, "纯文本");
+          return true;
+        }
+        return false;
+      }
       const slice = filteredLines.slice(range.start, range.end + 1);
       if (slice.length === 0) return false;
       const text = slice.map((line) => formatLineForCopy(line, mode)).join("\n");
-      writeToClipboard(text, mode === "with-timestamp" ? "含时间戳" : "完整行");
+      writeToClipboard(text, COPY_MODE_OPTS[mode].label);
       return true;
     },
-    [filteredLines, writeToClipboard]
+    [filteredLines, writeToClipboard, getSelectedRange, isSelectAll]
   );
 
-  // Ctrl+Shift+C：复制完整行（时间戳 + 方向 + 正文）
+  // Ctrl+C 纯文本 / Ctrl+Shift+C 完整行（均按行号区间重建，跨滚动不丢）
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "c")) return;
+    const isInside = () => {
+      const c = scrollRef.current;
+      if (!c) return false;
+      if (isSelectAll() || c.matches(":hover")) return true;
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed) return;
-      if (!scrollRef.current?.contains(sel.anchorNode)) return;
-      if (copySelection("full")) {
+      return !!(sel && sel.anchorNode && c.contains(sel.anchorNode));
+    };
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && event.key.toLowerCase() === "c")) return;
+      if (event.altKey) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      if (!isInside()) return;
+      if (copySelection(event.shiftKey ? "full" : "plain")) {
         event.preventDefault();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [copySelection]);
+  }, [copySelection, scrollRef, isSelectAll]);
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     const sel = window.getSelection();

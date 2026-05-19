@@ -1,14 +1,16 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRttStore } from "@/stores/rttStore";
+import { useLogStore } from "@/stores/logStore";
 import { cn } from "@/lib/utils";
 import type { RttLine } from "@/lib/types";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
+import { useViewerSelection, formatRttLineForCopy, copyTextToClipboard } from "@/lib/viewerCopy";
 
 export function RttViewer() {
   const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } = useRttStore();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const addLog = useLogStore((state) => state.addLog);
 
   // 过滤行
   const filteredLines = useMemo(() => {
@@ -28,6 +30,8 @@ export function RttViewer() {
     return filtered;
   }, [lines, selectedChannel, searchQuery]);
 
+  const { scrollRef, getSelectedRange, isSelectAll } = useViewerSelection(filteredLines.length);
+
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
     getScrollElement: () => scrollRef.current,
@@ -41,6 +45,29 @@ export function RttViewer() {
       rowVirtualizer.scrollToIndex(filteredLines.length - 1, { align: "end" });
     }
   }, [filteredLines.length, autoScroll, rowVirtualizer]);
+
+  // Ctrl+C：按行号区间从数据重建（不受虚拟化卸载影响）
+  const handleCopy = useCallback(
+    (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "c")) return;
+      const range = getSelectedRange();
+      if (!range) return;
+      const slice = filteredLines.slice(range.start, range.end + 1);
+      if (slice.length === 0) return;
+      event.preventDefault();
+      copyTextToClipboard(
+        slice.map((line) => formatRttLineForCopy(line, showTimestamp)).join("\n"),
+        isSelectAll() ? "全部" : "选区",
+        addLog
+      );
+    },
+    [getSelectedRange, isSelectAll, filteredLines, showTimestamp, addLog]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleCopy);
+    return () => document.removeEventListener("keydown", handleCopy);
+  }, [handleCopy]);
 
   // 空状态
   if (filteredLines.length === 0) {
@@ -66,6 +93,7 @@ export function RttViewer() {
             <div
               key={virtualRow.key}
               data-index={virtualRow.index}
+              data-line-index={virtualRow.index}
               ref={rowVirtualizer.measureElement}
               style={{
                 position: "absolute",
