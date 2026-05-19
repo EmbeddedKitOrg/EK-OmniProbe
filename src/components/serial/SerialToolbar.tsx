@@ -9,6 +9,7 @@ import {
   Square,
   Trash2,
   Download,
+  Copy,
   Search,
   FileText,
   SquareTerminal,
@@ -28,6 +29,7 @@ import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
+import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
 import type { ReactNode } from "react";
 
@@ -99,6 +101,14 @@ export function SerialToolbar() {
     } catch {
       // Ignore
     }
+  };
+
+  // 复制全部：从数据数组直接生成（不受虚拟滚动卸载影响），与文本区显示一致
+  const handleCopyAll = () => {
+    const { lines, searchQuery, showTimestamp, showDirectionPrefix } = useSerialStore.getState();
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q ? lines.filter((l) => l.text.toLowerCase().includes(q)) : lines;
+    copyAllLines(filtered, (l) => formatSerialLineForCopy(l, showTimestamp, showDirectionPrefix), addLog);
   };
 
   const handleExportTxt = async () => {
@@ -483,6 +493,10 @@ export function SerialToolbar() {
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">输出</div>
                 <div className="flex flex-wrap gap-2.5">
+                  <Button size="sm" variant="outline" onClick={handleCopyAll} className="gap-1">
+                    <Copy className="h-3.5 w-3.5" />
+                    复制全部
+                  </Button>
                   <Button size="sm" variant="outline" onClick={handleExportTxt} className="gap-1">
                     <Download className="h-3.5 w-3.5" />
                     导出 TXT
