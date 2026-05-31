@@ -1,0 +1,13 @@
+name: EK-OmniProbe
+authors: [左岚]
+category: Tool
+tags: [嵌入式, 调试器, 烧录, RTT, 串口, BLE, probe-rs, Tauri, Rust]
+status: done
+updated: 2026-05-31
+summary: 开源嵌入式开发五合一工具，集成固件烧录、源码级调试、RTT 实时输出、串口终端和 BLE 蓝牙功能。
+
+demo: https://space.bilibili.com/27619688
+readme: README.md
+
+links:
+  github: https://github.com/EmbeddedKitOrg/EK-OmniProbe
