@@ -319,6 +319,34 @@ export function SerialSidebar() {
 
                 <div className="flex items-center justify-between gap-2 pt-1">
                   <div className="space-y-0.5">
+                    <label className="text-xs font-medium">DTR</label>
+                    <p className="text-xs text-muted-foreground">打开串口后拉高 DTR (默认关，部分设备需开启)</p>
+                  </div>
+                  <Switch
+                    checked={localConfig.dtr ?? false}
+                    onCheckedChange={(value) => setLocalConfig({ dtr: value })}
+                    disabled={connected}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-medium">RTS</label>
+                    <p className="text-xs text-muted-foreground">
+                      {localConfig.flow_control === "none"
+                        ? "打开串口后拉高 RTS (默认关)"
+                        : "硬件流控下由驱动接管，此项忽略"}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localConfig.rts ?? false}
+                    onCheckedChange={(value) => setLocalConfig({ rts: value })}
+                    disabled={connected || localConfig.flow_control !== "none"}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-0.5">
                     <label className="text-xs font-medium">断线自动重连</label>
                     <p className="text-xs text-muted-foreground">读取出错时尝试重连 (1s 起，指数退避到 5s)</p>
                   </div>

@@ -11,7 +11,9 @@ import type {
   SerialTerminalLine,
   SerialTextViewMode,
   SerialTerminalSettings,
+  RxFramingSettings,
 } from "@/lib/serialTypes";
+import { DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
@@ -36,6 +38,7 @@ const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
 const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
+const SERIAL_RX_FRAMING_KEY = "serial_rx_framing";
 const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
 const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 
@@ -53,6 +56,8 @@ const defaultLocalConfig: LocalSerialConfig = {
   stop_bits: 1,
   parity: "none",
   flow_control: "none",
+  dtr: false,
+  rts: false,
   reconnect: false,
 };
 
@@ -145,6 +150,9 @@ interface SerialState {
   // Send settings
   sendSettings: SendSettings;
 
+  // 接收分帧设置（决定日志模式如何把字节切成行）
+  rxFraming: RxFramingSettings;
+
   // Line ID counter
   lineIdCounter: number;
 
@@ -192,12 +200,18 @@ interface SerialState {
   incrementParseCounts: (success: number, fail: number) => void;
 
   setSendSettings: (settings: Partial<SendSettings>) => void;
+  setRxFraming: (settings: Partial<RxFramingSettings>) => void;
 
   reset: () => void;
 }
 
 const savedConfig = loadFromStorage(SERIAL_CONFIG_KEY, defaultSerialConfigBundle);
 const savedSendSettings = loadFromStorage(SERIAL_SEND_SETTINGS_KEY, defaultSendSettings);
+// 合并默认值，保证老配置缺字段时也有完整结构
+const savedRxFraming: RxFramingSettings = {
+  ...DEFAULT_RX_FRAMING,
+  ...loadFromStorage(SERIAL_RX_FRAMING_KEY, DEFAULT_RX_FRAMING),
+};
 const savedTerminalSettingsVersion = loadNumberFromStorage(
   SERIAL_TERMINAL_SETTINGS_VERSION_KEY,
   0,
@@ -446,6 +460,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   parseFailCount: 0,
 
   sendSettings: savedSendSettings,
+  rxFraming: savedRxFraming,
 
   lineIdCounter: 0,
 
@@ -642,6 +657,14 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     });
   },
 
+  setRxFraming: (settings) => {
+    set((state) => {
+      const newFraming = { ...state.rxFraming, ...settings };
+      saveToStorage(SERIAL_RX_FRAMING_KEY, newFraming);
+      return { rxFraming: newFraming };
+    });
+  },
+
   reset: () =>
     set({
       connected: false,
@@ -660,54 +683,113 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     }),
 }));
 
+// 把 "0D 0A" / "0d0a" 这类十六进制字符串解析成字节序列
+function parseHexDelimiter(input: string): number[] {
+  const hex = input.replace(/[^0-9a-fA-F]/g, "");
+  const bytes: number[] = [];
+  for (let i = 0; i + 1 < hex.length; i += 2) {
+    bytes.push(parseInt(hex.slice(i, i + 2), 16));
+  }
+  return bytes;
+}
+
+// 按分隔符字节序列切分：返回完整帧（不含分隔符）+ 末尾残留
+function splitBytesByDelimiter(bytes: number[], delim: number[]): { frames: number[][]; rest: number[] } {
+  const frames: number[][] = [];
+  let start = 0;
+  let i = 0;
+  while (i + delim.length <= bytes.length) {
+    let matched = true;
+    for (let j = 0; j < delim.length; j += 1) {
+      if (bytes[i + j] !== delim[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) {
+      frames.push(bytes.slice(start, i));
+      i += delim.length;
+      start = i;
+    } else {
+      i += 1;
+    }
+  }
+  return { frames, rest: bytes.slice(start) };
+}
+
+// 根据分帧模式得到分隔符字节序列；返回 null 表示"不按分隔符切"（timeout / 自定义为空）
+function resolveDelimiter(framing: RxFramingSettings): { delim: number[]; stripTrailingCr: boolean } | null {
+  switch (framing.mode) {
+    case "lf":
+      return { delim: [0x0a], stripTrailingCr: false };
+    case "crlf":
+      return { delim: [0x0d, 0x0a], stripTrailingCr: false };
+    case "cr":
+      return { delim: [0x0d], stripTrailingCr: false };
+    case "custom": {
+      const delim = framing.customIsHex
+        ? parseHexDelimiter(framing.customDelimiter)
+        : Array.from(new TextEncoder().encode(framing.customDelimiter ?? ""));
+      return delim.length > 0 ? { delim, stripTrailingCr: false } : null;
+    }
+    case "timeout":
+      return null;
+    case "auto":
+    default:
+      // 按 \n 切，并去掉帧尾可能的 \r，从而同时兼容 \n 和 \r\n
+      return { delim: [0x0a], stripTrailingCr: true };
+  }
+}
+
 // Helper function: Parse serial data to lines
+// framing 可选，不传时按 "auto"（\n / \r\n）——BLE 等调用方沿用旧行为。
 export function parseSerialData(
   data: number[],
   timestamp: number,
   direction: "rx" | "tx",
-  pendingBuffer: { text: string; rawData: number[] }
+  pendingBuffer: { text: string; rawData: number[] },
+  framing: RxFramingSettings = DEFAULT_RX_FRAMING
 ): { lines: Omit<SerialLine, "id">[]; pending: { text: string; rawData: number[] } } {
-  const lines: Omit<SerialLine, "id">[] = [];
-  const text = new TextDecoder().decode(new Uint8Array(data));
   const date = new Date(timestamp);
-
-  // Combine with pending buffer
-  const fullText = pendingBuffer.text + text;
+  const decoder = new TextDecoder();
   const fullRawData = [...pendingBuffer.rawData, ...data];
 
-  // Split by newlines
-  const parts = fullText.split(/\r?\n/);
+  const resolved = resolveDelimiter(framing);
 
-  // Last part may be incomplete
-  const lastPart = parts.pop() || "";
+  // timeout / 自定义未填：不按分隔符切，全部留到 pending，由调用方空闲超时刷出
+  if (resolved === null) {
+    return {
+      lines: [],
+      pending: { text: decoder.decode(new Uint8Array(fullRawData)), rawData: fullRawData },
+    };
+  }
 
-  // Calculate last part bytes
-  const lastPartBytes = new TextEncoder().encode(lastPart);
-  const lastRawData = fullRawData.slice(-lastPartBytes.length);
+  const { delim, stripTrailingCr } = resolved;
+  const { frames, rest } = splitBytesByDelimiter(fullRawData, delim);
 
-  // Process complete lines
-  let currentOffset = 0;
-  for (const part of parts) {
-    if (part.trim()) {
-      const lineBytes = new TextEncoder().encode(part);
-      const lineRawData = fullRawData.slice(currentOffset, currentOffset + lineBytes.length);
-
-      lines.push({
-        timestamp: date,
-        text: part,
-        level: parseLogLevel(part),
-        rawData: lineRawData,
-        direction,
-      });
-
-      currentOffset += lineBytes.length + 1; // +1 for newline
-    } else {
-      currentOffset += 1; // empty line
+  const lines: Omit<SerialLine, "id">[] = [];
+  for (let frameBytes of frames) {
+    if (stripTrailingCr && frameBytes.length > 0 && frameBytes[frameBytes.length - 1] === 0x0d) {
+      frameBytes = frameBytes.slice(0, -1);
     }
+    if (frameBytes.length === 0) {
+      continue;
+    }
+    const text = decoder.decode(new Uint8Array(frameBytes));
+    if (!text.trim()) {
+      continue;
+    }
+    lines.push({
+      timestamp: date,
+      text,
+      level: parseLogLevel(text),
+      rawData: frameBytes,
+      direction,
+    });
   }
 
   return {
     lines,
-    pending: { text: lastPart, rawData: lastRawData },
+    pending: { text: decoder.decode(new Uint8Array(rest)), rawData: rest },
   };
 }

@@ -4,6 +4,8 @@ import { stopSerial, startSerial, clearSerialBuffer } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { RxFramingMode } from "@/lib/serialTypes";
 import {
   Play,
   Square,
@@ -49,6 +51,8 @@ export function SerialToolbar() {
     splitOrientation,
     lines,
     chartConfig,
+    rxFraming,
+    setRxFraming,
     setRunning,
     setAutoScroll,
     setShowTimestamp,
@@ -462,6 +466,70 @@ export function SerialToolbar() {
                   )}
                 </div>
               </div>
+
+              {textViewMode === "log" && (
+                <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+                  <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">接收分帧</div>
+                  <Select
+                    value={rxFraming.mode}
+                    onValueChange={(value) => setRxFraming({ mode: value as RxFramingMode })}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">换行（自动 \n / \r\n）</SelectItem>
+                      <SelectItem value="lf">换行 LF（\n）</SelectItem>
+                      <SelectItem value="crlf">换行 CRLF（\r\n）</SelectItem>
+                      <SelectItem value="cr">换行 CR（\r）</SelectItem>
+                      <SelectItem value="timeout">空闲超时分帧</SelectItem>
+                      <SelectItem value="custom">自定义分隔符</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {rxFraming.mode === "timeout" && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">空闲</span>
+                      <Input
+                        type="number"
+                        min={5}
+                        value={rxFraming.idleMs}
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value, 10);
+                          setRxFraming({ idleMs: Number.isNaN(n) ? 0 : n });
+                        }}
+                        className="h-8 w-24 text-xs"
+                      />
+                      <span className="text-xs text-muted-foreground">ms 后断帧</span>
+                    </div>
+                  )}
+
+                  {rxFraming.mode === "custom" && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={rxFraming.customDelimiter}
+                        onChange={(e) => setRxFraming({ customDelimiter: e.target.value })}
+                        placeholder={rxFraming.customIsHex ? "如 0D 0A" : "分隔字符，如 ; 或 #"}
+                        className="h-8 flex-1 text-xs font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        variant={rxFraming.customIsHex ? "secondary" : "outline"}
+                        onClick={() => setRxFraming({ customIsHex: !rxFraming.customIsHex })}
+                        className="gap-1"
+                        title="按十六进制解析分隔符"
+                      >
+                        <Binary className="h-3.5 w-3.5" />
+                        HEX
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="text-[11px] leading-4 text-muted-foreground">
+                    无固定换行的二进制/HEX 请求-应答用「空闲超时」；带特殊帧头帧尾用「自定义」。
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
