@@ -4,7 +4,12 @@ import { useSerialStore, parseSerialData } from "@/stores/serialStore";
 import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
 import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
+import { parseLogLevel } from "@/lib/utils";
 import { formatBytes } from "@/lib/formatters";
+
+// 非超时模式下的"兜底"空闲刷新：即便选了按换行/自定义分隔符，
+// 残留数据静默这么久也强制刷出一行，杜绝无分隔符数据被永久卡住不显示。
+const SAFETY_IDLE_MS = 200;
 
 /**
  * Hook to listen for serial events
@@ -35,6 +40,7 @@ export function useSerialEvents() {
   const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
   const batchParseRef = useRef({ success: 0, fail: 0 });
   const updateTimerRef = useRef<number | null>(null);
+  const idleFlushTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     // 批量更新函数 - 在每帧最多触发一次 setState
@@ -78,6 +84,36 @@ export function useSerialEvents() {
       }
     };
 
+    // 把 pending 里残留（无换行结尾）的数据刷成一行 RX
+    const flushPendingLine = () => {
+      idleFlushTimerRef.current = null;
+      const pending = pendingBufferRef.current;
+      if (pending.rawData.length === 0 && pending.text.length === 0) {
+        return;
+      }
+
+      batchLinesRef.current.push({
+        timestamp: new Date(),
+        text: pending.text,
+        level: parseLogLevel(pending.text),
+        rawData: pending.rawData,
+        direction: "rx",
+      });
+      pendingBufferRef.current = { text: "", rawData: [] };
+      scheduleBatchUpdate();
+    };
+
+    // 收到数据就重置空闲计时器：静默一段时间后认为一帧结束，刷出残留。
+    // timeout 模式用用户配置的 idleMs 作为主断帧；其它模式用更长的兜底值。
+    const scheduleIdleFlush = () => {
+      if (idleFlushTimerRef.current !== null) {
+        clearTimeout(idleFlushTimerRef.current);
+      }
+      const framing = useSerialStore.getState().rxFraming;
+      const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : SAFETY_IDLE_MS;
+      idleFlushTimerRef.current = window.setTimeout(flushPendingLine, delay);
+    };
+
     // Listen for serial data events
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
       const { data, timestamp, direction } = event.payload;
@@ -89,8 +125,15 @@ export function useSerialEvents() {
 
       batchStatsRef.current.bytes_received += data.length;
 
-      // Parse data to lines
-      const { lines, pending } = parseSerialData(data, timestamp, direction as "rx" | "tx", pendingBufferRef.current);
+      // Parse data to lines（按用户选择的接收分帧模式）
+      const framing = useSerialStore.getState().rxFraming;
+      const { lines, pending } = parseSerialData(
+        data,
+        timestamp,
+        direction as "rx" | "tx",
+        pendingBufferRef.current,
+        framing
+      );
       pendingBufferRef.current = pending;
 
       if (lines.length > 0) {
@@ -113,6 +156,8 @@ export function useSerialEvents() {
 
       // 只要收到数据就调度更新，避免无换行数据时统计不刷新
       scheduleBatchUpdate();
+      // 无换行结尾的帧（请求-应答的十六进制/二进制协议）靠空闲超时刷出
+      scheduleIdleFlush();
     });
 
     // Listen for serial status events
@@ -128,6 +173,10 @@ export function useSerialEvents() {
     // Cleanup
     return () => {
       // 清理定时器
+      if (idleFlushTimerRef.current !== null) {
+        clearTimeout(idleFlushTimerRef.current);
+        idleFlushTimerRef.current = null;
+      }
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
         flushBatch(); // 确保剩余数据被处理

@@ -23,6 +23,12 @@ pub enum SerialConfig {
         parity: String,
         #[serde(default = "default_flow_control")]
         flow_control: String,
+        /// 打开串口后是否拉高 DTR（默认关：部分设备/RS485 拉高会干扰，按需再开）
+        #[serde(default)]
+        dtr: bool,
+        /// 打开串口后是否拉高 RTS（默认关；硬件流控时由驱动接管，此项被忽略）
+        #[serde(default)]
+        rts: bool,
         #[serde(default)]
         reconnect: bool,
     },

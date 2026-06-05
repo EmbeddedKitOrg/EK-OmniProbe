@@ -60,6 +60,8 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             stop_bits,
             parity,
             flow_control,
+            dtr,
+            rts,
             reconnect,
         } => Box::new(LocalSerial::new(
             port,
@@ -68,6 +70,8 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             stop_bits,
             &parity,
             &flow_control,
+            dtr,
+            rts,
             reconnect,
         )),
         SerialConfig::Tcp {

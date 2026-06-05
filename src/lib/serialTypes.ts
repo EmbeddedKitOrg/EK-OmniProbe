@@ -24,6 +24,10 @@ export interface LocalSerialConfig {
   stop_bits?: 1 | 2;
   parity?: "none" | "even" | "odd";
   flow_control?: "none" | "hardware" | "software";
+  /** 打开串口后是否拉高 DTR（默认关） */
+  dtr?: boolean;
+  /** 打开串口后是否拉高 RTS（默认关；硬件流控时由驱动接管） */
+  rts?: boolean;
   reconnect?: boolean;
 }
 
@@ -127,6 +131,32 @@ export type LineEnding = "none" | "lf" | "crlf" | "cr";
  * Encoding options
  */
 export type Encoding = "utf-8" | "ascii" | "gbk";
+
+/**
+ * 接收分帧模式：决定如何把收到的字节切成一行显示
+ * - auto: 按 \n 或 \r\n 断行（兼容两者）
+ * - lf / crlf / cr: 严格按对应换行符断行
+ * - timeout: 不按分隔符，静默 idleMs 后认为一帧结束
+ * - custom: 按自定义分隔符断行（文本或 HEX）
+ */
+export type RxFramingMode = "auto" | "lf" | "crlf" | "cr" | "timeout" | "custom";
+
+export interface RxFramingSettings {
+  mode: RxFramingMode;
+  /** 超时分帧的空闲毫秒数（timeout 模式生效） */
+  idleMs: number;
+  /** 自定义分隔符（custom 模式生效） */
+  customDelimiter: string;
+  /** 自定义分隔符是否按 HEX 解析（如 "0D 0A"） */
+  customIsHex: boolean;
+}
+
+export const DEFAULT_RX_FRAMING: RxFramingSettings = {
+  mode: "auto",
+  idleMs: 50,
+  customDelimiter: "",
+  customIsHex: false,
+};
 
 export interface SerialTerminalSettings {
   localEcho: boolean;

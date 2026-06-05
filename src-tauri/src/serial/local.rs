@@ -19,6 +19,8 @@ pub struct LocalSerial {
     stop_bits: StopBits,
     parity: Parity,
     flow_control: FlowControl,
+    dtr: bool,
+    rts: bool,
     port: Option<Box<dyn SerialPort>>,
     stats: SerialStats,
     reconnect: bool,
@@ -32,6 +34,8 @@ impl LocalSerial {
         stop_bits: u8,
         parity: &str,
         flow_control: &str,
+        dtr: bool,
+        rts: bool,
         reconnect: bool,
     ) -> Self {
         Self {
@@ -57,6 +61,8 @@ impl LocalSerial {
                 "software" | "sw" => FlowControl::Software,
                 _ => FlowControl::None,
             },
+            dtr,
+            rts,
             port: None,
             stats: SerialStats::default(),
             reconnect,
@@ -73,7 +79,7 @@ impl DataSource for LocalSerial {
         // 50ms timeout：read 在数据到达时立即返回，没数据时等到 50ms。
         // 比 1ms 更划算，每次 syscall 拿到的数据量更大；专用读线程会一直 block 在这里，
         // OS 驱动 FIFO 不会因为我们慢而溢出。
-        let native_port = serialport::new(&self.port_name, self.baud_rate)
+        let mut native_port = serialport::new(&self.port_name, self.baud_rate)
             .data_bits(self.data_bits)
             .stop_bits(self.stop_bits)
             .parity(self.parity)
@@ -94,6 +100,18 @@ impl DataSource for LocalSerial {
                 );
             } else {
                 log::info!("已把 OS 驱动 RX 队列扩大到 64 KB");
+            }
+        }
+
+        // 按配置设置 DTR/RTS 控制线（默认关）。serialport-rs 在 FlowControl::None 下
+        // 默认不主动拉高这两根线；个别设备需要拉高才收发，可在高级设置里打开。
+        if let Err(e) = native_port.write_data_terminal_ready(self.dtr) {
+            log::warn!("设置 DTR={} 失败: {}", self.dtr, e);
+        }
+        // 硬件流控时 RTS 由驱动接管，手动置位会破坏流控，故仅在无流控时设置。
+        if matches!(self.flow_control, FlowControl::None) {
+            if let Err(e) = native_port.write_request_to_send(self.rts) {
+                log::warn!("设置 RTS={} 失败: {}", self.rts, e);
             }
         }
 
