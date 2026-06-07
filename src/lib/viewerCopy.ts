@@ -8,7 +8,7 @@
 // 浏览器原生选区只能拿到 DOM 里还存在的节点。所以选区/全选都改成按"行号区间"
 // 从数据数组重建文本，彻底绕开虚拟化。
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
 import { formatTime } from "./formatters";
@@ -78,7 +78,9 @@ function isEditableTarget(): boolean {
  * 给虚拟列表视图提供"按行号"的选区能力：
  *  - 在容器上挂 ref（scrollRef）
  *  - 拖拽期间记录起止行号（mousedown→mousemove），即使中途滚动、行被卸载也不丢
- *  - Ctrl+A：仅当鼠标在该视图内时拦截，标记"全选"，并对 DOM 内可见行做视觉高亮
+ *  - highlight：跨行拖拽 / 全选时返回行号区间，供视图自绘高亮（不依赖原生选区，
+ *    滚动卸载也不掉色）；单行选择返回 null，把字符级高亮留给原生选区
+ *  - Ctrl+A：仅当鼠标在该视图内时拦截，标记"全选"并高亮整段
  *  - getSelectedRange()：全选 → 整段；拖拽 → 起止区间；否则回退到当前 DOM 选区
  *
  * 不接管 Ctrl+C —— 由各 viewer 自己处理（串口有 RX/TX 等多种复制模式）。
@@ -91,6 +93,17 @@ export function useViewerSelection(lineCount: number) {
   const lineCountRef = useRef(lineCount);
   lineCountRef.current = lineCount;
 
+  // 供渲染用的高亮区间：仅跨行拖拽 / 全选时非空；单行交给原生选区做字符级高亮。
+  // 用 ref 镜像一份，避免在事件回调里重复 setState 触发无谓重渲染。
+  const [highlight, setHighlightState] = useState<SelectedRange | null>(null);
+  const highlightRef = useRef<SelectedRange | null>(null);
+  const setHighlight = useCallback((r: SelectedRange | null) => {
+    const cur = highlightRef.current;
+    if (cur?.start === r?.start && cur?.end === r?.end) return;
+    highlightRef.current = r;
+    setHighlightState(r);
+  }, []);
+
   // 拖拽追踪
   useEffect(() => {
     const c = scrollRef.current;
@@ -101,11 +114,17 @@ export function useViewerSelection(lineCount: number) {
       const i = findLineIndex(e.target as Node, c);
       dragStart.current = i;
       dragEnd.current = i;
+      setHighlight(null); // 新一次按下先清旧高亮，让原生选区从头开始
     };
     const onMove = (e: MouseEvent) => {
       if (dragStart.current == null || (e.buttons & 1) === 0) return;
       const i = findLineIndex(e.target as Node, c);
-      if (i != null) dragEnd.current = i;
+      if (i == null) return;
+      dragEnd.current = i;
+      const start = Math.min(dragStart.current, i);
+      const end = Math.max(dragStart.current, i);
+      // 单行不画行级高亮（避免和原生半行选区冲突）；跨行才接管
+      setHighlight(start === end ? null : { start, end });
     };
     c.addEventListener("mousedown", onDown);
     c.addEventListener("mousemove", onMove);
@@ -113,7 +132,7 @@ export function useViewerSelection(lineCount: number) {
       c.removeEventListener("mousedown", onDown);
       c.removeEventListener("mousemove", onMove);
     };
-  }, []);
+  }, [setHighlight]);
 
   // 容器内才算"命中"：鼠标悬停 / 选区落在容器内
   const isInside = useCallback(() => {
@@ -135,18 +154,14 @@ export function useViewerSelection(lineCount: number) {
       selectAll.current = true;
       dragStart.current = null;
       dragEnd.current = null;
-      // 视觉反馈：高亮 DOM 内已渲染的行（虚拟化下只是部分高亮，可接受）
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        const r = document.createRange();
-        r.selectNodeContents(c);
-        sel.addRange(r);
-      }
+      // 行级高亮整段（不依赖虚拟化下的 DOM 原生选区）
+      window.getSelection()?.removeAllRanges();
+      const count = lineCountRef.current;
+      setHighlight(count > 0 ? { start: 0, end: count - 1 } : null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [isInside]);
+  }, [isInside, setHighlight]);
 
   const getSelectedRange = useCallback((): SelectedRange | null => {
     const count = lineCountRef.current;
@@ -172,5 +187,5 @@ export function useViewerSelection(lineCount: number) {
 
   const isSelectAll = useCallback(() => selectAll.current, []);
 
-  return { scrollRef, getSelectedRange, isSelectAll };
+  return { scrollRef, getSelectedRange, isSelectAll, highlight };
 }

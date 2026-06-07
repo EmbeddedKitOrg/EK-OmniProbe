@@ -51,7 +51,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
     return filtered;
   }, [lines, direction, searchQuery]);
 
-  const { scrollRef, getSelectedRange, isSelectAll } = useViewerSelection(filteredLines.length);
+  const { scrollRef, getSelectedRange, isSelectAll, highlight } = useViewerSelection(filteredLines.length);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
@@ -199,7 +199,10 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       )}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background"
+        className={cn(
+          "flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background",
+          highlight && "select-none" // 跨行/全选时关掉原生选区，只留行级高亮，避免两套高亮打架
+        )}
         onContextMenu={handleContextMenu}
       >
         <div
@@ -211,6 +214,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const line = filteredLines[virtualRow.index];
+            const selected = !!highlight && virtualRow.index >= highlight.start && virtualRow.index <= highlight.end;
             return (
               <div
                 key={virtualRow.key}
@@ -230,6 +234,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
                   showTimestamp={showTimestamp}
                   showDirectionPrefix={showDirectionPrefix}
                   displayMode={displayMode}
+                  selected={selected}
                 />
               </div>
             );
@@ -290,6 +295,7 @@ interface SerialLineItemProps {
   showTimestamp: boolean;
   showDirectionPrefix: boolean;
   displayMode: "text" | "hex";
+  selected: boolean;
 }
 
 const SerialLineItem = React.memo(function SerialLineItem({
@@ -297,6 +303,7 @@ const SerialLineItem = React.memo(function SerialLineItem({
   showTimestamp,
   showDirectionPrefix,
   displayMode,
+  selected,
 }: SerialLineItemProps) {
   const colorParserConfig = useSerialStore((state) => state.colorParserConfig);
 
@@ -360,7 +367,13 @@ const SerialLineItem = React.memo(function SerialLineItem({
   }, [line.text, colorParserConfig]);
 
   return (
-    <div className={cn("flex items-baseline gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
+    <div
+      className={cn(
+        "flex items-baseline gap-2 py-0.5 hover:bg-muted/50",
+        levelColors[line.level],
+        selected && "bg-primary/20"
+      )}
+    >
       {showTimestamp && (
         <span className="text-muted-foreground shrink-0 select-none font-mono">[{formatTime(line.timestamp)}]</span>
       )}
