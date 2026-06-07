@@ -30,7 +30,7 @@ export function RttViewer() {
     return filtered;
   }, [lines, selectedChannel, searchQuery]);
 
-  const { scrollRef, getSelectedRange, isSelectAll } = useViewerSelection(filteredLines.length);
+  const { scrollRef, getSelectedRange, isSelectAll, highlight } = useViewerSelection(filteredLines.length);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
@@ -79,7 +79,13 @@ export function RttViewer() {
   }
 
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background">
+    <div
+      ref={scrollRef}
+      className={cn(
+        "h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background",
+        highlight && "select-none" // 跨行/全选时关掉原生选区，只留行级高亮，避免两套高亮打架
+      )}
+    >
       <div
         style={{
           height: `${rowVirtualizer.getTotalSize()}px`,
@@ -89,6 +95,7 @@ export function RttViewer() {
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const line = filteredLines[virtualRow.index];
+          const selected = !!highlight && virtualRow.index >= highlight.start && virtualRow.index <= highlight.end;
           return (
             <div
               key={virtualRow.key}
@@ -103,7 +110,7 @@ export function RttViewer() {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <RttLineItem line={line} showTimestamp={showTimestamp} displayMode={displayMode} />
+              <RttLineItem line={line} showTimestamp={showTimestamp} displayMode={displayMode} selected={selected} />
             </div>
           );
         })}
@@ -116,9 +123,10 @@ interface RttLineItemProps {
   line: RttLine;
   showTimestamp: boolean;
   displayMode: "text" | "hex";
+  selected: boolean;
 }
 
-const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displayMode }: RttLineItemProps) {
+const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displayMode, selected }: RttLineItemProps) {
   const colorParserConfig = useRttStore((state) => state.colorParserConfig);
 
   const levelColors: Record<RttLine["level"], string> = {
@@ -182,7 +190,9 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
   }, [line.text, colorParserConfig]);
 
   return (
-    <div className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level])}>
+    <div
+      className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level], selected && "bg-primary/20")}
+    >
       {showTimestamp && (
         <span className="text-muted-foreground shrink-0 select-none">[{formatTime(line.timestamp)}]</span>
       )}
