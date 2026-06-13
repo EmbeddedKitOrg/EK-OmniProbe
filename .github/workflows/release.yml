@@ -358,9 +358,11 @@ jobs:
             echo "Added platform ${key}"
           }
 
-          WIN_NAME=$(get_asset_name '\.nsis\.zip$')
+          # Tauri v2 stable 的 updater 工件就是安装包本体（各配一个 .sig）：
+          # Windows NSIS → *_x64-setup.exe，Linux → *.AppImage，macOS → *.app.tar.gz
+          WIN_NAME=$(get_asset_name '_x64-setup\.exe$')
           MAC_NAME=$(get_asset_name '\.app\.tar\.gz$')
-          LINUX_NAME=$(get_asset_name '\.AppImage\.tar\.gz$')
+          LINUX_NAME=$(get_asset_name '\.AppImage$')
 
           if [ -n "$WIN_NAME" ]; then
             WIN_URL="https://github.com/${REPO}/releases/download/${TAG}/${WIN_NAME}"
@@ -384,6 +386,14 @@ jobs:
 
           if [ "$(jq 'length' platforms.json)" -eq 0 ]; then
             echo "No valid updater assets with signatures were found."
+            exit 1
+          fi
+
+          # Windows 是主力平台，缺失通常意味着工件名约定又变了——硬失败而不是静默发出残缺清单
+          if [ "$(jq 'has("windows-x86_64")' platforms.json)" != "true" ]; then
+            echo "windows-x86_64 missing from platforms.json — refusing to publish a partial latest.json"
+            echo "Release assets were:"
+            echo "$ASSET_NAMES"
             exit 1
           fi
 
