@@ -5,6 +5,25 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.5] - 2026-06-13
+
+修复 Windows / Linux 端「检查更新失败」的问题，并让更新弹窗按 Markdown 渲染
+发布说明。无破坏性改动，可直接覆盖升级。
+
+### 修复
+
+- **检查更新失败：platform `windows-x86_64` not found** —— 发布流程生成
+  `latest.json` 时，更新工件名仍按 Tauri v2 早期约定匹配（`.nsis.zip` /
+  `.AppImage.tar.gz`），而 stable 版工件已改为 `*_x64-setup.exe` / `*.AppImage`，
+  导致 Windows / Linux 平台键缺失、客户端检查更新报错。现已修正匹配规则，并在
+  缺少 Windows 平台键时让发布直接失败，不再发出残缺的更新清单
+- **更新内容显示为原始 Markdown** —— 更新弹窗此前把发布说明当纯文本显示，
+  `###`、`**` 等标记原样漏出。现改用 Markdown 渲染，标题 / 列表 / 加粗正常显示
+
+### 说明
+
+- 已同步热修线上 v1.3.4 的 `latest.json`，存量用户无需等待即可正常检查更新
+
 ## [1.3.4] - 2026-06-08
 
 修复 RTT / 串口日志区在虚拟滚动下拖拽多选时的高亮丢失问题。无破坏性改动，
