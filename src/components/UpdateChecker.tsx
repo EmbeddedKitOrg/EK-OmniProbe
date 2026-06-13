@@ -13,6 +13,38 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Download, RefreshCw, CheckCircle } from "lucide-react";
 import { useLogStore } from "@/stores/logStore";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+// 发布说明 Markdown 的紧凑渲染样式（仅 release notes 这一处使用）
+const releaseNotesComponents = {
+  h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="mt-3 mb-1 text-sm font-semibold text-foreground first:mt-0" {...props} />
+  ),
+  h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="mt-3 mb-1 text-sm font-semibold text-foreground first:mt-0" {...props} />
+  ),
+  h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="mt-3 mb-1 text-sm font-semibold text-foreground first:mt-0" {...props} />
+  ),
+  p: (props: React.HTMLAttributes<HTMLParagraphElement>) => <p className="mb-1.5 last:mb-0" {...props} />,
+  ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
+    <ul className="mb-1.5 list-disc space-y-0.5 pl-5" {...props} />
+  ),
+  ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
+    <ol className="mb-1.5 list-decimal space-y-0.5 pl-5" {...props} />
+  ),
+  li: (props: React.LiHTMLAttributes<HTMLLIElement>) => <li className="marker:text-muted-foreground" {...props} />,
+  strong: (props: React.HTMLAttributes<HTMLElement>) => (
+    <strong className="font-semibold text-foreground" {...props} />
+  ),
+  code: (props: React.HTMLAttributes<HTMLElement>) => (
+    <code className="rounded bg-black/5 px-1 py-0.5 font-mono text-xs" {...props} />
+  ),
+  a: ({ href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 underline" {...props} />
+  ),
+};
 
 interface UpdateCheckerProps {
   autoCheck?: boolean;
@@ -145,27 +177,31 @@ export function UpdateChecker({ autoCheck = true, showTrigger = true, trigger }:
                 </>
               )}
             </DialogTitle>
-            <DialogDescription>
-              {updateInfo && (
-                <div className="space-y-2 mt-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">当前版本:</span>
-                    <span className="font-mono">{updateInfo.currentVersion}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">最新版本:</span>
-                    <span className="font-mono text-green-600">{updateInfo.version}</span>
-                  </div>
-                  {updateInfo.body && (
-                    <div className="mt-4">
-                      <div className="text-sm font-medium mb-2">更新内容:</div>
-                      <div className="glass-section rounded-2xl p-3 max-h-48 overflow-y-auto whitespace-pre-wrap text-sm text-muted-foreground">
-                        {updateInfo.body}
-                      </div>
+            <DialogDescription asChild>
+              <div className="space-y-2 mt-2">
+                {updateInfo && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">当前版本:</span>
+                      <span className="font-mono">{updateInfo.currentVersion}</span>
                     </div>
-                  )}
-                </div>
-              )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">最新版本:</span>
+                      <span className="font-mono text-green-600">{updateInfo.version}</span>
+                    </div>
+                    {updateInfo.body && (
+                      <div className="mt-4">
+                        <div className="text-sm font-medium mb-2">更新内容:</div>
+                        <div className="glass-section rounded-2xl p-3 max-h-48 overflow-y-auto text-sm text-muted-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={releaseNotesComponents}>
+                            {updateInfo.body}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
 
