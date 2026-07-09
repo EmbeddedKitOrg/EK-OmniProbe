@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
+import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
 interface BrushDomain {
@@ -163,17 +164,9 @@ export function ChartViewer({
     return stats;
   }, [chartData, visibleSeries]);
 
-  const estimatedSampleRate = useMemo(() => {
-    if (chartConfig.sampleRateHz > 0) return chartConfig.sampleRateHz;
-    if (chartData.length < 2) return null;
-    const startIndex = Math.max(chartData.length - 100, 0);
-    const first = chartData[startIndex].timestamp;
-    const last = chartData[chartData.length - 1].timestamp;
-    const count = chartData.length - startIndex - 1;
-    const durationSec = (last - first) / 1000;
-    if (durationSec <= 0 || count <= 0) return null;
-    return count / durationSec;
-  }, [chartConfig.sampleRateHz, chartData]);
+  // 瞬时估算值本身有抖动，直接展示在徽标上会让文字宽度跟着跳动、挤动工具栏布局，
+  // 这里改用共享的 EMA 平滑 hook（与波形图横轴使用同一份平滑结果）。
+  const estimatedSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz);
 
   const parseHealth = useMemo(() => {
     const total = parseSuccessCount + parseFailCount;
@@ -626,7 +619,7 @@ export function ChartViewer({
           </Popover>
         )}
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
           <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
           {chartConfig.chartType === "waveform" && (
             <span className="rounded-full bg-white/80 px-3 py-1">
@@ -643,7 +636,7 @@ export function ChartViewer({
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3.5 py-2.5 text-xs text-muted-foreground">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3.5 py-2.5 text-xs text-muted-foreground tabular-nums">
         <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
           {chartConfig.chartType === "waveform" ? (signalDomain === "fft" ? "FFT 频谱" : "Time 波形") : "业务图表"}
         </span>
@@ -732,7 +725,7 @@ export function ChartViewer({
                 suffix="Hz"
                 onChange={(value) => updateNumericConfig("sampleRateHz", value)}
               />
-              <div className="ml-auto flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              <div className="ml-auto flex flex-wrap gap-2 text-[11px] text-muted-foreground tabular-nums">
                 <span className="rounded-full bg-secondary px-3 py-1">
                   缓存 {chartData.length} / {chartConfig.maxDataPoints}
                 </span>

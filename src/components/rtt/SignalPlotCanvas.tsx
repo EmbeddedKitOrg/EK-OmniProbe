@@ -3,6 +3,7 @@ import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain } from "@/l
 import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
+import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 
 interface SignalPlotCanvasProps {
   chartData: ChartDataPoint[];
@@ -59,28 +60,6 @@ function nextPowerOfTwo(value: number) {
   let result = 1;
   while (result < value) result <<= 1;
   return result;
-}
-
-function estimateSampleRate(chartData: ChartDataPoint[], configuredRate: number) {
-  if (configuredRate > 0) {
-    return configuredRate;
-  }
-
-  if (chartData.length < 2) {
-    return null;
-  }
-
-  const startIndex = Math.max(chartData.length - 200, 0);
-  const firstTimestamp = chartData[startIndex].timestamp;
-  const lastTimestamp = chartData[chartData.length - 1].timestamp;
-  const sampleCount = chartData.length - startIndex - 1;
-  const durationSec = (lastTimestamp - firstTimestamp) / 1000;
-
-  if (sampleCount <= 0 || durationSec <= 0) {
-    return null;
-  }
-
-  return sampleCount / durationSec;
 }
 
 function formatRelativeTime(seconds: number, visibleDurationSec: number) {
@@ -234,10 +213,9 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
 
   const visibleSeries = useMemo(() => series.filter((item) => item.visible), [series]);
 
-  const effectiveSampleRate = useMemo(
-    () => estimateSampleRate(chartData, chartConfig.sampleRateHz),
-    [chartConfig.sampleRateHz, chartData]
-  );
+  // 串口/RTT 数据到达间隔本身有抖动，若每帧都直接采用瞬时估算值，波形横轴（index / 采样率）
+  // 会跟着来回轻微缩放，看起来像“画面一直在抖”。用共享的 EMA 平滑 hook 处理。
+  const effectiveSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz, 200);
 
   const normalizedData = useMemo<NormalizedPoint[]>(() => {
     if (chartData.length === 0) return [];

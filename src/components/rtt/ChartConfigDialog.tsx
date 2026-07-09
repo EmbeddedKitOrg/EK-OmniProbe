@@ -305,7 +305,7 @@ export function ChartConfigDialog({
               />
               <NumberField
                 id="updateInterval"
-                label="刷新间隔 (ms)"
+                label="独立窗口刷新间隔 (ms)"
                 value={localConfig.updateInterval}
                 onChange={(value) => setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })}
               />

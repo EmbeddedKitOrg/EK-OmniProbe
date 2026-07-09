@@ -57,11 +57,6 @@ export function useChartWorkspaceHost({
     [addLog, source]
   );
 
-  const pushSnapshot = useCallback(async () => {
-    if (!detached) return;
-    await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot);
-  }, [detached, snapshot, windowLabel]);
-
   const restoreInline = useCallback(async () => {
     debugLog("请求收回到主窗口");
     setDetached(source, false);
@@ -117,15 +112,20 @@ export function useChartWorkspaceHost({
     });
   }, [debugError, debugLog, setDetached, snapshot, source, windowLabel]);
 
+  // 独立窗口的推送节奏使用 chartConfig.updateInterval（配置弹窗“刷新间隔”），
+  // 这样用户能自行调节；只依赖这个数值而不是整个 snapshot，避免数据到达
+  // （远快于该间隔）就把定时器清空重建，导致画面卡在打开瞬间的第一帧。
+  const pushIntervalMs = Math.max(snapshot.chartConfig.updateInterval || 80, 16);
+
   useEffect(() => {
     if (!detached) return;
 
-    const timeoutId = window.setTimeout(() => {
-      void pushSnapshot().catch(() => undefined);
-    }, 80);
+    const intervalId = window.setInterval(() => {
+      void emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
+    }, pushIntervalMs);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [detached, pushSnapshot]);
+    return () => window.clearInterval(intervalId);
+  }, [detached, pushIntervalMs, windowLabel]);
 
   useEffect(() => {
     let readyUnlisten: (() => void) | undefined;
