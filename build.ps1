@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$NoInstall,
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -114,11 +114,17 @@ function Test-InstallersProduced {
         return $false
     }
 
-    $artifacts = Get-ChildItem -LiteralPath $bundleDir -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object {
-            ($_.Extension -in @(".exe", ".msi", ".dmg", ".deb", ".rpm", ".AppImage")) -and
-            ($_.LastWriteTime -ge $Since)
-        }
+    # Force to an array with @(): when Where-Object filters out every item, the
+    # pipeline result is $null instead of an empty array. Under
+    # Set-StrictMode -Version Latest, accessing $null.Count throws a
+    # PropertyNotFoundException - which is exactly the error this function used to hit.
+    $artifacts = @(
+        Get-ChildItem -LiteralPath $bundleDir -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.Extension -in @(".exe", ".msi", ".dmg", ".deb", ".rpm", ".AppImage")) -and
+                ($_.LastWriteTime -ge $Since)
+            }
+    )
 
     return ($artifacts.Count -gt 0)
 }
