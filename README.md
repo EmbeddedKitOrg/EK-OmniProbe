@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发五合一工具，集成**固件烧录**、**源码级调试**、**RTT 实时输出**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.3.5-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
@@ -632,7 +632,7 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 
 ## 🆕 更新日志
 
-最新版本 v1.3.5。完整版本历史与升级说明请查看 [CHANGELOG.md](CHANGELOG.md)。
+最新版本 v1.4.0。完整版本历史与升级说明请查看 [CHANGELOG.md](CHANGELOG.md)。
 
 ### 历史版本 v0.9.5 (2026-04-06)
 
