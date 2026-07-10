@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings2, Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 interface ColorSettingsDialogProps {
   trigger?: ReactNode;
@@ -27,7 +28,12 @@ export function ColorSettingsDialog({
   title = "RTT 颜色标记设置",
   description = "自定义颜色标记语法，让 RTT 输出更易读。例如：[red]错误信息[/]",
 }: ColorSettingsDialogProps) {
-  const { colorParserConfig, setColorParserConfig } = useRttStore();
+  const { colorParserConfig, setColorParserConfig } = useRttStore(
+    useShallow((state) => ({
+      colorParserConfig: state.colorParserConfig,
+      setColorParserConfig: state.setColorParserConfig,
+    }))
+  );
   const [open, setOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState(colorParserConfig);
 

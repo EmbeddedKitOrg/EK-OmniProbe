@@ -15,14 +15,15 @@ import { flashFirmware, eraseChip, eraseSector, verifyFirmware, readFlash, getFi
 import { listen } from "@tauri-apps/api/event";
 import type { FlashProgressEvent, EraseMode } from "@/lib/types";
 import { EraseDialog } from "@/components/dialogs/EraseDialog";
+import { useShallow } from "zustand/react/shallow";
 
 function ToolbarSeparator() {
   return <div className="w-px h-6 bg-border mx-2" />;
 }
 
 export function FlashToolbar() {
-  const { connected } = useProbeStore();
-  const { selectedFlashAlgorithm } = useChipStore();
+  const connected = useProbeStore((state) => state.connected);
+  const selectedFlashAlgorithm = useChipStore((state) => state.selectedFlashAlgorithm);
   const {
     firmwarePath,
     setFirmwarePath,
@@ -34,7 +35,20 @@ export function FlashToolbar() {
     resetAfterFlash,
     eraseMode,
     setEraseMode,
-  } = useFlashStore();
+  } = useFlashStore(
+    useShallow((state) => ({
+      firmwarePath: state.firmwarePath,
+      setFirmwarePath: state.setFirmwarePath,
+      flashing: state.flashing,
+      setFlashing: state.setFlashing,
+      setProgress: state.setProgress,
+      setFirmwareSize: state.setFirmwareSize,
+      verifyAfterFlash: state.verifyAfterFlash,
+      resetAfterFlash: state.resetAfterFlash,
+      eraseMode: state.eraseMode,
+      setEraseMode: state.setEraseMode,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
   const [eraseDialogOpen, setEraseDialogOpen] = useState(false);
 

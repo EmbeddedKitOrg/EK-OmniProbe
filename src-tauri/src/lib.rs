@@ -9,8 +9,7 @@ pub mod state;
 pub mod udev;
 
 use commands::{
-    ble as ble_cmd, config, debug as debug_cmd, export, flash, memory, probe, rtt,
-    serial as serial_cmd,
+    ble as ble_cmd, config, debug as debug_cmd, export, flash, probe, rtt, serial as serial_cmd,
 };
 use state::AppState;
 use tauri::Manager;
@@ -21,7 +20,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -46,7 +44,6 @@ pub fn run() {
             probe::connect_target,
             probe::disconnect,
             probe::get_connection_status,
-            probe::diagnose_usb_devices,
             probe::check_usb_permissions,
             probe::install_udev_rules,
             probe::get_udev_install_instructions,
@@ -61,31 +58,18 @@ pub fn run() {
             flash::verify_firmware,
             flash::read_flash,
             flash::get_firmware_info,
-            // 内存命令
-            memory::read_memory,
-            memory::write_memory,
-            memory::read_registers,
             // RTT命令
             rtt::start_rtt,
             rtt::stop_rtt,
-            rtt::write_rtt,
-            rtt::get_rtt_status,
             rtt::clear_rtt_buffer,
             // 配置命令
-            config::get_supported_chips,
             config::search_chips,
             config::get_chip_info,
             config::init_packs,
             config::import_pack,
             config::list_imported_packs,
             config::delete_pack,
-            config::get_flash_algorithms,
             config::get_pack_scan_report,
-            config::get_devices_without_algorithm,
-            // Pack版本管理命令
-            config::check_outdated_packs,
-            config::rescan_pack,
-            config::rescan_all_outdated_packs,
             // Pack目录管理命令
             config::get_packs_directory,
             config::set_custom_packs_directory,
@@ -100,7 +84,6 @@ pub fn run() {
             serial_cmd::write_serial_string,
             serial_cmd::start_serial,
             serial_cmd::stop_serial,
-            serial_cmd::get_serial_status,
             serial_cmd::clear_serial_buffer,
             // 调试命令
             debug_cmd::debug_attach,
@@ -112,14 +95,10 @@ pub fn run() {
             debug_cmd::debug_step_over,
             debug_cmd::debug_step_out,
             debug_cmd::debug_reset,
-            debug_cmd::debug_reset_halt,
             debug_cmd::debug_read_memory,
-            debug_cmd::debug_write_memory,
             debug_cmd::debug_read_registers,
-            debug_cmd::debug_write_register,
             debug_cmd::debug_load_elf,
             debug_cmd::debug_clear_symbols,
-            debug_cmd::debug_resolve_pc,
             debug_cmd::debug_get_call_stack,
             debug_cmd::debug_set_breakpoint,
             debug_cmd::debug_set_source_breakpoint,
@@ -128,7 +107,6 @@ pub fn run() {
             debug_cmd::debug_clear_all_breakpoints,
             debug_cmd::debug_read_source,
             // BLE 蓝牙命令
-            ble_cmd::ble_get_status,
             ble_cmd::ble_start_scan,
             ble_cmd::ble_stop_scan,
             ble_cmd::ble_connect,
@@ -139,7 +117,6 @@ pub fn run() {
             ble_cmd::ble_unsubscribe,
             ble_cmd::ble_write,
             ble_cmd::ble_write_string,
-            ble_cmd::ble_clear_stats,
         ])
         .run(tauri::generate_context!())
         .expect("启动应用程序时出错");

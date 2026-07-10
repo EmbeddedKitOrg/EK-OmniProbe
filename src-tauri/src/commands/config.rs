@@ -144,11 +144,6 @@ const BUILTIN_CHIPS: &[&str] = &[
 ];
 
 #[tauri::command]
-pub async fn get_supported_chips() -> AppResult<Vec<String>> {
-    Ok(BUILTIN_CHIPS.iter().map(|s| s.to_string()).collect())
-}
-
-#[tauri::command]
 pub async fn search_chips(query: String) -> AppResult<Vec<String>> {
     let query_lower = query.to_lowercase();
     let mut all_chips = Vec::new();
@@ -471,26 +466,6 @@ pub async fn delete_pack(pack_name: String) -> AppResult<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub async fn get_flash_algorithms(chip_name: String) -> AppResult<Vec<FlashAlgorithmInfo>> {
-    let registry = TARGET_REGISTRY.lock();
-    let target = registry.get_target_by_name(&chip_name)
-        .map_err(|e| AppError::ConfigError(format!("未找到芯片: {}", e)))?;
-
-    let algorithms: Vec<FlashAlgorithmInfo> = target
-        .flash_algorithms
-        .iter()
-        .map(|a| FlashAlgorithmInfo {
-            name: a.name.clone(),
-            default: a.default,
-            load_address: a.load_address.unwrap_or(0),
-            data_section_offset: a.data_section_offset,
-        })
-        .collect();
-
-    Ok(algorithms)
-}
-
 /// 获取Pack扫描报告
 #[tauri::command]
 pub async fn get_pack_scan_report(pack_name: String) -> AppResult<crate::pack::scan_report::PackScanReport> {
@@ -498,86 +473,6 @@ pub async fn get_pack_scan_report(pack_name: String) -> AppResult<crate::pack::s
     let pack_dir = manager.get_pack_dir(&pack_name)?;
 
     target_gen::load_scan_report(&pack_dir)
-}
-
-/// 获取无算法的设备列表
-#[tauri::command]
-pub async fn get_devices_without_algorithm(pack_name: String) -> AppResult<Vec<String>> {
-    let manager = PackManager::new()?;
-    let pack_dir = manager.get_pack_dir(&pack_name)?;
-
-    let report = target_gen::load_scan_report(&pack_dir)?;
-    Ok(report.get_devices_without_algorithm())
-}
-
-/// 检查所有Pack的扫描器版本,返回需要重新扫描的Pack列表
-#[tauri::command]
-pub async fn check_outdated_packs() -> AppResult<Vec<PackInfo>> {
-    let manager = PackManager::new()?;
-    let packs = manager.list_packs()?;
-
-    let mut outdated_packs = Vec::new();
-
-    for pack in packs {
-        let pack_dir = match manager.get_pack_dir(&pack.name) {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
-        if target_gen::needs_rescan(&pack_dir) {
-            outdated_packs.push(pack);
-        }
-    }
-
-    Ok(outdated_packs)
-}
-
-/// 重新扫描指定的Pack
-#[tauri::command]
-pub async fn rescan_pack(app: tauri::AppHandle, pack_name: String) -> AppResult<usize> {
-    let manager = PackManager::new()?;
-    let pack_dir = manager.get_pack_dir(&pack_name)?;
-
-    if !pack_dir.exists() {
-        return Err(AppError::PackError(format!("Pack {} 不存在", pack_name)));
-    }
-
-    // 创建进度回调
-    use crate::pack::progress::{PackScanProgress, ProgressCallback};
-    let callback: ProgressCallback = Box::new(move |progress: PackScanProgress| {
-        let _ = app.emit("pack-scan-progress", &progress);
-    });
-
-    // 重新注册设备
-    match register_pack_devices(&pack_dir, &pack_name, Some(&callback)) {
-        Ok(count) => {
-            log::info!("成功重新扫描 Pack {}，注册了 {} 个设备", pack_name, count);
-            Ok(count)
-        }
-        Err(e) => {
-            log::error!("重新扫描 Pack {} 失败: {}", pack_name, e);
-            Err(e)
-        }
-    }
-}
-
-/// 批量重新扫描所有过期的Pack
-#[tauri::command]
-pub async fn rescan_all_outdated_packs(app: tauri::AppHandle) -> AppResult<Vec<String>> {
-    let outdated_packs = check_outdated_packs().await?;
-    let mut rescanned = Vec::new();
-
-    for pack in outdated_packs {
-        match rescan_pack(app.clone(), pack.name.clone()).await {
-            Ok(_) => {
-                rescanned.push(pack.name);
-            }
-            Err(e) => {
-                log::warn!("重新扫描 Pack {} 失败: {}", pack.name, e);
-            }
-        }
-    }
-
-    Ok(rescanned)
 }
 
 /// 获取当前Pack目录路径

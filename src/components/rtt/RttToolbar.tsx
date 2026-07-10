@@ -35,6 +35,7 @@ import { exportRttLinesAsTxt, exportRttLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatRttLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
 import type { ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 export function RttToolbar() {
   const {
@@ -64,11 +65,46 @@ export function RttToolbar() {
     setChannels,
     clearLines,
     setChartConfig,
-  } = useRttStore();
+  } = useRttStore(
+    useShallow((state) => ({
+      rttConnected: state.rttConnected,
+      rttConnecting: state.rttConnecting,
+      isRunning: state.isRunning,
+      isPaused: state.isPaused,
+      autoScroll: state.autoScroll,
+      searchQuery: state.searchQuery,
+      displayMode: state.displayMode,
+      viewMode: state.viewMode,
+      splitOrientation: state.splitOrientation,
+      scanMode: state.scanMode,
+      scanAddress: state.scanAddress,
+      pollInterval: state.pollInterval,
+      lines: state.lines,
+      chartConfig: state.chartConfig,
+      setRttConnected: state.setRttConnected,
+      setRttConnecting: state.setRttConnecting,
+      setRunning: state.setRunning,
+      setPaused: state.setPaused,
+      setAutoScroll: state.setAutoScroll,
+      setSearchQuery: state.setSearchQuery,
+      setDisplayMode: state.setDisplayMode,
+      setViewMode: state.setViewMode,
+      setSplitOrientation: state.setSplitOrientation,
+      setChannels: state.setChannels,
+      clearLines: state.clearLines,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
 
   const addLog = useLogStore((state) => state.addLog);
-  const { selectedProbe, selectedChipName, settings } = useProbeStore();
-  const { searchQuery: chipSearchQuery } = useChipStore(); // 重命名避免冲突
+  const { selectedProbe, selectedChipName, settings } = useProbeStore(
+    useShallow((state) => ({
+      selectedProbe: state.selectedProbe,
+      selectedChipName: state.selectedChipName,
+      settings: state.settings,
+    }))
+  );
+  const chipSearchQuery = useChipStore((state) => state.searchQuery);
 
   // 检查 RTT 连接状态
   useEffect(() => {

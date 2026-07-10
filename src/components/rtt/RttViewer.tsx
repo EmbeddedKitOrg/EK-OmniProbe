@@ -7,9 +7,20 @@ import type { RttLine } from "@/lib/types";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 import { useViewerSelection, formatRttLineForCopy, copyTextToClipboard } from "@/lib/viewerCopy";
+import { useShallow } from "zustand/react/shallow";
 
 export function RttViewer() {
-  const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } = useRttStore();
+  const { lines, selectedChannel, searchQuery, autoScroll, showTimestamp, isRunning, displayMode } = useRttStore(
+    useShallow((state) => ({
+      lines: state.lines,
+      selectedChannel: state.selectedChannel,
+      searchQuery: state.searchQuery,
+      autoScroll: state.autoScroll,
+      showTimestamp: state.showTimestamp,
+      isRunning: state.isRunning,
+      displayMode: state.displayMode,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
 
   // 过滤行
@@ -190,9 +201,7 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
   }, [line.text, colorParserConfig]);
 
   return (
-    <div
-      className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level], selected && "bg-primary/20")}
-    >
+    <div className={cn("flex gap-2 py-0.5 hover:bg-muted/50", levelColors[line.level], selected && "bg-primary/20")}>
       {showTimestamp && (
         <span className="text-muted-foreground shrink-0 select-none">[{formatTime(line.timestamp)}]</span>
       )}

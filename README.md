@@ -279,7 +279,7 @@ EK-OmniProbe/
 ├── package.json                 # Node.js 依赖
 ├── README.md                    # 本文件
 ├── CHANGELOG.md                 # 更新日志
-└── CLAUDE.md                    # 项目开发规范
+└── AGENTS.md                    # 项目开发规范
 ```
 
 ## 🚀 开发环境搭建
@@ -632,9 +632,9 @@ RTT 功能需要目标固件集成 SEGGER RTT 库。本项目已在 `RTTBSP/` �
 
 ## 🆕 更新日志
 
-查看完整的更新日志请访问 [CHANGELOG.md](CHANGELOG.md)
+最新版本 v1.3.5。完整版本历史与升级说明请查看 [CHANGELOG.md](CHANGELOG.md)。
 
-### 最新版本 v0.9.5 (2026-04-06)
+### 历史版本 v0.9.5 (2026-04-06)
 
 #### 新增与改进
 - ✨ **图表独立窗口** - RTT / 串口的整个图表工作台可以弹出为独立窗口，主窗口继续保留文本区并支持随时收回

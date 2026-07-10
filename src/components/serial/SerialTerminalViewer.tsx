@@ -8,6 +8,7 @@ import { parseAnsiText } from "@/lib/ansiParser";
 import { writeSerial, writeSerialString } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory } from "@/lib/serialHistory";
+import { useShallow } from "zustand/react/shallow";
 
 interface SerialTerminalViewerProps {
   title?: string;
@@ -45,7 +46,19 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
     sendSettings,
     colorParserConfig,
     appendTerminalChunk,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      autoScroll: state.autoScroll,
+      connected: state.connected,
+      running: state.running,
+      terminalLines: state.terminalLines,
+      terminalActiveLine: state.terminalActiveLine,
+      terminalSettings: state.terminalSettings,
+      sendSettings: state.sendSettings,
+      colorParserConfig: state.colorParserConfig,
+      appendTerminalChunk: state.appendTerminalChunk,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
   const [focused, setFocused] = useState(false);
   const [sending, setSending] = useState(false);

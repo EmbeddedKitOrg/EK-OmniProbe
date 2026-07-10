@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Search, FileText, Binary, SplitSquareHorizontal, BarChart3, Waves, Pause, Play } from "lucide-react";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import type { SignalDomain } from "@/lib/chartTypes";
+import { useShallow } from "zustand/react/shallow";
 
 export function BleToolbar() {
   const {
@@ -23,7 +24,26 @@ export function BleToolbar() {
     setChartPaused,
     clearLines,
     clearChartData,
-  } = useBluetoothStore();
+  } = useBluetoothStore(
+    useShallow((state) => ({
+      autoScroll: state.autoScroll,
+      searchQuery: state.searchQuery,
+      displayMode: state.displayMode,
+      viewMode: state.viewMode,
+      splitOrientation: state.splitOrientation,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      setAutoScroll: state.setAutoScroll,
+      setSearchQuery: state.setSearchQuery,
+      setDisplayMode: state.setDisplayMode,
+      setViewMode: state.setViewMode,
+      setSplitOrientation: state.setSplitOrientation,
+      setChartConfig: state.setChartConfig,
+      setChartPaused: state.setChartPaused,
+      clearLines: state.clearLines,
+      clearChartData: state.clearChartData,
+    }))
+  );
 
   const setSignalDomain = (domain: SignalDomain) => {
     setChartConfig({ ...chartConfig, enabled: true, signalDomain: domain });

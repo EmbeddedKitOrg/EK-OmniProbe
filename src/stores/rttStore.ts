@@ -18,6 +18,7 @@ const CHART_CONFIG_KEY = "rtt_chart_config";
 const VIEW_MODE_KEY = "rtt_view_mode";
 const SPLIT_RATIO_KEY = "rtt_split_ratio";
 const SPLIT_ORIENTATION_KEY = "rtt_split_orientation";
+let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
@@ -190,8 +191,9 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setSplitRatio: (splitRatio) => {
-    saveNumberToStorage(SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
+    clearTimeout(splitRatioSaveTimer);
+    splitRatioSaveTimer = setTimeout(() => saveNumberToStorage(SPLIT_RATIO_KEY, splitRatio), 150);
   },
 
   setSplitOrientation: (splitOrientation) => {

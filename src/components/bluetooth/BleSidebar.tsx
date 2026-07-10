@@ -28,6 +28,7 @@ import type { BleCharacteristic, BleDeviceInfo, BluetoothConnectionMode } from "
 import type { SerialPortInfo } from "@/lib/serialTypes";
 import { filterBluetoothSppPorts } from "@/lib/bluetoothSpp";
 import { cn } from "@/lib/utils";
+import { useShallow } from "zustand/react/shallow";
 
 const SCAN_TIMEOUT_MS = 6000;
 
@@ -58,7 +59,35 @@ export function BleSidebar() {
     setServices,
     setNotifyCharUuid,
     setWriteCharUuid,
-  } = useBluetoothStore();
+  } = useBluetoothStore(
+    useShallow((state) => ({
+      connectionMode: state.connectionMode,
+      sppPorts: state.sppPorts,
+      sppLoading: state.sppLoading,
+      scanning: state.scanning,
+      connecting: state.connecting,
+      connected: state.connected,
+      running: state.running,
+      discoveredDevices: state.discoveredDevices,
+      connectedDevice: state.connectedDevice,
+      services: state.services,
+      notifyCharUuid: state.notifyCharUuid,
+      writeCharUuid: state.writeCharUuid,
+      setConnectionMode: state.setConnectionMode,
+      setSppPorts: state.setSppPorts,
+      setSppLoading: state.setSppLoading,
+      setScanning: state.setScanning,
+      setConnecting: state.setConnecting,
+      setConnected: state.setConnected,
+      setRunning: state.setRunning,
+      setError: state.setError,
+      setDiscoveredDevices: state.setDiscoveredDevices,
+      setConnectedDevice: state.setConnectedDevice,
+      setServices: state.setServices,
+      setNotifyCharUuid: state.setNotifyCharUuid,
+      setWriteCharUuid: state.setWriteCharUuid,
+    }))
+  );
 
   const stats = useBluetoothStats();
   const addLog = useLogStore((s) => s.addLog);

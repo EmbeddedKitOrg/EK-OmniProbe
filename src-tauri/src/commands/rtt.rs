@@ -452,50 +452,6 @@ pub async fn stop_rtt(state: State<'_, AppState>) -> AppResult<()> {
     Ok(())
 }
 
-/// 向 RTT 下行通道写入数据
-#[tauri::command]
-pub async fn write_rtt(
-    channel: usize,
-    data: Vec<u8>,
-    state: State<'_, AppState>,
-) -> AppResult<usize> {
-    if !state.rtt_state.is_running() {
-        return Err(AppError::RttError("RTT 未运行".to_string()));
-    }
-
-    let mut session_guard = state.rtt_session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
-
-    let mut core = session.core(0).map_err(|e| AppError::RttError(e.to_string()))?;
-
-    // 附加 RTT
-    let mut rtt = Rtt::attach(&mut core)
-        .map_err(|e| AppError::RttError(format!("无法附加 RTT: {}", e)))?;
-
-    // 写入下行通道
-    let ch = rtt
-        .down_channels()
-        .get_mut(channel)
-        .ok_or_else(|| AppError::RttError(format!("下行通道 {} 不存在", channel)))?;
-
-    let written = ch
-        .write(&mut core, &data)
-        .map_err(|e| AppError::RttError(e.to_string()))?;
-
-    Ok(written)
-}
-
-/// 获取 RTT 状态
-#[tauri::command]
-pub async fn get_rtt_status(state: State<'_, AppState>) -> AppResult<RttStatusEvent> {
-    Ok(RttStatusEvent {
-        running: state.rtt_state.is_running(),
-        error: None,
-    })
-}
-
 /// 清空 RTT 缓冲区 (前端调用)
 ///
 /// 后端目前不缓存任何 RTT 行数据，行缓冲完全在前端 store 中维护，

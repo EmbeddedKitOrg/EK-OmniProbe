@@ -9,10 +9,19 @@ import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { formatBytes, formatHex } from "@/lib/utils";
+import { useShallow } from "zustand/react/shallow";
 
 export function FlashContent() {
-  const { connected, targetInfo } = useProbeStore();
-  const { chipInfo, selectedFlashAlgorithm, selectFlashAlgorithm } = useChipStore();
+  const { connected, targetInfo } = useProbeStore(
+    useShallow((state) => ({ connected: state.connected, targetInfo: state.targetInfo }))
+  );
+  const { chipInfo, selectedFlashAlgorithm, selectFlashAlgorithm } = useChipStore(
+    useShallow((state) => ({
+      chipInfo: state.chipInfo,
+      selectedFlashAlgorithm: state.selectedFlashAlgorithm,
+      selectFlashAlgorithm: state.selectFlashAlgorithm,
+    }))
+  );
   const {
     flashing,
     progress,
@@ -24,12 +33,30 @@ export function FlashContent() {
     useCustomAddress,
     customFlashAddress,
     customFlashSize,
-  } = useFlashStore();
-  const setVerifyAfterFlash = useFlashStore((state) => state.setVerifyAfterFlash);
-  const setResetAfterFlash = useFlashStore((state) => state.setResetAfterFlash);
-  const setUseCustomAddress = useFlashStore((state) => state.setUseCustomAddress);
-  const setCustomFlashAddress = useFlashStore((state) => state.setCustomFlashAddress);
-  const setCustomFlashSize = useFlashStore((state) => state.setCustomFlashSize);
+    setVerifyAfterFlash,
+    setResetAfterFlash,
+    setUseCustomAddress,
+    setCustomFlashAddress,
+    setCustomFlashSize,
+  } = useFlashStore(
+    useShallow((state) => ({
+      flashing: state.flashing,
+      progress: state.progress,
+      message: state.message,
+      firmwarePath: state.firmwarePath,
+      firmwareSize: state.firmwareSize,
+      verifyAfterFlash: state.verifyAfterFlash,
+      resetAfterFlash: state.resetAfterFlash,
+      useCustomAddress: state.useCustomAddress,
+      customFlashAddress: state.customFlashAddress,
+      customFlashSize: state.customFlashSize,
+      setVerifyAfterFlash: state.setVerifyAfterFlash,
+      setResetAfterFlash: state.setResetAfterFlash,
+      setUseCustomAddress: state.setUseCustomAddress,
+      setCustomFlashAddress: state.setCustomFlashAddress,
+      setCustomFlashSize: state.setCustomFlashSize,
+    }))
+  );
 
   return (
     <div className="h-full p-4 overflow-y-auto">

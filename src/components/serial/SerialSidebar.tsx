@@ -13,6 +13,7 @@ import { useSerialStats } from "@/hooks/useSerialEvents";
 import { useLogStore } from "@/stores/logStore";
 import { listSerialPorts, connectSerial, disconnectSerial, startSerial, stopSerial } from "@/lib/tauri";
 import { COMMON_BAUD_RATES, type SerialPortInfo, type DataSourceType } from "@/lib/serialTypes";
+import { useShallow } from "zustand/react/shallow";
 
 export function SerialSidebar() {
   const {
@@ -32,7 +33,26 @@ export function SerialSidebar() {
     setActiveSourceType,
     setSendSettings,
     getActiveConfig,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      connecting: state.connecting,
+      running: state.running,
+      localConfig: state.localConfig,
+      tcpConfig: state.tcpConfig,
+      activeSourceType: state.activeSourceType,
+      sendSettings: state.sendSettings,
+      setConnected: state.setConnected,
+      setConnecting: state.setConnecting,
+      setRunning: state.setRunning,
+      setError: state.setError,
+      setLocalConfig: state.setLocalConfig,
+      setTcpConfig: state.setTcpConfig,
+      setActiveSourceType: state.setActiveSourceType,
+      setSendSettings: state.setSendSettings,
+      getActiveConfig: state.getActiveConfig,
+    }))
+  );
 
   const stats = useSerialStats();
   const addLog = useLogStore((state) => state.addLog);

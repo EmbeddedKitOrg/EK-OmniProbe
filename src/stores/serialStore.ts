@@ -41,6 +41,7 @@ const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
 const SERIAL_RX_FRAMING_KEY = "serial_rx_framing";
 const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
 const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
+let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -593,8 +594,9 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   },
 
   setSplitRatio: (splitRatio) => {
-    saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio);
     set({ splitRatio });
+    clearTimeout(splitRatioSaveTimer);
+    splitRatioSaveTimer = setTimeout(() => saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio), 150);
   },
 
   setSplitOrientation: (splitOrientation) => {

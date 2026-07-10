@@ -5,9 +5,12 @@ import { formatTime } from "@/lib/utils";
 import { Trash2, GripHorizontal, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportLogs } from "@/lib/exporters";
+import { useShallow } from "zustand/react/shallow";
 
 export function LogPanel() {
-  const { logs, clearLogs, addLog } = useLogStore();
+  const { logs, clearLogs, addLog } = useLogStore(
+    useShallow((state) => ({ logs: state.logs, clearLogs: state.clearLogs, addLog: state.addLog }))
+  );
 
   const handleExport = useCallback(async () => {
     if (logs.length === 0) {

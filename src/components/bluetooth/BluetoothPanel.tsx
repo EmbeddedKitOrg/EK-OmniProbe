@@ -7,6 +7,7 @@ import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 import { Activity, AlertCircle, FileText, Plug2 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 interface BluetoothPanelProps {
   className?: string;
@@ -22,7 +23,18 @@ function BleChartViewer() {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } = useBluetoothStore();
+  } = useBluetoothStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
 
   return (
     <ChartViewer
@@ -50,7 +62,20 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
     running,
     lines,
     chartConfig,
-  } = useBluetoothStore();
+  } = useBluetoothStore(
+    useShallow((state) => ({
+      connectionMode: state.connectionMode,
+      error: state.error,
+      viewMode: state.viewMode,
+      splitRatio: state.splitRatio,
+      splitOrientation: state.splitOrientation,
+      setSplitRatio: state.setSplitRatio,
+      connected: state.connected,
+      running: state.running,
+      lines: state.lines,
+      chartConfig: state.chartConfig,
+    }))
+  );
 
   const isVerticalSplit = splitOrientation === "vertical";
 

@@ -5,6 +5,7 @@
 
 import { useRttStore } from "@/stores/rttStore";
 import { ChartViewer } from "./ChartViewer";
+import { useShallow } from "zustand/react/shallow";
 
 export function RttChartViewer() {
   const {
@@ -16,7 +17,18 @@ export function RttChartViewer() {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } = useRttStore();
+  } = useRttStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
 
   return (
     <ChartViewer

@@ -7,6 +7,7 @@ import type { SerialLine } from "@/lib/serialTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 import { useViewerSelection, formatSerialLineForCopy } from "@/lib/viewerCopy";
+import { useShallow } from "zustand/react/shallow";
 
 interface SerialViewerProps {
   direction?: "rx" | "tx";
@@ -29,7 +30,18 @@ const formatLineForCopy = (line: SerialLine, mode: CopyMode): string => {
 
 export function SerialViewer({ direction, title }: SerialViewerProps) {
   const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
-    useSerialStore();
+    useSerialStore(
+      useShallow((state) => ({
+        autoScroll: state.autoScroll,
+        showTimestamp: state.showTimestamp,
+        showDirectionPrefix: state.showDirectionPrefix,
+        running: state.running,
+        displayMode: state.displayMode,
+        connected: state.connected,
+        lines: state.lines,
+        searchQuery: state.searchQuery,
+      }))
+    );
   const addLog = useLogStore((state) => state.addLog);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 

@@ -42,15 +42,6 @@ export interface BleStats {
   bytes_sent: number;
 }
 
-export interface BleStatus {
-  connected: boolean;
-  running: boolean;
-  scanning: boolean;
-  device: BleDeviceInfo | null;
-  stats: BleStats;
-  subscribed_char: string | null;
-}
-
 export interface BleDataEvent {
   data: number[];
   timestamp: number;
@@ -65,7 +56,3 @@ export interface BleStatusEvent {
 
 /** 蓝牙日志行（与 SerialLine 同形） */
 export type BleLine = SerialLine;
-
-export const NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-export const NUS_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
-export const NUS_TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
