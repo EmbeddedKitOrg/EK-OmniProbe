@@ -68,10 +68,8 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
       case "running":
         return "运行中";
       case "halted": {
-        const reason = haltReason ? haltReasonText[haltReason] ?? haltReason : null;
-        return `已停止${reason ? ` · ${reason}` : ""}${
-          pc !== null ? ` · 0x${pc.toString(16).padStart(8, "0")}` : ""
-        }`;
+        const reason = haltReason ? (haltReasonText[haltReason] ?? haltReason) : null;
+        return `已停止${reason ? ` · ${reason}` : ""}${pc !== null ? ` · 0x${pc.toString(16).padStart(8, "0")}` : ""}`;
       }
     }
   })();

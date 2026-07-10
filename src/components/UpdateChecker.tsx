@@ -35,9 +35,7 @@ const releaseNotesComponents = {
     <ol className="mb-1.5 list-decimal space-y-0.5 pl-5" {...props} />
   ),
   li: (props: React.LiHTMLAttributes<HTMLLIElement>) => <li className="marker:text-muted-foreground" {...props} />,
-  strong: (props: React.HTMLAttributes<HTMLElement>) => (
-    <strong className="font-semibold text-foreground" {...props} />
-  ),
+  strong: (props: React.HTMLAttributes<HTMLElement>) => <strong className="font-semibold text-foreground" {...props} />,
   code: (props: React.HTMLAttributes<HTMLElement>) => (
     <code className="rounded bg-black/5 px-1 py-0.5 font-mono text-xs" {...props} />
   ),

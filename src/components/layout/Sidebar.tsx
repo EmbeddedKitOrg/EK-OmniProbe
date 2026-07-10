@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { RefreshCw, Plug, Unplug, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -40,7 +40,7 @@ export function Sidebar() {
   const setSearchQuery = useChipStore((s) => s.setSearchQuery);
 
   const addLog = useLogStore((state) => state.addLog);
-  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 折叠状态
   const [interfaceSettingsOpen, setInterfaceSettingsOpen] = useState(false);
@@ -54,7 +54,7 @@ export function Sidebar() {
       setProbes(probeList);
 
       // 自动选择第一个探针（如果有且当前没有选择）
-      if (probeList.length > 0 && !selectedProbe) {
+      if (probeList.length > 0 && !useProbeStore.getState().selectedProbe) {
         selectProbe(probeList[0]);
         addLog("info", `检测到 ${probeList.length} 个探针，已自动选择第一个`);
       } else {
@@ -66,11 +66,18 @@ export function Sidebar() {
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setProbes, selectProbe, selectedProbe, setError, addLog]);
+  }, [setLoading, setProbes, selectProbe, setError, addLog]);
 
   useEffect(() => {
     refreshProbes();
   }, [refreshProbes]);
+
+  useEffect(
+    () => () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    },
+    []
+  );
 
   const handleConnect = async () => {
     if (!selectedProbe || !selectedChip) {
@@ -117,8 +124,8 @@ export function Sidebar() {
   const handleChipSearch = (query: string) => {
     setSearchQuery(query);
 
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
 
     if (query.length < 2) {
@@ -126,7 +133,7 @@ export function Sidebar() {
       return;
     }
 
-    const timeout = setTimeout(async () => {
+    searchTimeoutRef.current = setTimeout(async () => {
       try {
         const results = await searchChips(query);
         setSearchResults(results);
@@ -134,8 +141,6 @@ export function Sidebar() {
         addLog("error", `芯片搜索失败: ${error}`);
       }
     }, 300);
-
-    setSearchTimeout(timeout);
   };
 
   const handleChipSelect = async (chipName: string) => {

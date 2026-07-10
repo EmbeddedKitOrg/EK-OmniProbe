@@ -24,7 +24,6 @@ export function UdevPermissionDialog() {
   useEffect(() => {
     // 监听后端发送的 udev 规则缺失事件
     const unlisten = listen("udev-rules-missing", async () => {
-      console.log("收到 udev 规则缺失通知");
       await checkPermissions();
       setOpen(true);
     });
