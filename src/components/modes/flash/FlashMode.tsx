@@ -27,7 +27,7 @@ function isFirmwareFile(path: string): boolean {
 
 export function FlashMode() {
   const [isDragging, setIsDragging] = useState(false);
-  const { setFirmwarePath } = useFlashStore();
+  const setFirmwarePath = useFlashStore((state) => state.setFirmwarePath);
   const addLog = useLogStore((state) => state.addLog);
 
   // Listen for file drag-drop events

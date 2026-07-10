@@ -10,6 +10,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useChartWorkspaceHost } from "@/hooks/useChartWorkspaceHost";
+import { useShallow } from "zustand/react/shallow";
 
 interface RttPanelProps {
   className?: string;
@@ -33,7 +34,26 @@ export function RttPanel({ className }: RttPanelProps) {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } = useRttStore();
+  } = useRttStore(
+    useShallow((state) => ({
+      error: state.error,
+      viewMode: state.viewMode,
+      splitRatio: state.splitRatio,
+      splitOrientation: state.splitOrientation,
+      setSplitRatio: state.setSplitRatio,
+      rttConnected: state.rttConnected,
+      isRunning: state.isRunning,
+      lines: state.lines,
+      chartConfig: state.chartConfig,
+      chartData: state.chartData,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
   const isVerticalSplit = splitOrientation === "vertical";
 
   const chartSnapshot = useMemo(

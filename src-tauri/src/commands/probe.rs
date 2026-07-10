@@ -741,8 +741,7 @@ pub async fn get_rtt_connection_status(state: State<'_, AppState>) -> AppResult<
 }
 
 /// 诊断命令：列出所有 USB 设备（特别是 CMSIS-DAP 相关的）
-#[tauri::command]
-pub async fn diagnose_usb_devices() -> AppResult<Vec<UsbDeviceInfo>> {
+async fn diagnose_usb_devices() -> AppResult<Vec<UsbDeviceInfo>> {
     log::info!("=== USB Device Diagnosis Start ===");
 
     let mut devices = Vec::new();

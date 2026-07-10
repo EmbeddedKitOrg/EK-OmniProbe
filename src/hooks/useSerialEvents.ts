@@ -6,6 +6,7 @@ import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
 import { parseLogLevel } from "@/lib/utils";
 import { formatBytes } from "@/lib/formatters";
+import { useShallow } from "zustand/react/shallow";
 
 // 非超时模式下的"兜底"空闲刷新：即便选了按换行/自定义分隔符，
 // 残留数据静默这么久也强制刷出一行，杜绝无分隔符数据被永久卡住不显示。
@@ -25,7 +26,18 @@ export function useSerialEvents() {
     appendTerminalChunk,
     addChartDataBatch,
     incrementParseCounts,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      addLines: state.addLines,
+      updateStats: state.updateStats,
+      setRunning: state.setRunning,
+      setConnected: state.setConnected,
+      setError: state.setError,
+      appendTerminalChunk: state.appendTerminalChunk,
+      addChartDataBatch: state.addChartDataBatch,
+      incrementParseCounts: state.incrementParseCounts,
+    }))
+  );
 
   const pendingBufferRef = useRef<{ text: string; rawData: number[] }>({
     text: "",
@@ -201,10 +213,17 @@ export function useSerialEvents() {
  * Get serial statistics
  */
 export function useSerialStats() {
-  const { lines, stats, running, connected } = useSerialStore();
+  const { lineCount, stats, running, connected } = useSerialStore(
+    useShallow((state) => ({
+      lineCount: state.lines.length,
+      stats: state.stats,
+      running: state.running,
+      connected: state.connected,
+    }))
+  );
 
   return {
-    lineCount: lines.length,
+    lineCount,
     bytesReceived: stats.bytes_received,
     bytesSent: stats.bytes_sent,
     running,

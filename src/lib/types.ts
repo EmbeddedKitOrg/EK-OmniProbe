@@ -193,12 +193,6 @@ export interface RttLine {
   rawData?: number[]; // 新增：原始字节数据
 }
 
-// 寄存器值
-export interface RegisterValue {
-  name: string;
-  value: number;
-}
-
 // 设备设置
 export interface DeviceSettings {
   interfaceType: "SWD" | "JTAG";

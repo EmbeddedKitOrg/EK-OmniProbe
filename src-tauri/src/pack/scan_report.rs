@@ -132,15 +132,6 @@ impl PackScanReport {
         self.algorithm_stats.sort_by(|a, b| b.device_count.cmp(&a.device_count));
     }
 
-    /// 获取无算法的设备列表
-    pub fn get_devices_without_algorithm(&self) -> Vec<String> {
-        self.devices
-            .iter()
-            .filter(|d| d.algorithm.is_none() && d.flash_size > 0)
-            .map(|d| d.name.clone())
-            .collect()
-    }
-
     /// 获取有问题的设备列表
     pub fn get_problematic_devices(&self) -> Vec<&DeviceReport> {
         self.devices

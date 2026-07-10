@@ -15,7 +15,6 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
-tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -26,7 +25,7 @@ probe-rs = "0.31"
 nusb = "0.1.14"
 quick-xml = { version = "0.37", features = ["serialize"] }
 thiserror = "2"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 parking_lot = "0.12"
 log = "0.4"
 env_logger = "0.11"
@@ -39,7 +38,6 @@ addr2line = "0.24"
 gimli = "0.31"
 base64 = "0.22"
 serialport = "4.3"
-async-trait = "0.1"
 btleplug = "0.11"
 uuid = { version = "1", features = ["serde", "v4"] }
 futures = "0.3"

@@ -19,10 +19,6 @@
 ### 蓝牙
 - **[BLUETOOTH_USER_MANUAL.md](BLUETOOTH_USER_MANUAL.md)** - BLE 蓝牙模式使用手册（扫描、连接、Notify、写入、图表）
 
-### 更新功能
-- **[UPDATE_GUIDE.md](UPDATE_GUIDE.md)** - 应用自动更新功能详细指南
-- **[UPDATE_SETUP.md](UPDATE_SETUP.md)** - 更新功能快速设置说明
-
 ## 📖 其他文档
 
 项目根目录下的文档:

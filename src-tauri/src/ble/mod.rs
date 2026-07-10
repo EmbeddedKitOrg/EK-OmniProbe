@@ -133,10 +133,6 @@ impl BleState {
         self.notify_running.store(value, Ordering::SeqCst);
     }
 
-    pub fn get_stats(&self) -> BleStats {
-        self.stats.lock().clone()
-    }
-
     pub fn add_rx(&self, n: u64) {
         self.stats.lock().bytes_received += n;
     }

@@ -11,6 +11,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useChartWorkspaceHost } from "@/hooks/useChartWorkspaceHost";
+import { useShallow } from "zustand/react/shallow";
 
 interface SerialPanelProps {
   className?: string;
@@ -27,7 +28,18 @@ function SerialChartViewer() {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
 
   return (
     <ChartViewer
@@ -95,7 +107,28 @@ export function SerialPanel({ className }: SerialPanelProps) {
     setChartPaused,
     clearChartData,
     setChartConfig,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      error: state.error,
+      viewMode: state.viewMode,
+      splitRatio: state.splitRatio,
+      splitOrientation: state.splitOrientation,
+      setSplitRatio: state.setSplitRatio,
+      splitByDirection: state.splitByDirection,
+      textViewMode: state.textViewMode,
+      connected: state.connected,
+      running: state.running,
+      lines: state.lines,
+      chartConfig: state.chartConfig,
+      chartData: state.chartData,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
   const showSendBar = textViewMode !== "terminal";
   const isVerticalSplit = splitOrientation === "vertical";
 

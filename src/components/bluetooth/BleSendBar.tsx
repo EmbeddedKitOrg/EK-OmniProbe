@@ -10,6 +10,7 @@ import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { useLogStore } from "@/stores/logStore";
 import { bleWrite, bleWriteString } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
+import { useShallow } from "zustand/react/shallow";
 
 function getLineEndingText(lineEnding: LineEnding) {
   switch (lineEnding) {
@@ -32,7 +33,15 @@ function withResponseFlag(value: "auto" | "yes" | "no"): boolean | null {
 }
 
 export function BleSendBar() {
-  const { connected, writeCharUuid, sendSettings, addLines, setSendSettings } = useBluetoothStore();
+  const { connected, writeCharUuid, sendSettings, addLines, setSendSettings } = useBluetoothStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      writeCharUuid: state.writeCharUuid,
+      sendSettings: state.sendSettings,
+      addLines: state.addLines,
+      setSendSettings: state.setSendSettings,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);

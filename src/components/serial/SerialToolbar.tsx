@@ -34,6 +34,7 @@ import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters"
 import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
 import type { ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 export function SerialToolbar() {
   const {
@@ -66,7 +67,39 @@ export function SerialToolbar() {
     setSplitOrientation,
     clearLines,
     setChartConfig,
-  } = useSerialStore();
+  } = useSerialStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      running: state.running,
+      autoScroll: state.autoScroll,
+      showTimestamp: state.showTimestamp,
+      showDirectionPrefix: state.showDirectionPrefix,
+      splitByDirection: state.splitByDirection,
+      searchQuery: state.searchQuery,
+      displayMode: state.displayMode,
+      textViewMode: state.textViewMode,
+      terminalSettings: state.terminalSettings,
+      viewMode: state.viewMode,
+      splitOrientation: state.splitOrientation,
+      lines: state.lines,
+      chartConfig: state.chartConfig,
+      rxFraming: state.rxFraming,
+      setRxFraming: state.setRxFraming,
+      setRunning: state.setRunning,
+      setAutoScroll: state.setAutoScroll,
+      setShowTimestamp: state.setShowTimestamp,
+      setShowDirectionPrefix: state.setShowDirectionPrefix,
+      setSplitByDirection: state.setSplitByDirection,
+      setSearchQuery: state.setSearchQuery,
+      setDisplayMode: state.setDisplayMode,
+      setTextViewMode: state.setTextViewMode,
+      setTerminalSettings: state.setTerminalSettings,
+      setViewMode: state.setViewMode,
+      setSplitOrientation: state.setSplitOrientation,
+      clearLines: state.clearLines,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
 
   const addLog = useLogStore((state) => state.addLog);
 

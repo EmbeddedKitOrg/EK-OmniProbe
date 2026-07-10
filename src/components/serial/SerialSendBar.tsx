@@ -8,6 +8,7 @@ import { useLogStore } from "@/stores/logStore";
 import { writeSerialString, writeSerial } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory, saveSendHistory } from "@/lib/serialHistory";
+import { useShallow } from "zustand/react/shallow";
 
 function getLineEndingText(lineEnding: LineEnding) {
   switch (lineEnding) {
@@ -25,7 +26,17 @@ function getLineEndingText(lineEnding: LineEnding) {
 
 export function SerialSendBar() {
   const { connected, sendSettings, terminalSettings, textViewMode, setSendSettings, addLine, appendTerminalChunk } =
-    useSerialStore();
+    useSerialStore(
+      useShallow((state) => ({
+        connected: state.connected,
+        sendSettings: state.sendSettings,
+        terminalSettings: state.terminalSettings,
+        textViewMode: state.textViewMode,
+        setSendSettings: state.setSendSettings,
+        addLine: state.addLine,
+        appendTerminalChunk: state.appendTerminalChunk,
+      }))
+    );
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);

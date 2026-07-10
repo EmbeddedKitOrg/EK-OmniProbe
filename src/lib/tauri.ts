@@ -11,12 +11,8 @@ import type {
   PackScanReport,
   RttConfig,
   RttStartOptions,
-  RttStatusEvent,
-  RegisterValue,
-  FlashAlgorithmInfo,
   EraseMode,
   UsbPermissionStatus,
-  UsbDeviceInfo,
 } from "./types";
 
 // 探针命令
@@ -74,19 +70,6 @@ export async function getFirmwareInfo(filePath: string): Promise<FirmwareFileInf
   return await invoke<FirmwareFileInfo>("get_firmware_info", { filePath });
 }
 
-// 内存命令
-export async function readMemory(address: number, size: number): Promise<number[]> {
-  return await invoke<number[]>("read_memory", { options: { address, size } });
-}
-
-export async function writeMemory(address: number, data: number[]): Promise<void> {
-  return await invoke("write_memory", { options: { address, data } });
-}
-
-export async function readRegisters(): Promise<RegisterValue[]> {
-  return await invoke<RegisterValue[]>("read_registers");
-}
-
 // RTT命令
 export async function startRtt(options: RttStartOptions): Promise<RttConfig> {
   return await invoke<RttConfig>("start_rtt", { options });
@@ -96,23 +79,11 @@ export async function stopRtt(): Promise<void> {
   return await invoke("stop_rtt");
 }
 
-export async function writeRtt(channel: number, data: number[]): Promise<number> {
-  return await invoke<number>("write_rtt", { channel, data });
-}
-
-export async function getRttStatus(): Promise<RttStatusEvent> {
-  return await invoke<RttStatusEvent>("get_rtt_status");
-}
-
 export async function clearRttBuffer(): Promise<void> {
   return await invoke("clear_rtt_buffer");
 }
 
 // 配置命令
-export async function getSupportedChips(): Promise<string[]> {
-  return await invoke<string[]>("get_supported_chips");
-}
-
 export async function searchChips(query: string): Promise<string[]> {
   return await invoke<string[]>("search_chips", { query });
 }
@@ -141,28 +112,8 @@ export async function getPackScanReport(packName: string): Promise<PackScanRepor
   return await invoke("get_pack_scan_report", { packName });
 }
 
-export async function getDevicesWithoutAlgorithm(packName: string): Promise<string[]> {
-  return await invoke("get_devices_without_algorithm", { packName });
-}
-
-export async function checkOutdatedPacks(): Promise<PackInfo[]> {
-  return await invoke("check_outdated_packs");
-}
-
-export async function rescanPack(packName: string): Promise<number> {
-  return await invoke("rescan_pack", { packName });
-}
-
-export async function rescanAllOutdatedPacks(): Promise<string[]> {
-  return await invoke("rescan_all_outdated_packs");
-}
-
-export async function getFlashAlgorithms(chipName: string): Promise<FlashAlgorithmInfo[]> {
-  return await invoke<FlashAlgorithmInfo[]>("get_flash_algorithms", { chipName });
-}
-
 // 串口命令
-import type { SerialPortInfo, SerialConfig, SerialStatus } from "./serialTypes";
+import type { SerialPortInfo, SerialConfig } from "./serialTypes";
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   return await invoke<SerialPortInfo[]>("list_serial_ports_cmd");
@@ -192,10 +143,6 @@ export async function stopSerial(): Promise<void> {
   return await invoke("stop_serial");
 }
 
-export async function getSerialStatus(): Promise<SerialStatus> {
-  return await invoke<SerialStatus>("get_serial_status");
-}
-
 export async function clearSerialBuffer(): Promise<void> {
   return await invoke("clear_serial_buffer");
 }
@@ -213,10 +160,6 @@ export async function getUdevInstallInstructions(): Promise<string> {
   return await invoke<string>("get_udev_install_instructions");
 }
 
-export async function diagnoseUsbDevices(): Promise<UsbDeviceInfo[]> {
-  return await invoke<UsbDeviceInfo[]>("diagnose_usb_devices");
-}
-
 // Pack目录管理命令
 export async function getPacksDirectory(): Promise<string> {
   return await invoke<string>("get_packs_directory");
@@ -227,11 +170,7 @@ export async function setCustomPacksDirectory(path: string | null): Promise<void
 }
 
 // BLE 蓝牙命令
-import type { BleDeviceInfo, BleService, BleStatus, NusAutoConfig } from "./bleTypes";
-
-export async function bleGetStatus(): Promise<BleStatus> {
-  return await invoke<BleStatus>("ble_get_status");
-}
+import type { BleDeviceInfo, BleService, NusAutoConfig } from "./bleTypes";
 
 export async function bleStartScan(timeoutMs?: number): Promise<BleDeviceInfo[]> {
   return await invoke<BleDeviceInfo[]>("ble_start_scan", { timeoutMs });
@@ -283,8 +222,4 @@ export async function bleWriteString(
     lineEnding,
     withResponse,
   });
-}
-
-export async function bleClearStats(): Promise<void> {
-  return await invoke("ble_clear_stats");
 }

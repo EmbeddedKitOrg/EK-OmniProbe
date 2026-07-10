@@ -37,12 +37,6 @@ export interface DebugLoadElfResult {
   symbols: ElfSymbol[];
 }
 
-export interface SourceLocation {
-  function: string | null;
-  file: string | null;
-  line: number | null;
-}
-
 export interface DebugFrame {
   id: number;
   pc: number;
@@ -103,26 +97,14 @@ export async function debugReset(): Promise<DebugCoreState> {
   return await invoke<DebugCoreState>("debug_reset");
 }
 
-export async function debugResetHalt(): Promise<DebugCoreState> {
-  return await invoke<DebugCoreState>("debug_reset_halt");
-}
-
 // 内存读写
 export async function debugReadMemory(address: number, size: number): Promise<number[]> {
   return await invoke<number[]>("debug_read_memory", { options: { address, size } });
 }
 
-export async function debugWriteMemory(address: number, data: number[]): Promise<void> {
-  return await invoke("debug_write_memory", { options: { address, data } });
-}
-
 // 寄存器读写
 export async function debugReadRegisters(): Promise<DebugRegisterValue[]> {
   return await invoke<DebugRegisterValue[]>("debug_read_registers");
-}
-
-export async function debugWriteRegister(name: string, value: number): Promise<void> {
-  return await invoke("debug_write_register", { options: { name, value } });
 }
 
 // ELF / DWARF
@@ -132,10 +114,6 @@ export async function debugLoadElf(path: string): Promise<DebugLoadElfResult> {
 
 export async function debugClearSymbols(): Promise<void> {
   return await invoke("debug_clear_symbols");
-}
-
-export async function debugResolvePc(pc: number): Promise<SourceLocation> {
-  return await invoke<SourceLocation>("debug_resolve_pc", { pc });
 }
 
 export async function debugGetCallStack(): Promise<DebugFrame[]> {

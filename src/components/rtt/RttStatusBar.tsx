@@ -1,9 +1,18 @@
 import { useRttStore } from "@/stores/rttStore";
 import { useRttStats } from "@/hooks/useRttEvents";
 import { cn } from "@/lib/utils";
+import { useShallow } from "zustand/react/shallow";
 
 export function RttStatusBar() {
-  const { isRunning, isPaused, upChannels, selectedChannel, lines } = useRttStore();
+  const { isRunning, isPaused, upChannels, selectedChannel, lineCount } = useRttStore(
+    useShallow((state) => ({
+      isRunning: state.isRunning,
+      isPaused: state.isPaused,
+      upChannels: state.upChannels,
+      selectedChannel: state.selectedChannel,
+      lineCount: state.lines.length,
+    }))
+  );
   const { bytesFormatted } = useRttStats();
 
   return (
@@ -42,7 +51,7 @@ export function RttStatusBar() {
 
       {/* 统计信息 */}
       <div className="flex items-center gap-4">
-        <span>行数: {lines.length.toLocaleString()}</span>
+        <span>行数: {lineCount.toLocaleString()}</span>
         <span>接收: {bytesFormatted}</span>
       </div>
     </div>

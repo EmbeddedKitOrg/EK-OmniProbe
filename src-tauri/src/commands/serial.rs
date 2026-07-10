@@ -1,18 +1,9 @@
 use crate::serial::{list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo, TcpSerial};
-use crate::state::{AppState, DataSource, SerialStats};
-use serde::{Deserialize, Serialize};
+use crate::state::{AppState, DataSource};
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
-
-/// Serial status information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SerialStatus {
-    pub connected: bool,
-    pub running: bool,
-    pub name: Option<String>,
-    pub stats: SerialStats,
-}
 
 /// Serial data event payload
 #[derive(Clone, Serialize)]
@@ -394,24 +385,6 @@ pub async fn start_serial(
 pub fn stop_serial(state: State<'_, AppState>) -> Result<(), String> {
     state.serial_state.set_running(false);
     Ok(())
-}
-
-/// Get serial status
-#[tauri::command]
-pub fn get_serial_status(state: State<'_, AppState>) -> SerialStatus {
-    let guard = state.serial_state.datasource.lock();
-    let (connected, name, stats) = if let Some(ds) = guard.as_ref() {
-        (ds.is_connected(), Some(ds.name()), ds.stats())
-    } else {
-        (false, None, SerialStats::default())
-    };
-
-    SerialStatus {
-        connected,
-        running: state.serial_state.is_running(),
-        name,
-        stats,
-    }
 }
 
 /// Clear serial buffer

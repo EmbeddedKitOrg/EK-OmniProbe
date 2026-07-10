@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::ble::{
     ensure_adapter, BleCharacteristic, BleCharacteristicProperties, BleDeviceInfo, BleService,
-    BleStats, NusAutoConfig, NUS_RX_CHAR_UUID, NUS_SERVICE_UUID, NUS_TX_CHAR_UUID,
+    NusAutoConfig, NUS_RX_CHAR_UUID, NUS_SERVICE_UUID, NUS_TX_CHAR_UUID,
 };
 use crate::state::AppState;
 
@@ -32,38 +32,6 @@ struct BleStatusEvent {
     connected: bool,
     running: bool,
     error: Option<String>,
-}
-
-// ============================================================================
-// 状态查询
-// ============================================================================
-
-#[derive(Serialize)]
-pub struct BleStatus {
-    pub connected: bool,
-    pub running: bool,
-    pub scanning: bool,
-    pub device: Option<BleDeviceInfo>,
-    pub stats: BleStats,
-    pub subscribed_char: Option<String>,
-}
-
-#[tauri::command]
-pub fn ble_get_status(state: State<'_, AppState>) -> BleStatus {
-    let ble = state.ble_state.clone();
-    let device = ble.connected_info.lock().clone();
-    let connected = device.is_some();
-    let stats = ble.get_stats();
-    let subscribed_char = ble.subscribed_char.lock().map(|u| u.to_string());
-
-    BleStatus {
-        connected,
-        running: ble.is_notify_running(),
-        scanning: ble.is_scanning(),
-        device,
-        stats,
-        subscribed_char,
-    }
 }
 
 // ============================================================================
@@ -564,10 +532,4 @@ pub async fn ble_write_string(
     };
 
     ble_write(char_uuid, data, with_response, state).await
-}
-
-#[tauri::command]
-pub fn ble_clear_stats(state: State<'_, AppState>) -> Result<(), String> {
-    state.ble_state.reset_stats();
-    Ok(())
 }

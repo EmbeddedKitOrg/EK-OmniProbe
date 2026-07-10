@@ -57,13 +57,6 @@ export interface SerialStats {
 /**
  * Serial status from backend
  */
-export interface SerialStatus {
-  connected: boolean;
-  running: boolean;
-  name: string | null;
-  stats: SerialStats;
-}
-
 /**
  * Serial data event from backend
  */
@@ -101,19 +94,6 @@ export const COMMON_BAUD_RATES = [
   300, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, 76800, 115200, 128000, 230400, 256000, 460800, 500000,
   576000, 921600, 1000000, 1152000, 1500000, 2000000, 2500000, 3000000, 3500000, 4000000,
 ] as const;
-
-/**
- * Default serial configuration
- */
-export const DEFAULT_SERIAL_CONFIG: LocalSerialConfig = {
-  type: "local",
-  port: "",
-  baud_rate: 115200,
-  data_bits: 8,
-  stop_bits: 1,
-  parity: "none",
-  flow_control: "none",
-};
 
 /**
  * Data source type for display

@@ -32,6 +32,7 @@ const BLE_AUTO_SCROLL_KEY = "ble_auto_scroll";
 const BLE_SHOW_TIMESTAMP_KEY = "ble_show_timestamp";
 const BLE_DISPLAY_MODE_KEY = "ble_display_mode";
 const BLE_CONNECTION_MODE_KEY = "ble_connection_mode";
+let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const CONNECTION_MODE_VALUES = ["ble", "spp"] as const;
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
@@ -279,8 +280,9 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
     set({ viewMode: mode });
   },
   setSplitRatio: (ratio) => {
-    saveNumberToStorage(BLE_SPLIT_RATIO_KEY, ratio);
     set({ splitRatio: ratio });
+    clearTimeout(splitRatioSaveTimer);
+    splitRatioSaveTimer = setTimeout(() => saveNumberToStorage(BLE_SPLIT_RATIO_KEY, ratio), 150);
   },
   setSplitOrientation: (orientation) => {
     saveToStorage(BLE_SPLIT_ORIENTATION_KEY, orientation);

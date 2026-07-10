@@ -6,13 +6,24 @@ import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
 import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
+import { useShallow } from "zustand/react/shallow";
 
 /**
  * 监听 BLE 后端事件，复用 serial 的解析与批量更新模式。
  */
 export function useBluetoothEvents() {
   const { addLines, updateStats, setRunning, setConnected, setError, addChartDataBatch, incrementParseCounts } =
-    useBluetoothStore();
+    useBluetoothStore(
+      useShallow((state) => ({
+        addLines: state.addLines,
+        updateStats: state.updateStats,
+        setRunning: state.setRunning,
+        setConnected: state.setConnected,
+        setError: state.setError,
+        addChartDataBatch: state.addChartDataBatch,
+        incrementParseCounts: state.incrementParseCounts,
+      }))
+    );
 
   const pendingBufferRef = useRef<{ text: string; rawData: number[] }>({
     text: "",
@@ -107,9 +118,16 @@ export function useBluetoothEvents() {
 }
 
 export function useBluetoothStats() {
-  const { lines, stats, running, connected } = useBluetoothStore();
+  const { lineCount, stats, running, connected } = useBluetoothStore(
+    useShallow((state) => ({
+      lineCount: state.lines.length,
+      stats: state.stats,
+      running: state.running,
+      connected: state.connected,
+    }))
+  );
   return {
-    lineCount: lines.length,
+    lineCount,
     bytesReceived: stats.bytes_received,
     bytesSent: stats.bytes_sent,
     running,

@@ -5,10 +5,22 @@ import { cn } from "@/lib/utils";
 import type { BleLine } from "@/lib/bleTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
+import { useShallow } from "zustand/react/shallow";
 
 export function BleViewer() {
   const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
-    useBluetoothStore();
+    useBluetoothStore(
+      useShallow((state) => ({
+        autoScroll: state.autoScroll,
+        showTimestamp: state.showTimestamp,
+        showDirectionPrefix: state.showDirectionPrefix,
+        running: state.running,
+        displayMode: state.displayMode,
+        connected: state.connected,
+        lines: state.lines,
+        searchQuery: state.searchQuery,
+      }))
+    );
 
   const filteredLines = useMemo(() => {
     if (!searchQuery.trim()) return lines;

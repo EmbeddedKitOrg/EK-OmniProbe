@@ -5,6 +5,15 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [未发布]
+
+### 优化
+
+- 收窄 RTT、串口和蓝牙界面的 Zustand 订阅，减少实时数据流入时的无效重渲染
+- 精简未使用的 Tauri IPC、依赖、临时文件和本地 E2E 配置
+- PDSC 元数据改为单遍解析，并增加最小解析测试
+- 修正文档跟踪规则与 README 版本说明，避免用户文档链接在仓库中失效
+
 ## [1.3.5] - 2026-06-13
 
 修复 Windows / Linux 端「检查更新失败」的问题，并让更新弹窗按 Markdown 渲染

@@ -5,13 +5,23 @@ import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import type { ChartDataPoint } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
+import { useShallow } from "zustand/react/shallow";
 
 /**
  * 监听 RTT 事件的 Hook
  * 在组件挂载时自动订阅 RTT 数据和状态事件
  */
 export function useRttEvents() {
-  const { addLines, addBytes, setRunning, setError, addChartDataBatch, incrementParseCounts } = useRttStore();
+  const { addLines, addBytes, setRunning, setError, addChartDataBatch, incrementParseCounts } = useRttStore(
+    useShallow((state) => ({
+      addLines: state.addLines,
+      addBytes: state.addBytes,
+      setRunning: state.setRunning,
+      setError: state.setError,
+      addChartDataBatch: state.addChartDataBatch,
+      incrementParseCounts: state.incrementParseCounts,
+    }))
+  );
   const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
@@ -115,10 +125,16 @@ export function useRttEvents() {
  * 获取 RTT 统计信息
  */
 export function useRttStats() {
-  const { lines, totalBytes, isRunning } = useRttStore();
+  const { lineCount, totalBytes, isRunning } = useRttStore(
+    useShallow((state) => ({
+      lineCount: state.lines.length,
+      totalBytes: state.totalBytes,
+      isRunning: state.isRunning,
+    }))
+  );
 
   return {
-    lineCount: lines.length,
+    lineCount,
     totalBytes,
     isRunning,
     bytesFormatted: formatBytes(totalBytes),

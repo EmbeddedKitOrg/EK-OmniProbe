@@ -7,7 +7,7 @@
 **根目录文档** (仅限以下3个):
 - `README.md` - 项目主页和概述
 - `CHANGELOG.md` - 版本更新日志
-- `CLAUDE.md` - 项目开发规范(本文件)
+- `AGENTS.md` - 项目开发规范(本文件)
 
 **docs/ 目录** - 用户使用文档:
 - 只放置面向用户的功能使用文档
@@ -53,7 +53,7 @@
 - 只保留面向用户的使用文档
 
 **检查清单**:
-- [ ] 根目录只有 README.md、CHANGELOG.md、CLAUDE.md
+- [ ] 根目录只有 README.md、CHANGELOG.md、AGENTS.md
 - [ ] docs/ 目录只包含用户使用文档
 - [ ] docs/ 目录包含 README.md 索引文件
 - [ ] 没有调试、开发、问题解决等过程文档

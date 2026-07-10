@@ -1,11 +1,10 @@
 //! 调试模式 IPC 命令
 //!
 //! 调试会话使用独立的 `debug_session`（与烧录主连接和 RTT 连接互不影响）。
-//! 阶段 2 提供：attach/detach、run/halt/step_in、reset/reset_halt、内存与寄存器读写。
-//! 断点、源码级单步、调用栈等留给后续阶段。
+//! 提供 attach/detach、执行控制、内存与寄存器读取、断点和源码定位。
 
 use crate::commands::config::TARGET_REGISTRY;
-use crate::debug_symbols::{DebugSymbols, ElfSymbol, SourceLocation};
+use crate::debug_symbols::{DebugSymbols, ElfSymbol};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, ConnectMode, ConnectionInfo, DebugBreakpointEntry, InterfaceType};
 use probe_rs::{
@@ -58,18 +57,6 @@ pub struct RegisterValue {
 pub struct DebugReadMemoryOptions {
     pub address: u64,
     pub size: u32,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DebugWriteMemoryOptions {
-    pub address: u64,
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DebugWriteRegisterOptions {
-    pub name: String,
-    pub value: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -440,22 +427,6 @@ pub async fn debug_reset(state: State<'_, AppState>) -> AppResult<DebugCoreState
     })
 }
 
-#[tauri::command]
-pub async fn debug_reset_halt(state: State<'_, AppState>) -> AppResult<DebugCoreState> {
-    let mut guard = state.debug_session.lock();
-    let session = guard.as_mut().ok_or(AppError::NotConnected)?;
-    let mut core = session
-        .core(0)
-        .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
-    let info = core
-        .reset_and_halt(HALT_TIMEOUT)
-        .map_err(|e| AppError::DebugError(format!("reset_and_halt 失败: {}", e)))?;
-    Ok(DebugCoreState {
-        state: "halted".into(),
-        pc: Some(info.pc),
-    })
-}
-
 // ============================================================================
 // 内存读写
 // ============================================================================
@@ -483,22 +454,6 @@ pub async fn debug_read_memory(
     core.read_8(options.address, &mut data)
         .map_err(|e| AppError::MemoryError(e.to_string()))?;
     Ok(data)
-}
-
-#[tauri::command]
-pub async fn debug_write_memory(
-    options: DebugWriteMemoryOptions,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
-    let mut guard = state.debug_session.lock();
-    let session = guard.as_mut().ok_or(AppError::NotConnected)?;
-    let mut core = session
-        .core(0)
-        .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
-
-    core.write_8(options.address, &options.data)
-        .map_err(|e| AppError::MemoryError(e.to_string()))?;
-    Ok(())
 }
 
 // ============================================================================
@@ -590,18 +545,6 @@ pub async fn debug_clear_symbols(state: State<'_, AppState>) -> AppResult<()> {
     let mut guard = state.debug_symbols.lock();
     *guard = None;
     Ok(())
-}
-
-#[tauri::command]
-pub async fn debug_resolve_pc(
-    pc: u64,
-    state: State<'_, AppState>,
-) -> AppResult<SourceLocation> {
-    let guard = state.debug_symbols.lock();
-    let symbols = guard
-        .as_ref()
-        .ok_or_else(|| AppError::DebugError("尚未加载 ELF".to_string()))?;
-    Ok(symbols.resolve(pc))
 }
 
 // ============================================================================
@@ -819,40 +762,4 @@ pub async fn debug_get_call_stack(state: State<'_, AppState>) -> AppResult<Vec<D
     }
 
     Ok(frames)
-}
-
-#[tauri::command]
-pub async fn debug_write_register(
-    options: DebugWriteRegisterOptions,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
-    let mut guard = state.debug_session.lock();
-    let session = guard.as_mut().ok_or(AppError::NotConnected)?;
-    let mut core = session
-        .core(0)
-        .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
-
-    if !core.core_halted().unwrap_or(false) {
-        return Err(AppError::DebugError(
-            "核心当前正在运行，需先 halt 才能写寄存器".to_string(),
-        ));
-    }
-
-    let register_file = core.registers();
-    let target = register_file
-        .core_registers()
-        .find(|r| r.name().eq_ignore_ascii_case(&options.name))
-        .or_else(|| {
-            // PC / 参数寄存器
-            if options.name.eq_ignore_ascii_case("PC") {
-                register_file.pc()
-            } else {
-                None
-            }
-        })
-        .ok_or_else(|| AppError::DebugError(format!("未知寄存器: {}", options.name)))?;
-
-    core.write_core_reg(target, options.value)
-        .map_err(|e| AppError::DebugError(format!("写寄存器失败: {}", e)))?;
-    Ok(())
 }

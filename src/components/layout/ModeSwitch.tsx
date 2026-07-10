@@ -21,9 +21,10 @@ interface ModeSwitchProps {
 }
 
 export function ModeSwitch({ className }: ModeSwitchProps) {
-  const { mode, setMode } = useAppStore();
-  const { isRunning: rttRunning } = useRttStore();
-  const { flashing } = useFlashStore();
+  const mode = useAppStore((state) => state.mode);
+  const setMode = useAppStore((state) => state.setMode);
+  const rttRunning = useRttStore((state) => state.isRunning);
+  const flashing = useFlashStore((state) => state.flashing);
   const debugAttached = useDebugStore((s) => s.state) !== "detached";
   type ConfirmReason = "rtt" | "debug";
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -205,10 +206,7 @@ export function ModeSwitch({ className }: ModeSwitchProps) {
             <DialogDescription>{dialogText}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDialog({ open: false, targetMode: null, reason: null })}
-            >
+            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, targetMode: null, reason: null })}>
               取消
             </Button>
             <Button onClick={handleConfirmSwitch}>确认切换</Button>

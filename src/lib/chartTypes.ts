@@ -157,13 +157,6 @@ export const PRESET_COLORS = [
 ];
 
 /**
- * 取所有 Y 轴通道（默认 role 为 "y"）
- */
-export function getYChannels(config: ChartConfig): Channel[] {
-  return config.channels.filter((c) => (c.role ?? "y") === "y");
-}
-
-/**
  * 取所有可见的 Y 轴通道
  */
 export function getVisibleYChannels(config: ChartConfig): Channel[] {
