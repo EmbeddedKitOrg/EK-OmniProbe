@@ -175,11 +175,6 @@ pub async fn search_chips(query: String) -> AppResult<Vec<String>> {
     all_chips.sort();
     all_chips.truncate(50);
 
-    #[cfg(debug_assertions)]
-    if !all_chips.is_empty() {
-        println!("🔍 搜索 '{}' 找到 {} 个芯片", query, all_chips.len());
-    }
-
     Ok(all_chips)
 }
 
@@ -187,22 +182,13 @@ pub async fn search_chips(query: String) -> AppResult<Vec<String>> {
 /// 应该在应用启动时调用
 #[tauri::command]
 pub async fn init_packs() -> AppResult<usize> {
-    #[cfg(debug_assertions)]
-    println!("\n🚀 开始初始化 Pack...");
-
     let manager = PackManager::new()?;
     let packs = manager.list_packs()?;
-
-    #[cfg(debug_assertions)]
-    println!("📦 找到 {} 个已导入的 Pack", packs.len());
 
     let pack_count = packs.len();
     let mut total_devices = 0;
 
     for pack in packs {
-        #[cfg(debug_assertions)]
-        println!("\n🔄 正在注册 Pack: {}", pack.name);
-
         let pack_dir = match manager.get_pack_dir(&pack.name) {
             Ok(p) => p,
             Err(e) => {
@@ -215,19 +201,12 @@ pub async fn init_packs() -> AppResult<usize> {
             Ok(count) => {
                 total_devices += count;
                 log::info!("从 Pack {} 加载了 {} 个设备", pack.name, count);
-                #[cfg(debug_assertions)]
-                println!("✅ 成功注册 {} 个设备", count);
             }
             Err(e) => {
                 log::warn!("从 Pack {} 加载设备失败: {}", pack.name, e);
-                #[cfg(debug_assertions)]
-                println!("❌ 注册失败: {}", e);
             }
         }
     }
-
-    #[cfg(debug_assertions)]
-    println!("\n✅ Pack 初始化完成，共注册 {} 个设备\n", total_devices);
 
     log::info!("总共加载了 {} 个设备从 {} 个 Pack", total_devices, pack_count);
 
@@ -261,25 +240,11 @@ fn register_pack_devices(
     pack_name: &str,
     progress_callback: Option<&crate::pack::progress::ProgressCallback>,
 ) -> AppResult<usize> {
-    #[cfg(debug_assertions)]
-    println!("  📂 Pack 目录: {:?}", pack_dir);
-
     // 解析 Pack 中的设备定义
     let devices = target_gen::parse_devices_from_pack(pack_dir, progress_callback)?;
 
     if devices.is_empty() {
         return Err(AppError::PackError("Pack 中未找到设备定义".to_string()));
-    }
-
-    #[cfg(debug_assertions)]
-    {
-        println!("  📋 解析到 {} 个设备:", devices.len());
-        for (i, device) in devices.iter().enumerate().take(10) {
-            println!("    {}. {}", i + 1, device.name);
-        }
-        if devices.len() > 10 {
-            println!("    ... 还有 {} 个设备", devices.len() - 10);
-        }
     }
 
     log::info!("从 Pack {} 解析到 {} 个设备", pack_name, devices.len());
@@ -293,24 +258,10 @@ fn register_pack_devices(
 
     log::info!("生成 YAML 文件: {:?}", yaml_path);
 
-    // 注册到 probe-rs
-    #[cfg(debug_assertions)]
-    {
-        println!("  📝 YAML 文件大小: {} 字节", yaml_content.len());
-        println!("  📝 YAML 文件行数: {}", yaml_content.lines().count());
-        // 保存一份副本用于调试
-        let debug_yaml_path = pack_dir.join("targets_debug.yaml");
-        let _ = std::fs::write(&debug_yaml_path, &yaml_content);
-        println!("  📝 调试 YAML 已保存到: {:?}", debug_yaml_path);
-    }
-
     let mut registry = TARGET_REGISTRY.lock();
     match registry.add_target_family_from_yaml(&yaml_content) {
         Ok(_) => {
             log::info!("成功注册 {} 个设备到 probe-rs（包含 Flash 算法）", devices.len());
-            #[cfg(debug_assertions)]
-            println!("  ✅ 成功注册到 probe-rs");
-
             // 生成并保存扫描报告
             match target_gen::generate_scan_report(&devices, pack_name, pack_dir) {
                 Ok(report) => {
@@ -329,12 +280,6 @@ fn register_pack_devices(
             Ok(devices.len())
         }
         Err(e) => {
-            #[cfg(debug_assertions)]
-            {
-                println!("  ❌ 注册到 probe-rs 失败: {}", e);
-                println!("  💡 提示: 请检查 targets.yaml 文件格式");
-                println!("  💡 错误详情: {:?}", e);
-            }
             Err(AppError::PackError(format!("注册设备到 probe-rs 失败: {}", e)))
         }
     }

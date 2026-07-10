@@ -128,42 +128,35 @@ export function useChartWorkspaceHost({
   }, [detached, pushIntervalMs, windowLabel]);
 
   useEffect(() => {
-    let readyUnlisten: (() => void) | undefined;
-    let actionUnlisten: (() => void) | undefined;
+    const readyUnlisten = listen<ChartWorkspaceReadyPayload>(CHART_WORKSPACE_READY_EVENT, ({ payload }) => {
+      if (payload.source !== source || !detachedRef.current) return;
+      debugLog("独立窗口已就绪，开始同步快照");
+      void emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
+    });
 
-    const setup = async () => {
-      readyUnlisten = await listen<ChartWorkspaceReadyPayload>(CHART_WORKSPACE_READY_EVENT, ({ payload }) => {
-        if (payload.source !== source || !detachedRef.current) return;
-        debugLog("独立窗口已就绪，开始同步快照");
-        void emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
-      });
+    const actionUnlisten = listen<ChartWorkspaceAction>(CHART_WORKSPACE_ACTION_EVENT, ({ payload }) => {
+      if (payload.source !== source) return;
 
-      actionUnlisten = await listen<ChartWorkspaceAction>(CHART_WORKSPACE_ACTION_EVENT, ({ payload }) => {
-        if (payload.source !== source) return;
-
-        switch (payload.type) {
-          case "set-paused":
-            setChartPaused(payload.paused);
-            break;
-          case "clear-data":
-            clearChartData();
-            break;
-          case "set-config":
-            setChartConfig(payload.config);
-            break;
-          case "restore-inline":
-            debugLog("收到独立窗口回收请求");
-            void restoreInline();
-            break;
-        }
-      });
-    };
-
-    void setup();
+      switch (payload.type) {
+        case "set-paused":
+          setChartPaused(payload.paused);
+          break;
+        case "clear-data":
+          clearChartData();
+          break;
+        case "set-config":
+          setChartConfig(payload.config);
+          break;
+        case "restore-inline":
+          debugLog("收到独立窗口回收请求");
+          void restoreInline();
+          break;
+      }
+    });
 
     return () => {
-      readyUnlisten?.();
-      actionUnlisten?.();
+      void readyUnlisten.then((fn) => fn());
+      void actionUnlisten.then((fn) => fn());
     };
   }, [
     clearChartData,

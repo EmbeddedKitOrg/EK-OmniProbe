@@ -17,45 +17,36 @@ export function ChartWorkspaceWindowPage({ source }: ChartWorkspaceWindowPagePro
   const restoringRef = useRef(false);
 
   useEffect(() => {
-    let unlistenSnapshot: (() => void) | undefined;
-    let unlistenCloseRequested: (() => void) | undefined;
-
-    const setup = async () => {
-      try {
-        unlistenSnapshot = await currentWindow.listen<ChartWorkspaceSnapshot>(
-          CHART_WORKSPACE_SNAPSHOT_EVENT,
-          ({ payload }) => {
-            if (payload.source !== source) return;
-            console.info(
-              `[图表窗口:${source}] 收到快照，data=${payload.chartData.length} channels=${payload.chartConfig.channels.length}`
-            );
-            setSnapshot(payload);
-          }
-        );
-
-        unlistenCloseRequested = await currentWindow.onCloseRequested(async () => {
-          if (restoringRef.current) {
-            return;
-          }
-
-          restoringRef.current = true;
-          await dispatchChartWorkspaceAction({
-            source,
-            type: "restore-inline",
-          }).catch(() => undefined);
-        });
-
-        await notifyChartWorkspaceReady(source);
-      } catch (error) {
-        console.error(`[图表窗口:${source}] 独立窗口事件初始化失败`, error);
+    let active = true;
+    const unlistenSnapshot = currentWindow.listen<ChartWorkspaceSnapshot>(
+      CHART_WORKSPACE_SNAPSHOT_EVENT,
+      ({ payload }) => {
+        if (payload.source !== source) return;
+        setSnapshot(payload);
       }
-    };
+    );
+    const unlistenCloseRequested = currentWindow.onCloseRequested(async () => {
+      if (restoringRef.current) return;
 
-    void setup();
+      restoringRef.current = true;
+      await dispatchChartWorkspaceAction({
+        source,
+        type: "restore-inline",
+      }).catch(() => undefined);
+    });
+
+    void Promise.all([unlistenSnapshot, unlistenCloseRequested])
+      .then(() => {
+        if (active) return notifyChartWorkspaceReady(source);
+      })
+      .catch((error) => {
+        console.error(`[图表窗口:${source}] 独立窗口事件初始化失败`, error);
+      });
 
     return () => {
-      unlistenSnapshot?.();
-      unlistenCloseRequested?.();
+      active = false;
+      void unlistenSnapshot.then((fn) => fn());
+      void unlistenCloseRequested.then((fn) => fn());
     };
   }, [currentWindow, source]);
 
