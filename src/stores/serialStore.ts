@@ -8,6 +8,7 @@ import type {
   Encoding,
   LocalSerialConfig,
   TcpSerialConfig,
+  UdpSerialConfig,
   SerialTerminalLine,
   SerialTextViewMode,
   SerialTerminalSettings,
@@ -70,6 +71,14 @@ const defaultTcpConfig: TcpSerialConfig = {
   reconnect: false,
 };
 
+const defaultUdpConfig: UdpSerialConfig = {
+  type: "udp",
+  local_host: "0.0.0.0",
+  local_port: 9000,
+  remote_host: "192.168.1.1",
+  remote_port: 9000,
+};
+
 interface SendSettings {
   encoding: Encoding;
   lineEnding: LineEnding;
@@ -88,6 +97,7 @@ type TerminalToken =
 const defaultSerialConfigBundle = {
   local: defaultLocalConfig,
   tcp: defaultTcpConfig,
+  udp: defaultUdpConfig,
   activeType: "local" as DataSourceType,
 };
 const defaultSendSettings: SendSettings = { encoding: "utf-8", lineEnding: "lf", hexMode: false };
@@ -107,6 +117,7 @@ interface SerialState {
   // Configuration
   localConfig: LocalSerialConfig;
   tcpConfig: TcpSerialConfig;
+  udpConfig: UdpSerialConfig;
   activeSourceType: DataSourceType;
 
   // Data
@@ -165,6 +176,7 @@ interface SerialState {
 
   setLocalConfig: (config: Partial<LocalSerialConfig>) => void;
   setTcpConfig: (config: Partial<TcpSerialConfig>) => void;
+  setUdpConfig: (config: Partial<UdpSerialConfig>) => void;
   setActiveSourceType: (type: DataSourceType) => void;
   getActiveConfig: () => SerialConfig;
 
@@ -425,6 +437,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   localConfig: savedConfig.local,
   tcpConfig: savedConfig.tcp,
+  udpConfig: savedConfig.udp ?? defaultUdpConfig,
   activeSourceType: savedConfig.activeType,
 
   lines: [],
@@ -477,6 +490,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       saveToStorage(SERIAL_CONFIG_KEY, {
         local: newLocal,
         tcp: state.tcpConfig,
+        udp: state.udpConfig,
         activeType: state.activeSourceType,
       });
       return { localConfig: newLocal };
@@ -489,9 +503,23 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       saveToStorage(SERIAL_CONFIG_KEY, {
         local: state.localConfig,
         tcp: newTcp,
+        udp: state.udpConfig,
         activeType: state.activeSourceType,
       });
       return { tcpConfig: newTcp };
+    });
+  },
+
+  setUdpConfig: (config) => {
+    set((state) => {
+      const newUdp = { ...state.udpConfig, ...config };
+      saveToStorage(SERIAL_CONFIG_KEY, {
+        local: state.localConfig,
+        tcp: state.tcpConfig,
+        udp: newUdp,
+        activeType: state.activeSourceType,
+      });
+      return { udpConfig: newUdp };
     });
   },
 
@@ -500,6 +528,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       saveToStorage(SERIAL_CONFIG_KEY, {
         local: state.localConfig,
         tcp: state.tcpConfig,
+        udp: state.udpConfig,
         activeType: type,
       });
       return { activeSourceType: type };
@@ -510,6 +539,9 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     const state = get();
     if (state.activeSourceType === "tcp") {
       return state.tcpConfig;
+    }
+    if (state.activeSourceType === "udp") {
+      return state.udpConfig;
     }
     return state.localConfig;
   },

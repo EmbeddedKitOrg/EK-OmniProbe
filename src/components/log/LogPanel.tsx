@@ -5,6 +5,7 @@ import { formatTime } from "@/lib/utils";
 import { Trash2, GripHorizontal, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportLogs } from "@/lib/exporters";
+import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
 
 export function LogPanel() {
@@ -24,6 +25,7 @@ export function LogPanel() {
       addLog("error", `导出日志失败: ${err}`);
     }
   }, [logs, addLog]);
+  const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleExport);
   const storedHeight = useUiPreferencesStore((state) => state.logPanelHeight);
   const setStoredHeight = useUiPreferencesStore((state) => state.setLogPanelHeight);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -150,6 +152,7 @@ export function LogPanel() {
     <div
       style={{ height: `${collapsed ? 44 : height}px` }}
       className="surface-card relative overflow-hidden rounded-[28px]"
+      onContextMenu={onContextMenu}
     >
       {/* 拖动手柄 */}
       {!collapsed && (
@@ -204,6 +207,7 @@ export function LogPanel() {
           {logs.length === 0 && <div className="text-muted-foreground text-center py-6">暂无日志</div>}
         </div>
       )}
+      {contextMenu}
     </div>
   );
 }

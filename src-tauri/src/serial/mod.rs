@@ -1,8 +1,10 @@
 pub mod local;
 pub mod tcp;
+pub mod udp;
 
 pub use local::{list_serial_ports, LocalSerial, SerialPortInfo};
 pub use tcp::TcpSerial;
+pub use udp::UdpSerial;
 
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +41,14 @@ pub enum SerialConfig {
         port: u16,
         #[serde(default)]
         reconnect: bool,
+    },
+    /// 双向 UDP 数据接口
+    #[serde(rename = "udp")]
+    Udp {
+        local_host: String,
+        local_port: u16,
+        remote_host: String,
+        remote_port: u16,
     },
 }
 
