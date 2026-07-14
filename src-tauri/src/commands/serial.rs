@@ -9,9 +9,14 @@ use tauri::{AppHandle, Emitter, State};
 
 /// Serial data event payload
 #[derive(Clone, Serialize)]
-struct SerialDataEvent {
+struct SerialDataChunk {
     data: Vec<u8>,
     timestamp: i64,
+}
+
+#[derive(Clone, Serialize)]
+struct SerialDataEvent {
+    chunks: Vec<SerialDataChunk>,
     direction: String, // "rx" for received data
 }
 
@@ -201,7 +206,7 @@ pub async fn start_serial(
     let serial_state = Arc::clone(&state.serial_state);
 
     // mpsc 通道：reader -> async accumulator。无界，让读线程永远不会被反压阻塞。
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<SerialDataChunk>();
 
     // ===== 读线程：独立 OS 线程，循环 read() 并把每段 chunk 发到 channel =====
     let reader_state = Arc::clone(&serial_state);
@@ -231,7 +236,10 @@ pub async fn start_serial(
                         continue;
                     }
                     Ok(n) => {
-                        let chunk = local_buf[..n].to_vec();
+                        let chunk = SerialDataChunk {
+                            data: local_buf[..n].to_vec(),
+                            timestamp: chrono::Utc::now().timestamp_millis(),
+                        };
                         if tx.send(chunk).is_err() {
                             // accumulator 已退出，没人收了。
                             break;
@@ -317,7 +325,8 @@ pub async fn start_serial(
         const BATCH_TIMEOUT_MS: u64 = 10;
         const BATCH_SIZE_THRESHOLD: usize = 4096;
 
-        let mut batch_buffer: Vec<u8> = Vec::with_capacity(65536);
+        let mut batch_chunks: Vec<SerialDataChunk> = Vec::new();
+        let mut batch_bytes = 0usize;
         let mut last_emit = Instant::now();
         let mut tick = tokio::time::interval(Duration::from_millis(BATCH_TIMEOUT_MS));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -327,16 +336,15 @@ pub async fn start_serial(
                 msg = rx.recv() => {
                     match msg {
                         Some(chunk) => {
-                            batch_buffer.extend_from_slice(&chunk);
-                            if batch_buffer.len() >= BATCH_SIZE_THRESHOLD {
-                                let timestamp = chrono::Utc::now().timestamp_millis();
-                                let payload = std::mem::take(&mut batch_buffer);
-                                batch_buffer.reserve(65536);
+                            batch_bytes += chunk.data.len();
+                            batch_chunks.push(chunk);
+                            if batch_bytes >= BATCH_SIZE_THRESHOLD {
+                                let chunks = std::mem::take(&mut batch_chunks);
+                                batch_bytes = 0;
                                 let _ = app.emit(
                                     "serial-data",
                                     SerialDataEvent {
-                                        data: payload,
-                                        timestamp,
+                                        chunks,
                                         direction: "rx".to_string(),
                                     },
                                 );
@@ -347,17 +355,15 @@ pub async fn start_serial(
                     }
                 }
                 _ = tick.tick() => {
-                    if !batch_buffer.is_empty()
+                    if !batch_chunks.is_empty()
                         && last_emit.elapsed().as_millis() as u64 >= BATCH_TIMEOUT_MS
                     {
-                        let timestamp = chrono::Utc::now().timestamp_millis();
-                        let payload = std::mem::take(&mut batch_buffer);
-                        batch_buffer.reserve(65536);
+                        let chunks = std::mem::take(&mut batch_chunks);
+                        batch_bytes = 0;
                         let _ = app.emit(
                             "serial-data",
                             SerialDataEvent {
-                                data: payload,
-                                timestamp,
+                                chunks,
                                 direction: "rx".to_string(),
                             },
                         );
@@ -368,13 +374,11 @@ pub async fn start_serial(
         }
 
         // flush 残留
-        if !batch_buffer.is_empty() {
-            let timestamp = chrono::Utc::now().timestamp_millis();
+        if !batch_chunks.is_empty() {
             let _ = app.emit(
                 "serial-data",
                 SerialDataEvent {
-                    data: batch_buffer,
-                    timestamp,
+                    chunks: batch_chunks,
                     direction: "rx".to_string(),
                 },
             );
@@ -411,4 +415,30 @@ pub fn clear_serial_buffer(state: State<'_, AppState>) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serial_event_preserves_each_chunk_timestamp() {
+        let event = SerialDataEvent {
+            chunks: vec![
+                SerialDataChunk {
+                    data: vec![b'a', b'\n'],
+                    timestamp: 1_000,
+                },
+                SerialDataChunk {
+                    data: vec![b'b', b'\n'],
+                    timestamp: 1_005,
+                },
+            ],
+            direction: "rx".to_string(),
+        };
+
+        let value = serde_json::to_value(event).unwrap();
+        assert_eq!(value["chunks"][0]["timestamp"], 1_000);
+        assert_eq!(value["chunks"][1]["timestamp"], 1_005);
+    }
 }
