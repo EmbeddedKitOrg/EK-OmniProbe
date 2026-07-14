@@ -15,6 +15,11 @@ import { formatTime } from "./formatters";
 
 export type CopyLog = (level: "info" | "warn", message: string) => void;
 
+export function formatDataAsHex(data: number[] | undefined, text: string): string {
+  const bytes = data?.length ? data : Array.from(new TextEncoder().encode(text));
+  return bytes.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+}
+
 /** 按界面显示样式把 RTT 行转成可复制文本 */
 export function formatRttLineForCopy(line: RttLine, showTimestamp: boolean): string {
   const ts = showTimestamp ? `[${formatTime(line.timestamp.getTime())}] ` : "";

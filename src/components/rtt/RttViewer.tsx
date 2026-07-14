@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import type { RttLine } from "@/lib/types";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
-import { useViewerSelection, formatRttLineForCopy, copyTextToClipboard } from "@/lib/viewerCopy";
+import { useViewerSelection, formatRttLineForCopy, copyTextToClipboard, formatDataAsHex } from "@/lib/viewerCopy";
+import { exportTextAsTxt } from "@/lib/exporters";
+import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
 
 export function RttViewer() {
@@ -80,6 +82,24 @@ export function RttViewer() {
     return () => document.removeEventListener("keydown", handleCopy);
   }, [handleCopy]);
 
+  const handleSave = useCallback(async () => {
+    try {
+      const content = filteredLines
+        .map((line) =>
+          formatRttLineForCopy(
+            { ...line, text: displayMode === "hex" ? formatDataAsHex(line.rawData, line.text) : line.text },
+            showTimestamp
+          )
+        )
+        .join("\n");
+      const path = await exportTextAsTxt(content, "rtt");
+      if (path) addLog("success", `已保存当前窗口 ${filteredLines.length} 行到 ${path}`);
+    } catch (error) {
+      addLog("error", `保存当前窗口失败: ${error}`);
+    }
+  }, [addLog, displayMode, filteredLines, showTimestamp]);
+  const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleSave);
+
   // 空状态
   if (filteredLines.length === 0) {
     return (
@@ -92,6 +112,7 @@ export function RttViewer() {
   return (
     <div
       ref={scrollRef}
+      onContextMenu={onContextMenu}
       className={cn(
         "h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background",
         highlight && "select-none" // 跨行/全选时关掉原生选区，只留行级高亮，避免两套高亮打架
@@ -126,6 +147,7 @@ export function RttViewer() {
           );
         })}
       </div>
+      {contextMenu}
     </div>
   );
 }
@@ -153,18 +175,6 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
     const seconds = date.getSeconds().toString().padStart(2, "0");
     const ms = date.getMilliseconds().toString().padStart(3, "0");
     return `${hours}:${minutes}:${seconds}.${ms}`;
-  };
-
-  // 格式化为十六进制
-  const formatHex = (data: number[]) => {
-    if (!data || data.length === 0) {
-      // 如果没有原始数据，从文本重新编码
-      const bytes = new TextEncoder().encode(line.text);
-      return Array.from(bytes)
-        .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-        .join(" ");
-    }
-    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   // 同时支持 ANSI 和自定义颜色标记
@@ -207,7 +217,7 @@ const RttLineItem = React.memo(function RttLineItem({ line, showTimestamp, displ
       )}
       <span className="text-muted-foreground shrink-0 select-none">[{line.channel}]</span>
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatDataAsHex(line.rawData, line.text)}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((segment, index) => (

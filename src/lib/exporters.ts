@@ -24,6 +24,10 @@ async function saveTextFile(content: string, defaultName: string, filters: Dialo
   return path;
 }
 
+export async function exportTextAsTxt(content: string, prefix = "output"): Promise<string | null> {
+  return saveTextFile(content, `${prefix}-${timestampSuffix()}.txt`, TEXT_FILTERS);
+}
+
 async function saveBinaryFile(
   base64Content: string,
   defaultName: string,

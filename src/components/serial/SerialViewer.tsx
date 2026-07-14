@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import type { SerialLine } from "@/lib/serialTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
-import { useViewerSelection, formatSerialLineForCopy } from "@/lib/viewerCopy";
+import { useViewerSelection, formatSerialLineForCopy, formatDataAsHex } from "@/lib/viewerCopy";
+import { exportTextAsTxt } from "@/lib/exporters";
 import { useShallow } from "zustand/react/shallow";
 
 interface SerialViewerProps {
@@ -43,7 +44,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       }))
     );
   const addLog = useLogStore((state) => state.addLog);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canCopy: boolean } | null>(null);
 
   // Filter lines - cached with useMemo to avoid infinite loops
   const filteredLines = useMemo(() => {
@@ -144,14 +145,32 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
     return () => document.removeEventListener("keydown", handler);
   }, [copySelection, scrollRef, isSelectAll]);
 
+  const saveAll = useCallback(async () => {
+    try {
+      const content = filteredLines
+        .map((line) =>
+          formatSerialLineForCopy(
+            { ...line, text: displayMode === "hex" ? formatDataAsHex(line.rawData, line.text) : line.text },
+            showTimestamp,
+            showDirectionPrefix
+          )
+        )
+        .join("\n");
+      const path = await exportTextAsTxt(content, "serial");
+      if (path) addLog("success", `已保存当前窗口 ${filteredLines.length} 行到 ${path}`);
+    } catch (error) {
+      addLog("error", `保存当前窗口失败: ${error}`);
+    }
+  }, [addLog, displayMode, filteredLines, showDirectionPrefix, showTimestamp]);
+
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.toString().length === 0) {
-      // 无选区时让浏览器原生菜单出现
-      return;
-    }
     event.preventDefault();
-    setContextMenu({ x: event.clientX, y: event.clientY });
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      canCopy: !!sel && !sel.isCollapsed && sel.toString().length > 0,
+    });
   }, []);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -257,9 +276,14 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
         <CopyContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
+          canCopy={contextMenu.canCopy}
           onPick={(mode) => {
             copySelection(mode);
             closeContextMenu();
+          }}
+          onSave={() => {
+            closeContextMenu();
+            void saveAll();
           }}
         />
       )}
@@ -270,10 +294,12 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
 interface CopyContextMenuProps {
   x: number;
   y: number;
+  canCopy: boolean;
   onPick: (mode: CopyMode) => void;
+  onSave: () => void;
 }
 
-function CopyContextMenu({ x, y, onPick }: CopyContextMenuProps) {
+function CopyContextMenu({ x, y, canCopy, onPick, onSave }: CopyContextMenuProps) {
   const items: Array<{ mode: CopyMode; label: string; hint?: string }> = [
     { mode: "plain", label: "复制（纯文本）", hint: "Ctrl+C" },
     { mode: "with-timestamp", label: "复制（含时间戳）" },
@@ -291,13 +317,18 @@ function CopyContextMenu({ x, y, onPick }: CopyContextMenuProps) {
           key={item.mode}
           type="button"
           role="menuitem"
-          className="flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left hover:bg-muted"
+          disabled={!canCopy}
+          className="flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left hover:bg-muted disabled:opacity-50"
           onClick={() => onPick(item.mode)}
         >
           <span>{item.label}</span>
           {item.hint && <span className="text-xs text-muted-foreground">{item.hint}</span>}
         </button>
       ))}
+      <div className="my-1 border-t border-border" />
+      <button type="button" role="menuitem" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={onSave}>
+        保存当前窗口全部内容为 TXT
+      </button>
     </div>
   );
 }
@@ -332,17 +363,6 @@ const SerialLineItem = React.memo(function SerialLineItem({
     const seconds = date.getSeconds().toString().padStart(2, "0");
     const ms = date.getMilliseconds().toString().padStart(3, "0");
     return `${hours}:${minutes}:${seconds}.${ms}`;
-  };
-
-  // Format as hex
-  const formatHex = (data: number[]) => {
-    if (!data || data.length === 0) {
-      const bytes = new TextEncoder().encode(line.text);
-      return Array.from(bytes)
-        .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-        .join(" ");
-    }
-    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   // Parse ANSI and custom color markers
@@ -400,7 +420,7 @@ const SerialLineItem = React.memo(function SerialLineItem({
         </span>
       )}
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatDataAsHex(line.rawData, line.text)}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((segment, index) => (

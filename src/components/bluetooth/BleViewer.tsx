@@ -1,10 +1,14 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
+import { useLogStore } from "@/stores/logStore";
 import { cn } from "@/lib/utils";
 import type { BleLine } from "@/lib/bleTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
+import { exportTextAsTxt } from "@/lib/exporters";
+import { formatDataAsHex, formatSerialLineForCopy } from "@/lib/viewerCopy";
+import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
 
 export function BleViewer() {
@@ -27,6 +31,26 @@ export function BleViewer() {
     const q = searchQuery.toLowerCase();
     return lines.filter((line) => line.text.toLowerCase().includes(q));
   }, [lines, searchQuery]);
+  const addLog = useLogStore((state) => state.addLog);
+
+  const handleSave = useCallback(async () => {
+    try {
+      const content = filteredLines
+        .map((line) =>
+          formatSerialLineForCopy(
+            { ...line, text: displayMode === "hex" ? formatDataAsHex(line.rawData, line.text) : line.text },
+            showTimestamp,
+            showDirectionPrefix
+          )
+        )
+        .join("\n");
+      const path = await exportTextAsTxt(content, "ble");
+      if (path) addLog("success", `已保存当前 BLE 窗口 ${filteredLines.length} 行到 ${path}`);
+    } catch (error) {
+      addLog("error", `保存当前 BLE 窗口失败: ${error}`);
+    }
+  }, [addLog, displayMode, filteredLines, showDirectionPrefix, showTimestamp]);
+  const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleSave);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +79,11 @@ export function BleViewer() {
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-background p-2 font-mono text-xs leading-5">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto bg-background p-2 font-mono text-xs leading-5"
+        onContextMenu={onContextMenu}
+      >
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
@@ -89,6 +117,7 @@ export function BleViewer() {
           })}
         </div>
       </div>
+      {contextMenu}
     </div>
   );
 }
@@ -121,16 +150,6 @@ const BleLineItem = React.memo(function BleLineItem({
     const s = date.getSeconds().toString().padStart(2, "0");
     const ms = date.getMilliseconds().toString().padStart(3, "0");
     return `${h}:${m}:${s}.${ms}`;
-  };
-
-  const formatHex = (data: number[]) => {
-    if (!data || data.length === 0) {
-      const bytes = new TextEncoder().encode(line.text);
-      return Array.from(bytes)
-        .map((byte) => byte.toString(16).padStart(2, "0").toUpperCase())
-        .join(" ");
-    }
-    return data.map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join(" ");
   };
 
   const textSegments = useMemo(() => {
@@ -176,7 +195,7 @@ const BleLineItem = React.memo(function BleLineItem({
         </span>
       )}
       {displayMode === "hex" ? (
-        <span className="whitespace-pre-wrap break-all font-mono">{formatHex(line.rawData || [])}</span>
+        <span className="whitespace-pre-wrap break-all font-mono">{formatDataAsHex(line.rawData, line.text)}</span>
       ) : (
         <span className="whitespace-pre-wrap break-all">
           {textSegments.map((seg, idx) => (

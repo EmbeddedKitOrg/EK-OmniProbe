@@ -1,4 +1,6 @@
-use crate::serial::{list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo, TcpSerial};
+use crate::serial::{
+    list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo, TcpSerial, UdpSerial,
+};
 use crate::state::{AppState, DataSource};
 use serde::Serialize;
 use std::sync::Arc;
@@ -70,6 +72,17 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             port,
             reconnect,
         } => Box::new(TcpSerial::new(host, port, reconnect)),
+        SerialConfig::Udp {
+            local_host,
+            local_port,
+            remote_host,
+            remote_port,
+        } => Box::new(UdpSerial::new(
+            local_host,
+            local_port,
+            remote_host,
+            remote_port,
+        )),
     };
 
     // Connect

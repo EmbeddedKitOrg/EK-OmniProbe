@@ -8,6 +8,8 @@ import { parseAnsiText } from "@/lib/ansiParser";
 import { writeSerial, writeSerialString } from "@/lib/tauri";
 import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory } from "@/lib/serialHistory";
+import { exportTextAsTxt } from "@/lib/exporters";
+import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
 
 interface SerialTerminalViewerProps {
@@ -111,6 +113,16 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
 
     return committedLines;
   }, [editBuffer, focused, lineMode, terminalActiveLine, terminalLines]);
+
+  const handleSave = useCallback(async () => {
+    try {
+      const path = await exportTextAsTxt(displayLines.map((line) => line.text).join("\n"), "serial-terminal");
+      if (path) addLog("success", `已保存当前终端 ${displayLines.length} 行到 ${path}`);
+    } catch (error) {
+      addLog("error", `保存当前终端失败: ${error}`);
+    }
+  }, [addLog, displayLines]);
+  const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleSave);
 
   const rowVirtualizer = useVirtualizer({
     count: displayLines.length,
@@ -441,6 +453,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         ref={scrollRef}
         className="flex-1 overflow-y-auto bg-background p-2 font-mono text-xs leading-5"
         onClick={focusTerminal}
+        onContextMenu={onContextMenu}
       >
         {displayLines.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyMessage}</div>
@@ -492,6 +505,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         onInput={handleInput}
         onCompositionEnd={handleCompositionEnd}
       />
+      {contextMenu}
     </div>
   );
 }

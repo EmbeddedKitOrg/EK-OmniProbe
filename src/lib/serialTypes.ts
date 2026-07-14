@@ -41,10 +41,19 @@ export interface TcpSerialConfig {
   reconnect?: boolean;
 }
 
+/** 双向 UDP 数据接口配置 */
+export interface UdpSerialConfig {
+  type: "udp";
+  local_host: string;
+  local_port: number;
+  remote_host: string;
+  remote_port: number;
+}
+
 /**
  * Serial connection configuration (union type)
  */
-export type SerialConfig = LocalSerialConfig | TcpSerialConfig;
+export type SerialConfig = LocalSerialConfig | TcpSerialConfig | UdpSerialConfig;
 
 /**
  * Serial connection statistics
@@ -98,7 +107,7 @@ export const COMMON_BAUD_RATES = [
 /**
  * Data source type for display
  */
-export type DataSourceType = "local" | "tcp";
+export type DataSourceType = "local" | "tcp" | "udp";
 
 export type SerialTextViewMode = "log" | "terminal";
 

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useLogStore } from "@/stores/logStore";
 import { cn } from "@/lib/utils";
+import { exportLogs } from "@/lib/exporters";
+import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 
 const LEVEL_STYLES: Record<string, string> = {
   info: "text-foreground",
@@ -18,6 +20,7 @@ function formatTime(d: Date): string {
 export function OutputPanel() {
   const logs = useLogStore((s) => s.logs);
   const clearLogs = useLogStore((s) => s.clearLogs);
+  const addLog = useLogStore((s) => s.addLog);
   const [autoScroll, setAutoScroll] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +30,20 @@ export function OutputPanel() {
     return filtered.length > 0 ? filtered : logs;
   }, [logs]);
 
+  const handleExport = useCallback(async () => {
+    if (debugLogs.length === 0) {
+      addLog("warn", "暂无调试输出可保存");
+      return;
+    }
+    try {
+      const path = await exportLogs(debugLogs);
+      if (path) addLog("success", `调试输出已保存: ${path}`);
+    } catch (error) {
+      addLog("error", `保存调试输出失败: ${error}`);
+    }
+  }, [addLog, debugLogs]);
+  const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleExport);
+
   useEffect(() => {
     if (autoScroll && bottomRef.current) {
       bottomRef.current.scrollIntoView({ block: "end" });
@@ -34,7 +51,7 @@ export function OutputPanel() {
   }, [debugLogs, autoScroll]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" onContextMenu={onContextMenu}>
       <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
           输出 {debugLogs.length > 0 && `(${debugLogs.length})`}
@@ -76,6 +93,7 @@ export function OutputPanel() {
           <div ref={bottomRef} />
         </div>
       )}
+      {contextMenu}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import { listSerialPorts, connectSerial, disconnectSerial, startSerial, stopSeri
 import { COMMON_BAUD_RATES, type SerialPortInfo, type DataSourceType } from "@/lib/serialTypes";
 import { useShallow } from "zustand/react/shallow";
 
+const parsePort = (value: string) => Math.min(65535, Math.max(0, parseInt(value) || 0));
+
 export function SerialSidebar() {
   const {
     connected,
@@ -22,6 +24,7 @@ export function SerialSidebar() {
     running,
     localConfig,
     tcpConfig,
+    udpConfig,
     activeSourceType,
     sendSettings,
     setConnected,
@@ -30,6 +33,7 @@ export function SerialSidebar() {
     setError,
     setLocalConfig,
     setTcpConfig,
+    setUdpConfig,
     setActiveSourceType,
     setSendSettings,
     getActiveConfig,
@@ -40,6 +44,7 @@ export function SerialSidebar() {
       running: state.running,
       localConfig: state.localConfig,
       tcpConfig: state.tcpConfig,
+      udpConfig: state.udpConfig,
       activeSourceType: state.activeSourceType,
       sendSettings: state.sendSettings,
       setConnected: state.setConnected,
@@ -48,6 +53,7 @@ export function SerialSidebar() {
       setError: state.setError,
       setLocalConfig: state.setLocalConfig,
       setTcpConfig: state.setTcpConfig,
+      setUdpConfig: state.setUdpConfig,
       setActiveSourceType: state.setActiveSourceType,
       setSendSettings: state.setSendSettings,
       getActiveConfig: state.getActiveConfig,
@@ -98,10 +104,23 @@ export function SerialSidebar() {
         addLog("error", "请先选择串口");
         return;
       }
+      if (
+        activeSourceType === "udp" &&
+        (!udpConfig.local_host || !udpConfig.remote_host || udpConfig.remote_port < 1)
+      ) {
+        addLog("error", "请填写有效的 UDP 本地地址、远端地址和远端端口");
+        return;
+      }
 
       addLog(
         "info",
-        `正在连接 ${activeSourceType === "local" ? localConfig.port : `${tcpConfig.host}:${tcpConfig.port}`}...`
+        `正在连接 ${
+          activeSourceType === "local"
+            ? localConfig.port
+            : activeSourceType === "tcp"
+              ? `${tcpConfig.host}:${tcpConfig.port}`
+              : `${udpConfig.local_host}:${udpConfig.local_port} → ${udpConfig.remote_host}:${udpConfig.remote_port}`
+        }...`
       );
 
       await connectSerial(config);
@@ -143,7 +162,9 @@ export function SerialSidebar() {
           <CardDescription className="text-xs">
             {activeSourceType === "local"
               ? localConfig.port || "本地串口未选择"
-              : `${tcpConfig.host}:${tcpConfig.port}`}
+              : activeSourceType === "tcp"
+                ? `${tcpConfig.host}:${tcpConfig.port}`
+                : `${udpConfig.local_host}:${udpConfig.local_port} → ${udpConfig.remote_host}:${udpConfig.remote_port}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -158,6 +179,13 @@ export function SerialSidebar() {
               <Label htmlFor="local" className="flex items-center gap-2 cursor-pointer">
                 <Plug2 className="h-4 w-4" />
                 本地串口
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="udp" id="udp" />
+              <Label htmlFor="udp" className="flex items-center gap-2 cursor-pointer">
+                <Radio className="h-4 w-4" />
+                UDP 数据接口
               </Label>
             </div>
             <div className="flex items-center space-x-2">
@@ -424,6 +452,61 @@ export function SerialSidebar() {
         </Card>
       )}
 
+      {/* UDP Config */}
+      {activeSourceType === "udp" && (
+        <Card>
+          <CardHeader className="py-4">
+            <CardTitle className="text-sm">UDP 配置</CardTitle>
+            <CardDescription className="text-xs">绑定本地端点，并与指定远端端点双向收发数据。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">本地绑定地址</label>
+              <Input
+                value={udpConfig.local_host}
+                onChange={(event) => setUdpConfig({ local_host: event.target.value })}
+                placeholder="0.0.0.0"
+                disabled={connected}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">本地端口</label>
+              <Input
+                type="number"
+                min={0}
+                max={65535}
+                value={udpConfig.local_port}
+                onChange={(event) => setUdpConfig({ local_port: parsePort(event.target.value) })}
+                placeholder="9000"
+                disabled={connected}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">填写 0 时由系统自动分配端口。</p>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">远端地址</label>
+              <Input
+                value={udpConfig.remote_host}
+                onChange={(event) => setUdpConfig({ remote_host: event.target.value })}
+                placeholder="192.168.1.1"
+                disabled={connected}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">远端端口</label>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={udpConfig.remote_port}
+                onChange={(event) => setUdpConfig({ remote_port: parsePort(event.target.value) })}
+                placeholder="9000"
+                disabled={connected}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Send Settings */}
       <Collapsible open={sendSettingsOpen} onOpenChange={setSendSettingsOpen}>
         <Card>
@@ -491,7 +574,13 @@ export function SerialSidebar() {
           connected ? "bg-red-500 hover:bg-red-600 text-white" : "bg-primary hover:bg-primary/90"
         } ${connecting && "animate-pulse"}`}
         onClick={connected ? handleDisconnect : handleConnect}
-        disabled={connecting || (!connected && activeSourceType === "local" && !localConfig.port)}
+        disabled={
+          connecting ||
+          (!connected && activeSourceType === "local" && !localConfig.port) ||
+          (!connected &&
+            activeSourceType === "udp" &&
+            (!udpConfig.local_host || !udpConfig.remote_host || udpConfig.remote_port < 1))
+        }
       >
         {connecting ? (
           <>
