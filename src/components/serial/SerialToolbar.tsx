@@ -571,6 +571,7 @@ export function SerialToolbar() {
                     chartConfig={chartConfig}
                     setChartConfig={setChartConfig}
                     title="串口图表配置"
+                    allowJustFloat
                     trigger={
                       <Button size="sm" variant="outline" className="gap-1">
                         <Settings2 className="h-3.5 w-3.5" />

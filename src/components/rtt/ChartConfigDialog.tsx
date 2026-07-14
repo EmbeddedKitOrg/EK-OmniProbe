@@ -14,6 +14,7 @@ interface ChartConfigDialogProps {
   setChartConfig: (config: ChartConfig) => void;
   trigger?: React.ReactNode;
   title?: string;
+  allowJustFloat?: boolean;
 }
 
 export function ChartConfigDialog({
@@ -21,6 +22,7 @@ export function ChartConfigDialog({
   setChartConfig,
   trigger,
   title = "图表配置",
+  allowJustFloat = false,
 }: ChartConfigDialogProps) {
   const [open, setOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState<ChartConfig>(chartConfig);
@@ -41,7 +43,9 @@ export function ChartConfigDialog({
     setOpen(false);
   };
 
-  const isDelimiter = localConfig.parseMode === "delimiter" || localConfig.parseMode === "auto";
+  const isDelimiter =
+    localConfig.parseMode === "delimiter" || localConfig.parseMode === "justfloat" || localConfig.parseMode === "auto";
+  const sourceIndexLabel = localConfig.parseMode === "justfloat" ? "浮点序号" : "列号";
   const isXyScatter = localConfig.chartType === "xy-scatter";
 
   const updateChannel = (index: number, patch: Partial<Channel>) => {
@@ -76,7 +80,10 @@ export function ChartConfigDialog({
             color: PRESET_COLORS[current.channels.length % PRESET_COLORS.length],
             visible: true,
             role: "y",
-            sourceIndex: current.parseMode === "delimiter" ? current.channels.length : undefined,
+            sourceIndex:
+              current.parseMode === "delimiter" || current.parseMode === "justfloat"
+                ? current.channels.length
+                : undefined,
           },
         ],
       };
@@ -110,6 +117,8 @@ export function ChartConfigDialog({
         return "整行作为 JSON 解析，按通道 key 取数值字段。通道留空时自动提取全部数值字段。";
       case "kv":
         return "自动提取行内所有 key=value 数值对。通道留空时全部保留，否则只保留命中的 key。";
+      case "justfloat":
+        return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
       case "auto":
         return "依次尝试 JSON → 正则 → KV → 分隔符。任意一种成功即停止。";
       default:
@@ -162,6 +171,7 @@ export function ChartConfigDialog({
                     <SelectItem value="json">JSON</SelectItem>
                     <SelectItem value="kv">KV (key=value)</SelectItem>
                     <SelectItem value="regex">正则</SelectItem>
+                    {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -262,10 +272,15 @@ export function ChartConfigDialog({
                 还没有通道。
                 {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
                   "（留空时会自动提取所有数值字段）"}
+                {localConfig.parseMode === "justfloat" && "（留空时会按首个有效帧自动生成通道）"}
               </div>
             ) : (
               <div className="space-y-2">
-                <ChannelHeaderRow isDelimiter={isDelimiter} isXyScatter={isXyScatter} />
+                <ChannelHeaderRow
+                  isDelimiter={isDelimiter}
+                  sourceIndexLabel={sourceIndexLabel}
+                  isXyScatter={isXyScatter}
+                />
                 {localConfig.channels.map((channel, index) => (
                   <ChannelRow
                     key={`${channel.key}-${index}`}
@@ -372,14 +387,22 @@ export function ChartConfigDialog({
   );
 }
 
-function ChannelHeaderRow({ isDelimiter, isXyScatter }: { isDelimiter: boolean; isXyScatter: boolean }) {
+function ChannelHeaderRow({
+  isDelimiter,
+  sourceIndexLabel,
+  isXyScatter,
+}: {
+  isDelimiter: boolean;
+  sourceIndexLabel: string;
+  isXyScatter: boolean;
+}) {
   return (
     <div
       className="grid items-center gap-2 px-2 text-[11px] uppercase tracking-wide text-muted-foreground"
       style={{ gridTemplateColumns: gridTemplate(isDelimiter, isXyScatter) }}
     >
       <span>键</span>
-      {isDelimiter && <span>列号</span>}
+      {isDelimiter && <span>{sourceIndexLabel}</span>}
       <span>显示名称</span>
       <span>单位</span>
       <span>颜色</span>
