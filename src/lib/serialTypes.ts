@@ -69,9 +69,13 @@ export interface SerialStats {
 /**
  * Serial data event from backend
  */
-export interface SerialDataEvent {
+export interface SerialDataChunk {
   data: number[];
   timestamp: number;
+}
+
+export interface SerialDataEvent {
+  chunks: SerialDataChunk[];
   direction: "rx" | "tx";
 }
 

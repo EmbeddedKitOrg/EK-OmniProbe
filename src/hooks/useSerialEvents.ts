@@ -153,76 +153,80 @@ export function useSerialEvents() {
 
     // Listen for serial data events
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
-      const { data, timestamp, direction } = event.payload;
+      const { chunks, direction } = event.payload;
 
-      const terminalText = terminalDecoderRef.current.decode(new Uint8Array(data), { stream: true });
-      if (terminalText) {
-        batchTerminalTextRef.current += terminalText;
-      }
-
-      batchStatsRef.current.bytes_received += data.length;
-
-      let currentChartConfig = useSerialStore.getState().chartConfig;
-      if (currentChartConfig.enabled && currentChartConfig.parseMode === "justfloat" && direction === "rx") {
-        const result = parseJustFloatChunk(data, justFloatPendingRef.current);
-        justFloatPendingRef.current = result.pending;
-        batchParseRef.current.fail += result.invalidFrames;
-
-        const channelCount = result.frames[0]?.length ?? 0;
-        if (channelCount > 0 && currentChartConfig.channels.length === 0) {
-          currentChartConfig = {
-            ...currentChartConfig,
-            channels: createJustFloatChannels(channelCount),
-          };
-          useSerialStore.getState().setChartConfig(currentChartConfig);
+      for (const { data, timestamp } of chunks) {
+        const terminalText = terminalDecoderRef.current.decode(new Uint8Array(data), { stream: true });
+        if (terminalText) {
+          batchTerminalTextRef.current += terminalText;
         }
 
-        for (const frame of result.frames) {
-          const point = toJustFloatPoint(frame, currentChartConfig, timestamp);
-          if (Object.keys(point.values).length > 0) {
-            batchChartPointsRef.current.push(point);
-            batchParseRef.current.success += 1;
-          } else {
-            batchParseRef.current.fail += 1;
+        batchStatsRef.current.bytes_received += data.length;
+
+        let currentChartConfig = useSerialStore.getState().chartConfig;
+        if (currentChartConfig.enabled && currentChartConfig.parseMode === "justfloat" && direction === "rx") {
+          const result = parseJustFloatChunk(data, justFloatPendingRef.current);
+          justFloatPendingRef.current = result.pending;
+          batchParseRef.current.fail += result.invalidFrames;
+
+          const channelCount = result.frames[0]?.length ?? 0;
+          if (channelCount > 0 && currentChartConfig.channels.length === 0) {
+            currentChartConfig = {
+              ...currentChartConfig,
+              channels: createJustFloatChannels(channelCount),
+            };
+            useSerialStore.getState().setChartConfig(currentChartConfig);
           }
-        }
-      } else if (!currentChartConfig.enabled || currentChartConfig.parseMode !== "justfloat") {
-        justFloatPendingRef.current = [];
-      }
 
-      // Parse data to lines（按用户选择的接收分帧模式）
-      const framing = useSerialStore.getState().rxFraming;
-      const { lines, pending } = parseSerialData(
-        data,
-        timestamp,
-        direction as "rx" | "tx",
-        pendingBufferRef.current,
-        framing
-      );
-      pendingBufferRef.current = pending;
-
-      if (lines.length > 0) {
-        batchLinesRef.current.push(...lines);
-
-        // 图表解析：累积到批，flushBatch 时单次 setState
-        currentChartConfig = useSerialStore.getState().chartConfig;
-        if (currentChartConfig.enabled && currentChartConfig.parseMode !== "justfloat") {
-          for (const line of lines) {
-            const result = parseChartData(line.text, currentChartConfig);
-            if (result.success && result.dataPoint) {
-              batchChartPointsRef.current.push(result.dataPoint);
+          for (const frame of result.frames) {
+            const point = toJustFloatPoint(frame, currentChartConfig, timestamp);
+            if (Object.keys(point.values).length > 0) {
+              batchChartPointsRef.current.push(point);
               batchParseRef.current.success += 1;
             } else {
               batchParseRef.current.fail += 1;
             }
           }
+        } else if (!currentChartConfig.enabled || currentChartConfig.parseMode !== "justfloat") {
+          justFloatPendingRef.current = [];
+        }
+
+        // Parse data to lines（按用户选择的接收分帧模式）
+        const framing = useSerialStore.getState().rxFraming;
+        const { lines, pending } = parseSerialData(
+          data,
+          timestamp,
+          direction as "rx" | "tx",
+          pendingBufferRef.current,
+          framing
+        );
+        pendingBufferRef.current = pending;
+
+        if (lines.length > 0) {
+          batchLinesRef.current.push(...lines);
+
+          // 图表解析：累积到批，flushBatch 时单次 setState
+          currentChartConfig = useSerialStore.getState().chartConfig;
+          if (currentChartConfig.enabled && currentChartConfig.parseMode !== "justfloat") {
+            for (const line of lines) {
+              const result = parseChartData(line.text, currentChartConfig);
+              if (result.success && result.dataPoint) {
+                batchChartPointsRef.current.push(result.dataPoint);
+                batchParseRef.current.success += 1;
+              } else {
+                batchParseRef.current.fail += 1;
+              }
+            }
+          }
         }
       }
 
-      // 只要收到数据就调度更新，避免无换行数据时统计不刷新
-      scheduleBatchUpdate();
-      // 无换行结尾的帧（请求-应答的十六进制/二进制协议）靠空闲超时刷出
-      scheduleIdleFlush();
+      if (chunks.length > 0) {
+        // 只要收到数据就调度更新，避免无换行数据时统计不刷新
+        scheduleBatchUpdate();
+        // 无换行结尾的帧（请求-应答的十六进制/二进制协议）靠空闲超时刷出
+        scheduleIdleFlush();
+      }
     });
 
     // Listen for serial status events

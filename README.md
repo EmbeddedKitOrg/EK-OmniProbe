@@ -2,7 +2,7 @@
 
 一个开源的嵌入式开发五合一工具，集成**固件烧录**、**源码级调试**、**RTT 实时输出**、**串口终端**和**BLE 蓝牙**功能。基于 Tauri + React + Rust 技术栈开发，使用 probe-rs 作为底层调试库。
 
-![Version](https://img.shields.io/badge/version-1.5.0-blue)
+![Version](https://img.shields.io/badge/version-1.5.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **项目维护**
