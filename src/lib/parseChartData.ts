@@ -272,6 +272,12 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
     case "auto":
       return parseAuto(text, config);
 
+    case "justfloat":
+      return {
+        success: false,
+        error: "JustFloat 需要从串口原始字节流解析",
+      };
+
     default:
       return {
         success: false,

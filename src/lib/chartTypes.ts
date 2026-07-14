@@ -16,7 +16,7 @@ export interface ChartDataPoint {
  * 通道：解析字段 + 显示样式 合一
  *
  * - key 是逻辑键（JSON key / KV key / 正则命名组 / 分隔符列名），同时也是 ChartDataPoint.values 里的键
- * - sourceIndex 仅在 parseMode === "delimiter" 时使用，表示读取分隔后第几列
+ * - sourceIndex 在 delimiter / justfloat 模式下表示读取第几列或第几个 float
  * - role 决定该通道是 Y 轴数据还是 X 轴（仅 xy-scatter 模式有意义），最多一个 "x"
  */
 export interface Channel {
@@ -38,7 +38,7 @@ export type ChartSeries = Channel;
 /**
  * 解析模式
  */
-export type ParseMode = "regex" | "delimiter" | "json" | "kv" | "auto";
+export type ParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "auto";
 
 /**
  * 图表类型
@@ -332,7 +332,14 @@ function buildChannelsFromLegacy(source: Record<string, unknown>): Channel[] {
 }
 
 function isParseMode(value: unknown): value is ParseMode {
-  return value === "regex" || value === "delimiter" || value === "json" || value === "kv" || value === "auto";
+  return (
+    value === "regex" ||
+    value === "delimiter" ||
+    value === "json" ||
+    value === "kv" ||
+    value === "justfloat" ||
+    value === "auto"
+  );
 }
 
 function isChartType(value: unknown): value is ChartType {

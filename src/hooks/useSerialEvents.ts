@@ -2,8 +2,10 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSerialStore, parseSerialData } from "@/stores/serialStore";
 import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
-import type { ChartDataPoint } from "@/lib/chartTypes";
+import type { Channel, ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
+import { PRESET_COLORS } from "@/lib/chartTypes";
 import { parseChartData } from "@/lib/parseChartData";
+import { parseJustFloatChunk } from "@/lib/parseJustFloat";
 import { parseLogLevel } from "@/lib/utils";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
@@ -11,6 +13,28 @@ import { useShallow } from "zustand/react/shallow";
 // 非超时模式下的"兜底"空闲刷新：即便选了按换行/自定义分隔符，
 // 残留数据静默这么久也强制刷出一行，杜绝无分隔符数据被永久卡住不显示。
 const SAFETY_IDLE_MS = 200;
+
+function createJustFloatChannels(count: number): Channel[] {
+  return Array.from({ length: count }, (_, index) => ({
+    key: `ch${index + 1}`,
+    sourceIndex: index,
+    name: `通道 ${index + 1}`,
+    color: PRESET_COLORS[index % PRESET_COLORS.length],
+    visible: true,
+    role: "y",
+  }));
+}
+
+function toJustFloatPoint(values: number[], config: ChartConfig, timestamp: number): ChartDataPoint {
+  const mappedValues: Record<string, number> = {};
+  config.channels.forEach((channel, index) => {
+    const sourceIndex = channel.sourceIndex ?? index;
+    if (sourceIndex >= 0 && sourceIndex < values.length) {
+      mappedValues[channel.key] = values[sourceIndex];
+    }
+  });
+  return { timestamp, values: mappedValues };
+}
 
 /**
  * Hook to listen for serial events
@@ -44,6 +68,7 @@ export function useSerialEvents() {
     rawData: [],
   });
   const terminalDecoderRef = useRef(new TextDecoder());
+  const justFloatPendingRef = useRef<number[]>([]);
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
@@ -137,6 +162,34 @@ export function useSerialEvents() {
 
       batchStatsRef.current.bytes_received += data.length;
 
+      let currentChartConfig = useSerialStore.getState().chartConfig;
+      if (currentChartConfig.enabled && currentChartConfig.parseMode === "justfloat" && direction === "rx") {
+        const result = parseJustFloatChunk(data, justFloatPendingRef.current);
+        justFloatPendingRef.current = result.pending;
+        batchParseRef.current.fail += result.invalidFrames;
+
+        const channelCount = result.frames[0]?.length ?? 0;
+        if (channelCount > 0 && currentChartConfig.channels.length === 0) {
+          currentChartConfig = {
+            ...currentChartConfig,
+            channels: createJustFloatChannels(channelCount),
+          };
+          useSerialStore.getState().setChartConfig(currentChartConfig);
+        }
+
+        for (const frame of result.frames) {
+          const point = toJustFloatPoint(frame, currentChartConfig, timestamp);
+          if (Object.keys(point.values).length > 0) {
+            batchChartPointsRef.current.push(point);
+            batchParseRef.current.success += 1;
+          } else {
+            batchParseRef.current.fail += 1;
+          }
+        }
+      } else if (!currentChartConfig.enabled || currentChartConfig.parseMode !== "justfloat") {
+        justFloatPendingRef.current = [];
+      }
+
       // Parse data to lines（按用户选择的接收分帧模式）
       const framing = useSerialStore.getState().rxFraming;
       const { lines, pending } = parseSerialData(
@@ -152,8 +205,8 @@ export function useSerialEvents() {
         batchLinesRef.current.push(...lines);
 
         // 图表解析：累积到批，flushBatch 时单次 setState
-        const currentChartConfig = useSerialStore.getState().chartConfig;
-        if (currentChartConfig.enabled) {
+        currentChartConfig = useSerialStore.getState().chartConfig;
+        if (currentChartConfig.enabled && currentChartConfig.parseMode !== "justfloat") {
           for (const line of lines) {
             const result = parseChartData(line.text, currentChartConfig);
             if (result.success && result.dataPoint) {
@@ -175,6 +228,9 @@ export function useSerialEvents() {
     // Listen for serial status events
     const unlistenStatus = listen<SerialStatusEvent>("serial-status", (event) => {
       const { connected, running, error } = event.payload;
+      if (!connected) {
+        justFloatPendingRef.current = [];
+      }
       setConnected(connected);
       setRunning(running);
       if (error) {
