@@ -8,6 +8,7 @@ import { parseChartData } from "@/lib/parseChartData";
 import { parseJustFloatChunk } from "@/lib/parseJustFloat";
 import { parseLogLevel } from "@/lib/utils";
 import { formatBytes } from "@/lib/formatters";
+import { publishAiSamples } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
 
 // 非超时模式下的"兜底"空闲刷新：即便选了按换行/自定义分隔符，
@@ -78,6 +79,7 @@ export function useSerialEvents() {
   const batchParseRef = useRef({ success: 0, fail: 0 });
   const updateTimerRef = useRef<number | null>(null);
   const idleFlushTimerRef = useRef<number | null>(null);
+  const bridgeErrorReportedRef = useRef(false);
 
   useEffect(() => {
     // 批量更新函数 - 在每帧最多触发一次 setState
@@ -93,7 +95,32 @@ export function useSerialEvents() {
       }
 
       if (batchChartPointsRef.current.length > 0) {
-        addChartDataBatch(batchChartPointsRef.current);
+        const points = batchChartPointsRef.current;
+        addChartDataBatch(points);
+        const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
+        if (aiBridgeStatus.running) {
+          const channels =
+            chartConfig.channels.length > 0
+              ? chartConfig.channels.map(({ key, name, unit }) => ({ key, name, unit: unit ?? null }))
+              : Object.keys(points[0]?.values ?? {}).map((key) => ({ key, name: key, unit: null }));
+          for (let index = 0; index < points.length; index += 2048) {
+            void publishAiSamples({
+              source: "serial",
+              sampleRateHz: chartConfig.sampleRateHz,
+              channels,
+              samples: points.slice(index, index + 2048),
+            })
+              .then(() => {
+                bridgeErrorReportedRef.current = false;
+              })
+              .catch((error) => {
+                if (!bridgeErrorReportedRef.current) {
+                  console.warn("AI 数据桥接发布失败", error);
+                  bridgeErrorReportedRef.current = true;
+                }
+              });
+          }
+        }
         batchChartPointsRef.current = [];
       }
 

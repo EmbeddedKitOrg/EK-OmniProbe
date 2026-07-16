@@ -35,6 +35,7 @@ import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 
 export function SerialToolbar() {
   const {
@@ -377,6 +378,8 @@ export function SerialToolbar() {
             FFT
           </Button>
         </div>
+        <AiBridgeControl />
+        <AiSkillLink />
       </ToolbarGroup>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">

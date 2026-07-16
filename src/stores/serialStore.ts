@@ -13,8 +13,9 @@ import type {
   SerialTextViewMode,
   SerialTerminalSettings,
   RxFramingSettings,
+  AiBridgeStatus,
 } from "@/lib/serialTypes";
-import { DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
+import { DEFAULT_AI_BRIDGE_STATUS, DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
@@ -113,6 +114,7 @@ interface SerialState {
   connecting: boolean;
   running: boolean;
   error: string | null;
+  aiBridgeStatus: AiBridgeStatus;
 
   // Configuration
   localConfig: LocalSerialConfig;
@@ -173,6 +175,7 @@ interface SerialState {
   setConnecting: (connecting: boolean) => void;
   setRunning: (running: boolean) => void;
   setError: (error: string | null) => void;
+  setAiBridgeStatus: (status: AiBridgeStatus) => void;
 
   setLocalConfig: (config: Partial<LocalSerialConfig>) => void;
   setTcpConfig: (config: Partial<TcpSerialConfig>) => void;
@@ -434,6 +437,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   connecting: false,
   running: false,
   error: null,
+  aiBridgeStatus: DEFAULT_AI_BRIDGE_STATUS,
 
   localConfig: savedConfig.local,
   tcpConfig: savedConfig.tcp,
@@ -483,6 +487,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   setConnecting: (connecting) => set({ connecting }),
   setRunning: (running) => set({ running, error: null }),
   setError: (error) => set({ error, running: false }),
+  setAiBridgeStatus: (aiBridgeStatus) => set({ aiBridgeStatus }),
 
   setLocalConfig: (config) => {
     set((state) => {

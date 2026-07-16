@@ -154,6 +154,7 @@ pub struct AppState {
     pub settings: Arc<Mutex<DeviceSettings>>,
     pub rtt_state: Arc<RttState>,
     pub serial_state: Arc<SerialState>,  // Serial port state
+    pub ai_bridge_state: Arc<crate::ai_bridge::AiBridgeState>,
     pub ble_state: crate::ble::SharedBleState, // BLE 蓝牙状态
 }
 
@@ -177,6 +178,7 @@ impl AppState {
             settings: Arc::new(Mutex::new(DeviceSettings::default())),
             rtt_state: Arc::new(RttState::default()),
             serial_state: Arc::new(SerialState::default()),
+            ai_bridge_state: Arc::new(crate::ai_bridge::AiBridgeState::default()),
             ble_state: Arc::new(crate::ble::BleState::default()),
         }
     }

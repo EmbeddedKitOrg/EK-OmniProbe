@@ -113,7 +113,7 @@ export async function getPackScanReport(packName: string): Promise<PackScanRepor
 }
 
 // 串口命令
-import type { SerialPortInfo, SerialConfig } from "./serialTypes";
+import type { AiBridgeStatus, AiTelemetryBatch, SerialPortInfo, SerialConfig } from "./serialTypes";
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   return await invoke<SerialPortInfo[]>("list_serial_ports_cmd");
@@ -145,6 +145,26 @@ export async function stopSerial(): Promise<void> {
 
 export async function clearSerialBuffer(): Promise<void> {
   return await invoke("clear_serial_buffer");
+}
+
+export async function startAiBridge(port: number, allowWrite: boolean): Promise<AiBridgeStatus> {
+  return await invoke<AiBridgeStatus>("start_ai_bridge", { port, allowWrite });
+}
+
+export async function stopAiBridge(): Promise<AiBridgeStatus> {
+  return await invoke<AiBridgeStatus>("stop_ai_bridge");
+}
+
+export async function getAiBridgeStatus(): Promise<AiBridgeStatus> {
+  return await invoke<AiBridgeStatus>("get_ai_bridge_status");
+}
+
+export async function setAiBridgeWriteEnabled(allowWrite: boolean): Promise<AiBridgeStatus> {
+  return await invoke<AiBridgeStatus>("set_ai_bridge_write_enabled", { allowWrite });
+}
+
+export async function publishAiSamples(batch: AiTelemetryBatch): Promise<void> {
+  return await invoke("publish_ai_samples", { batch });
 }
 
 // USB 权限检查命令

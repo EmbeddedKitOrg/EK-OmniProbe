@@ -15,6 +15,7 @@
 ### 界面与偏好
 - **[SETTINGS_GUIDE.md](SETTINGS_GUIDE.md)** - 设置中心、背景显示、默认工作台和日志面板等全局偏好说明
 - **[SERIAL_TERMINAL_GUIDE.md](SERIAL_TERMINAL_GUIDE.md)** - 串口日志视图、终端视图与控制键发送说明
+- **[AI_TUNING_GUIDE.md](AI_TUNING_GUIDE.md)** - 串口标准数据流、AI 分析与可视化调参指南
 
 ### 蓝牙
 - **[BLUETOOTH_USER_MANUAL.md](BLUETOOTH_USER_MANUAL.md)** - BLE 蓝牙模式使用手册（扫描、连接、Notify、写入、图表）
