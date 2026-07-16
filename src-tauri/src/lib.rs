@@ -1,3 +1,4 @@
+pub mod ai_bridge;
 pub mod app_config;
 pub mod ble;
 pub mod commands;
@@ -85,6 +86,12 @@ pub fn run() {
             serial_cmd::start_serial,
             serial_cmd::stop_serial,
             serial_cmd::clear_serial_buffer,
+            // AI 数据桥接命令
+            ai_bridge::start_ai_bridge,
+            ai_bridge::stop_ai_bridge,
+            ai_bridge::get_ai_bridge_status,
+            ai_bridge::set_ai_bridge_write_enabled,
+            ai_bridge::publish_ai_samples,
             // 调试命令
             debug_cmd::debug_attach,
             debug_cmd::debug_detach,
