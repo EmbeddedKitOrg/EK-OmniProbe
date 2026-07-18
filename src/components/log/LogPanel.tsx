@@ -31,7 +31,7 @@ export function LogPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(storedHeight);
   const [isResizing, setIsResizing] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
   const expandedHeightRef = useRef(storedHeight);

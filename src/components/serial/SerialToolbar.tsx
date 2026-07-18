@@ -33,7 +33,6 @@ import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
-import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 
@@ -226,161 +225,74 @@ export function SerialToolbar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-white/72 px-2 py-2">
-      <ToolbarGroup label="采集">
-        {!running ? (
-          <Button
-            size="sm"
-            onClick={handleStart}
-            disabled={!connected}
-            className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Play className="h-3.5 w-3.5" />
-            开始
-          </Button>
-        ) : (
-          <Button size="sm" variant="destructive" onClick={handleStop} className="gap-1">
-            <Square className="h-3.5 w-3.5" />
-            停止
-          </Button>
-        )}
-
-        <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
-          <Trash2 className="h-3.5 w-3.5" />
-          清空
-        </Button>
-      </ToolbarGroup>
-
-      <ToolbarGroup label="查看">
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={autoScroll ? "secondary" : "outline"}
-            onClick={() => setAutoScroll(!autoScroll)}
-            className="gap-1"
-            title="自动滚动到最新数据"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-            自动滚动
-          </Button>
-        </div>
-
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={textViewMode === "log" ? "secondary" : "outline"}
-            onClick={() => setTextViewMode("log")}
-            className="gap-1"
-            title="日志视图"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            日志
-          </Button>
-          <Button
-            size="sm"
-            variant={textViewMode === "terminal" ? "secondary" : "outline"}
-            onClick={() => setTextViewMode("terminal")}
-            className="gap-1"
-            title="终端视图"
-          >
-            <SquareTerminal className="h-3.5 w-3.5" />
-            终端
-          </Button>
-        </div>
-
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={viewMode === "text" ? "secondary" : "outline"}
-            onClick={() => setViewMode("text")}
-            title="仅文本"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "split" ? "secondary" : "outline"}
-            onClick={() => setViewMode("split")}
-            title="文本 + 图表分屏"
-          >
-            <SplitSquareHorizontal className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "chart" ? "secondary" : "outline"}
-            onClick={() => setViewMode("chart")}
-            title="仅图表"
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {viewMode === "split" && (
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={splitOrientation === "vertical" ? "secondary" : "outline"}
-              onClick={() => setSplitOrientation("vertical")}
-              className="px-2 text-xs"
-              title="上下分屏"
-            >
-              上下
-            </Button>
-            <Button
-              size="sm"
-              variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
-              onClick={() => setSplitOrientation("horizontal")}
-              className="px-2 text-xs"
-              title="左右分屏"
-            >
-              左右
-            </Button>
-          </div>
-        )}
-      </ToolbarGroup>
-
-      <ToolbarGroup label="分析">
+    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-muted/20 px-2 py-2">
+      {!running ? (
         <Button
           size="sm"
-          variant={chartConfig.enabled ? "secondary" : "outline"}
-          onClick={handleSmartEnableChart}
-          disabled={lines.length === 0}
-          className="gap-1"
-          title="智能检测数据格式并自动配置图表"
+          onClick={handleStart}
+          disabled={!connected}
+          className="gap-1 bg-green-600 text-white hover:bg-green-700"
         >
-          <Sparkles className="h-3.5 w-3.5" />
-          智能启用
+          <Play className="h-3.5 w-3.5" />
+          开始
         </Button>
+      ) : (
+        <Button size="sm" variant="destructive" onClick={handleStop} className="gap-1">
+          <Square className="h-3.5 w-3.5" />
+          停止
+        </Button>
+      )}
 
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={
-              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"
-            }
-            onClick={() => activateSignalWorkspace("time")}
-            className="gap-1"
-            title="直接进入波形示波器"
-          >
-            <Waves className="h-3.5 w-3.5" />
-            波形
-          </Button>
-          <Button
-            size="sm"
-            variant={
-              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"
-            }
-            onClick={() => activateSignalWorkspace("fft")}
-            className="gap-1"
-            title="直接进入 FFT 频谱"
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            FFT
-          </Button>
-        </div>
-        <AiBridgeControl />
-        <AiSkillLink />
-      </ToolbarGroup>
+      <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
+        <Trash2 className="h-3.5 w-3.5" />
+        清空
+      </Button>
+
+      <div className="mx-1 h-6 w-px bg-border" />
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={textViewMode === "log" ? "secondary" : "ghost"}
+          onClick={() => setTextViewMode("log")}
+          className="gap-1"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          日志
+        </Button>
+        <Button
+          size="sm"
+          variant={textViewMode === "terminal" ? "secondary" : "ghost"}
+          onClick={() => setTextViewMode("terminal")}
+          className="gap-1"
+        >
+          <SquareTerminal className="h-3.5 w-3.5" />
+          终端
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "text" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("text")}
+          title="仅文本"
+        >
+          <FileText className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "split" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("split")}
+          title="文本 + 图表分屏"
+        >
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "chart" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("chart")}
+          title="仅图表"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {textViewMode === "log" && (
@@ -414,9 +326,62 @@ export function SerialToolbar() {
                 </div>
               </div>
 
+              <div className="space-y-2.5 rounded-[12px] border border-border/60 bg-muted/20 p-3">
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">工作流</div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={chartConfig.enabled ? "secondary" : "outline"}
+                    onClick={handleSmartEnableChart}
+                    disabled={lines.length === 0}
+                    className="gap-1"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    智能启用
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("time")} className="gap-1">
+                    <Waves className="h-3.5 w-3.5" />
+                    波形
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("fft")} className="gap-1">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    FFT
+                  </Button>
+                  <AiBridgeControl />
+                  <AiSkillLink />
+                </div>
+                {viewMode === "split" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "vertical" ? "secondary" : "outline"}
+                      onClick={() => setSplitOrientation("vertical")}
+                    >
+                      上下分屏
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
+                      onClick={() => setSplitOrientation("horizontal")}
+                    >
+                      左右分屏
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">查看</div>
                 <div className="flex flex-wrap gap-2.5">
+                  <Button
+                    size="sm"
+                    variant={autoScroll ? "secondary" : "outline"}
+                    onClick={() => setAutoScroll(!autoScroll)}
+                    className="gap-1"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                    自动滚动
+                  </Button>
                   {textViewMode === "log" ? (
                     <>
                       <Button
@@ -616,15 +581,6 @@ export function SerialToolbar() {
           </PopoverContent>
         </Popover>
       </div>
-    </div>
-  );
-}
-
-function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border/60 bg-white/58 px-2 py-1.5">
-      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
-      {children}
     </div>
   );
 }

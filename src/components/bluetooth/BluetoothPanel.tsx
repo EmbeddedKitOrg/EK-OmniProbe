@@ -6,6 +6,7 @@ import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 import { Activity, AlertCircle, FileText, Plug2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { ComponentType, ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -187,7 +188,15 @@ function PanelHintCard({ icon: Icon, title, description }: PanelHintCardProps) {
         <Icon className="h-3.5 w-3.5" />
       </div>
       <span className="font-medium text-foreground">{title}</span>
-      <span className="text-xs text-muted-foreground">{description}</span>
+      <span className="min-w-0 flex-1 text-xs text-muted-foreground">{description}</span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0"
+        onClick={() => window.dispatchEvent(new Event("focus-inspector"))}
+      >
+        打开配置
+      </Button>
     </div>
   );
 }
@@ -219,6 +228,9 @@ function SppGuidanceCard() {
             <li>点击对应端口右侧「连接」，会自动跳转到串口工作台并开始接收</li>
           </ol>
         </div>
+        <Button variant="outline" onClick={() => window.dispatchEvent(new Event("focus-inspector"))}>
+          打开 SPP 配置
+        </Button>
         <p className="text-xs text-muted-foreground">
           Windows 一般会显示成「Standard Serial over Bluetooth link (COMxx)」；Linux 用 <code>rfcomm bind</code>{" "}
           后会得到 <code>/dev/rfcommN</code>。
@@ -231,7 +243,7 @@ function SppGuidanceCard() {
 function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-white/75 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-white/72 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
         <div>
           <div className="text-sm font-medium text-foreground">{title}</div>
           <div className="text-xs text-muted-foreground">{subtitle}</div>

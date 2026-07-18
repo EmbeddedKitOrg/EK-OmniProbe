@@ -34,7 +34,6 @@ import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import { exportRttLinesAsTxt, exportRttLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatRttLineForCopy } from "@/lib/viewerCopy";
 import type { SignalDomain } from "@/lib/chartTypes";
-import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 export function RttToolbar() {
@@ -311,160 +310,78 @@ export function RttToolbar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-white/72 px-2 py-2">
-      <ToolbarGroup label="连接">
-        {!rttConnected ? (
-          <Button size="sm" variant="default" onClick={handleRttConnect} disabled={rttConnecting} className="gap-1">
-            <Link className={`h-3.5 w-3.5 ${rttConnecting ? "animate-pulse" : ""}`} />
-            {rttConnecting ? "连接中..." : "连接 RTT"}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleRttDisconnect}
-            className="gap-1 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-500"
-          >
-            <Unlink className="h-3.5 w-3.5" />
-            断开 RTT
-          </Button>
-        )}
-        <RttIntegrationGuideDialog />
-      </ToolbarGroup>
-
-      <ToolbarGroup label="采集">
-        {!isRunning ? (
-          <Button
-            size="sm"
-            onClick={handleStart}
-            disabled={!rttConnected}
-            className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Play className="h-3.5 w-3.5" />
-            启动
-          </Button>
-        ) : (
-          <Button size="sm" variant="destructive" onClick={handleStop} className="gap-1">
-            <Square className="h-3.5 w-3.5" />
-            停止
-          </Button>
-        )}
-
-        <Button size="sm" variant="outline" onClick={handleTogglePause} disabled={!isRunning} className="gap-1">
-          {isPaused ? (
-            <>
-              <RotateCcw className="h-3.5 w-3.5" />
-              继续
-            </>
-          ) : (
-            <>
-              <Pause className="h-3.5 w-3.5" />
-              暂停
-            </>
-          )}
+    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-muted/20 px-2 py-2">
+      {!rttConnected ? (
+        <Button size="sm" variant="default" onClick={handleRttConnect} disabled={rttConnecting} className="gap-1">
+          <Link className={rttConnecting ? "h-3.5 w-3.5 animate-pulse" : "h-3.5 w-3.5"} />
+          {rttConnecting ? "连接中..." : "连接 RTT"}
         </Button>
-
-        <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
-          <Trash2 className="h-3.5 w-3.5" />
-          清空
-        </Button>
-      </ToolbarGroup>
-
-      <ToolbarGroup label="视图">
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={viewMode === "text" ? "secondary" : "outline"}
-            onClick={() => setViewMode("text")}
-            className="gap-1"
-            title="仅文本"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "split" ? "secondary" : "outline"}
-            onClick={() => setViewMode("split")}
-            className="gap-1"
-            title="文本 + 图表分屏"
-          >
-            <SplitSquareHorizontal className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "chart" ? "secondary" : "outline"}
-            onClick={() => setViewMode("chart")}
-            className="gap-1"
-            title="仅图表"
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {viewMode === "split" && (
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant={splitOrientation === "vertical" ? "secondary" : "outline"}
-              onClick={() => setSplitOrientation("vertical")}
-              className="px-2 text-xs"
-              title="上下分屏"
-            >
-              上下
-            </Button>
-            <Button
-              size="sm"
-              variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
-              onClick={() => setSplitOrientation("horizontal")}
-              className="px-2 text-xs"
-              title="左右分屏"
-            >
-              左右
-            </Button>
-          </div>
-        )}
-      </ToolbarGroup>
-
-      <ToolbarGroup label="分析">
+      ) : (
         <Button
           size="sm"
-          variant={chartConfig.enabled ? "secondary" : "outline"}
-          onClick={handleSmartEnableChart}
-          disabled={lines.length === 0}
-          className="gap-1"
-          title="智能检测数据格式并自动配置图表"
+          variant="outline"
+          onClick={handleRttDisconnect}
+          className="gap-1 border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-500"
         >
-          <Sparkles className="h-3.5 w-3.5" />
-          智能启用
+          <Unlink className="h-3.5 w-3.5" />
+          断开 RTT
         </Button>
+      )}
 
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={
-              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "time" ? "secondary" : "outline"
-            }
-            onClick={() => activateSignalWorkspace("time")}
-            className="gap-1"
-            title="直接进入波形示波器"
-          >
-            <Waves className="h-3.5 w-3.5" />
-            波形
-          </Button>
-          <Button
-            size="sm"
-            variant={
-              chartConfig.chartType === "waveform" && chartConfig.signalDomain === "fft" ? "secondary" : "outline"
-            }
-            onClick={() => activateSignalWorkspace("fft")}
-            className="gap-1"
-            title="直接进入 FFT 频谱"
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            FFT
-          </Button>
-        </div>
-      </ToolbarGroup>
+      {!isRunning ? (
+        <Button
+          size="sm"
+          onClick={handleStart}
+          disabled={!rttConnected}
+          className="gap-1 bg-green-600 text-white hover:bg-green-700"
+        >
+          <Play className="h-3.5 w-3.5" />
+          启动
+        </Button>
+      ) : (
+        <Button size="sm" variant="destructive" onClick={handleStop} className="gap-1">
+          <Square className="h-3.5 w-3.5" />
+          停止
+        </Button>
+      )}
+
+      <Button size="sm" variant="outline" onClick={handleTogglePause} disabled={!isRunning} className="gap-1">
+        {isPaused ? <RotateCcw className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+        {isPaused ? "继续" : "暂停"}
+      </Button>
+
+      <Button size="sm" variant="outline" onClick={handleClear} className="gap-1">
+        <Trash2 className="h-3.5 w-3.5" />
+        清空
+      </Button>
+
+      <div className="mx-1 h-6 w-px bg-border" />
+      <div className="flex gap-1">
+        <Button
+          size="sm"
+          variant={viewMode === "text" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("text")}
+          title="仅文本"
+        >
+          <FileText className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "split" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("split")}
+          title="文本 + 图表分屏"
+        >
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === "chart" ? "secondary" : "ghost"}
+          onClick={() => setViewMode("chart")}
+          title="仅图表"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <div className="relative w-40 sm:w-48">
@@ -489,7 +406,50 @@ export function RttToolbar() {
             <div className="space-y-3">
               <div>
                 <div className="text-sm font-medium text-foreground">更多操作</div>
-                <div className="text-xs text-muted-foreground">显示选项、图表设置和导出都在这里。</div>
+                <div className="text-xs text-muted-foreground">分析、显示、配置和导出都在这里。</div>
+              </div>
+
+              <div className="space-y-2.5 rounded-[12px] border border-border/60 bg-muted/20 p-3">
+                <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">工作流</div>
+                <div className="flex flex-wrap gap-2">
+                  <RttIntegrationGuideDialog />
+                  <Button
+                    size="sm"
+                    variant={chartConfig.enabled ? "secondary" : "outline"}
+                    onClick={handleSmartEnableChart}
+                    disabled={lines.length === 0}
+                    className="gap-1"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    智能启用
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("time")} className="gap-1">
+                    <Waves className="h-3.5 w-3.5" />
+                    波形
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("fft")} className="gap-1">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    FFT
+                  </Button>
+                </div>
+                {viewMode === "split" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "vertical" ? "secondary" : "outline"}
+                      onClick={() => setSplitOrientation("vertical")}
+                    >
+                      上下分屏
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
+                      onClick={() => setSplitOrientation("horizontal")}
+                    >
+                      左右分屏
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
@@ -561,15 +521,6 @@ export function RttToolbar() {
           </PopoverContent>
         </Popover>
       </div>
-    </div>
-  );
-}
-
-function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border/60 bg-white/58 px-2 py-1.5">
-      <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
-      {children}
     </div>
   );
 }

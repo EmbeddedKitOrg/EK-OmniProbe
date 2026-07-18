@@ -5,7 +5,7 @@ import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode } from "./comp
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
@@ -40,6 +40,8 @@ function App() {
 }
 
 function MainApp() {
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorWidth, setInspectorWidth] = useState(288);
   const addLog = useLogStore((state) => state.addLog);
   const connected = useProbeStore((s) => s.connected);
   const autoDisconnect = useProbeStore((s) => s.autoDisconnect);
@@ -172,6 +174,18 @@ function MainApp() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  useEffect(() => {
+    const focusInspector = () => {
+      setInspectorOpen(true);
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(".ide-inspector input, .ide-inspector button")?.focus();
+      });
+    };
+
+    window.addEventListener("focus-inspector", focusInspector);
+    return () => window.removeEventListener("focus-inspector", focusInspector);
+  }, []);
+
   // Auto-disconnect logic
   useEffect(() => {
     // If auto-disconnect is disabled, not connected, or RTT is running, don't auto-disconnect
@@ -223,9 +237,12 @@ function MainApp() {
           <ModeSwitch orientation="vertical" className="mt-2" />
         </aside>
 
-        <TopBar />
+        <TopBar inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
 
-        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_18rem] gap-2 overflow-hidden">
+        <div
+          className="grid min-h-0 overflow-hidden"
+          style={{ gridTemplateColumns: inspectorOpen ? `minmax(0, 1fr) 8px ${inspectorWidth}px` : "minmax(0, 1fr)" }}
+        >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
             <div key={mode} className="mode-stage h-full">
               {mode === "flash" && <FlashMode />}
@@ -236,9 +253,34 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="ide-inspector min-h-0 overflow-hidden">
-            {mode === "serial" ? <SerialSidebar /> : mode === "bluetooth" ? <BleSidebar /> : <Sidebar />}
-          </div>
+          {inspectorOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="调整配置检查器宽度"
+                className="group flex h-full cursor-col-resize items-center justify-center bg-transparent"
+                onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+                onPointerMove={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    setInspectorWidth(Math.min(440, Math.max(240, window.innerWidth - event.clientX - 12)));
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    setInspectorWidth((width) =>
+                      Math.min(440, Math.max(240, width + (event.key === "ArrowLeft" ? 16 : -16)))
+                    );
+                  }
+                }}
+              >
+                <span className="h-10 w-px bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+              </button>
+              <div className="ide-inspector min-h-0 min-w-0 overflow-hidden">
+                {mode === "serial" ? <SerialSidebar /> : mode === "bluetooth" ? <BleSidebar /> : <Sidebar />}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

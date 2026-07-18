@@ -212,7 +212,7 @@ textarea:focus {
   border-radius: 14px;
 }
 
-.ide-inspector .surface-card {
+.ide-workbench .ide-inspector .surface-card {
   border-width: 0 0 1px;
   border-radius: 0;
   background: transparent;
