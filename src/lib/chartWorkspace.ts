@@ -1,6 +1,12 @@
 import type { ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
 
-export type ChartWorkspaceSource = "rtt" | "serial";
+export const CHART_WORKSPACE_SOURCES = ["rtt", "serial", "bluetooth"] as const;
+
+export type ChartWorkspaceSource = (typeof CHART_WORKSPACE_SOURCES)[number];
+
+export function isChartWorkspaceSource(value: string | null): value is ChartWorkspaceSource {
+  return CHART_WORKSPACE_SOURCES.some((source) => source === value);
+}
 
 export interface ChartWorkspaceSnapshot {
   source: ChartWorkspaceSource;
@@ -46,5 +52,7 @@ export function getChartWorkspaceWindowLabel(source: ChartWorkspaceSource) {
 }
 
 export function getChartWorkspaceWindowTitle(source: ChartWorkspaceSource) {
-  return source === "rtt" ? "RTT 图表工作台" : "串口图表工作台";
+  if (source === "rtt") return "RTT 图表工作台";
+  if (source === "serial") return "串口图表工作台";
+  return "蓝牙图表工作台";
 }

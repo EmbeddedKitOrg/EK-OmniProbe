@@ -9,6 +9,8 @@ import { Activity, AlertCircle, FileText, Plug2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ComponentType, ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
+import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
 
 interface BluetoothPanelProps {
   className?: string;
@@ -79,6 +81,12 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
   );
 
   const isVerticalSplit = splitOrientation === "vertical";
+  const {
+    detached: chartDetached,
+    openDetachedWindow,
+    focusDetachedWindow,
+    restoreInline,
+  } = useChartWorkspaceControls("bluetooth");
 
   if (connectionMode === "spp") {
     return (
@@ -136,8 +144,20 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
             title="图表区"
             subtitle="波形、FFT 与趋势图。"
             badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
+            actions={
+              <ChartWindowActions
+                detached={chartDetached}
+                onDetach={openDetachedWindow}
+                onFocus={focusDetachedWindow}
+                onRestore={restoreInline}
+              />
+            }
           >
-            <BleChartViewer />
+            {chartDetached ? (
+              <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
+            ) : (
+              <BleChartViewer />
+            )}
           </PanelShell>
         ) : (
           <Group orientation={splitOrientation}>
@@ -161,8 +181,20 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
                   title="图表区"
                   subtitle="波形、FFT 与趋势图。"
                   badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
+                  actions={
+                    <ChartWindowActions
+                      detached={chartDetached}
+                      onDetach={openDetachedWindow}
+                      onFocus={focusDetachedWindow}
+                      onRestore={restoreInline}
+                    />
+                  }
                 >
-                  <BleChartViewer />
+                  {chartDetached ? (
+                    <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
+                  ) : (
+                    <BleChartViewer />
+                  )}
                 </PanelShell>
               </div>
             </Panel>
@@ -205,6 +237,7 @@ interface PanelShellProps {
   title: string;
   subtitle: string;
   badge: string;
+  actions?: ReactNode;
   children: ReactNode;
 }
 
@@ -240,7 +273,7 @@ function SppGuidanceCard() {
   );
 }
 
-function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
+function PanelShell({ title, subtitle, badge, actions, children }: PanelShellProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-white/75 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
@@ -248,9 +281,12 @@ function PanelShell({ title, subtitle, badge, children }: PanelShellProps) {
           <div className="text-sm font-medium text-foreground">{title}</div>
           <div className="text-xs text-muted-foreground">{subtitle}</div>
         </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-          {badge}
-        </span>
+        <div className="flex items-center gap-2">
+          {actions}
+          <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
+            {badge}
+          </span>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
     </div>

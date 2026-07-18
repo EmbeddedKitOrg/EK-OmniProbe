@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeftRight, MonitorUp, X } from "lucide-react";
 import { ChartViewer } from "./ChartViewer";
 import type { ChartWorkspaceSnapshot, ChartWorkspaceSource } from "@/lib/chartWorkspace";
-import { CHART_WORKSPACE_SNAPSHOT_EVENT } from "@/lib/chartWorkspace";
+import { CHART_WORKSPACE_SNAPSHOT_EVENT, getChartWorkspaceWindowTitle } from "@/lib/chartWorkspace";
 import { dispatchChartWorkspaceAction, notifyChartWorkspaceReady } from "@/hooks/useChartWorkspaceHost";
 
 interface ChartWorkspaceWindowPageProps {
@@ -77,7 +77,7 @@ export function ChartWorkspaceWindowPage({ source }: ChartWorkspaceWindowPagePro
       <div className="flex items-center justify-between rounded-[26px] border border-border/60 bg-white/72 px-4 py-3 shadow-[0_12px_26px_rgba(73,93,142,0.08)] backdrop-blur">
         <div>
           <div className="text-sm font-medium text-foreground">
-            {snapshot?.title ?? (source === "rtt" ? "RTT 图表工作台" : "串口图表工作台")}
+            {snapshot?.title ?? getChartWorkspaceWindowTitle(source)}
           </div>
           <div className="text-[11px] text-muted-foreground">
             {snapshot?.subtitle ?? "独立窗口模式。主窗口继续负责接收与状态同步。"}
@@ -130,9 +130,7 @@ export function ChartWorkspaceWindowPage({ source }: ChartWorkspaceWindowPagePro
             <div className="space-y-2 text-center">
               <MonitorUp className="mx-auto h-7 w-7 text-muted-foreground" />
               <div className="text-sm font-medium text-foreground">等待主窗口同步图表工作台…</div>
-              <div className="text-xs text-muted-foreground">
-                保持 RTT / 串口工作台开启，独立窗口会自动接收当前图表状态。
-              </div>
+              <div className="text-xs text-muted-foreground">保持主窗口开启，独立窗口会自动接收当前图表状态。</div>
             </div>
           </div>
         )}

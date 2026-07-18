@@ -10,6 +10,7 @@ export const useChartWorkspaceStore = create<ChartWorkspaceState>((set) => ({
   detached: {
     rtt: false,
     serial: false,
+    bluetooth: false,
   },
 
   setDetached: (source, detached) =>

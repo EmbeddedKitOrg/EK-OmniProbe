@@ -20,16 +20,18 @@ import { useThemeStore } from "./stores/themeStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
 import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
-import type { ChartWorkspaceSource } from "./lib/chartWorkspace";
+import { isChartWorkspaceSource, type ChartWorkspaceSource } from "./lib/chartWorkspace";
 import { Cpu } from "lucide-react";
+import { useRttEvents } from "./hooks/useRttEvents";
+import { useSerialEvents } from "./hooks/useSerialEvents";
+import { useBluetoothEvents } from "./hooks/useBluetoothEvents";
+import { useChartWorkspaceHost } from "./hooks/useChartWorkspaceHost";
+import { useShallow } from "zustand/react/shallow";
 
 function App() {
   const popupSource = useMemo(() => {
     const value = new URLSearchParams(window.location.search).get("chart_workspace");
-    if (value === "rtt" || value === "serial") {
-      return value as ChartWorkspaceSource;
-    }
-    return null;
+    return isChartWorkspaceSource(value) ? value : null;
   }, []);
 
   if (popupSource) {
@@ -40,6 +42,10 @@ function App() {
 }
 
 function MainApp() {
+  useRttEvents();
+  useSerialEvents();
+  useBluetoothEvents();
+
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorWidth, setInspectorWidth] = useState(288);
   const addLog = useLogStore((state) => state.addLog);
@@ -219,6 +225,7 @@ function MainApp() {
 
   return (
     <div className="app-shell relative h-screen overflow-hidden text-foreground">
+      <ChartWorkspaceHosts />
       {backgroundImageUrl && (
         <div
           className="app-background-image"
@@ -288,6 +295,136 @@ function MainApp() {
       <UdevPermissionDialog />
     </div>
   );
+}
+
+function ChartWorkspaceHosts() {
+  return (
+    <>
+      <RttChartWorkspaceHost />
+      <SerialChartWorkspaceHost />
+      <BluetoothChartWorkspaceHost />
+    </>
+  );
+}
+
+function RttChartWorkspaceHost() {
+  const {
+    chartData,
+    chartConfig,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  } = useRttStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
+  const snapshot = useMemo(
+    () => ({
+      source: "rtt" as const,
+      title: "RTT 图表工作台",
+      subtitle: "波形、FFT、字段管理与缓冲控制。",
+      chartData,
+      chartConfig,
+      chartPaused,
+      parseSuccessCount,
+      parseFailCount,
+    }),
+    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount]
+  );
+
+  useChartWorkspaceHost({ source: "rtt", snapshot, setChartPaused, clearChartData, setChartConfig });
+  return null;
+}
+
+function SerialChartWorkspaceHost() {
+  const {
+    chartData,
+    chartConfig,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  } = useSerialStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
+  const snapshot = useMemo(
+    () => ({
+      source: "serial" as const,
+      title: "串口图表工作台",
+      subtitle: "波形、FFT、字段管理与缓冲控制。",
+      chartData,
+      chartConfig,
+      chartPaused,
+      parseSuccessCount,
+      parseFailCount,
+    }),
+    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount]
+  );
+
+  useChartWorkspaceHost({ source: "serial", snapshot, setChartPaused, clearChartData, setChartConfig });
+  return null;
+}
+
+function BluetoothChartWorkspaceHost() {
+  const {
+    chartData,
+    chartConfig,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  } = useBluetoothStore(
+    useShallow((state) => ({
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
+  const snapshot = useMemo(
+    () => ({
+      source: "bluetooth" as const,
+      title: "蓝牙图表工作台",
+      subtitle: "BLE 波形、FFT、字段管理与缓冲控制。",
+      chartData,
+      chartConfig,
+      chartPaused,
+      parseSuccessCount,
+      parseFailCount,
+    }),
+    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount]
+  );
+
+  useChartWorkspaceHost({ source: "bluetooth", snapshot, setChartPaused, clearChartData, setChartConfig });
+  return null;
 }
 
 function ChartWorkspacePopupApp({ source }: { source: ChartWorkspaceSource }) {
