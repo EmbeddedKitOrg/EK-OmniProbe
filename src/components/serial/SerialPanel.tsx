@@ -8,7 +8,6 @@ import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
 import { Activity, AlertCircle, FileText } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
@@ -277,14 +276,6 @@ function PanelHintCard({ icon: Icon, title, description }: PanelHintCardProps) {
       </div>
       <span className="font-medium text-foreground">{title}</span>
       <span className="min-w-0 flex-1 text-xs text-muted-foreground">{description}</span>
-      <Button
-        size="sm"
-        variant="outline"
-        className="shrink-0"
-        onClick={() => window.dispatchEvent(new Event("focus-inspector"))}
-      >
-        打开配置
-      </Button>
     </div>
   );
 }

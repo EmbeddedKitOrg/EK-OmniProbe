@@ -140,6 +140,30 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   animationEnabled: true,
 };
 
+export function isSignalWorkspaceActive(viewMode: ViewMode, config: ChartConfig, domain: SignalDomain): boolean {
+  return viewMode !== "text" && config.enabled && config.chartType === "waveform" && config.signalDomain === domain;
+}
+
+export function getSignalWorkspaceTransition(
+  viewMode: ViewMode,
+  config: ChartConfig,
+  domain: SignalDomain
+): { viewMode: ViewMode; chartConfig: ChartConfig } {
+  if (isSignalWorkspaceActive(viewMode, config, domain)) {
+    return { viewMode: "text", chartConfig: config };
+  }
+
+  return {
+    viewMode: viewMode === "text" ? "split" : viewMode,
+    chartConfig: {
+      ...config,
+      enabled: true,
+      chartType: "waveform",
+      signalDomain: domain,
+    },
+  };
+}
+
 /**
  * 预设颜色列表（用于自动分配通道颜色）
  */

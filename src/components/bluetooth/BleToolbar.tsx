@@ -1,7 +1,11 @@
 import { useBluetoothStore } from "@/stores/bluetoothStore";
+import { useLogStore } from "@/stores/logStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
+import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
+import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import {
   Trash2,
   Search,
@@ -9,13 +13,14 @@ import {
   Binary,
   SplitSquareHorizontal,
   BarChart3,
-  Waves,
   Pause,
   Play,
   SlidersHorizontal,
+  Sparkles,
+  Settings2,
 } from "lucide-react";
-import type { SignalDomain } from "@/lib/chartTypes";
 import { useShallow } from "zustand/react/shallow";
+import { useState } from "react";
 
 export function BleToolbar() {
   const {
@@ -26,6 +31,7 @@ export function BleToolbar() {
     splitOrientation,
     chartConfig,
     chartPaused,
+    lines,
     setAutoScroll,
     setSearchQuery,
     setDisplayMode,
@@ -44,6 +50,7 @@ export function BleToolbar() {
       splitOrientation: state.splitOrientation,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
+      lines: state.lines,
       setAutoScroll: state.setAutoScroll,
       setSearchQuery: state.setSearchQuery,
       setDisplayMode: state.setDisplayMode,
@@ -56,9 +63,26 @@ export function BleToolbar() {
     }))
   );
 
-  const setSignalDomain = (domain: SignalDomain) => {
-    setChartConfig({ ...chartConfig, enabled: true, signalDomain: domain });
-    if (viewMode === "text") setViewMode("chart");
+  const addLog = useLogStore((state) => state.addLog);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [chartConfigOpen, setChartConfigOpen] = useState(false);
+
+  const handleSmartEnableChart = () => {
+    const samples = lines.filter((line) => line.direction === "rx").slice(-20);
+    if (samples.length === 0) {
+      addLog("warn", "没有 BLE 数据可分析，请先接收一些数据");
+      return;
+    }
+
+    const result = detectDataFormat(samples.map((line) => line.text));
+    if (result.confidence < 0.5) {
+      addLog("warn", `无法识别 BLE 数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
+      return;
+    }
+
+    setChartConfig(applyAutoConfig(chartConfig, result));
+    if (viewMode === "text") setViewMode("split");
+    addLog("success", result.description);
   };
 
   return (
@@ -99,60 +123,72 @@ export function BleToolbar() {
         清空
       </Button>
 
-      <Popover>
+      <Popover open={moreOpen} onOpenChange={setMoreOpen}>
         <PopoverTrigger asChild>
           <Button size="sm" variant="outline" className="gap-1">
             <SlidersHorizontal className="h-3.5 w-3.5" />
             更多
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-[300px] rounded-[14px] border-border/70 p-3">
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="max-h-[calc(100vh-7rem)] w-[340px] overflow-y-auto overscroll-contain rounded-[24px] border-border/70 p-3"
+        >
           <div className="space-y-3">
             <div>
               <div className="text-sm font-medium text-foreground">更多操作</div>
-              <div className="text-xs text-muted-foreground">分析和显示选项集中在这里。</div>
+              <div className="text-xs text-muted-foreground">分析、布局、显示和配置集中在这里。</div>
             </div>
 
-            <div className="space-y-2.5 rounded-[12px] border border-border/60 bg-muted/20 p-3">
-              <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">分析</div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setSignalDomain("time")} className="gap-1">
-                  <Waves className="h-3.5 w-3.5" />
-                  波形
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setSignalDomain("fft")} className="gap-1">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  FFT
-                </Button>
+            <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
+              <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">工作流</div>
+              <SignalWorkspaceControls
+                chartConfig={chartConfig}
+                viewMode={viewMode}
+                splitOrientation={splitOrientation}
+                setChartConfig={setChartConfig}
+                setViewMode={setViewMode}
+                setSplitOrientation={setSplitOrientation}
+                leadingActions={
+                  <Button
+                    size="sm"
+                    variant={chartConfig.enabled ? "secondary" : "outline"}
+                    onClick={handleSmartEnableChart}
+                    disabled={lines.length === 0}
+                    className="gap-1"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    智能启用
+                  </Button>
+                }
+                onToggle={(domain, closing) =>
+                  addLog(
+                    "info",
+                    closing
+                      ? "已收起 BLE 图表，继续在后台解析数据"
+                      : domain === "fft"
+                        ? "已打开 BLE FFT 频谱"
+                        : "已打开 BLE 时域波形"
+                  )
+                }
+              >
                 {viewMode !== "text" && (
-                  <Button size="sm" variant="outline" onClick={() => setChartPaused(!chartPaused)} className="gap-1">
+                  <Button
+                    size="sm"
+                    variant={chartPaused ? "secondary" : "outline"}
+                    onClick={() => setChartPaused(!chartPaused)}
+                    className="gap-1"
+                  >
                     {chartPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
                     {chartPaused ? "继续" : "暂停"}
                   </Button>
                 )}
-              </div>
-              {viewMode === "split" && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={splitOrientation === "vertical" ? "secondary" : "outline"}
-                    onClick={() => setSplitOrientation("vertical")}
-                  >
-                    上下分屏
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
-                    onClick={() => setSplitOrientation("horizontal")}
-                  >
-                    左右分屏
-                  </Button>
-                </div>
-              )}
+              </SignalWorkspaceControls>
             </div>
 
-            <div className="space-y-2.5 rounded-[12px] border border-border/60 bg-muted/20 p-3">
-              <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">显示</div>
+            <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
+              <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">查看</div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -172,9 +208,37 @@ export function BleToolbar() {
                 </Button>
               </div>
             </div>
+
+            <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
+              <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => {
+                  setMoreOpen(false);
+                  setChartConfigOpen(true);
+                }}
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                图表配置
+              </Button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>
+      <ChartConfigDialog
+        chartConfig={chartConfig}
+        setChartConfig={setChartConfig}
+        title="BLE 图表配置"
+        samples={lines
+          .filter((line) => line.direction === "rx")
+          .slice(-20)
+          .map(({ text, rawData }) => ({ text, rawData }))}
+        open={chartConfigOpen}
+        onOpenChange={setChartConfigOpen}
+        trigger={null}
+      />
     </div>
   );
 }

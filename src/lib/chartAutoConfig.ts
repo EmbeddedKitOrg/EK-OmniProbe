@@ -4,6 +4,8 @@
 
 import type { ChartConfig, Channel } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
+import { parseChartData } from "./parseChartData";
+import { parseJustFloatChunk } from "./parseJustFloat";
 
 /**
  * 检测结果
@@ -19,6 +21,11 @@ export interface DetectionResult {
   confidence: number;
   /** 说明 */
   description: string;
+}
+
+export interface ChartSample {
+  text: string;
+  rawData?: number[];
 }
 
 const KV_DETECT_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
@@ -492,6 +499,96 @@ export function applyAutoConfig(currentConfig: ChartConfig, detectionResult: Det
     ...currentConfig,
     ...detectionResult.suggestedConfig,
   };
+}
+
+/**
+ * 通道为空时，用当前缓冲区样本预建通道；已有通道始终保留。
+ */
+export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: ChartSample[]): ChartConfig {
+  if (config.channels.length > 0 || samples.length === 0) return config;
+
+  if (config.parseMode === "auto") {
+    const detection = detectDataFormat(samples.map((sample) => sample.text));
+    const channels = detection.suggestedConfig.channels;
+    if (detection.confidence < 0.5 || !channels?.length) return config;
+
+    return {
+      ...config,
+      parseMode: detection.suggestedConfig.parseMode ?? config.parseMode,
+      delimiter: detection.suggestedConfig.delimiter ?? config.delimiter,
+      chartType: detection.suggestedConfig.chartType ?? config.chartType,
+      channels,
+    };
+  }
+
+  const channels =
+    config.parseMode === "delimiter"
+      ? channelsFromDelimiter(samples, config.delimiter)
+      : config.parseMode === "justfloat"
+        ? channelsFromJustFloat(samples)
+        : channelsFromConfiguredParser(config, samples);
+
+  return channels.length > 0 ? { ...config, channels } : config;
+}
+
+function channelsFromConfiguredParser(config: ChartConfig, samples: ChartSample[]): Channel[] {
+  const keys = new Set<string>();
+  const parseConfig = { ...config, enabled: true, channels: [] };
+
+  for (const sample of samples) {
+    const result = parseChartData(sample.text, parseConfig);
+    if (!result.success || !result.dataPoint) continue;
+    Object.keys(result.dataPoint.values).forEach((key) => keys.add(key));
+  }
+
+  return Array.from(keys, (key, index) => buildYChannel(key, index));
+}
+
+function channelsFromDelimiter(samples: ChartSample[], delimiter: string): Channel[] {
+  if (!delimiter) return [];
+
+  const numericCounts: number[] = [];
+  let lineCount = 0;
+  for (const { text } of samples) {
+    if (!text.trim()) continue;
+    lineCount += 1;
+    text.split(delimiter).forEach((value, index) => {
+      if (value.trim() !== "" && Number.isFinite(Number(value.trim()))) {
+        numericCounts[index] = (numericCounts[index] ?? 0) + 1;
+      }
+    });
+  }
+
+  const threshold = Math.max(1, Math.ceil(lineCount / 2));
+  return numericCounts.flatMap((count, index) =>
+    count >= threshold
+      ? [
+          {
+            ...buildYChannel(`field${index + 1}`, index),
+            sourceIndex: index,
+            name: `字段${index + 1}`,
+          },
+        ]
+      : []
+  );
+}
+
+function channelsFromJustFloat(samples: ChartSample[]): Channel[] {
+  let pending: number[] = [];
+  for (const { rawData } of samples) {
+    if (!rawData?.length) continue;
+    const result = parseJustFloatChunk(rawData, pending);
+    pending = result.pending;
+    const count = result.frames[0]?.length ?? 0;
+    if (count > 0) {
+      return Array.from({ length: count }, (_, index) => ({
+        ...buildYChannel(`ch${index + 1}`, index),
+        sourceIndex: index,
+        name: `通道 ${index + 1}`,
+      }));
+    }
+  }
+  return [];
 }
 
 function buildYChannel(key: string, index: number): Channel {
