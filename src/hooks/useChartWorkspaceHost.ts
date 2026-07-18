@@ -21,6 +21,29 @@ interface UseChartWorkspaceHostOptions {
   setChartConfig: (config: ChartWorkspaceSnapshot["chartConfig"]) => void;
 }
 
+interface ChartWorkspaceControls {
+  openDetachedWindow: () => void | Promise<void>;
+  focusDetachedWindow: () => void | Promise<void>;
+  restoreInline: () => void | Promise<void>;
+}
+
+const chartWorkspaceControls = new Map<ChartWorkspaceSource, ChartWorkspaceControls>();
+
+export function useChartWorkspaceControls(source: ChartWorkspaceSource) {
+  const detached = useChartWorkspaceStore((state) => state.detached[source]);
+  const invoke = useCallback(
+    (action: keyof ChartWorkspaceControls) => chartWorkspaceControls.get(source)?.[action](),
+    [source]
+  );
+
+  return {
+    detached,
+    openDetachedWindow: () => invoke("openDetachedWindow"),
+    focusDetachedWindow: () => invoke("focusDetachedWindow"),
+    restoreInline: () => invoke("restoreInline"),
+  };
+}
+
 export function useChartWorkspaceHost({
   source,
   snapshot,
@@ -73,7 +96,7 @@ export function useChartWorkspaceHost({
       await existing.unminimize().catch(() => undefined);
       await existing.show().catch(() => undefined);
       await existing.setFocus().catch(() => undefined);
-      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot).catch(() => undefined);
+      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
       return;
     }
 
@@ -98,7 +121,7 @@ export function useChartWorkspaceHost({
       openingRef.current = false;
       debugLog("独立窗口创建成功");
       setDetached(source, true);
-      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot).catch(() => undefined);
+      await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
     });
 
     void popup.once("tauri://error", (event) => {
@@ -110,7 +133,7 @@ export function useChartWorkspaceHost({
       setDetached(source, false);
       debugError(`独立窗口创建失败: ${String(event.payload)}`);
     });
-  }, [debugError, debugLog, setDetached, snapshot, source, windowLabel]);
+  }, [debugError, debugLog, setDetached, source, windowLabel]);
 
   // 独立窗口的推送节奏使用 chartConfig.updateInterval（配置弹窗“刷新间隔”），
   // 这样用户能自行调节；只依赖这个数值而不是整个 snapshot，避免数据到达
@@ -180,15 +203,22 @@ export function useChartWorkspaceHost({
     await popup.unminimize().catch(() => undefined);
     await popup.show().catch(() => undefined);
     await popup.setFocus().catch(() => undefined);
-    await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshot).catch(() => undefined);
-  }, [debugError, debugLog, snapshot, windowLabel]);
+    await emitTo(windowLabel, CHART_WORKSPACE_SNAPSHOT_EVENT, snapshotRef.current).catch(() => undefined);
+  }, [debugError, debugLog, windowLabel]);
 
-  return {
-    detached,
-    openDetachedWindow,
-    focusDetachedWindow,
-    restoreInline,
-  };
+  const controls = useMemo(
+    () => ({ openDetachedWindow, focusDetachedWindow, restoreInline }),
+    [focusDetachedWindow, openDetachedWindow, restoreInline]
+  );
+
+  useEffect(() => {
+    chartWorkspaceControls.set(source, controls);
+    return () => {
+      if (chartWorkspaceControls.get(source) === controls) {
+        chartWorkspaceControls.delete(source);
+      }
+    };
+  }, [controls, source]);
 }
 
 export async function notifyChartWorkspaceReady(source: ChartWorkspaceSource) {
