@@ -151,37 +151,31 @@ textarea:focus {
 
 .surface-shell {
   border: 1px solid hsl(var(--border) / 0.55);
-  background: var(--surface-0);
-  box-shadow: var(--shadow-1);
-  backdrop-filter: blur(20px);
+  background: var(--surface-1);
+  box-shadow: 0 4px 14px rgba(73, 93, 142, 0.08);
 }
 
 .surface-strong {
   border: 1px solid hsl(var(--border) / 0.6);
   background: var(--surface-1);
-  box-shadow: var(--shadow-2);
-  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 14px rgba(73, 93, 142, 0.08);
 }
 
 .surface-sidebar {
   border: 1px solid hsl(var(--border) / 0.55);
-  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
-  box-shadow: var(--shadow-1);
-  backdrop-filter: blur(18px);
+  background: var(--surface-1);
+  box-shadow: 0 4px 14px rgba(73, 93, 142, 0.08);
 }
 
 .surface-card {
   border: 1px solid hsl(var(--border) / 0.6);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(249, 251, 255, 0.76) 100%);
-  box-shadow:
-    0 16px 34px rgba(73, 93, 142, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(18px);
+  background: var(--surface-1);
+  box-shadow: 0 2px 8px rgba(73, 93, 142, 0.06);
 }
 
 .surface-control {
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 8px 18px rgba(73, 93, 142, 0.08);
+  background: var(--surface-1);
+  box-shadow: 0 1px 4px rgba(73, 93, 142, 0.06);
 }
 
 .mode-stage {
@@ -203,20 +197,83 @@ textarea:focus {
   filter: blur(18px);
 }
 
+.status-chip {
+  border: 1px solid hsl(var(--border) / 0.55);
+  border-radius: 999px;
+  background: var(--toolbar-chip-bg);
+  padding: 0.375rem 0.625rem;
+  box-shadow: 0 2px 8px rgba(73, 93, 142, 0.08);
+}
+
+.ide-inspector > aside {
+  width: 100%;
+  height: 100%;
+  padding: 0.75rem;
+  border-radius: 14px;
+}
+
+.ide-inspector .surface-card {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ide-workbench .surface-shell,
+.ide-workbench .surface-sidebar,
+.ide-workbench .surface-strong {
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(57, 75, 119, 0.1);
+}
+
+.ide-workbench .surface-card {
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(73, 93, 142, 0.08);
+}
+
+.ide-workbench [class*="bg-white/"] {
+  background: var(--surface-1);
+}
+
+.ide-workbench [class*="shadow-["] {
+  box-shadow: none;
+}
+
+.ide-workbench [class*="backdrop-blur"] {
+  backdrop-filter: none;
+}
+
+.ide-workbench button.rounded-full,
+.ide-workbench input.rounded-full {
+  border-radius: 8px;
+}
+
+.ide-workbench .mode-stack::before {
+  display: none;
+}
+
+.ide-workbench .rounded-\[20px\],
+.ide-workbench .rounded-\[24px\],
+.ide-workbench .rounded-\[28px\],
+.ide-workbench .rounded-\[30px\],
+.ide-workbench .rounded-\[32px\],
+.ide-workbench .rounded-\[34px\],
+.ide-workbench .rounded-\[36px\] {
+  border-radius: 12px;
+}
+
 .toolbar-chip {
   border: 1px solid hsl(var(--border) / 0.55);
   background: var(--toolbar-chip-bg);
   border-radius: 999px;
-  box-shadow: var(--toolbar-chip-shadow);
+  box-shadow: none;
 }
 
 .toolbar-chip-strong {
   border: 1px solid hsl(var(--border) / 0.64);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.86) 100%);
-  border-radius: 18px;
-  box-shadow:
-    0 10px 24px rgba(73, 93, 142, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  background: var(--surface-1);
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .workspace-summary {
@@ -236,13 +293,9 @@ textarea:focus {
   position: relative;
   overflow-x: hidden;
   border: 1px solid hsl(var(--border) / 0.9);
-  background-color: rgba(251, 252, 255, 0.985);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.998) 0%, rgba(246, 249, 255, 0.985) 100%);
-  box-shadow:
-    0 42px 120px rgba(34, 48, 79, 0.24),
-    0 18px 42px rgba(88, 106, 147, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px) saturate(1.02);
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: 0 24px 70px rgba(34, 48, 79, 0.22);
 }
 
 .glass-dialog > * {
@@ -251,45 +304,23 @@ textarea:focus {
 }
 
 .glass-dialog::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  z-index: 0;
-  height: 88px;
-  background:
-    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.56), transparent 44%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
-  pointer-events: none;
+  display: none;
 }
 
 .glass-dialog::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 1px;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  pointer-events: none;
+  display: none;
 }
 
 .glass-card {
   position: relative;
   overflow: hidden;
   border: 1px solid hsl(var(--border) / 0.72);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 255, 0.84) 100%);
-  box-shadow:
-    0 16px 34px rgba(72, 92, 140, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px) saturate(1.04);
+  background: var(--surface-1);
+  box-shadow: 0 2px 8px rgba(72, 92, 140, 0.07);
 }
 
 .glass-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 72px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0));
-  pointer-events: none;
+  display: none;
 }
 
 .glass-card-active {
@@ -311,20 +342,14 @@ textarea:focus {
 
 .glass-section {
   border: 1px solid hsl(var(--border) / 0.68);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(247, 250, 255, 0.82) 100%);
-  box-shadow:
-    0 10px 24px rgba(72, 92, 140, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(10px);
+  background: var(--surface-1);
+  box-shadow: none;
 }
 
 .glass-section-strong {
   border: 1px solid hsl(var(--border) / 0.74);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.9) 100%);
-  box-shadow:
-    0 14px 28px rgba(72, 92, 140, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
+  background: var(--surface-1);
+  box-shadow: 0 2px 8px rgba(72, 92, 140, 0.07);
 }
 
 @keyframes mode-stage-enter {

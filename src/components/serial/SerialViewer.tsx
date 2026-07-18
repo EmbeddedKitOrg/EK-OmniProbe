@@ -193,7 +193,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
   // Empty state message based on direction
   const getEmptyMessage = () => {
     if (!connected) {
-      return "请在左侧连接串口";
+      return "请在右侧配置检查器连接串口";
     }
     if (!running) {
       return "点击「开始」接收串口数据";

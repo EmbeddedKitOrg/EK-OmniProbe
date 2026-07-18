@@ -68,7 +68,10 @@ export function FlashMode() {
 
   return (
     <div
-      className={cn("h-full flex flex-col overflow-hidden relative", isDragging && "ring-2 ring-primary ring-inset")}
+      className={cn(
+        "surface-strong relative flex h-full flex-col gap-2 overflow-hidden rounded-[14px] p-2",
+        isDragging && "ring-2 ring-primary ring-inset"
+      )}
     >
       {/* Drag overlay */}
       {isDragging && (

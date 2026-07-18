@@ -37,6 +37,7 @@ const workspaceOptions: Array<{ value: AppMode; label: string }> = [
   { value: "rtt", label: "RTT 工作台" },
   { value: "serial", label: "串口工作台" },
   { value: "bluetooth", label: "蓝牙工作台" },
+  { value: "debug", label: "调试工作台" },
 ];
 
 const viewModeOptions: Array<{ value: ViewMode; label: string }> = [
@@ -61,7 +62,7 @@ const quickActions = [
   },
   {
     title: "快捷键",
-    description: "Ctrl+1 烧录，Ctrl+2 RTT，Ctrl+3 串口，Ctrl+4 蓝牙。",
+    description: "Ctrl+1 烧录，Ctrl+2 RTT，Ctrl+3 串口，Ctrl+4 蓝牙，Ctrl+5 调试。",
   },
 ];
 
@@ -134,12 +135,12 @@ export function SettingsCenterDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-2 rounded-full px-4" title="打开设置中心">
+        <Button size="sm" variant="outline" className="gap-2 px-3" title="打开设置中心">
           <Settings2 className="h-4 w-4" />
           <span>设置</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="grid-rows-[auto_minmax(0,1fr)] max-w-4xl max-h-[min(88vh,760px)] rounded-[28px] overflow-hidden p-4 sm:p-5">
+      <DialogContent className="grid-rows-[auto_minmax(0,1fr)] max-h-[min(88vh,760px)] max-w-4xl gap-3 overflow-hidden rounded-[14px] p-4">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-primary" />
@@ -151,21 +152,21 @@ export function SettingsCenterDialog() {
         </DialogHeader>
 
         <Tabs defaultValue="appearance" className="flex min-h-0 flex-col gap-3">
-          <TabsList className="surface-control h-auto w-full justify-start gap-1 rounded-[18px] border border-border/60 p-1">
-            <TabsTrigger value="appearance" className="rounded-[12px] px-2.5 py-1 text-xs">
+          <TabsList className="surface-control h-auto w-full justify-start gap-1 rounded-[10px] border border-border/60 p-1">
+            <TabsTrigger value="appearance" className="rounded-[8px] px-2.5 py-1 text-xs">
               外观
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="rounded-[12px] px-2.5 py-1 text-xs">
+            <TabsTrigger value="preferences" className="rounded-[8px] px-2.5 py-1 text-xs">
               偏好
             </TabsTrigger>
-            <TabsTrigger value="tools" className="rounded-[12px] px-2.5 py-1 text-xs">
+            <TabsTrigger value="tools" className="rounded-[8px] px-2.5 py-1 text-xs">
               工具
             </TabsTrigger>
           </TabsList>
 
           <div className="min-h-0 overflow-y-auto overscroll-contain pr-1">
             <TabsContent value="appearance" className="mt-0 space-y-3">
-              <section className="glass-section rounded-[22px] p-3">
+              <section className="glass-section rounded-[12px] p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <ImagePlus className="h-3.5 w-3.5 text-primary" />
                   <div>
@@ -191,7 +192,7 @@ export function SettingsCenterDialog() {
                   />
                 </div>
 
-                <div className="mt-2.5 rounded-[16px] border border-border/60 bg-white/72 p-3">
+                <div className="mt-2.5 rounded-[10px] border border-border/60 bg-background/60 p-3">
                   <div className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground">
                     <FolderOpen className="h-3.5 w-3.5 text-primary" />
                     图片资源
@@ -251,11 +252,11 @@ export function SettingsCenterDialog() {
               </section>
 
               <Collapsible open={themeSectionOpen} onOpenChange={setThemeSectionOpen}>
-                <section className="glass-section rounded-[22px] p-3">
+                <section className="glass-section rounded-[12px] p-3">
                   <CollapsibleTrigger asChild>
                     <button
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 rounded-[16px] text-left"
+                      className="flex w-full items-center justify-between gap-3 rounded-[10px] text-left"
                     >
                       <div className="flex items-center gap-2">
                         <Palette className="h-3.5 w-3.5 text-primary" />
@@ -282,9 +283,9 @@ export function SettingsCenterDialog() {
                             type="button"
                             onClick={() => setSchemeId(scheme.id)}
                             className={cn(
-                              "rounded-[16px] border border-border/60 bg-white/72 p-2.5 text-left transition-all duration-200",
-                              "hover:-translate-y-0.5 hover:border-primary/28",
-                              active && "border-primary/40 bg-primary/8 shadow-[0_12px_28px_rgba(72,92,140,0.12)]"
+                              "rounded-[10px] border border-border/60 bg-background/60 p-2.5 text-left transition-colors",
+                              "hover:border-primary/28 hover:bg-muted/50",
+                              active && "border-primary/40 bg-primary/8"
                             )}
                           >
                             <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -315,7 +316,7 @@ export function SettingsCenterDialog() {
             </TabsContent>
 
             <TabsContent value="preferences" className="mt-0">
-              <section className="glass-section rounded-[22px] p-3">
+              <section className="glass-section rounded-[12px] p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
                   <div>
@@ -365,7 +366,7 @@ export function SettingsCenterDialog() {
                     onChange={(value) => updateSignalPreference("serial", value as SignalDomain)}
                   />
 
-                  <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
+                  <div className="rounded-[10px] border border-border/60 bg-background/60 p-3">
                     <div className="mb-1 text-xs font-medium text-foreground">日志面板高度</div>
                     <p className="mb-3 text-xs text-muted-foreground">主界面拖拽后会自动记忆，也可以在这里精确调整。</p>
                     <div className="flex items-center gap-3">
@@ -386,7 +387,7 @@ export function SettingsCenterDialog() {
             </TabsContent>
 
             <TabsContent value="tools" className="mt-0 space-y-4">
-              <section className="glass-section rounded-[22px] p-3">
+              <section className="glass-section rounded-[12px] p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Keyboard className="h-3.5 w-3.5 text-primary" />
                   <div>
@@ -397,7 +398,7 @@ export function SettingsCenterDialog() {
 
                 <div className="space-y-2">
                   {quickActions.map((item) => (
-                    <div key={item.title} className="rounded-[18px] border border-border/60 bg-white/62 p-3">
+                    <div key={item.title} className="rounded-[10px] border border-border/60 bg-background/60 p-3">
                       <div className="mb-1 text-xs font-medium text-foreground">{item.title}</div>
                       <p className="text-xs text-muted-foreground">{item.description}</p>
                     </div>
@@ -427,7 +428,7 @@ interface PreferenceRowProps<T extends string> {
 
 function PreferenceRow<T extends string>({ label, description, value, options, onChange }: PreferenceRowProps<T>) {
   return (
-    <div className="rounded-[18px] border border-border/60 bg-white/62 p-3">
+    <div className="rounded-[10px] border border-border/60 bg-background/60 p-3">
       <div className="mb-1 text-xs font-medium text-foreground">{label}</div>
       <p className="mb-2 text-xs text-muted-foreground">{description}</p>
       <Select value={value} onValueChange={(nextValue) => onChange(nextValue as T)}>
@@ -460,10 +461,10 @@ function BackgroundModeCard({ mode, title, description, active, onClick }: Backg
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-[16px] border p-2.5 text-left transition-all duration-200",
+        "rounded-[10px] border p-2.5 text-left transition-colors",
         active
-          ? "border-primary/40 bg-primary/8 shadow-[0_12px_28px_rgba(72,92,140,0.12)]"
-          : "border-border/60 bg-white/70 hover:-translate-y-0.5 hover:border-primary/24"
+          ? "border-primary/40 bg-primary/8"
+          : "border-border/60 bg-background/60 hover:border-primary/24 hover:bg-muted/50"
       )}
     >
       <div className="mb-1 flex items-center justify-between gap-2">

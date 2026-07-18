@@ -98,12 +98,12 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
   const handleAttach = () =>
     withBusy("attach", async () => {
       if (!selectedProbe) {
-        addLog("error", "请先在左侧选择调试探针");
+        addLog("error", "请先在右侧配置检查器选择调试探针");
         return;
       }
       const chipName = selectedChipName.trim();
       if (!chipName) {
-        addLog("error", "请先在左侧输入目标芯片型号");
+        addLog("error", "请先在右侧配置检查器输入目标芯片型号");
         return;
       }
       addLog("info", `调试 attach (${chipName})...`);
@@ -211,7 +211,7 @@ export function DebugToolbar({ onResetLayout }: DebugToolbarProps) {
   };
 
   return (
-    <div className="surface-shell flex items-center gap-2 rounded-[24px] px-3 py-2">
+    <div className="surface-shell flex items-center gap-2 rounded-[12px] px-2 py-2">
       <Button
         size="sm"
         variant={attached ? "outline" : "default"}

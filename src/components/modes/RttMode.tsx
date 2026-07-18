@@ -7,7 +7,7 @@ export function RttMode() {
   useRttEvents();
 
   return (
-    <div className="flex h-full flex-col gap-2 overflow-hidden rounded-[34px] surface-strong p-3">
+    <div className="surface-strong flex h-full flex-col gap-2 overflow-hidden rounded-[14px] p-2">
       <div className="flex-1 overflow-hidden">
         <RttPanel className="h-full" />
       </div>
