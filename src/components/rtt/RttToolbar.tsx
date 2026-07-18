@@ -21,7 +21,6 @@ import {
   Unlink,
   SplitSquareHorizontal,
   BarChart3,
-  Waves,
   Sparkles,
   SlidersHorizontal,
   Settings2,
@@ -29,12 +28,12 @@ import {
 import { ColorSettingsDialog } from "./ColorSettingsDialog";
 import { ChartConfigDialog } from "./ChartConfigDialog";
 import { RttIntegrationGuideDialog } from "./RttIntegrationGuideDialog";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
 import { exportRttLinesAsTxt, exportRttLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatRttLineForCopy } from "@/lib/viewerCopy";
-import type { SignalDomain } from "@/lib/chartTypes";
 import { useShallow } from "zustand/react/shallow";
+import { SignalWorkspaceControls } from "./SignalWorkspaceControls";
 
 export function RttToolbar() {
   const {
@@ -96,6 +95,8 @@ export function RttToolbar() {
   );
 
   const addLog = useLogStore((state) => state.addLog);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [chartConfigOpen, setChartConfigOpen] = useState(false);
   const { selectedProbe, selectedChipName, settings } = useProbeStore(
     useShallow((state) => ({
       selectedProbe: state.selectedProbe,
@@ -294,21 +295,6 @@ export function RttToolbar() {
     addLog("info", `已自动配置 ${result.detectedKeys.length} 个数据系列`);
   };
 
-  const activateSignalWorkspace = (domain: SignalDomain) => {
-    setChartConfig({
-      ...chartConfig,
-      enabled: true,
-      chartType: "waveform",
-      signalDomain: domain,
-    });
-
-    if (viewMode === "text") {
-      setViewMode("split");
-    }
-
-    addLog("info", domain === "fft" ? "已切换到 FFT 频谱工作流" : "已切换到波形示波器工作流");
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-muted/20 px-2 py-2">
       {!rttConnected ? (
@@ -395,64 +381,62 @@ export function RttToolbar() {
           />
         </div>
 
-        <Popover>
+        <Popover open={moreOpen} onOpenChange={setMoreOpen}>
           <PopoverTrigger asChild>
             <Button size="sm" variant="outline" className="gap-1">
               <SlidersHorizontal className="h-3.5 w-3.5" />
               更多
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-[320px] rounded-[24px] border-border/70 p-3">
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className="max-h-[calc(100vh-7rem)] w-[340px] overflow-y-auto overscroll-contain rounded-[24px] border-border/70 p-3"
+          >
             <div className="space-y-3">
               <div>
                 <div className="text-sm font-medium text-foreground">更多操作</div>
                 <div className="text-xs text-muted-foreground">分析、显示、配置和导出都在这里。</div>
               </div>
 
-              <div className="space-y-2.5 rounded-[12px] border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">工作流</div>
-                <div className="flex flex-wrap gap-2">
-                  <RttIntegrationGuideDialog />
-                  <Button
-                    size="sm"
-                    variant={chartConfig.enabled ? "secondary" : "outline"}
-                    onClick={handleSmartEnableChart}
-                    disabled={lines.length === 0}
-                    className="gap-1"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    智能启用
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("time")} className="gap-1">
-                    <Waves className="h-3.5 w-3.5" />
-                    波形
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => activateSignalWorkspace("fft")} className="gap-1">
-                    <BarChart3 className="h-3.5 w-3.5" />
-                    FFT
-                  </Button>
-                </div>
-                {viewMode === "split" && (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={splitOrientation === "vertical" ? "secondary" : "outline"}
-                      onClick={() => setSplitOrientation("vertical")}
-                    >
-                      上下分屏
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={splitOrientation === "horizontal" ? "secondary" : "outline"}
-                      onClick={() => setSplitOrientation("horizontal")}
-                    >
-                      左右分屏
-                    </Button>
-                  </div>
-                )}
+                <SignalWorkspaceControls
+                  chartConfig={chartConfig}
+                  viewMode={viewMode}
+                  splitOrientation={splitOrientation}
+                  setChartConfig={setChartConfig}
+                  setViewMode={setViewMode}
+                  setSplitOrientation={setSplitOrientation}
+                  leadingActions={
+                    <>
+                      <RttIntegrationGuideDialog />
+                      <Button
+                        size="sm"
+                        variant={chartConfig.enabled ? "secondary" : "outline"}
+                        onClick={handleSmartEnableChart}
+                        disabled={lines.length === 0}
+                        className="gap-1"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        智能启用
+                      </Button>
+                    </>
+                  }
+                  onToggle={(domain, closing) =>
+                    addLog(
+                      "info",
+                      closing
+                        ? "已收起图表，继续在后台解析数据"
+                        : domain === "fft"
+                          ? "已打开 FFT 频谱"
+                          : "已打开时域波形"
+                    )
+                  }
+                />
               </div>
 
-              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">查看</div>
                 <div className="flex flex-wrap gap-2.5">
                   <Button
@@ -475,20 +459,21 @@ export function RttToolbar() {
                 </div>
               </div>
 
-              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
                 <div className="flex flex-wrap gap-2.5">
-                  <ChartConfigDialog
-                    chartConfig={chartConfig}
-                    setChartConfig={setChartConfig}
-                    title="RTT 图表配置"
-                    trigger={
-                      <Button size="sm" variant="outline" className="gap-1">
-                        <Settings2 className="h-3.5 w-3.5" />
-                        图表配置
-                      </Button>
-                    }
-                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setChartConfigOpen(true);
+                    }}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    图表配置
+                  </Button>
                   <ColorSettingsDialog
                     trigger={
                       <Button size="sm" variant="outline" className="gap-1">
@@ -500,7 +485,7 @@ export function RttToolbar() {
                 </div>
               </div>
 
-              <div className="space-y-2.5 rounded-[20px] border border-border/60 bg-muted/20 p-3">
+              <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">输出</div>
                 <div className="flex flex-wrap gap-2.5">
                   <Button size="sm" variant="outline" onClick={handleCopyAll} className="gap-1">
@@ -520,6 +505,15 @@ export function RttToolbar() {
             </div>
           </PopoverContent>
         </Popover>
+        <ChartConfigDialog
+          chartConfig={chartConfig}
+          setChartConfig={setChartConfig}
+          title="RTT 图表配置"
+          samples={lines.slice(-20).map(({ text, rawData }) => ({ text, rawData }))}
+          open={chartConfigOpen}
+          onOpenChange={setChartConfigOpen}
+          trigger={null}
+        />
       </div>
     </div>
   );

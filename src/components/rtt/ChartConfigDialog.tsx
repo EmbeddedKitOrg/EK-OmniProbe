@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Channel, ChartConfig, ChartType, ParseMode } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
+import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,9 @@ interface ChartConfigDialogProps {
   trigger?: React.ReactNode;
   title?: string;
   allowJustFloat?: boolean;
+  samples?: ChartSample[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ChartConfigDialog({
@@ -23,18 +27,43 @@ export function ChartConfigDialog({
   trigger,
   title = "图表配置",
   allowJustFloat = false,
+  samples = [],
+  open: controlledOpen,
+  onOpenChange,
 }: ChartConfigDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState<ChartConfig>(chartConfig);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDisplay, setShowDisplay] = useState(false);
+  const [channelHint, setChannelHint] = useState("");
+  const wasOpen = useRef(false);
+  const open = controlledOpen ?? internalOpen;
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen) {
-      setLocalConfig(chartConfig);
+  const setOpen = (nextOpen: boolean) => {
+    if (controlledOpen === undefined) setInternalOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
+
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      const nextConfig = populateEmptyChannelsFromSamples(chartConfig, samples);
+      setLocalConfig(nextConfig);
       setShowAdvanced(false);
       setShowDisplay(false);
+      setChannelHint(
+        chartConfig.channels.length > 0
+          ? ""
+          : nextConfig.channels.length > 0
+            ? `已根据当前缓冲区预建 ${nextConfig.channels.length} 个通道。`
+            : samples.length > 0
+              ? "当前缓冲区未能按所选解析模式识别出数值通道，可手动添加。"
+              : "当前缓冲区暂无可用于预建通道的数据。"
+      );
     }
+    wasOpen.current = open;
+  }, [chartConfig, open, samples]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
   };
 
@@ -128,15 +157,17 @@ export function ChartConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button size="sm" variant="outline" className="gap-1">
-            <Settings className="h-3.5 w-3.5" />
-            配置图表
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      {trigger !== null && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button size="sm" variant="outline" className="gap-1">
+              <Settings className="h-3.5 w-3.5" />
+              配置图表
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
+      <DialogContent className="max-w-5xl" style={{ width: "min(calc(100vw - 1rem), 64rem)" }}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -267,6 +298,8 @@ export function ChartConfigDialog({
               </Button>
             </div>
 
+            {channelHint && <p className="text-xs leading-5 text-muted-foreground">{channelHint}</p>}
+
             {localConfig.channels.length === 0 ? (
               <div className="rounded-[20px] border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
                 还没有通道。
@@ -376,7 +409,7 @@ export function ChartConfigDialog({
           </CollapsibleSection>
         </div>
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 mt-4 flex justify-end gap-2 border-t border-border/60 bg-background/90 px-5 py-4 backdrop-blur">
           <Button variant="outline" onClick={() => setOpen(false)}>
             取消
           </Button>

@@ -221,14 +221,6 @@ function PanelHintCard({ icon: Icon, title, description }: PanelHintCardProps) {
       </div>
       <span className="font-medium text-foreground">{title}</span>
       <span className="min-w-0 flex-1 text-xs text-muted-foreground">{description}</span>
-      <Button
-        size="sm"
-        variant="outline"
-        className="shrink-0"
-        onClick={() => window.dispatchEvent(new Event("focus-inspector"))}
-      >
-        打开配置
-      </Button>
     </div>
   );
 }
