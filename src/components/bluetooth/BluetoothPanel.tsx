@@ -91,13 +91,13 @@ export function BluetoothPanel({ className }: BluetoothPanelProps) {
     ? {
         icon: Activity,
         title: "先扫描并连接 BLE 设备",
-        description: "在左侧点击「扫描」，选中目标设备进行连接。",
+        description: "在右侧配置检查器点击「扫描」，选中目标设备进行连接。",
       }
     : !running
       ? {
           icon: Activity,
           title: "已连接 BLE 设备，等待开始接收",
-          description: "在左侧选择 Notify 特征值并点击「开始接收」。NUS 设备会自动识别。",
+          description: "在右侧配置检查器选择 Notify 特征值并点击「开始接收」。NUS 设备会自动识别。",
         }
       : lines.length === 0
         ? {
@@ -215,7 +215,7 @@ function SppGuidanceCard() {
           <div className="font-medium">使用步骤</div>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
             <li>在系统蓝牙设置中和目标设备完成配对</li>
-            <li>回到本页，点左侧「SPP 虚拟串口」卡片的「刷新」</li>
+            <li>回到本页，点右侧「SPP 虚拟串口」区域的「刷新」</li>
             <li>点击对应端口右侧「连接」，会自动跳转到串口工作台并开始接收</li>
           </ol>
         </div>

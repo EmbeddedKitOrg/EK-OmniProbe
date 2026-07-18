@@ -68,7 +68,7 @@ export function BleViewer() {
   }, [filteredLines.length, autoScroll, rowVirtualizer]);
 
   const emptyMessage = !connected
-    ? "请在左侧扫描并连接 BLE 设备"
+    ? "请在右侧配置检查器扫描并连接 BLE 设备"
     : !running
       ? "选择 Notify 特征值并启动订阅以接收数据"
       : "等待数据...";

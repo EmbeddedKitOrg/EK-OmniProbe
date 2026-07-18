@@ -87,7 +87,7 @@ export function RttPanel({ className }: RttPanelProps) {
     ? {
         icon: Link,
         title: "先建立 RTT 连接",
-        description: "在左侧选择探针和芯片后，先点“连接 RTT”，再启动采集。",
+        description: "在右侧配置检查器选择探针和芯片后，先点“连接 RTT”，再启动采集。",
       }
     : !isRunning
       ? {

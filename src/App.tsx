@@ -1,5 +1,6 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
+import { ModeSwitch } from "./components/layout/ModeSwitch";
 import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
@@ -20,6 +21,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
 import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
 import type { ChartWorkspaceSource } from "./lib/chartWorkspace";
+import { Cpu } from "lucide-react";
 
 function App() {
   const popupSource = useMemo(() => {
@@ -213,14 +215,18 @@ function MainApp() {
         />
       )}
 
-      <div className="relative z-[1] flex h-full flex-col overflow-hidden px-4 pb-4 pt-4">
-        <TopBar />
-        <div className="mt-4 flex flex-1 gap-4 overflow-hidden">
-          {/* Sidebar: switch based on mode */}
-          {mode === "serial" ? <SerialSidebar /> : mode === "bluetooth" ? <BleSidebar /> : <Sidebar />}
+      <div className="ide-workbench relative z-[1] grid h-full grid-cols-[72px_minmax(0,1fr)] grid-rows-[56px_minmax(0,1fr)] gap-2 overflow-hidden p-3">
+        <aside className="surface-shell row-span-2 flex min-h-0 flex-col items-center rounded-[14px] p-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-primary text-primary-foreground shadow-[0_6px_16px_rgba(73,110,214,0.22)]">
+            <Cpu className="h-4 w-4" />
+          </div>
+          <ModeSwitch orientation="vertical" className="mt-2" />
+        </aside>
 
-          {/* Mode content: conditional rendering to avoid inactive mode hooks execution */}
-          <div className="mode-stack relative flex-1 overflow-hidden rounded-[36px]">
+        <TopBar />
+
+        <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_18rem] gap-2 overflow-hidden">
+          <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
             <div key={mode} className="mode-stage h-full">
               {mode === "flash" && <FlashMode />}
               {mode === "rtt" && <RttMode />}
@@ -229,11 +235,15 @@ function MainApp() {
               {mode === "debug" && <DebugMode />}
             </div>
           </div>
-        </div>
 
-        {/* USB 权限检查对话框 (仅 Linux) */}
-        <UdevPermissionDialog />
+          <div className="ide-inspector min-h-0 overflow-hidden">
+            {mode === "serial" ? <SerialSidebar /> : mode === "bluetooth" ? <BleSidebar /> : <Sidebar />}
+          </div>
+        </div>
       </div>
+
+      {/* USB 权限检查对话框 (仅 Linux) */}
+      <UdevPermissionDialog />
     </div>
   );
 }

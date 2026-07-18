@@ -226,7 +226,7 @@ export function SerialToolbar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-[24px] border border-border/60 bg-white/72 px-3.5 py-2.5 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
+    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-white/72 px-2 py-2">
       <ToolbarGroup label="采集">
         {!running ? (
           <Button
@@ -622,7 +622,7 @@ export function SerialToolbar() {
 
 function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-border/60 bg-white/58 px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border/60 bg-white/58 px-2 py-1.5">
       <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
       {children}
     </div>

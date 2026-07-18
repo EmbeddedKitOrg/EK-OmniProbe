@@ -119,10 +119,10 @@ export function RttToolbar() {
     checkStatus();
   }, [setRttConnected]);
 
-  // RTT 连接（使用左侧边栏的全局配置）
+  // RTT 连接（使用右侧配置检查器的全局配置）
   const handleRttConnect = async () => {
     if (!selectedProbe) {
-      addLog("error", "请先在左侧选择调试探针");
+      addLog("error", "请先在右侧配置检查器选择调试探针");
       return;
     }
 
@@ -130,7 +130,7 @@ export function RttToolbar() {
     const chipName = selectedChipName || chipSearchQuery.trim();
 
     if (!chipName) {
-      addLog("error", "请先在左侧输入目标芯片型号");
+      addLog("error", "请先在右侧配置检查器输入目标芯片型号");
       return;
     }
 
@@ -311,7 +311,7 @@ export function RttToolbar() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5 rounded-[24px] border border-border/60 bg-white/72 px-3.5 py-2.5 shadow-[0_10px_24px_rgba(73,93,142,0.08)] backdrop-blur">
+    <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-white/72 px-2 py-2">
       <ToolbarGroup label="连接">
         {!rttConnected ? (
           <Button size="sm" variant="default" onClick={handleRttConnect} disabled={rttConnecting} className="gap-1">
@@ -567,7 +567,7 @@ export function RttToolbar() {
 
 function ToolbarGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-border/60 bg-white/58 px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 rounded-[10px] border border-border/60 bg-white/58 px-2 py-1.5">
       <span className="px-2 text-xs font-medium tracking-[0.08em] text-muted-foreground">{label}</span>
       {children}
     </div>

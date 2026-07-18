@@ -163,7 +163,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
     ? {
         icon: Activity,
         title: "先连接串口",
-        description: "在左侧选择本地 COM 或 TCP 串口并连接，再开始接收数据。",
+        description: "在右侧配置检查器选择本地 COM 或 TCP 串口并连接，再开始接收数据。",
       }
     : !running
       ? {

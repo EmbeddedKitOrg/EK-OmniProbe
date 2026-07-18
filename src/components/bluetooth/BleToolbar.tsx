@@ -51,7 +51,7 @@ export function BleToolbar() {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-[22px] border border-border/60 bg-white/72 px-3 py-2 shadow-[0_8px_18px_rgba(73,93,142,0.05)]">
+    <div className="flex items-center gap-2 rounded-[12px] border border-border/60 bg-white/72 px-2 py-2">
       {/* 视图切换 */}
       <div className="flex items-center gap-1 rounded-full border border-border/60 bg-white/65 p-0.5">
         <TooltipWrapper tooltip={<p>仅文本</p>}>

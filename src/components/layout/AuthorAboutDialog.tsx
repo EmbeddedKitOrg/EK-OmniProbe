@@ -39,14 +39,14 @@ export function AuthorAboutDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-2 rounded-full px-4" title="关于作者">
+        <Button size="sm" variant="outline" className="gap-2 px-3" title="关于作者">
           <BadgeInfo className="h-4 w-4" />
           <span>关于作者</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl rounded-[32px] p-6 sm:p-7">
-        <DialogHeader className="space-y-2">
-          <DialogTitle className="flex items-center gap-2 text-lg">
+      <DialogContent className="max-w-xl gap-3 rounded-[14px] p-4 sm:p-5">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2">
             <UserRound className="h-5 w-5 text-primary" />
             关于作者
           </DialogTitle>
@@ -55,16 +55,16 @@ export function AuthorAboutDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 pt-2">
-          <section className="rounded-[24px] border border-border/60 bg-white/70 p-5 shadow-[0_12px_26px_rgba(73,93,142,0.08)]">
+        <div className="grid gap-2 pt-1">
+          <section className="rounded-[12px] border border-border/60 bg-background/60 p-3">
             <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">作者</div>
-            <div className="mt-2 text-2xl font-semibold text-foreground">{AUTHOR_NAME}</div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <div className="mt-1 text-xl font-semibold text-foreground">{AUTHOR_NAME}</div>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">
               专注嵌入式工具链与桌面端开发，主导 EK-OmniProbe 的功能设计与核心实现。
             </p>
           </section>
 
-          <section className="flex items-center justify-between gap-3 rounded-[24px] border border-border/60 bg-white/70 px-5 py-4 shadow-[0_12px_26px_rgba(73,93,142,0.08)]">
+          <section className="flex items-center justify-between gap-3 rounded-[12px] border border-border/60 bg-background/60 px-3 py-2.5">
             <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">当前版本</div>
               <div className="mt-1 font-mono text-sm font-medium text-foreground">
@@ -74,7 +74,7 @@ export function AuthorAboutDialog() {
             <UpdateChecker
               autoCheck={false}
               trigger={
-                <Button size="sm" variant="outline" className="gap-2 rounded-full px-4">
+                <Button size="sm" variant="outline" className="gap-2 px-3">
                   <RefreshCw className="h-4 w-4" />
                   <span>检查更新</span>
                 </Button>
@@ -86,7 +86,7 @@ export function AuthorAboutDialog() {
             <button
               type="button"
               onClick={() => openExternalLink(BILIBILI_URL)}
-              className="group rounded-[24px] border border-border/60 bg-white/72 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_14px_28px_rgba(73,93,142,0.12)]"
+              className="group rounded-[12px] border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/35 hover:bg-muted/50"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export function AuthorAboutDialog() {
             <button
               type="button"
               onClick={() => openExternalLink(PROJECT_GITHUB_URL)}
-              className="group rounded-[24px] border border-border/60 bg-white/72 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_14px_28px_rgba(73,93,142,0.12)]"
+              className="group rounded-[12px] border border-border/60 bg-background/60 p-3 text-left transition-colors hover:border-primary/35 hover:bg-muted/50"
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
