@@ -31,6 +31,7 @@ import type { SignalDomain, ViewMode } from "@/lib/chartTypes";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AuthorAboutDialog } from "./AuthorAboutDialog";
 
 const workspaceOptions: Array<{ value: AppMode; label: string }> = [
   { value: "flash", label: "烧录工作台" },
@@ -54,11 +55,11 @@ const signalDomainOptions: Array<{ value: SignalDomain; label: string }> = [
 const quickActions = [
   {
     title: "波形 / FFT",
-    description: "在 RTT 或串口中切到图表视图，再用工具栏的“波形 / FFT”快捷入口查看时域或频域。",
+    description: "在 RTT 或串口工具栏打开“更多”，选择“波形 / FFT”即可查看时域或频域。",
   },
   {
     title: "智能启用",
-    description: "收到数值流后点“智能启用”，程序会自动识别单值、CSV、XY 或 JSON 并生成图表配置。",
+    description: "收到数值流后，在“更多”中点“智能启用”，程序会自动识别单值、CSV、XY 或 JSON。",
   },
   {
     title: "快捷键",
@@ -387,6 +388,14 @@ export function SettingsCenterDialog() {
             </TabsContent>
 
             <TabsContent value="tools" className="mt-0 space-y-4">
+              <section className="glass-section flex items-center justify-between gap-3 rounded-[12px] p-3">
+                <div>
+                  <h3 className="text-sm font-semibold">应用信息</h3>
+                  <p className="text-xs text-muted-foreground">查看版本、作者主页、项目仓库并检查更新。</p>
+                </div>
+                <AuthorAboutDialog />
+              </section>
+
               <section className="glass-section rounded-[12px] p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Keyboard className="h-3.5 w-3.5 text-primary" />

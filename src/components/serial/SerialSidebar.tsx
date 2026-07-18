@@ -154,7 +154,7 @@ export function SerialSidebar() {
   };
 
   return (
-    <aside className="surface-sidebar w-72 overflow-y-auto rounded-[32px] p-4 space-y-3">
+    <aside className="surface-sidebar h-full w-full space-y-0 overflow-y-auto rounded-[32px] p-4">
       {/* Data Source Selection */}
       <Card>
         <CardHeader className="py-4">

@@ -301,7 +301,7 @@ export function BleSidebar() {
   }, [connectionMode]);
 
   return (
-    <aside className="surface-sidebar w-72 space-y-3 overflow-y-auto rounded-[32px] p-4">
+    <aside className="surface-sidebar h-full w-full space-y-0 overflow-y-auto rounded-[32px] p-4">
       {/* 工作模式切换 */}
       <Card>
         <CardHeader className="py-4">
