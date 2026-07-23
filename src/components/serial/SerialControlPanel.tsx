@@ -6,6 +6,7 @@ import {
   Download,
   GripVertical,
   LayoutDashboard,
+  Maximize2,
   Minus,
   Pencil,
   Play,
@@ -13,6 +14,7 @@ import {
   Send,
   Trash2,
   Upload,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,10 +44,13 @@ import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
 import { SerialControlMiniChart } from "./SerialControlMiniChart";
 import { SerialImu3DControl } from "./SerialImu3D";
-import { ChartViewer } from "@/components/rtt/ChartViewer";
+import { SignalPlotCanvas } from "@/components/rtt/SignalPlotCanvas";
+import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
+import type { ChartSeries } from "@/lib/chartTypes";
 
 type RuntimeValue = string | number | boolean | { x: number; y: number };
 const EMPTY_CHART_VALUES: Record<string, number> = {};
+const CANVAS_ROW_HEIGHT = 48;
 
 const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetType, string]> }> = [
   {
@@ -71,59 +76,81 @@ const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetTy
   {
     title: "可视化",
     items: [
-      ["chart", "Time / FFT"],
+      ["yt-chart", "YT 实时波形"],
+      ["fft-chart", "FFT 频谱"],
       ["xy-chart", "XY 曲线"],
-      ["yt-chart", "YT 曲线"],
       ["imu-3d", "IMU 3D"],
     ],
   },
 ];
 
-function SerialWorkspaceChart({ signalDomain }: { signalDomain: "time" | "fft" }) {
-  const {
-    lines,
-    chartData,
-    chartConfig,
-    chartPaused,
-    parseSuccessCount,
-    parseFailCount,
-    setChartPaused,
-    clearChartData,
-    setChartConfig,
-  } = useSerialStore(
+function SerialSignalPreview({ widget }: { widget: Extract<SerialControlWidget, { type: "yt-chart" | "fft-chart" }> }) {
+  const { chartData, chartConfig, setViewMode } = useSerialStore(
     useShallow((state) => ({
-      lines: state.lines,
       chartData: state.chartData,
       chartConfig: state.chartConfig,
-      chartPaused: state.chartPaused,
-      parseSuccessCount: state.parseSuccessCount,
-      parseFailCount: state.parseFailCount,
-      setChartPaused: state.setChartPaused,
-      clearChartData: state.clearChartData,
-      setChartConfig: state.setChartConfig,
+      setViewMode: state.setViewMode,
     }))
   );
-  const samples = lines
-    .slice(-100)
-    .filter((line) => line.direction === "rx")
-    .slice(-20)
-    .map(({ text, rawData }) => ({ text, rawData }));
-  const scopedConfig = { ...chartConfig, signalDomain };
+  const { openDetachedWindow } = useChartWorkspaceControls("serial");
+  const domain = widget.type === "fft-chart" ? "fft" : "time";
+  const channelKeys =
+    widget.channels.length > 0
+      ? widget.channels
+      : chartConfig.channels.filter((item) => item.visible).map((item) => item.key);
+  const series: ChartSeries[] = channelKeys.slice(0, 6).map((key, index) => {
+    const configured = chartConfig.channels.find((item) => item.key === key);
+    return (
+      configured ?? {
+        key,
+        name: key,
+        color: ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444", "#06b6d4"][index % 6],
+        visible: true,
+      }
+    );
+  });
 
   return (
-    <div className="h-[320px] min-h-0 overflow-hidden rounded-[16px] border border-border/60">
-      <ChartViewer
-        chartData={chartData}
-        chartConfig={scopedConfig}
-        chartPaused={chartPaused}
-        parseSuccessCount={parseSuccessCount}
-        parseFailCount={parseFailCount}
-        setChartPaused={setChartPaused}
-        clearChartData={clearChartData}
-        setChartConfig={(config) => setChartConfig({ ...config, signalDomain })}
-        parserSamples={samples}
-        allowJustFloat
-      />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-sm font-medium">{widget.label}</span>
+        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase">{domain}</span>
+        <div className="ml-auto flex gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => setViewMode("chart")}
+            title="打开图形工作台"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => void openDetachedWindow()}
+            title="独立窗口"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background/70">
+        {series.length > 0 ? (
+          <SignalPlotCanvas
+            chartData={chartData.slice(-widget.pointLimit)}
+            series={series}
+            chartConfig={{ ...chartConfig, visiblePointLimit: widget.pointLimit }}
+            domain={domain}
+            className="h-full"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            请在右侧绑定显示通道
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -158,11 +185,21 @@ export function SerialControlPanel() {
   const [runtimeValues, setRuntimeValues] = useState(() => initialRuntimeValues(panel));
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<SerialControlWidgetType | null>(null);
+  const [resizingId, setResizingId] = useState<string | null>(null);
   const [status, setStatus] = useState("等待操作");
   const [runningSequenceId, setRunningSequenceId] = useState<string | null>(null);
   const lastContinuousSendRef = useRef<Record<string, number>>({});
   const runningSequenceRef = useRef<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLElement>(null);
+  const resizeStartRef = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    columns: 4 | 8 | 12;
+    rows: number;
+    columnWidth: number;
+  } | null>(null);
   const availableChannels = Array.from(
     new Set([...chartChannels.map((channel) => channel.key), ...Object.keys(latestValues)])
   );
@@ -215,6 +252,43 @@ export function SerialControlPanel() {
     if (!draggedId || draggedId === targetId) return;
     setPanel((current) => ({ ...current, widgets: moveSerialControlWidget(current.widgets, draggedId, targetId) }));
     setDraggedId(null);
+  };
+
+  const startResize = (widget: SerialControlWidget, event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!editing || !canvasRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeStartRef.current = {
+      id: widget.id,
+      x: event.clientX,
+      y: event.clientY,
+      columns: widget.columns,
+      rows: widget.rows,
+      columnWidth: canvasRef.current.getBoundingClientRect().width / 12,
+    };
+    setResizingId(widget.id);
+    setSelectedWidgetId(widget.id);
+    setInspectorTab("widget");
+  };
+
+  const resizeWidget = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const start = resizeStartRef.current;
+    if (!start || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    const targetColumns = start.columns + (event.clientX - start.x) / start.columnWidth;
+    const columns: 4 | 8 | 12 = targetColumns < 6 ? 4 : targetColumns < 10 ? 8 : 12;
+    const rows = Math.min(12, Math.max(2, start.rows + Math.round((event.clientY - start.y) / CANVAS_ROW_HEIGHT)));
+    updateWidget(start.id, (current) =>
+      current.columns === columns && current.rows === rows ? current : { ...current, columns, rows }
+    );
+  };
+
+  const finishResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resizeStartRef.current = null;
+    setResizingId(null);
   };
 
   const sendCommand = async (widget: SerialControlWidget, command: string) => {
@@ -358,7 +432,7 @@ export function SerialControlPanel() {
         {widget.type !== "gauge" &&
           widget.type !== "value" &&
           widget.type !== "indicator" &&
-          widget.type !== "chart" &&
+          widget.type !== "fft-chart" &&
           widget.type !== "xy-chart" &&
           widget.type !== "yt-chart" &&
           widget.type !== "imu-3d" && (
@@ -398,23 +472,65 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {widget.type === "chart" && (
-        <div className="space-y-1.5">
-          <Label>显示模式</Label>
-          <Select
-            value={widget.signalDomain}
-            onValueChange={(signalDomain: "time" | "fft") =>
-              updateWidget(widget.id, (current) => (current.type === "chart" ? { ...current, signalDomain } : current))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="time">Time 实时波形</SelectItem>
-              <SelectItem value="fft">FFT 频谱</SelectItem>
-            </SelectContent>
-          </Select>
+      {(widget.type === "fft-chart" || widget.type === "yt-chart") && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label>Y 通道（最多 6 个）</Label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={widget.channels.length >= 6}
+              onClick={() =>
+                updateWidget(widget.id, (current) =>
+                  current.type === "fft-chart" || current.type === "yt-chart"
+                    ? { ...current, channels: [...current.channels, ""] }
+                    : current
+                )
+              }
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              添加
+            </Button>
+          </div>
+          {widget.channels.map((channel, index) => (
+            <div key={`${widget.id}-channel-${index}`} className="flex gap-2">
+              <Input
+                list="serial-control-channels"
+                value={channel}
+                onChange={(event) =>
+                  updateWidget(widget.id, (current) => {
+                    if (current.type !== "fft-chart" && current.type !== "yt-chart") return current;
+                    const channels = [...current.channels];
+                    channels[index] = event.target.value;
+                    return { ...current, channels };
+                  })
+                }
+                placeholder={`Y${index + 1}，例如 ch${index + 1}`}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-red-500"
+                onClick={() =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "fft-chart" || current.type === "yt-chart"
+                      ? { ...current, channels: current.channels.filter((_, itemIndex) => itemIndex !== index) }
+                      : current
+                  )
+                }
+                title="删除通道"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          {widget.channels.length === 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              {widget.type === "fft-chart" ? "留空时跟随图形工作台中已启用的通道。" : "添加一个或多个 Y 通道。"}
+            </p>
+          )}
         </div>
       )}
 
@@ -632,10 +748,7 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {(widget.type === "gauge" ||
-        widget.type === "value" ||
-        widget.type === "indicator" ||
-        widget.type === "yt-chart") && (
+      {(widget.type === "gauge" || widget.type === "value" || widget.type === "indicator") && (
         <div className="grid gap-3">
           <div className="space-y-1.5">
             <Label htmlFor={`${widget.id}-channel`}>接收通道 key</Label>
@@ -645,10 +758,7 @@ export function SerialControlPanel() {
               value={widget.channel}
               onChange={(event) =>
                 updateWidget(widget.id, (current) =>
-                  current.type === "gauge" ||
-                  current.type === "value" ||
-                  current.type === "indicator" ||
-                  current.type === "yt-chart"
+                  current.type === "gauge" || current.type === "value" || current.type === "indicator"
                     ? { ...current, channel: event.target.value }
                     : current
                 )
@@ -712,7 +822,7 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {(widget.type === "xy-chart" || widget.type === "yt-chart") && (
+      {(widget.type === "xy-chart" || widget.type === "yt-chart" || widget.type === "fft-chart") && (
         <div className="space-y-1.5">
           <Label htmlFor={`${widget.id}-point-limit`}>显示点数</Label>
           <Input
@@ -723,7 +833,7 @@ export function SerialControlPanel() {
             value={widget.pointLimit}
             onChange={(event) =>
               updateWidget(widget.id, (current) =>
-                current.type === "xy-chart" || current.type === "yt-chart"
+                current.type === "xy-chart" || current.type === "yt-chart" || current.type === "fft-chart"
                   ? { ...current, pointLimit: Number(event.target.value) }
                   : current
               )
@@ -1247,28 +1357,24 @@ export function SerialControlPanel() {
       );
     }
 
-    if (widget.type === "chart") {
-      return <SerialWorkspaceChart signalDomain={widget.signalDomain} />;
+    if (widget.type === "yt-chart" || widget.type === "fft-chart") {
+      return <SerialSignalPreview widget={widget} />;
     }
 
-    if (widget.type === "xy-chart" || widget.type === "yt-chart") {
-      const yChannel = widget.type === "xy-chart" ? widget.yChannel : widget.channel;
+    if (widget.type === "xy-chart") {
       return (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <span className="font-medium text-foreground">{widget.label}</span>
             <span className="text-[11px] text-muted-foreground">
-              {widget.type === "xy-chart"
-                ? `${widget.xChannel || "X"} / ${widget.yChannel || "Y"}`
-                : `${widget.channel || "Y"} / 时间`}
-              · 最近 {widget.pointLimit} 点
+              {`${widget.xChannel || "X"} / ${widget.yChannel || "Y"}`}· 最近 {widget.pointLimit} 点
             </span>
           </div>
           <SerialControlMiniChart
-            mode={widget.type === "xy-chart" ? "xy" : "yt"}
+            mode="xy"
             chartData={chartData}
-            xChannel={widget.type === "xy-chart" ? widget.xChannel : undefined}
-            yChannel={yChannel}
+            xChannel={widget.xChannel}
+            yChannels={[widget.yChannel]}
             pointLimit={widget.pointLimit}
           />
         </div>
@@ -1357,6 +1463,22 @@ export function SerialControlPanel() {
                   <SelectItem value="12">大 · 12 列</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`${selectedWidget.id}-rows`}>画布高度（2–12 行）</Label>
+              <Input
+                id={`${selectedWidget.id}-rows`}
+                type="number"
+                min={2}
+                max={12}
+                value={selectedWidget.rows}
+                onChange={(event) =>
+                  updateWidget(selectedWidget.id, (current) => ({
+                    ...current,
+                    rows: Math.min(12, Math.max(2, Number(event.target.value) || 2)),
+                  }))
+                }
+              />
             </div>
             {renderEditor(selectedWidget)}
           </div>,
@@ -1454,6 +1576,7 @@ export function SerialControlPanel() {
           )}
 
           <main
+            ref={canvasRef}
             className={cn(
               "min-h-0 flex-1 overflow-y-auto rounded-[18px] border bg-white/45 p-3",
               editing ? "border-dashed border-primary/45" : "border-border/60"
@@ -1469,7 +1592,7 @@ export function SerialControlPanel() {
             {editing && (
               <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <GripVertical className="h-4 w-4" />
-                12 列画布 · 从左侧拖入组件，拖动画布组件调整顺序
+                12 列画布 · 拖动组件调整顺序，拖动右下角调整大小
               </div>
             )}
             {panel.widgets.length === 0 ? (
@@ -1489,11 +1612,11 @@ export function SerialControlPanel() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-12 gap-3">
+              <div className="grid grid-cols-12 gap-3" style={{ gridAutoRows: `${CANVAS_ROW_HEIGHT}px` }}>
                 {panel.widgets.map((widget, index) => (
                   <div
                     key={widget.id}
-                    draggable={editing}
+                    draggable={editing && resizingId !== widget.id}
                     onDragStart={() => {
                       setDraggedId(widget.id);
                       setDraggedType(null);
@@ -1514,12 +1637,15 @@ export function SerialControlPanel() {
                       setInspectorTab("widget");
                     }}
                     className={cn(
-                      "rounded-[18px] border bg-white/90 p-3 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
+                      "relative h-full overflow-hidden rounded-[18px] border bg-white/90 p-3 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
                       editing && "cursor-grab border-dashed hover:border-primary/70 active:cursor-grabbing",
                       editing && selectedWidgetId === widget.id && "border-primary ring-2 ring-primary/15",
                       draggedId === widget.id && "opacity-50"
                     )}
-                    style={{ gridColumn: `span ${widget.columns} / span ${widget.columns}` }}
+                    style={{
+                      gridColumn: `span ${widget.columns} / span ${widget.columns}`,
+                      gridRow: `span ${widget.rows} / span ${widget.rows}`,
+                    }}
                   >
                     {editing ? (
                       <>
@@ -1532,7 +1658,7 @@ export function SerialControlPanel() {
                             {widget.type === "gauge" ||
                             widget.type === "value" ||
                             widget.type === "indicator" ||
-                            widget.type === "chart" ||
+                            widget.type === "fft-chart" ||
                             widget.type === "xy-chart" ||
                             widget.type === "yt-chart" ||
                             widget.type === "imu-3d"
@@ -1571,10 +1697,28 @@ export function SerialControlPanel() {
                             </Button>
                           </div>
                         </div>
-                        <div className="pointer-events-none select-none opacity-80">{renderControl(widget)}</div>
+                        <div className="pointer-events-none h-[calc(100%_-_40px)] select-none overflow-hidden opacity-80">
+                          {renderControl(widget)}
+                        </div>
                       </>
                     ) : (
                       renderControl(widget)
+                    )}
+                    {editing && (
+                      <button
+                        type="button"
+                        draggable={false}
+                        className="absolute bottom-0 right-0 h-7 w-7 touch-none cursor-se-resize rounded-tl-xl border-l border-t border-primary/40 bg-primary/10 text-primary"
+                        onPointerDown={(event) => startResize(widget, event)}
+                        onPointerMove={resizeWidget}
+                        onPointerUp={finishResize}
+                        onPointerCancel={finishResize}
+                        onClick={(event) => event.stopPropagation()}
+                        aria-label={`调整 ${widget.label} 大小`}
+                        title="拖动调整大小"
+                      >
+                        <span className="absolute bottom-1 right-1 h-2.5 w-2.5 border-b-2 border-r-2 border-current" />
+                      </button>
                     )}
                   </div>
                 ))}

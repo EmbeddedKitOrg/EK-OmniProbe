@@ -9,7 +9,7 @@ export type SerialControlWidgetType =
   | "gauge"
   | "value"
   | "indicator"
-  | "chart"
+  | "fft-chart"
   | "xy-chart"
   | "yt-chart"
   | "imu-3d";
@@ -20,6 +20,7 @@ interface SerialControlWidgetBase {
   type: SerialControlWidgetType;
   label: string;
   columns: 4 | 8 | 12;
+  rows: number;
   format: SerialControlFormat;
 }
 
@@ -101,9 +102,10 @@ export interface SerialIndicatorWidget extends SerialControlWidgetBase {
   threshold: number;
 }
 
-export interface SerialChartWidget extends SerialControlWidgetBase {
-  type: "chart";
-  signalDomain: "time" | "fft";
+export interface SerialFftChartWidget extends SerialControlWidgetBase {
+  type: "fft-chart";
+  channels: string[];
+  pointLimit: number;
 }
 
 export interface SerialXyChartWidget extends SerialControlWidgetBase {
@@ -115,7 +117,7 @@ export interface SerialXyChartWidget extends SerialControlWidgetBase {
 
 export interface SerialYtChartWidget extends SerialControlWidgetBase {
   type: "yt-chart";
-  channel: string;
+  channels: string[];
   pointLimit: number;
 }
 
@@ -154,19 +156,19 @@ export type SerialControlWidget =
   | SerialGaugeWidget
   | SerialValueWidget
   | SerialIndicatorWidget
-  | SerialChartWidget
+  | SerialFftChartWidget
   | SerialXyChartWidget
   | SerialYtChartWidget
   | SerialImu3dWidget;
 
 export interface SerialControlPanelConfig {
-  version: 2;
+  version: 3;
   name: string;
   widgets: SerialControlWidget[];
 }
 
 const STORAGE_KEY = "serial_control_panel";
-const DEFAULT_PANEL: SerialControlPanelConfig = { version: 2, name: "默认控制面板", widgets: [] };
+const DEFAULT_PANEL: SerialControlPanelConfig = { version: 3, name: "默认控制面板", widgets: [] };
 const LABELS: Record<SerialControlWidgetType, string> = {
   button: "发送按钮",
   toggle: "开关",
@@ -178,7 +180,7 @@ const LABELS: Record<SerialControlWidgetType, string> = {
   gauge: "能量槽",
   value: "接收数值",
   indicator: "状态灯",
-  chart: "主图表",
+  "fft-chart": "FFT 频谱",
   "xy-chart": "XY 二维曲线",
   "yt-chart": "YT 一维曲线",
   "imu-3d": "IMU 3D 姿态",
@@ -189,7 +191,14 @@ function widgetId() {
 }
 
 export function createSerialControlWidget(type: SerialControlWidgetType): SerialControlWidget {
-  const base = { id: widgetId(), type, label: LABELS[type], columns: 4 as const, format: "text" as const };
+  const base = {
+    id: widgetId(),
+    type,
+    label: LABELS[type],
+    columns: 4 as const,
+    rows: 3,
+    format: "text" as const,
+  };
   if (type === "button") return { ...base, type, command: "PING" };
   if (type === "toggle") return { ...base, type, onCommand: "LED=1", offCommand: "LED=0", value: false };
   if (type === "slider") {
@@ -221,9 +230,11 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   }
   if (type === "value") return { ...base, type, channel: "", unit: "" };
   if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
-  if (type === "chart") return { ...base, type, signalDomain: "time", columns: 12 };
-  if (type === "xy-chart") return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, columns: 8 };
-  if (type === "yt-chart") return { ...base, type, channel: "", pointLimit: 200, columns: 8 };
+  if (type === "fft-chart") return { ...base, type, channels: [], pointLimit: 1024, columns: 8, rows: 6 };
+  if (type === "xy-chart") {
+    return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, columns: 8, rows: 6 };
+  }
+  if (type === "yt-chart") return { ...base, type, channels: [], pointLimit: 200, columns: 8, rows: 6 };
   return {
     ...base,
     type,
@@ -248,6 +259,7 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
     pitchOffset: 0,
     yawOffset: 0,
     columns: 8,
+    rows: 6,
   };
 }
 
@@ -263,7 +275,7 @@ function stringValue(value: unknown, fallback = "") {
 export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig {
   if (!raw || typeof raw !== "object") throw new Error("控制面板配置必须是 JSON 对象");
   const source = raw as Record<string, unknown>;
-  if (source.version !== 2 || !Array.isArray(source.widgets)) throw new Error("不支持的控制面板配置格式");
+  if (source.version !== 3 || !Array.isArray(source.widgets)) throw new Error("不支持的控制面板配置格式");
 
   const usedIds = new Set<string>();
   const widgets = source.widgets.flatMap((rawWidget, index): SerialControlWidget[] => {
@@ -281,7 +293,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       type !== "gauge" &&
       type !== "value" &&
       type !== "indicator" &&
-      type !== "chart" &&
+      type !== "fft-chart" &&
       type !== "xy-chart" &&
       type !== "yt-chart" &&
       type !== "imu-3d"
@@ -292,11 +304,13 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     const id = usedIds.has(candidateId) ? `${candidateId}-${index + 1}` : candidateId;
     usedIds.add(id);
     const columns: 4 | 8 | 12 = widget.columns === 8 || widget.columns === 12 ? widget.columns : 4;
+    const rows = Math.min(12, Math.max(2, Math.round(finiteNumber(widget.rows, 3))));
     const base = {
       id,
       type,
       label: stringValue(widget.label, LABELS[type]) || LABELS[type],
       columns,
+      rows,
       format: widget.format === "hex" ? ("hex" as const) : ("text" as const),
     };
 
@@ -382,8 +396,17 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       ];
     }
 
-    if (type === "chart") {
-      return [{ ...base, type, signalDomain: widget.signalDomain === "fft" ? "fft" : "time" }];
+    if (type === "fft-chart") {
+      return [
+        {
+          ...base,
+          type,
+          channels: Array.isArray(widget.channels)
+            ? widget.channels.map((value) => stringValue(value)).filter(Boolean)
+            : [],
+          pointLimit: Math.min(2_000, Math.max(10, Math.round(finiteNumber(widget.pointLimit, 1024)))),
+        },
+      ];
     }
 
     if (type === "xy-chart") {
@@ -403,7 +426,9 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
         {
           ...base,
           type,
-          channel: stringValue(widget.channel),
+          channels: Array.isArray(widget.channels)
+            ? widget.channels.map((value) => stringValue(value)).filter(Boolean)
+            : [],
           pointLimit: Math.min(2_000, Math.max(10, Math.round(finiteNumber(widget.pointLimit, 200)))),
         },
       ];
@@ -481,7 +506,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
   if (source.widgets.length > 0 && widgets.length === 0) throw new Error("配置中没有可用的控制面板控件");
 
   return {
-    version: 2,
+    version: 3,
     name: stringValue(source.name, DEFAULT_PANEL.name) || DEFAULT_PANEL.name,
     widgets,
   };
