@@ -12,10 +12,13 @@ try {
     parseSerialControlPanel,
     renderSerialControlCommand,
     renderSerialJoystickCommand,
+    resolveSerialImuAngles,
   } = await server.ssrLoadModule("/src/lib/serialControlPanel.ts");
   const { buildSerialControlChartData } = await server.ssrLoadModule(
     "/src/components/serial/SerialControlMiniChart.tsx"
   );
+  const { createImuFusionState, estimateGyroBias, updateImuFusion } =
+    await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
 
   assert.equal(renderSerialControlCommand("PWM={value};COPY={value}", 128), "PWM=128;COPY=128");
@@ -34,6 +37,91 @@ try {
     { x: 0, y: 20 },
     { x: 1, y: 30 },
   ]);
+  assert.deepEqual(
+    resolveSerialImuAngles(
+      {
+        rollChannel: "r",
+        pitchChannel: "p",
+        yawChannel: "y",
+        angleUnit: "deg",
+        rollOffset: 10,
+        pitchOffset: 0,
+        yawOffset: 0,
+      },
+      { r: 190, p: -20, y: 30 }
+    ).display,
+    { roll: -180, pitch: -20, yaw: 30 }
+  );
+  assert.equal(
+    resolveSerialImuAngles(
+      {
+        rollChannel: "r",
+        pitchChannel: "p",
+        yawChannel: "y",
+        angleUnit: "rad",
+        rollOffset: 0,
+        pitchOffset: 0,
+        yawOffset: 0,
+      },
+      { r: Math.PI, p: 0, y: 0 }
+    ).raw.roll,
+    180
+  );
+  assert.equal(
+    resolveSerialImuAngles(
+      {
+        rollChannel: "r",
+        pitchChannel: "p",
+        yawChannel: "y",
+        angleUnit: "deg",
+        rollOffset: 0,
+        pitchOffset: 0,
+        yawOffset: 0,
+      },
+      { r: 1, p: 2 }
+    ),
+    null
+  );
+  const fusionConfig = {
+    accelXChannel: "ax",
+    accelYChannel: "ay",
+    accelZChannel: "az",
+    gyroXChannel: "gx",
+    gyroYChannel: "gy",
+    gyroZChannel: "gz",
+    gyroUnit: "dps",
+    sampleRateHz: 100,
+    filterAlpha: 1,
+    gyroBiasX: 0,
+    gyroBiasY: 0,
+    gyroBiasZ: 0,
+  };
+  let fusion = updateImuFusion(
+    createImuFusionState(),
+    {
+      timestamp: 0,
+      values: { ax: 0, ay: 0, az: 1, gx: 0, gy: 0, gz: 0 },
+    },
+    fusionConfig
+  );
+  fusion = updateImuFusion(
+    fusion,
+    { timestamp: 10, values: { ax: 0, ay: 0, az: 1, gx: 90, gy: 0, gz: 45 } },
+    fusionConfig
+  );
+  assert.ok(Math.abs(fusion.roll - 0.9) < 1e-9);
+  assert.equal(fusion.pitch, 0);
+  assert.ok(Math.abs(fusion.yaw - 0.45) < 1e-9);
+  assert.deepEqual(
+    estimateGyroBias(
+      [
+        { timestamp: 0, values: { gx: 1, gy: 2, gz: 3 } },
+        { timestamp: 1, values: { gx: 3, gy: 4, gz: 5 } },
+      ],
+      fusionConfig
+    ),
+    { x: 2, y: 3, z: 4 }
+  );
   assert.deepEqual(joystickPointFromRatio({ xMin: -100, xMax: 100, yMin: -50, yMax: 50, step: 10 }, 0.76, 0.2), {
     x: 50,
     y: 30,
@@ -55,11 +143,20 @@ try {
       { id: "ready", type: "indicator", channel: "ready", threshold: "invalid" },
       { id: "xy", type: "xy-chart", xChannel: "x", yChannel: "y", pointLimit: 99999 },
       { id: "yt", type: "yt-chart", channel: "temp", pointLimit: -1 },
+      {
+        id: "imu",
+        type: "imu-3d",
+        sourceMode: "imu6",
+        angleUnit: "rad",
+        sampleRateHz: 0,
+        filterAlpha: 9,
+        rollOffset: "invalid",
+      },
       { type: "unknown" },
     ],
   });
 
-  assert.equal(panel.widgets.length, 10);
+  assert.equal(panel.widgets.length, 11);
   assert.deepEqual(
     panel.widgets.map(({ id, type }) => [id, type]),
     [
@@ -73,6 +170,7 @@ try {
       ["ready", "indicator"],
       ["xy", "xy-chart"],
       ["yt", "yt-chart"],
+      ["imu", "imu-3d"],
     ]
   );
   assert.deepEqual(
@@ -108,6 +206,28 @@ try {
   assert.equal(panel.widgets[7].threshold, 0.5);
   assert.equal(panel.widgets[8].pointLimit, 2000);
   assert.equal(panel.widgets[9].pointLimit, 10);
+  assert.deepEqual(
+    {
+      rollChannel: panel.widgets[10].rollChannel,
+      pitchChannel: panel.widgets[10].pitchChannel,
+      yawChannel: panel.widgets[10].yawChannel,
+      sourceMode: panel.widgets[10].sourceMode,
+      angleUnit: panel.widgets[10].angleUnit,
+      sampleRateHz: panel.widgets[10].sampleRateHz,
+      filterAlpha: panel.widgets[10].filterAlpha,
+      rollOffset: panel.widgets[10].rollOffset,
+    },
+    {
+      rollChannel: "roll",
+      pitchChannel: "pitch",
+      yawChannel: "yaw",
+      sourceMode: "imu6",
+      angleUnit: "rad",
+      sampleRateHz: 1,
+      filterAlpha: 1,
+      rollOffset: 0,
+    }
+  );
   assert.throws(() => parseSerialControlPanel({ version: 2, widgets: [] }), /不支持/);
   assert.throws(() => parseSerialControlPanel({ version: 1, widgets: [{ type: "unknown" }] }), /没有可用/);
 
