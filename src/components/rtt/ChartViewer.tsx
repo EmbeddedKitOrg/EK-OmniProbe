@@ -677,7 +677,7 @@ export function ChartViewer({
         ))}
       </div>
 
-      <div className="grid min-h-[360px] flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-h-[360px] flex-1 gap-3 min-[1150px]:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-h-[360px] flex-col gap-3">
           <div ref={chartContainerRef} className="min-h-[320px] flex-1">
             {chartDataFormatted.length === 0 ? (
