@@ -1,4 +1,16 @@
-export type SerialControlWidgetType = "button" | "toggle" | "slider" | "input" | "joystick" | "gauge" | "value";
+export type SerialControlWidgetType =
+  | "button"
+  | "toggle"
+  | "slider"
+  | "input"
+  | "stepper"
+  | "joystick"
+  | "sequence"
+  | "gauge"
+  | "value"
+  | "indicator"
+  | "xy-chart"
+  | "yt-chart";
 export type SerialControlFormat = "text" | "hex";
 
 interface SerialControlWidgetBase {
@@ -37,6 +49,15 @@ export interface SerialInputWidget extends SerialControlWidgetBase {
   value: string;
 }
 
+export interface SerialStepperWidget extends SerialControlWidgetBase {
+  type: "stepper";
+  template: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+}
+
 export interface SerialJoystickWidget extends SerialControlWidgetBase {
   type: "joystick";
   template: string;
@@ -49,6 +70,12 @@ export interface SerialJoystickWidget extends SerialControlWidgetBase {
   y: number;
   sendMode: "release" | "continuous";
   recenter: boolean;
+}
+
+export interface SerialSequenceWidget extends SerialControlWidgetBase {
+  type: "sequence";
+  commands: string;
+  intervalMs: number;
 }
 
 export interface SerialGaugeWidget extends SerialControlWidgetBase {
@@ -66,14 +93,38 @@ export interface SerialValueWidget extends SerialControlWidgetBase {
   unit: string;
 }
 
+export interface SerialIndicatorWidget extends SerialControlWidgetBase {
+  type: "indicator";
+  channel: string;
+  threshold: number;
+}
+
+export interface SerialXyChartWidget extends SerialControlWidgetBase {
+  type: "xy-chart";
+  xChannel: string;
+  yChannel: string;
+  pointLimit: number;
+}
+
+export interface SerialYtChartWidget extends SerialControlWidgetBase {
+  type: "yt-chart";
+  channel: string;
+  pointLimit: number;
+}
+
 export type SerialControlWidget =
   | SerialButtonWidget
   | SerialToggleWidget
   | SerialSliderWidget
   | SerialInputWidget
+  | SerialStepperWidget
   | SerialJoystickWidget
+  | SerialSequenceWidget
   | SerialGaugeWidget
-  | SerialValueWidget;
+  | SerialValueWidget
+  | SerialIndicatorWidget
+  | SerialXyChartWidget
+  | SerialYtChartWidget;
 
 export interface SerialControlPanelConfig {
   version: 1;
@@ -88,9 +139,14 @@ const LABELS: Record<SerialControlWidgetType, string> = {
   toggle: "开关",
   slider: "滑块",
   input: "参数输入",
+  stepper: "参数微调",
   joystick: "摇杆",
+  sequence: "命令序列",
   gauge: "能量槽",
   value: "接收数值",
+  indicator: "状态灯",
+  "xy-chart": "XY 二维曲线",
+  "yt-chart": "YT 一维曲线",
 };
 
 function widgetId() {
@@ -105,6 +161,9 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
     return { ...base, type, template: "PWM={value}", min: 0, max: 255, step: 1, value: 0, sendMode: "release" };
   }
   if (type === "input") return { ...base, type, template: "{value}", value: "" };
+  if (type === "stepper") {
+    return { ...base, type, template: "PARAM={value}", min: 0, max: 100, step: 1, value: 0 };
+  }
   if (type === "joystick") {
     return {
       ...base,
@@ -121,10 +180,14 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
       recenter: true,
     };
   }
+  if (type === "sequence") return { ...base, type, commands: "AT\nAT+GMR", intervalMs: 100 };
   if (type === "gauge") {
     return { ...base, type, channel: "", min: 0, max: 100, unit: "%", direction: "horizontal" };
   }
-  return { ...base, type, channel: "", unit: "" };
+  if (type === "value") return { ...base, type, channel: "", unit: "" };
+  if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
+  if (type === "xy-chart") return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 2 };
+  return { ...base, type, channel: "", pointLimit: 200, width: 2 };
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -151,9 +214,14 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       type !== "toggle" &&
       type !== "slider" &&
       type !== "input" &&
+      type !== "stepper" &&
       type !== "joystick" &&
+      type !== "sequence" &&
       type !== "gauge" &&
-      type !== "value"
+      type !== "value" &&
+      type !== "indicator" &&
+      type !== "xy-chart" &&
+      type !== "yt-chart"
     )
       return [];
 
@@ -184,6 +252,24 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       return [{ ...base, type, template: stringValue(widget.template, "{value}"), value: stringValue(widget.value) }];
     }
 
+    if (type === "stepper") {
+      const min = finiteNumber(widget.min, 0);
+      const maxCandidate = finiteNumber(widget.max, 100);
+      const max = maxCandidate > min ? maxCandidate : min + 1;
+      const stepCandidate = finiteNumber(widget.step, 1);
+      return [
+        {
+          ...base,
+          type,
+          template: stringValue(widget.template, "PARAM={value}"),
+          min,
+          max,
+          step: stepCandidate > 0 ? stepCandidate : 1,
+          value: Math.min(max, Math.max(min, finiteNumber(widget.value, min))),
+        },
+      ];
+    }
+
     if (type === "joystick") {
       const xMin = finiteNumber(widget.xMin, -100);
       const xMaxCandidate = finiteNumber(widget.xMax, 100);
@@ -206,6 +292,51 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
           y: Math.min(yMax, Math.max(yMin, finiteNumber(widget.y, (yMin + yMax) / 2))),
           sendMode: widget.sendMode === "release" ? "release" : "continuous",
           recenter: widget.recenter !== false,
+        },
+      ];
+    }
+
+    if (type === "sequence") {
+      return [
+        {
+          ...base,
+          type,
+          commands: stringValue(widget.commands, "AT\nAT+GMR"),
+          intervalMs: Math.min(60_000, Math.max(0, finiteNumber(widget.intervalMs, 100))),
+        },
+      ];
+    }
+
+    if (type === "indicator") {
+      return [
+        {
+          ...base,
+          type,
+          channel: stringValue(widget.channel),
+          threshold: finiteNumber(widget.threshold, 0.5),
+        },
+      ];
+    }
+
+    if (type === "xy-chart") {
+      return [
+        {
+          ...base,
+          type,
+          xChannel: stringValue(widget.xChannel),
+          yChannel: stringValue(widget.yChannel),
+          pointLimit: Math.min(2_000, Math.max(10, Math.round(finiteNumber(widget.pointLimit, 200)))),
+        },
+      ];
+    }
+
+    if (type === "yt-chart") {
+      return [
+        {
+          ...base,
+          type,
+          channel: stringValue(widget.channel),
+          pointLimit: Math.min(2_000, Math.max(10, Math.round(finiteNumber(widget.pointLimit, 200)))),
         },
       ];
     }
@@ -282,6 +413,10 @@ export function renderSerialControlCommand(template: string, value: string | num
 
 export function renderSerialJoystickCommand(template: string, x: number, y: number) {
   return template.split("{x}").join(String(x)).split("{y}").join(String(y));
+}
+
+export function parseSerialCommandSequence(commands: string) {
+  return commands.split(/\r\n?|\n/).filter((command) => command.trim().length > 0);
 }
 
 function quantize(value: number, min: number, max: number, step: number) {

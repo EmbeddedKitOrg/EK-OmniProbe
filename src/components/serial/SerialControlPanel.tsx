@@ -5,6 +5,7 @@ import {
   Download,
   GripVertical,
   LayoutDashboard,
+  Minus,
   Pencil,
   Play,
   Plus,
@@ -26,6 +27,7 @@ import {
   createSerialControlWidget,
   loadSerialControlPanel,
   joystickPointFromRatio,
+  parseSerialCommandSequence,
   parseSerialControlPanel,
   renderSerialControlCommand,
   renderSerialJoystickCommand,
@@ -37,6 +39,7 @@ import {
 } from "@/lib/serialControlPanel";
 import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
+import { SerialControlMiniChart } from "./SerialControlMiniChart";
 
 type RuntimeValue = string | number | boolean | { x: number; y: number };
 const EMPTY_CHART_VALUES: Record<string, number> = {};
@@ -54,10 +57,11 @@ function initialRuntimeValues(panel: SerialControlPanelConfig) {
 }
 
 export function SerialControlPanel() {
-  const { connected, sendSettings, latestValues, chartChannels } = useSerialStore(
+  const { connected, sendSettings, chartData, latestValues, chartChannels } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
       sendSettings: state.sendSettings,
+      chartData: state.chartData,
       latestValues: state.chartData[state.chartData.length - 1]?.values ?? EMPTY_CHART_VALUES,
       chartChannels: state.chartConfig.channels,
     }))
@@ -68,7 +72,9 @@ export function SerialControlPanel() {
   const [runtimeValues, setRuntimeValues] = useState(() => initialRuntimeValues(panel));
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [status, setStatus] = useState("等待操作");
+  const [runningSequenceId, setRunningSequenceId] = useState<string | null>(null);
   const lastContinuousSendRef = useRef<Record<string, number>>({});
+  const runningSequenceRef = useRef<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const availableChannels = Array.from(
     new Set([...chartChannels.map((channel) => channel.key), ...Object.keys(latestValues)])
@@ -140,6 +146,39 @@ export function SerialControlPanel() {
 
   const sendJoystickPoint = (widget: SerialJoystickWidget, point: { x: number; y: number }) =>
     sendCommand(widget, renderSerialJoystickCommand(widget.template, point.x, point.y));
+
+  const commitStepperValue = (widget: Extract<SerialControlWidget, { type: "stepper" }>, rawValue: number) => {
+    const value = Number(
+      Math.min(widget.max, Math.max(widget.min, Number.isFinite(rawValue) ? rawValue : widget.value)).toFixed(10)
+    );
+    setRuntimeValues((current) => ({ ...current, [widget.id]: value }));
+    updateWidget(widget.id, (current) => (current.type === "stepper" ? { ...current, value } : current));
+    void sendCommand(widget, renderSerialControlCommand(widget.template, value));
+  };
+
+  const runSequence = async (widget: Extract<SerialControlWidget, { type: "sequence" }>) => {
+    if (runningSequenceRef.current) return;
+    const commands = parseSerialCommandSequence(widget.commands);
+    if (commands.length === 0) {
+      addLog("warn", `${widget.label} 没有可发送的命令`);
+      return;
+    }
+    runningSequenceRef.current = widget.id;
+    setRunningSequenceId(widget.id);
+    try {
+      for (let index = 0; index < commands.length; index += 1) {
+        setStatus(`${widget.label} ${index + 1}/${commands.length}`);
+        if (!(await sendCommand(widget, commands[index]))) return;
+        if (index < commands.length - 1 && widget.intervalMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, widget.intervalMs));
+        }
+      }
+      setStatus(`${widget.label} 已完成`);
+    } finally {
+      runningSequenceRef.current = null;
+      setRunningSequenceId(null);
+    }
+  };
 
   const commitSliderValue = (widget: Extract<SerialControlWidget, { type: "slider" }>, value: number) => {
     updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, value } : current));
@@ -218,23 +257,29 @@ export function SerialControlPanel() {
             onChange={(event) => updateWidget(widget.id, (current) => ({ ...current, label: event.target.value }))}
           />
         </div>
-        {widget.type !== "gauge" && widget.type !== "value" && (
-          <div className="space-y-1.5">
-            <Label>发送格式</Label>
-            <Select
-              value={widget.format}
-              onValueChange={(format: "text" | "hex") => updateWidget(widget.id, (current) => ({ ...current, format }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">文本</SelectItem>
-                <SelectItem value="hex">HEX</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {widget.type !== "gauge" &&
+          widget.type !== "value" &&
+          widget.type !== "indicator" &&
+          widget.type !== "xy-chart" &&
+          widget.type !== "yt-chart" && (
+            <div className="space-y-1.5">
+              <Label>发送格式</Label>
+              <Select
+                value={widget.format}
+                onValueChange={(format: "text" | "hex") =>
+                  updateWidget(widget.id, (current) => ({ ...current, format }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">文本</SelectItem>
+                  <SelectItem value="hex">HEX</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
       </div>
 
       {widget.type === "button" && (
@@ -250,6 +295,42 @@ export function SerialControlPanel() {
             }
             className="font-mono"
           />
+        </div>
+      )}
+
+      {widget.type === "sequence" && (
+        <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${widget.id}-commands`}>命令列表</Label>
+            <textarea
+              id={`${widget.id}-commands`}
+              value={widget.commands}
+              rows={5}
+              onChange={(event) =>
+                updateWidget(widget.id, (current) =>
+                  current.type === "sequence" ? { ...current, commands: event.target.value } : current
+                )
+              }
+              className="w-full resize-y rounded-[14px] border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+              placeholder={"AT\nAT+GMR"}
+            />
+            <p className="text-[11px] text-muted-foreground">每行一条命令，空行自动忽略。</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${widget.id}-interval`}>命令间隔 (ms)</Label>
+            <Input
+              id={`${widget.id}-interval`}
+              type="number"
+              min={0}
+              max={60000}
+              value={widget.intervalMs}
+              onChange={(event) =>
+                updateWidget(widget.id, (current) =>
+                  current.type === "sequence" ? { ...current, intervalMs: Number(event.target.value) } : current
+                )
+              }
+            />
+          </div>
         </div>
       )}
 
@@ -284,7 +365,10 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {(widget.type === "slider" || widget.type === "input" || widget.type === "joystick") && (
+      {(widget.type === "slider" ||
+        widget.type === "input" ||
+        widget.type === "stepper" ||
+        widget.type === "joystick") && (
         <div className="space-y-1.5">
           <Label htmlFor={`${widget.id}-template`}>发送模板</Label>
           <Input
@@ -292,12 +376,17 @@ export function SerialControlPanel() {
             value={widget.template}
             onChange={(event) =>
               updateWidget(widget.id, (current) =>
-                current.type === "slider" || current.type === "input" || current.type === "joystick"
+                current.type === "slider" ||
+                current.type === "input" ||
+                current.type === "stepper" ||
+                current.type === "joystick"
                   ? { ...current, template: event.target.value }
                   : current
               )
             }
-            placeholder={widget.type === "joystick" ? "X={x},Y={y}" : "PWM={value}"}
+            placeholder={
+              widget.type === "joystick" ? "X={x},Y={y}" : widget.type === "stepper" ? "PARAM={value}" : "PWM={value}"
+            }
             className="font-mono"
           />
           <p className="text-[11px] text-muted-foreground">
@@ -312,7 +401,7 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {widget.type === "slider" && (
+      {(widget.type === "slider" || widget.type === "stepper") && (
         <div className="grid gap-3 sm:grid-cols-4">
           {(["min", "max", "step"] as const).map((key) => (
             <div key={key} className="space-y-1.5">
@@ -325,29 +414,33 @@ export function SerialControlPanel() {
                 value={widget[key]}
                 onChange={(event) =>
                   updateWidget(widget.id, (current) =>
-                    current.type === "slider" ? { ...current, [key]: Number(event.target.value) } : current
+                    current.type === "slider" || current.type === "stepper"
+                      ? { ...current, [key]: Number(event.target.value) }
+                      : current
                   )
                 }
               />
             </div>
           ))}
-          <div className="space-y-1.5">
-            <Label>发送方式</Label>
-            <Select
-              value={widget.sendMode}
-              onValueChange={(sendMode: "release" | "continuous") =>
-                updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, sendMode } : current))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="release">松手发送</SelectItem>
-                <SelectItem value="continuous">连续发送</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {widget.type === "slider" && (
+            <div className="space-y-1.5">
+              <Label>发送方式</Label>
+              <Select
+                value={widget.sendMode}
+                onValueChange={(sendMode: "release" | "continuous") =>
+                  updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, sendMode } : current))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="release">松手发送</SelectItem>
+                  <SelectItem value="continuous">连续发送</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -419,7 +512,10 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {(widget.type === "gauge" || widget.type === "value") && (
+      {(widget.type === "gauge" ||
+        widget.type === "value" ||
+        widget.type === "indicator" ||
+        widget.type === "yt-chart") && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor={`${widget.id}-channel`}>接收通道 key</Label>
@@ -429,7 +525,10 @@ export function SerialControlPanel() {
               value={widget.channel}
               onChange={(event) =>
                 updateWidget(widget.id, (current) =>
-                  current.type === "gauge" || current.type === "value"
+                  current.type === "gauge" ||
+                  current.type === "value" ||
+                  current.type === "indicator" ||
+                  current.type === "yt-chart"
                     ? { ...current, channel: event.target.value }
                     : current
                 )
@@ -437,21 +536,80 @@ export function SerialControlPanel() {
               placeholder="例如 temp"
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${widget.id}-unit`}>单位</Label>
-            <Input
-              id={`${widget.id}-unit`}
-              value={widget.unit}
-              onChange={(event) =>
-                updateWidget(widget.id, (current) =>
-                  current.type === "gauge" || current.type === "value"
-                    ? { ...current, unit: event.target.value }
-                    : current
-                )
-              }
-              placeholder="例如 ℃"
-            />
-          </div>
+          {(widget.type === "gauge" || widget.type === "value") && (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${widget.id}-unit`}>单位</Label>
+              <Input
+                id={`${widget.id}-unit`}
+                value={widget.unit}
+                onChange={(event) =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "gauge" || current.type === "value"
+                      ? { ...current, unit: event.target.value }
+                      : current
+                  )
+                }
+                placeholder="例如 ℃"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {widget.type === "indicator" && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${widget.id}-threshold`}>触发阈值（大于等于时点亮）</Label>
+          <Input
+            id={`${widget.id}-threshold`}
+            type="number"
+            value={widget.threshold}
+            onChange={(event) =>
+              updateWidget(widget.id, (current) =>
+                current.type === "indicator" ? { ...current, threshold: Number(event.target.value) } : current
+              )
+            }
+          />
+        </div>
+      )}
+
+      {widget.type === "xy-chart" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(["xChannel", "yChannel"] as const).map((key) => (
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={`${widget.id}-${key}`}>{key === "xChannel" ? "X 通道 key" : "Y 通道 key"}</Label>
+              <Input
+                id={`${widget.id}-${key}`}
+                list="serial-control-channels"
+                value={widget[key]}
+                onChange={(event) =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "xy-chart" ? { ...current, [key]: event.target.value } : current
+                  )
+                }
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(widget.type === "xy-chart" || widget.type === "yt-chart") && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${widget.id}-point-limit`}>显示点数</Label>
+          <Input
+            id={`${widget.id}-point-limit`}
+            type="number"
+            min={10}
+            max={2000}
+            value={widget.pointLimit}
+            onChange={(event) =>
+              updateWidget(widget.id, (current) =>
+                current.type === "xy-chart" || current.type === "yt-chart"
+                  ? { ...current, pointLimit: Number(event.target.value) }
+                  : current
+              )
+            }
+          />
+          <p className="text-[11px] text-muted-foreground">使用波形解析缓存中的最近 10–2000 个点。</p>
         </div>
       )}
 
@@ -501,6 +659,26 @@ export function SerialControlPanel() {
           <Send className="mr-2 h-4 w-4" />
           {widget.label}
         </Button>
+      );
+    }
+
+    if (widget.type === "sequence") {
+      const commands = parseSerialCommandSequence(widget.commands);
+      const running = runningSequenceId === widget.id;
+      return (
+        <div className="space-y-2">
+          <Button
+            className="h-12 w-full"
+            disabled={!connected || runningSequenceId !== null || commands.length === 0}
+            onClick={() => void runSequence(widget)}
+          >
+            <Send className="mr-2 h-4 w-4" />
+            {running ? "正在执行…" : widget.label}
+          </Button>
+          <div className="text-center text-[11px] text-muted-foreground">
+            {commands.length} 条命令 · 间隔 {widget.intervalMs}ms
+          </div>
+        </div>
       );
     }
 
@@ -563,6 +741,63 @@ export function SerialControlPanel() {
             <span>{widget.min}</span>
             <span>{widget.sendMode === "continuous" ? "连续发送 · 100ms 节流" : "松手发送"}</span>
             <span>{widget.max}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (widget.type === "stepper") {
+      const rawValue = runtimeValues[widget.id] ?? widget.value;
+      const numericValue = Number(rawValue);
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium text-foreground">{widget.label}</span>
+            <span className="text-[11px] text-muted-foreground">
+              步长 {widget.step} · {widget.min}～{widget.max}
+            </span>
+          </div>
+          <div className="grid grid-cols-[auto_1fr_auto_auto] gap-2">
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={!connected}
+              onClick={() => commitStepperValue(widget, numericValue - widget.step)}
+              aria-label={`${widget.label}减小`}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Input
+              type="number"
+              min={widget.min}
+              max={widget.max}
+              step={widget.step}
+              value={rawValue as string | number}
+              disabled={!connected}
+              onChange={(event) => setRuntimeValues((current) => ({ ...current, [widget.id]: event.target.value }))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitStepperValue(widget, Number(event.currentTarget.value));
+              }}
+              className="text-center font-mono"
+              aria-label={`${widget.label}数值`}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              disabled={!connected}
+              onClick={() => commitStepperValue(widget, numericValue + widget.step)}
+              aria-label={`${widget.label}增大`}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              disabled={!connected}
+              onClick={() => commitStepperValue(widget, numericValue)}
+              title="发送当前值"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       );
@@ -693,6 +928,58 @@ export function SerialControlPanel() {
       );
     }
 
+    if (widget.type === "indicator") {
+      const value = latestValues[widget.channel];
+      const available = Number.isFinite(value);
+      const active = available && value >= widget.threshold;
+      return (
+        <div className="flex min-h-24 items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">{widget.label}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {available ? `${widget.channel} = ${value}` : widget.channel ? "等待通道数据" : "未绑定通道"}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={cn("text-sm font-medium", active ? "text-green-600" : "text-muted-foreground")}>
+              {available ? (active ? "已触发" : "未触发") : "--"}
+            </span>
+            <span
+              className={cn(
+                "h-8 w-8 rounded-full border-4 border-white shadow-[0_0_0_1px_hsl(var(--border))] transition-colors",
+                active ? "bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.7)]" : "bg-muted"
+              )}
+              aria-label={active ? "状态灯已点亮" : "状态灯未点亮"}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (widget.type === "xy-chart" || widget.type === "yt-chart") {
+      const yChannel = widget.type === "xy-chart" ? widget.yChannel : widget.channel;
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium text-foreground">{widget.label}</span>
+            <span className="text-[11px] text-muted-foreground">
+              {widget.type === "xy-chart"
+                ? `${widget.xChannel || "X"} / ${widget.yChannel || "Y"}`
+                : `${widget.channel || "Y"} / 时间`}
+              · 最近 {widget.pointLimit} 点
+            </span>
+          </div>
+          <SerialControlMiniChart
+            mode={widget.type === "xy-chart" ? "xy" : "yt"}
+            chartData={chartData}
+            xChannel={widget.type === "xy-chart" ? widget.xChannel : undefined}
+            yChannel={yChannel}
+            pointLimit={widget.pointLimit}
+          />
+        </div>
+      );
+    }
+
     const value = String(runtimeValues[widget.id] ?? widget.value);
     const sendInput = async () => {
       const sent = await sendCommand(widget, renderSerialControlCommand(widget.template, value));
@@ -773,7 +1060,7 @@ export function SerialControlPanel() {
                   添加控件
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-52 rounded-[20px] p-2">
+              <PopoverContent align="end" className="max-h-[70vh] w-52 overflow-y-auto rounded-[20px] p-2">
                 <div className="grid gap-1">
                   {(
                     [
@@ -781,9 +1068,14 @@ export function SerialControlPanel() {
                       ["toggle", "开关"],
                       ["slider", "滑块"],
                       ["input", "参数输入"],
+                      ["stepper", "参数微调"],
                       ["joystick", "摇杆"],
+                      ["sequence", "命令序列"],
                       ["gauge", "能量槽"],
                       ["value", "接收数值"],
+                      ["indicator", "状态灯"],
+                      ["xy-chart", "XY 二维曲线"],
+                      ["yt-chart", "YT 一维曲线"],
                     ] as const
                   ).map(([type, label]) => (
                     <Button key={type} variant="ghost" className="justify-start" onClick={() => addWidget(type)}>
@@ -834,7 +1126,13 @@ export function SerialControlPanel() {
                         {widget.type}
                       </span>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
-                        {widget.type === "gauge" || widget.type === "value" ? "RX" : widget.format.toUpperCase()}
+                        {widget.type === "gauge" ||
+                        widget.type === "value" ||
+                        widget.type === "indicator" ||
+                        widget.type === "xy-chart" ||
+                        widget.type === "yt-chart"
+                          ? "RX"
+                          : widget.format.toUpperCase()}
                       </span>
                       <div className="ml-auto flex items-center gap-1">
                         <Button
