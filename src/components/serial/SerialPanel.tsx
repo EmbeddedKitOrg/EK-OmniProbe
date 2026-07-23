@@ -3,6 +3,7 @@ import { SerialToolbar } from "./SerialToolbar";
 import { SerialViewer } from "./SerialViewer";
 import { SerialSendBar } from "./SerialSendBar";
 import { SerialTerminalViewer } from "./SerialTerminalViewer";
+import { SerialControlPanel } from "./SerialControlPanel";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
 import type { ChartSample } from "@/lib/chartAutoConfig";
+import type { SerialTextViewMode } from "@/lib/serialTypes";
 
 interface SerialPanelProps {
   className?: string;
@@ -80,11 +82,14 @@ function TextSection({
   textViewMode,
   splitByDirection,
 }: {
-  textViewMode: "log" | "terminal";
+  textViewMode: SerialTextViewMode;
   splitByDirection: boolean;
 }) {
   if (textViewMode === "terminal") {
     return <SerialTerminalViewer />;
+  }
+  if (textViewMode === "control") {
+    return <SerialControlPanel />;
   }
 
   return <LogSection splitByDirection={splitByDirection} />;
@@ -179,15 +184,25 @@ export function SerialPanel({ className }: SerialPanelProps) {
         {viewMode === "text" ? (
           // Text only mode - respect splitByDirection
           <PanelShell
-            title="文本区"
+            title={textViewMode === "control" ? "控制面板" : "文本区"}
             subtitle={
               textViewMode === "terminal"
                 ? "终端视图（单会话）。"
-                : splitByDirection
-                  ? "按收发方向分栏。"
-                  : "原始串口输出。"
+                : textViewMode === "control"
+                  ? "把常用命令做成按钮、开关、滑块或输入框。"
+                  : splitByDirection
+                    ? "按收发方向分栏。"
+                    : "原始串口输出。"
             }
-            badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
+            badge={
+              textViewMode === "terminal"
+                ? "Terminal"
+                : textViewMode === "control"
+                  ? "Control"
+                  : splitByDirection
+                    ? "RX / TX"
+                    : "Console"
+            }
           >
             <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
           </PanelShell>
@@ -258,15 +273,25 @@ export function SerialPanel({ className }: SerialPanelProps) {
             >
               <div className={cn("h-full min-h-0", isVerticalSplit ? "pb-1" : "pr-1")}>
                 <PanelShell
-                  title="文本区"
+                  title={textViewMode === "control" ? "控制面板" : "文本区"}
                   subtitle={
                     textViewMode === "terminal"
                       ? "终端视图（单会话）。"
-                      : splitByDirection
-                        ? "按收发方向分栏。"
-                        : "原始串口输出。"
+                      : textViewMode === "control"
+                        ? "把常用命令做成按钮、开关、滑块或输入框。"
+                        : splitByDirection
+                          ? "按收发方向分栏。"
+                          : "原始串口输出。"
                   }
-                  badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
+                  badge={
+                    textViewMode === "terminal"
+                      ? "Terminal"
+                      : textViewMode === "control"
+                        ? "Control"
+                        : splitByDirection
+                          ? "RX / TX"
+                          : "Console"
+                  }
                   actions={
                     isVerticalSplit && textViewMode === "log" ? (
                       <button

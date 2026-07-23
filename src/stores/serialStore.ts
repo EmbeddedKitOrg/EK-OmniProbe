@@ -46,7 +46,7 @@ const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
-const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
+const TEXT_VIEW_MODE_VALUES = ["log", "terminal", "control"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
 

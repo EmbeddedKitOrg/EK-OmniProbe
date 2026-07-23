@@ -15,6 +15,7 @@ interface DialogFilter {
 
 const TEXT_FILTERS: DialogFilter[] = [{ name: "文本文件", extensions: ["txt"] }];
 const CSV_FILTERS: DialogFilter[] = [{ name: "CSV", extensions: ["csv"] }];
+const JSON_FILTERS: DialogFilter[] = [{ name: "JSON", extensions: ["json"] }];
 const PNG_FILTERS: DialogFilter[] = [{ name: "PNG 图片", extensions: ["png"] }];
 
 async function saveTextFile(content: string, defaultName: string, filters: DialogFilter[]): Promise<string | null> {
@@ -26,6 +27,10 @@ async function saveTextFile(content: string, defaultName: string, filters: Dialo
 
 export async function exportTextAsTxt(content: string, prefix = "output"): Promise<string | null> {
   return saveTextFile(content, `${prefix}-${timestampSuffix()}.txt`, TEXT_FILTERS);
+}
+
+export async function exportJson(content: string, defaultName: string): Promise<string | null> {
+  return saveTextFile(content, defaultName, JSON_FILTERS);
 }
 
 async function saveBinaryFile(

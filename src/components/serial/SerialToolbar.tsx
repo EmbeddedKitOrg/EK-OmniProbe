@@ -26,6 +26,7 @@ import {
   Binary,
   Tags,
   Waves,
+  LayoutDashboard,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
@@ -266,6 +267,18 @@ export function SerialToolbar() {
         </Button>
         <Button
           size="sm"
+          variant={textViewMode === "control" ? "secondary" : "ghost"}
+          onClick={() => {
+            setTextViewMode("control");
+            if (viewMode === "chart") setViewMode("text");
+          }}
+          className="gap-1"
+        >
+          <LayoutDashboard className="h-3.5 w-3.5" />
+          控制面板
+        </Button>
+        <Button
+          size="sm"
           variant={viewMode === "text" ? "secondary" : "ghost"}
           onClick={() => setViewMode("text")}
           title="仅文本"
@@ -332,7 +345,9 @@ export function SerialToolbar() {
                 <div className="text-xs text-muted-foreground">
                   {textViewMode === "terminal"
                     ? "终端的本地回显、快捷键拦截和颜色配置都在这里。"
-                    : "收发分屏、时间戳、显示方式和导出都在这里。"}
+                    : textViewMode === "control"
+                      ? "控制面板的控件编辑、导入和导出都在主画布中。"
+                      : "收发分屏、时间戳、显示方式和导出都在这里。"}
                 </div>
               </div>
 
@@ -429,7 +444,7 @@ export function SerialToolbar() {
                         {displayMode === "hex" ? "Hex" : "文本"}
                       </Button>
                     </>
-                  ) : (
+                  ) : textViewMode === "terminal" ? (
                     <>
                       <Button
                         size="sm"
@@ -468,7 +483,7 @@ export function SerialToolbar() {
                         行编辑模式
                       </Button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
