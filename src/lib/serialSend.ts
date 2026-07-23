@@ -12,6 +12,32 @@ function lineEndingText(lineEnding: LineEnding) {
   return lineEnding === "cr" ? "\r" : lineEnding === "crlf" ? "\r\n" : lineEnding === "lf" ? "\n" : "";
 }
 
+function recordSimulationTx(byteLength: number) {
+  const state = useSerialStore.getState();
+  state.updateStats({ ...state.stats, bytes_sent: state.stats.bytes_sent + byteLength });
+}
+
+export async function writeSerialData(bytes: number[]): Promise<number> {
+  const state = useSerialStore.getState();
+  if (!state.connected) throw new Error("串口未连接");
+  if (state.activeSourceType === "simulation") {
+    recordSimulationTx(bytes.length);
+    return bytes.length;
+  }
+  return writeSerial(bytes);
+}
+
+export async function writeSerialText(text: string, encoding: Encoding, lineEnding: LineEnding): Promise<number> {
+  const state = useSerialStore.getState();
+  if (!state.connected) throw new Error("串口未连接");
+  if (state.activeSourceType === "simulation") {
+    const byteLength = new TextEncoder().encode(`${text}${lineEndingText(lineEnding)}`).length;
+    recordSimulationTx(byteLength);
+    return byteLength;
+  }
+  return writeSerialString(text, encoding, lineEnding);
+}
+
 export function parseHexBytes(text: string): number[] {
   const compact = text.replace(/\s+/g, "");
   if (!/^[0-9a-fA-F]*$/.test(compact) || compact.length % 2 !== 0) {
@@ -37,7 +63,7 @@ function recordTx(text: string, rawData: number[]) {
 
 export async function sendSerialBytes(bytes: number[], label: string): Promise<void> {
   if (!useSerialStore.getState().connected) throw new Error("串口未连接");
-  await writeSerial(bytes);
+  await writeSerialData(bytes);
   recordTx(label, bytes);
 }
 
@@ -48,12 +74,12 @@ export async function sendSerialPayload(text: string, options: SerialSendOptions
   const settings = { ...state.sendSettings, ...options };
   if (settings.hexMode) {
     const bytes = parseHexBytes(text);
-    await writeSerial(bytes);
+    await writeSerialData(bytes);
     recordTx(`HEX: ${text}`, bytes);
     return;
   }
 
-  await writeSerialString(text, settings.encoding, settings.lineEnding);
+  await writeSerialText(text, settings.encoding, settings.lineEnding);
   recordTx(text, Array.from(new TextEncoder().encode(text)));
   if (state.textViewMode === "terminal" && state.terminalSettings.localEcho) {
     state.appendTerminalChunk(`${text}${lineEndingText(settings.lineEnding)}`);

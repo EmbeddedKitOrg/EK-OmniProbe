@@ -50,6 +50,23 @@ export interface UdpSerialConfig {
   remote_port: number;
 }
 
+export type SimulationPreset = "waveform" | "xy" | "imu3" | "imu6";
+export type SimulationWaveform = "sine" | "square" | "triangle" | "sawtooth" | "noise" | "constant";
+export type SimulationXyPattern = "circle" | "lissajous";
+
+/** 前端模拟数据源配置，不会传给后端连接命令。 */
+export interface SimulationSerialConfig {
+  preset: SimulationPreset;
+  sampleRateHz: number;
+  frequencyHz: number;
+  amplitude: number;
+  offset: number;
+  noise: number;
+  channelCount: number;
+  waveform: SimulationWaveform;
+  xyPattern: SimulationXyPattern;
+}
+
 /**
  * Serial connection configuration (union type)
  */
@@ -145,7 +162,7 @@ export const COMMON_BAUD_RATES = [
 /**
  * Data source type for display
  */
-export type DataSourceType = "local" | "tcp" | "udp";
+export type DataSourceType = "local" | "tcp" | "udp" | "simulation";
 
 export type SerialTextViewMode = "log" | "terminal" | "control";
 
