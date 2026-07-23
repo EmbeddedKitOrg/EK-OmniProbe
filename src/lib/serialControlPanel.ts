@@ -1,4 +1,4 @@
-export type SerialControlWidgetType = "button" | "toggle" | "slider" | "input";
+export type SerialControlWidgetType = "button" | "toggle" | "slider" | "input" | "joystick" | "gauge" | "value";
 export type SerialControlFormat = "text" | "hex";
 
 interface SerialControlWidgetBase {
@@ -37,7 +37,43 @@ export interface SerialInputWidget extends SerialControlWidgetBase {
   value: string;
 }
 
-export type SerialControlWidget = SerialButtonWidget | SerialToggleWidget | SerialSliderWidget | SerialInputWidget;
+export interface SerialJoystickWidget extends SerialControlWidgetBase {
+  type: "joystick";
+  template: string;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  step: number;
+  x: number;
+  y: number;
+  sendMode: "release" | "continuous";
+  recenter: boolean;
+}
+
+export interface SerialGaugeWidget extends SerialControlWidgetBase {
+  type: "gauge";
+  channel: string;
+  min: number;
+  max: number;
+  unit: string;
+  direction: "horizontal" | "vertical";
+}
+
+export interface SerialValueWidget extends SerialControlWidgetBase {
+  type: "value";
+  channel: string;
+  unit: string;
+}
+
+export type SerialControlWidget =
+  | SerialButtonWidget
+  | SerialToggleWidget
+  | SerialSliderWidget
+  | SerialInputWidget
+  | SerialJoystickWidget
+  | SerialGaugeWidget
+  | SerialValueWidget;
 
 export interface SerialControlPanelConfig {
   version: 1;
@@ -52,6 +88,9 @@ const LABELS: Record<SerialControlWidgetType, string> = {
   toggle: "开关",
   slider: "滑块",
   input: "参数输入",
+  joystick: "摇杆",
+  gauge: "能量槽",
+  value: "接收数值",
 };
 
 function widgetId() {
@@ -65,7 +104,27 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   if (type === "slider") {
     return { ...base, type, template: "PWM={value}", min: 0, max: 255, step: 1, value: 0, sendMode: "release" };
   }
-  return { ...base, type, template: "{value}", value: "" };
+  if (type === "input") return { ...base, type, template: "{value}", value: "" };
+  if (type === "joystick") {
+    return {
+      ...base,
+      type,
+      template: "X={x},Y={y}",
+      xMin: -100,
+      xMax: 100,
+      yMin: -100,
+      yMax: 100,
+      step: 1,
+      x: 0,
+      y: 0,
+      sendMode: "continuous",
+      recenter: true,
+    };
+  }
+  if (type === "gauge") {
+    return { ...base, type, channel: "", min: 0, max: 100, unit: "%", direction: "horizontal" };
+  }
+  return { ...base, type, channel: "", unit: "" };
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -87,7 +146,16 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     if (!rawWidget || typeof rawWidget !== "object") return [];
     const widget = rawWidget as Record<string, unknown>;
     const type = widget.type;
-    if (type !== "button" && type !== "toggle" && type !== "slider" && type !== "input") return [];
+    if (
+      type !== "button" &&
+      type !== "toggle" &&
+      type !== "slider" &&
+      type !== "input" &&
+      type !== "joystick" &&
+      type !== "gauge" &&
+      type !== "value"
+    )
+      return [];
 
     const candidateId = stringValue(widget.id, `${type}-${index + 1}`) || `${type}-${index + 1}`;
     const id = usedIds.has(candidateId) ? `${candidateId}-${index + 1}` : candidateId;
@@ -114,6 +182,52 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     }
     if (type === "input") {
       return [{ ...base, type, template: stringValue(widget.template, "{value}"), value: stringValue(widget.value) }];
+    }
+
+    if (type === "joystick") {
+      const xMin = finiteNumber(widget.xMin, -100);
+      const xMaxCandidate = finiteNumber(widget.xMax, 100);
+      const xMax = xMaxCandidate > xMin ? xMaxCandidate : xMin + 1;
+      const yMin = finiteNumber(widget.yMin, -100);
+      const yMaxCandidate = finiteNumber(widget.yMax, 100);
+      const yMax = yMaxCandidate > yMin ? yMaxCandidate : yMin + 1;
+      const stepCandidate = finiteNumber(widget.step, 1);
+      return [
+        {
+          ...base,
+          type,
+          template: stringValue(widget.template, "X={x},Y={y}"),
+          xMin,
+          xMax,
+          yMin,
+          yMax,
+          step: stepCandidate > 0 ? stepCandidate : 1,
+          x: Math.min(xMax, Math.max(xMin, finiteNumber(widget.x, (xMin + xMax) / 2))),
+          y: Math.min(yMax, Math.max(yMin, finiteNumber(widget.y, (yMin + yMax) / 2))),
+          sendMode: widget.sendMode === "release" ? "release" : "continuous",
+          recenter: widget.recenter !== false,
+        },
+      ];
+    }
+
+    if (type === "value") {
+      return [{ ...base, type, channel: stringValue(widget.channel), unit: stringValue(widget.unit) }];
+    }
+
+    if (type === "gauge") {
+      const min = finiteNumber(widget.min, 0);
+      const maxCandidate = finiteNumber(widget.max, 100);
+      return [
+        {
+          ...base,
+          type,
+          channel: stringValue(widget.channel),
+          min,
+          max: maxCandidate > min ? maxCandidate : min + 1,
+          unit: stringValue(widget.unit, "%"),
+          direction: widget.direction === "vertical" ? "vertical" : "horizontal",
+        },
+      ];
     }
 
     const min = finiteNumber(widget.min, 0);
@@ -164,4 +278,26 @@ export function saveSerialControlPanel(panel: SerialControlPanelConfig) {
 
 export function renderSerialControlCommand(template: string, value: string | number) {
   return template.split("{value}").join(String(value));
+}
+
+export function renderSerialJoystickCommand(template: string, x: number, y: number) {
+  return template.split("{x}").join(String(x)).split("{y}").join(String(y));
+}
+
+function quantize(value: number, min: number, max: number, step: number) {
+  const quantized = min + Math.round((value - min) / step) * step;
+  return Number(Math.min(max, Math.max(min, quantized)).toFixed(10));
+}
+
+export function joystickPointFromRatio(
+  widget: Pick<SerialJoystickWidget, "xMin" | "xMax" | "yMin" | "yMax" | "step">,
+  xRatio: number,
+  yRatio: number
+) {
+  const x = widget.xMin + Math.min(1, Math.max(0, xRatio)) * (widget.xMax - widget.xMin);
+  const y = widget.yMax - Math.min(1, Math.max(0, yRatio)) * (widget.yMax - widget.yMin);
+  return {
+    x: quantize(x, widget.xMin, widget.xMax, widget.step),
+    y: quantize(y, widget.yMin, widget.yMax, widget.step),
+  };
 }

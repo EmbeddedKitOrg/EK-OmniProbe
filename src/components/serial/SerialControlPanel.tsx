@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,25 +25,42 @@ import { sendSerialPayload } from "@/lib/serialSend";
 import {
   createSerialControlWidget,
   loadSerialControlPanel,
+  joystickPointFromRatio,
   parseSerialControlPanel,
   renderSerialControlCommand,
+  renderSerialJoystickCommand,
   saveSerialControlPanel,
   type SerialControlPanelConfig,
   type SerialControlWidget,
   type SerialControlWidgetType,
+  type SerialJoystickWidget,
 } from "@/lib/serialControlPanel";
 import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
 
+type RuntimeValue = string | number | boolean | { x: number; y: number };
+const EMPTY_CHART_VALUES: Record<string, number> = {};
+
 function initialRuntimeValues(panel: SerialControlPanelConfig) {
   return Object.fromEntries(
-    panel.widgets.flatMap((widget) => ("value" in widget ? [[widget.id, widget.value]] : []))
-  ) as Record<string, string | number | boolean>;
+    panel.widgets.flatMap((widget) =>
+      widget.type === "joystick"
+        ? [[widget.id, { x: widget.x, y: widget.y }]]
+        : "value" in widget
+          ? [[widget.id, widget.value]]
+          : []
+    )
+  ) as Record<string, RuntimeValue>;
 }
 
 export function SerialControlPanel() {
-  const { connected, sendSettings } = useSerialStore(
-    useShallow((state) => ({ connected: state.connected, sendSettings: state.sendSettings }))
+  const { connected, sendSettings, latestValues, chartChannels } = useSerialStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      sendSettings: state.sendSettings,
+      latestValues: state.chartData[state.chartData.length - 1]?.values ?? EMPTY_CHART_VALUES,
+      chartChannels: state.chartConfig.channels,
+    }))
   );
   const addLog = useLogStore((state) => state.addLog);
   const [panel, setPanel] = useState(loadSerialControlPanel);
@@ -53,6 +70,9 @@ export function SerialControlPanel() {
   const [status, setStatus] = useState("等待操作");
   const lastContinuousSendRef = useRef<Record<string, number>>({});
   const importInputRef = useRef<HTMLInputElement>(null);
+  const availableChannels = Array.from(
+    new Set([...chartChannels.map((channel) => channel.key), ...Object.keys(latestValues)])
+  );
 
   useEffect(() => saveSerialControlPanel(panel), [panel]);
 
@@ -118,9 +138,40 @@ export function SerialControlPanel() {
   const sendSliderValue = (widget: Extract<SerialControlWidget, { type: "slider" }>, value: number) =>
     sendCommand(widget, renderSerialControlCommand(widget.template, value));
 
+  const sendJoystickPoint = (widget: SerialJoystickWidget, point: { x: number; y: number }) =>
+    sendCommand(widget, renderSerialJoystickCommand(widget.template, point.x, point.y));
+
   const commitSliderValue = (widget: Extract<SerialControlWidget, { type: "slider" }>, value: number) => {
     updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, value } : current));
     void sendSliderValue(widget, value);
+  };
+
+  const joystickPointFromEvent = (widget: SerialJoystickWidget, event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return joystickPointFromRatio(
+      widget,
+      (event.clientX - rect.left) / rect.width,
+      (event.clientY - rect.top) / rect.height
+    );
+  };
+
+  const moveJoystick = (widget: SerialJoystickWidget, point: { x: number; y: number }) => {
+    setRuntimeValues((current) => ({ ...current, [widget.id]: point }));
+    if (widget.sendMode !== "continuous") return;
+    const now = Date.now();
+    if (now - (lastContinuousSendRef.current[widget.id] ?? 0) < 100) return;
+    lastContinuousSendRef.current[widget.id] = now;
+    void sendJoystickPoint(widget, point);
+  };
+
+  const finishJoystick = async (widget: SerialJoystickWidget, point: { x: number; y: number }) => {
+    await sendJoystickPoint(widget, point);
+    const next = widget.recenter ? joystickPointFromRatio(widget, 0.5, 0.5) : point;
+    setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
+    updateWidget(widget.id, (current) =>
+      current.type === "joystick" ? { ...current, x: next.x, y: next.y } : current
+    );
+    if (widget.recenter) await sendJoystickPoint(widget, next);
   };
 
   const exportPanel = async () => {
@@ -167,21 +218,23 @@ export function SerialControlPanel() {
             onChange={(event) => updateWidget(widget.id, (current) => ({ ...current, label: event.target.value }))}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label>发送格式</Label>
-          <Select
-            value={widget.format}
-            onValueChange={(format: "text" | "hex") => updateWidget(widget.id, (current) => ({ ...current, format }))}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">文本</SelectItem>
-              <SelectItem value="hex">HEX</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {widget.type !== "gauge" && widget.type !== "value" && (
+          <div className="space-y-1.5">
+            <Label>发送格式</Label>
+            <Select
+              value={widget.format}
+              onValueChange={(format: "text" | "hex") => updateWidget(widget.id, (current) => ({ ...current, format }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">文本</SelectItem>
+                <SelectItem value="hex">HEX</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {widget.type === "button" && (
@@ -231,7 +284,7 @@ export function SerialControlPanel() {
         </div>
       )}
 
-      {(widget.type === "slider" || widget.type === "input") && (
+      {(widget.type === "slider" || widget.type === "input" || widget.type === "joystick") && (
         <div className="space-y-1.5">
           <Label htmlFor={`${widget.id}-template`}>发送模板</Label>
           <Input
@@ -239,15 +292,23 @@ export function SerialControlPanel() {
             value={widget.template}
             onChange={(event) =>
               updateWidget(widget.id, (current) =>
-                current.type === "slider" || current.type === "input"
+                current.type === "slider" || current.type === "input" || current.type === "joystick"
                   ? { ...current, template: event.target.value }
                   : current
               )
             }
-            placeholder="PWM={value}"
+            placeholder={widget.type === "joystick" ? "X={x},Y={y}" : "PWM={value}"}
             className="font-mono"
           />
-          <p className="text-[11px] text-muted-foreground">使用 {"{value}"} 表示当前控件值。</p>
+          <p className="text-[11px] text-muted-foreground">
+            {widget.type === "joystick" ? (
+              <>
+                使用 {"{x}"} 和 {"{y}"} 表示摇杆坐标。
+              </>
+            ) : (
+              <>使用 {"{value}"} 表示当前控件值。</>
+            )}
+          </p>
         </div>
       )}
 
@@ -284,6 +345,147 @@ export function SerialControlPanel() {
               <SelectContent>
                 <SelectItem value="release">松手发送</SelectItem>
                 <SelectItem value="continuous">连续发送</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {widget.type === "joystick" && (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-5">
+            {(["xMin", "xMax", "yMin", "yMax", "step"] as const).map((key) => (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`${widget.id}-${key}`}>
+                  {key === "xMin"
+                    ? "X 最小值"
+                    : key === "xMax"
+                      ? "X 最大值"
+                      : key === "yMin"
+                        ? "Y 最小值"
+                        : key === "yMax"
+                          ? "Y 最大值"
+                          : "步长"}
+                </Label>
+                <Input
+                  id={`${widget.id}-${key}`}
+                  type="number"
+                  value={widget[key]}
+                  onChange={(event) =>
+                    updateWidget(widget.id, (current) =>
+                      current.type === "joystick" ? { ...current, [key]: Number(event.target.value) } : current
+                    )
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>发送方式</Label>
+              <Select
+                value={widget.sendMode}
+                onValueChange={(sendMode: "release" | "continuous") =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "joystick" ? { ...current, sendMode } : current
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="release">松手发送</SelectItem>
+                  <SelectItem value="continuous">连续发送</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end justify-between rounded-lg border border-border/60 px-3 py-2">
+              <div>
+                <Label htmlFor={`${widget.id}-recenter`}>松手回中</Label>
+                <p className="text-[11px] text-muted-foreground">松手后发送中心坐标。</p>
+              </div>
+              <Switch
+                id={`${widget.id}-recenter`}
+                checked={widget.recenter}
+                onCheckedChange={(recenter) =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "joystick" ? { ...current, recenter } : current
+                  )
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(widget.type === "gauge" || widget.type === "value") && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${widget.id}-channel`}>接收通道 key</Label>
+            <Input
+              id={`${widget.id}-channel`}
+              list="serial-control-channels"
+              value={widget.channel}
+              onChange={(event) =>
+                updateWidget(widget.id, (current) =>
+                  current.type === "gauge" || current.type === "value"
+                    ? { ...current, channel: event.target.value }
+                    : current
+                )
+              }
+              placeholder="例如 temp"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${widget.id}-unit`}>单位</Label>
+            <Input
+              id={`${widget.id}-unit`}
+              value={widget.unit}
+              onChange={(event) =>
+                updateWidget(widget.id, (current) =>
+                  current.type === "gauge" || current.type === "value"
+                    ? { ...current, unit: event.target.value }
+                    : current
+                )
+              }
+              placeholder="例如 ℃"
+            />
+          </div>
+        </div>
+      )}
+
+      {widget.type === "gauge" && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(["min", "max"] as const).map((key) => (
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={`${widget.id}-${key}`}>{key === "min" ? "最小值" : "最大值"}</Label>
+              <Input
+                id={`${widget.id}-${key}`}
+                type="number"
+                value={widget[key]}
+                onChange={(event) =>
+                  updateWidget(widget.id, (current) =>
+                    current.type === "gauge" ? { ...current, [key]: Number(event.target.value) } : current
+                  )
+                }
+              />
+            </div>
+          ))}
+          <div className="space-y-1.5">
+            <Label>方向</Label>
+            <Select
+              value={widget.direction}
+              onValueChange={(direction: "horizontal" | "vertical") =>
+                updateWidget(widget.id, (current) => (current.type === "gauge" ? { ...current, direction } : current))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="horizontal">横向</SelectItem>
+                <SelectItem value="vertical">纵向</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -366,6 +568,131 @@ export function SerialControlPanel() {
       );
     }
 
+    if (widget.type === "joystick") {
+      const runtime = runtimeValues[widget.id];
+      const point = typeof runtime === "object" ? runtime : { x: widget.x, y: widget.y };
+      const left = ((point.x - widget.xMin) / (widget.xMax - widget.xMin)) * 100;
+      const top = ((widget.yMax - point.y) / (widget.yMax - widget.yMin)) * 100;
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium text-foreground">{widget.label}</span>
+            <span className="rounded-full bg-secondary px-3 py-1 font-mono text-sm">
+              X {point.x} · Y {point.y}
+            </span>
+          </div>
+          <div
+            role="application"
+            tabIndex={connected ? 0 : -1}
+            aria-label={`${widget.label}摇杆，X ${point.x}，Y ${point.y}`}
+            className={cn(
+              "relative mx-auto aspect-square w-full max-w-48 touch-none overflow-hidden rounded-full border border-border bg-muted/60",
+              !connected && "cursor-not-allowed opacity-50"
+            )}
+            onPointerDown={(event) => {
+              if (!connected) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              moveJoystick(widget, joystickPointFromEvent(widget, event));
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                moveJoystick(widget, joystickPointFromEvent(widget, event));
+              }
+            }}
+            onPointerUp={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+              const next = joystickPointFromEvent(widget, event);
+              event.currentTarget.releasePointerCapture(event.pointerId);
+              void finishJoystick(widget, next);
+            }}
+            onKeyDown={(event) => {
+              const offset =
+                event.key === "ArrowLeft"
+                  ? [-widget.step, 0]
+                  : event.key === "ArrowRight"
+                    ? [widget.step, 0]
+                    : event.key === "ArrowUp"
+                      ? [0, widget.step]
+                      : event.key === "ArrowDown"
+                        ? [0, -widget.step]
+                        : null;
+              if (!offset) return;
+              event.preventDefault();
+              const next = joystickPointFromRatio(
+                widget,
+                (point.x + offset[0] - widget.xMin) / (widget.xMax - widget.xMin),
+                (widget.yMax - point.y - offset[1]) / (widget.yMax - widget.yMin)
+              );
+              setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
+              updateWidget(widget.id, (current) =>
+                current.type === "joystick" ? { ...current, x: next.x, y: next.y } : current
+              );
+              void sendJoystickPoint(widget, next);
+            }}
+          >
+            <div className="absolute left-1/2 top-0 h-full w-px bg-border/80" />
+            <div className="absolute left-0 top-1/2 h-px w-full bg-border/80" />
+            <div
+              className="absolute h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/20 shadow-md"
+              style={{ left: `${left}%`, top: `${top}%` }}
+            />
+          </div>
+          <div className="text-center text-[11px] text-muted-foreground">
+            {widget.sendMode === "continuous" ? "连续发送 · 100ms 节流" : "松手发送"}
+            {widget.recenter ? " · 松手回中" : ""}
+          </div>
+        </div>
+      );
+    }
+
+    if (widget.type === "gauge") {
+      const value = latestValues[widget.channel];
+      const percent = Number.isFinite(value)
+        ? Math.min(100, Math.max(0, ((value - widget.min) / (widget.max - widget.min)) * 100))
+        : 0;
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium text-foreground">{widget.label}</span>
+            <span className="font-mono text-lg font-semibold">
+              {Number.isFinite(value) ? value : "--"}
+              {widget.unit}
+            </span>
+          </div>
+          {widget.direction === "vertical" ? (
+            <div className="mx-auto flex h-40 w-16 items-end overflow-hidden rounded-xl border border-border bg-muted/60">
+              <div className="w-full bg-primary transition-[height]" style={{ height: `${percent}%` }} />
+            </div>
+          ) : (
+            <div className="h-5 overflow-hidden rounded-full border border-border bg-muted/60">
+              <div className="h-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
+            </div>
+          )}
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>{widget.min}</span>
+            <span>{widget.channel ? `通道 ${widget.channel}` : "未绑定通道"}</span>
+            <span>{widget.max}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (widget.type === "value") {
+      const value = latestValues[widget.channel];
+      return (
+        <div className="flex min-h-24 flex-col items-center justify-center text-center">
+          <div className="text-sm text-muted-foreground">{widget.label}</div>
+          <div className="mt-2 font-mono text-4xl font-semibold tracking-tight text-foreground">
+            {Number.isFinite(value) ? value : "--"}
+            <span className="ml-1 text-base font-normal text-muted-foreground">{widget.unit}</span>
+          </div>
+          <div className="mt-2 text-[11px] text-muted-foreground">
+            {widget.channel ? `通道 ${widget.channel}` : "未绑定通道"}
+          </div>
+        </div>
+      );
+    }
+
     const value = String(runtimeValues[widget.id] ?? widget.value);
     const sendInput = async () => {
       const sent = await sendCommand(widget, renderSerialControlCommand(widget.template, value));
@@ -396,6 +723,11 @@ export function SerialControlPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-muted/10">
+      <datalist id="serial-control-channels">
+        {availableChannels.map((channel) => (
+          <option key={channel} value={channel} />
+        ))}
+      </datalist>
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-white/70 px-4 py-3">
         <LayoutDashboard className="h-4 w-4 text-primary" />
         {editing ? (
@@ -449,6 +781,9 @@ export function SerialControlPanel() {
                       ["toggle", "开关"],
                       ["slider", "滑块"],
                       ["input", "参数输入"],
+                      ["joystick", "摇杆"],
+                      ["gauge", "能量槽"],
+                      ["value", "接收数值"],
                     ] as const
                   ).map(([type, label]) => (
                     <Button key={type} variant="ghost" className="justify-start" onClick={() => addWidget(type)}>
@@ -472,9 +807,7 @@ export function SerialControlPanel() {
             <div>
               <LayoutDashboard className="mx-auto h-8 w-8 text-muted-foreground" />
               <div className="mt-3 text-sm font-medium text-foreground">还没有快捷控件</div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                点击“添加控件”，把常用串口命令做成按钮、开关或滑块。
-              </div>
+              <div className="mt-1 text-xs text-muted-foreground">点击“添加控件”，添加常用发送操作或接收数据显示。</div>
             </div>
           </div>
         ) : (
@@ -501,7 +834,7 @@ export function SerialControlPanel() {
                         {widget.type}
                       </span>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
-                        {widget.format.toUpperCase()}
+                        {widget.type === "gauge" || widget.type === "value" ? "RX" : widget.format.toUpperCase()}
                       </span>
                       <div className="ml-auto flex items-center gap-1">
                         <Button
