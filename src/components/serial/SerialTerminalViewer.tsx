@@ -5,7 +5,7 @@ import { useLogStore } from "@/stores/logStore";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
-import { writeSerial, writeSerialString } from "@/lib/tauri";
+import { writeSerialData, writeSerialText } from "@/lib/serialSend";
 import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory } from "@/lib/serialHistory";
 import { exportTextAsTxt } from "@/lib/exporters";
@@ -175,7 +175,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
 
       try {
         setSending(true);
-        await writeSerialString(text, sendSettings.encoding, "none");
+        await writeSerialText(text, sendSettings.encoding, "none");
         emitLocalEcho(text);
       } catch (error) {
         addLog("error", `终端发送失败: ${error}`);
@@ -194,7 +194,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
 
       try {
         setSending(true);
-        await writeSerial(bytes);
+        await writeSerialData(bytes);
         emitLocalEcho(localEchoText);
       } catch (error) {
         addLog("error", `终端发送失败: ${error}`);

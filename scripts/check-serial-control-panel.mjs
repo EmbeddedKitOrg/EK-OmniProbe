@@ -6,6 +6,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
+  await server.ssrLoadModule("/src/components/serial/SerialSidebar.tsx");
   const {
     joystickPointFromRatio,
     parseSerialCommandSequence,
@@ -20,6 +21,34 @@ try {
   const { createImuFusionState, estimateGyroBias, updateImuFusion } =
     await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
+  const { createSimulationSample, normalizeSimulationConfig } =
+    await server.ssrLoadModule("/src/lib/serialSimulation.ts");
+
+  const simulationConfig = {
+    preset: "imu6",
+    sampleRateHz: 50,
+    frequencyHz: 0.25,
+    amplitude: 1,
+    offset: 0,
+    noise: 0,
+    channelCount: 2,
+    waveform: "sine",
+    xyPattern: "circle",
+  };
+  const imuSample = createSimulationSample(simulationConfig, 0, () => 0.5);
+  assert.deepEqual(Object.keys(imuSample), ["ax", "ay", "az", "gx", "gy", "gz"]);
+  assert.ok(Object.values(imuSample).every(Number.isFinite));
+  assert.ok(Math.abs(Math.hypot(imuSample.ax, imuSample.ay, imuSample.az) - 1) < 1e-6);
+  assert.deepEqual(Object.keys(createSimulationSample({ ...simulationConfig, preset: "imu3" }, 0)), [
+    "roll",
+    "pitch",
+    "yaw",
+  ]);
+  assert.deepEqual(normalizeSimulationConfig({ ...simulationConfig, sampleRateHz: 999, channelCount: 0 }), {
+    ...simulationConfig,
+    sampleRateHz: 200,
+    channelCount: 1,
+  });
 
   assert.equal(renderSerialControlCommand("PWM={value};COPY={value}", 128), "PWM=128;COPY=128");
   assert.equal(renderSerialJoystickCommand("X={x},Y={y}", -20, 30), "X=-20,Y=30");
