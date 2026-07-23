@@ -40,6 +40,7 @@ import {
 import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
 import { SerialControlMiniChart } from "./SerialControlMiniChart";
+import { SerialImu3DControl } from "./SerialImu3D";
 
 type RuntimeValue = string | number | boolean | { x: number; y: number };
 const EMPTY_CHART_VALUES: Record<string, number> = {};
@@ -261,7 +262,8 @@ export function SerialControlPanel() {
           widget.type !== "value" &&
           widget.type !== "indicator" &&
           widget.type !== "xy-chart" &&
-          widget.type !== "yt-chart" && (
+          widget.type !== "yt-chart" &&
+          widget.type !== "imu-3d" && (
             <div className="space-y-1.5">
               <Label>发送格式</Label>
               <Select
@@ -610,6 +612,177 @@ export function SerialControlPanel() {
             }
           />
           <p className="text-[11px] text-muted-foreground">使用波形解析缓存中的最近 10–2000 个点。</p>
+        </div>
+      )}
+
+      {widget.type === "imu-3d" && (
+        <div className="space-y-3">
+          <div className="max-w-48 space-y-1.5">
+            <Label>数据源</Label>
+            <Select
+              value={widget.sourceMode}
+              onValueChange={(sourceMode: "euler" | "imu6") =>
+                updateWidget(widget.id, (current) => (current.type === "imu-3d" ? { ...current, sourceMode } : current))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="euler">欧拉角直驱</SelectItem>
+                <SelectItem value="imu6">原始六轴融合</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {widget.sourceMode === "euler" ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(["rollChannel", "pitchChannel", "yawChannel"] as const).map((key) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`${widget.id}-${key}`}>
+                      {key === "rollChannel"
+                        ? "Roll / X 通道"
+                        : key === "pitchChannel"
+                          ? "Pitch / Y 通道"
+                          : "Yaw / Z 通道"}
+                    </Label>
+                    <Input
+                      id={`${widget.id}-${key}`}
+                      list="serial-control-channels"
+                      value={widget[key]}
+                      onChange={(event) =>
+                        updateWidget(widget.id, (current) =>
+                          current.type === "imu-3d" ? { ...current, [key]: event.target.value } : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="max-w-48 space-y-1.5">
+                <Label>输入角度单位</Label>
+                <Select
+                  value={widget.angleUnit}
+                  onValueChange={(angleUnit: "deg" | "rad") =>
+                    updateWidget(widget.id, (current) =>
+                      current.type === "imu-3d" ? { ...current, angleUnit } : current
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="deg">角度 (°)</SelectItem>
+                    <SelectItem value="rad">弧度 (rad)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(["accelXChannel", "accelYChannel", "accelZChannel"] as const).map((key, index) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`${widget.id}-${key}`}>加速度 {"XYZ"[index]} 通道</Label>
+                    <Input
+                      id={`${widget.id}-${key}`}
+                      list="serial-control-channels"
+                      value={widget[key]}
+                      onChange={(event) =>
+                        updateWidget(widget.id, (current) =>
+                          current.type === "imu-3d" ? { ...current, [key]: event.target.value } : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(["gyroXChannel", "gyroYChannel", "gyroZChannel"] as const).map((key, index) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`${widget.id}-${key}`}>陀螺仪 {"XYZ"[index]} 通道</Label>
+                    <Input
+                      id={`${widget.id}-${key}`}
+                      list="serial-control-channels"
+                      value={widget[key]}
+                      onChange={(event) =>
+                        updateWidget(widget.id, (current) =>
+                          current.type === "imu-3d" ? { ...current, [key]: event.target.value } : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>陀螺仪单位</Label>
+                  <Select
+                    value={widget.gyroUnit}
+                    onValueChange={(gyroUnit: "dps" | "rad") =>
+                      updateWidget(widget.id, (current) =>
+                        current.type === "imu-3d" ? { ...current, gyroUnit } : current
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dps">度/秒 (°/s)</SelectItem>
+                      <SelectItem value="rad">弧度/秒 (rad/s)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {(["sampleRateHz", "filterAlpha"] as const).map((key) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`${widget.id}-${key}`}>
+                      {key === "sampleRateHz" ? "兜底采样率 (Hz)" : "滤波系数 α"}
+                    </Label>
+                    <Input
+                      id={`${widget.id}-${key}`}
+                      type="number"
+                      min={key === "sampleRateHz" ? 1 : 0}
+                      max={key === "sampleRateHz" ? 10000 : 1}
+                      step={key === "sampleRateHz" ? 1 : 0.01}
+                      value={widget[key]}
+                      onChange={(event) =>
+                        updateWidget(widget.id, (current) =>
+                          current.type === "imu-3d" ? { ...current, [key]: Number(event.target.value) } : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {(["gyroBiasX", "gyroBiasY", "gyroBiasZ"] as const).map((key, index) => (
+                  <div key={key} className="space-y-1.5">
+                    <Label htmlFor={`${widget.id}-${key}`}>陀螺零偏 {"XYZ"[index]}</Label>
+                    <Input
+                      id={`${widget.id}-${key}`}
+                      type="number"
+                      step="any"
+                      value={widget[key]}
+                      onChange={(event) =>
+                        updateWidget(widget.id, (current) =>
+                          current.type === "imu-3d" ? { ...current, [key]: Number(event.target.value) } : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                加速度单位可为 g 或 m/s²，但三个轴必须一致；设备静止时可在运行模式点击“静止校准”。
+              </p>
+            </>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            按 X=Roll、Y=Pitch、Z=Yaw 映射；运行模式可用当前姿态归零。
+          </p>
         </div>
       )}
 
@@ -980,6 +1153,19 @@ export function SerialControlPanel() {
       );
     }
 
+    if (widget.type === "imu-3d") {
+      return (
+        <SerialImu3DControl
+          widget={widget}
+          chartData={chartData}
+          latestValues={latestValues}
+          onUpdate={(patch) =>
+            updateWidget(widget.id, (current) => (current.type === "imu-3d" ? { ...current, ...patch } : current))
+          }
+        />
+      );
+    }
+
     const value = String(runtimeValues[widget.id] ?? widget.value);
     const sendInput = async () => {
       const sent = await sendCommand(widget, renderSerialControlCommand(widget.template, value));
@@ -1076,6 +1262,7 @@ export function SerialControlPanel() {
                       ["indicator", "状态灯"],
                       ["xy-chart", "XY 二维曲线"],
                       ["yt-chart", "YT 一维曲线"],
+                      ["imu-3d", "IMU 3D 姿态"],
                     ] as const
                   ).map(([type, label]) => (
                     <Button key={type} variant="ghost" className="justify-start" onClick={() => addWidget(type)}>
@@ -1130,7 +1317,8 @@ export function SerialControlPanel() {
                         widget.type === "value" ||
                         widget.type === "indicator" ||
                         widget.type === "xy-chart" ||
-                        widget.type === "yt-chart"
+                        widget.type === "yt-chart" ||
+                        widget.type === "imu-3d"
                           ? "RX"
                           : widget.format.toUpperCase()}
                       </span>

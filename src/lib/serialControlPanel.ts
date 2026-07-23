@@ -10,7 +10,8 @@ export type SerialControlWidgetType =
   | "value"
   | "indicator"
   | "xy-chart"
-  | "yt-chart";
+  | "yt-chart"
+  | "imu-3d";
 export type SerialControlFormat = "text" | "hex";
 
 interface SerialControlWidgetBase {
@@ -112,6 +113,30 @@ export interface SerialYtChartWidget extends SerialControlWidgetBase {
   pointLimit: number;
 }
 
+export interface SerialImu3dWidget extends SerialControlWidgetBase {
+  type: "imu-3d";
+  sourceMode: "euler" | "imu6";
+  rollChannel: string;
+  pitchChannel: string;
+  yawChannel: string;
+  angleUnit: "deg" | "rad";
+  accelXChannel: string;
+  accelYChannel: string;
+  accelZChannel: string;
+  gyroXChannel: string;
+  gyroYChannel: string;
+  gyroZChannel: string;
+  gyroUnit: "dps" | "rad";
+  sampleRateHz: number;
+  filterAlpha: number;
+  gyroBiasX: number;
+  gyroBiasY: number;
+  gyroBiasZ: number;
+  rollOffset: number;
+  pitchOffset: number;
+  yawOffset: number;
+}
+
 export type SerialControlWidget =
   | SerialButtonWidget
   | SerialToggleWidget
@@ -124,7 +149,8 @@ export type SerialControlWidget =
   | SerialValueWidget
   | SerialIndicatorWidget
   | SerialXyChartWidget
-  | SerialYtChartWidget;
+  | SerialYtChartWidget
+  | SerialImu3dWidget;
 
 export interface SerialControlPanelConfig {
   version: 1;
@@ -147,6 +173,7 @@ const LABELS: Record<SerialControlWidgetType, string> = {
   indicator: "状态灯",
   "xy-chart": "XY 二维曲线",
   "yt-chart": "YT 一维曲线",
+  "imu-3d": "IMU 3D 姿态",
 };
 
 function widgetId() {
@@ -187,7 +214,32 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   if (type === "value") return { ...base, type, channel: "", unit: "" };
   if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
   if (type === "xy-chart") return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 2 };
-  return { ...base, type, channel: "", pointLimit: 200, width: 2 };
+  if (type === "yt-chart") return { ...base, type, channel: "", pointLimit: 200, width: 2 };
+  return {
+    ...base,
+    type,
+    sourceMode: "euler",
+    rollChannel: "roll",
+    pitchChannel: "pitch",
+    yawChannel: "yaw",
+    angleUnit: "deg",
+    accelXChannel: "ax",
+    accelYChannel: "ay",
+    accelZChannel: "az",
+    gyroXChannel: "gx",
+    gyroYChannel: "gy",
+    gyroZChannel: "gz",
+    gyroUnit: "dps",
+    sampleRateHz: 100,
+    filterAlpha: 0.98,
+    gyroBiasX: 0,
+    gyroBiasY: 0,
+    gyroBiasZ: 0,
+    rollOffset: 0,
+    pitchOffset: 0,
+    yawOffset: 0,
+    width: 2,
+  };
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -221,7 +273,8 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       type !== "value" &&
       type !== "indicator" &&
       type !== "xy-chart" &&
-      type !== "yt-chart"
+      type !== "yt-chart" &&
+      type !== "imu-3d"
     )
       return [];
 
@@ -341,6 +394,35 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       ];
     }
 
+    if (type === "imu-3d") {
+      return [
+        {
+          ...base,
+          type,
+          sourceMode: widget.sourceMode === "imu6" ? "imu6" : "euler",
+          rollChannel: stringValue(widget.rollChannel, "roll"),
+          pitchChannel: stringValue(widget.pitchChannel, "pitch"),
+          yawChannel: stringValue(widget.yawChannel, "yaw"),
+          angleUnit: widget.angleUnit === "rad" ? "rad" : "deg",
+          accelXChannel: stringValue(widget.accelXChannel, "ax"),
+          accelYChannel: stringValue(widget.accelYChannel, "ay"),
+          accelZChannel: stringValue(widget.accelZChannel, "az"),
+          gyroXChannel: stringValue(widget.gyroXChannel, "gx"),
+          gyroYChannel: stringValue(widget.gyroYChannel, "gy"),
+          gyroZChannel: stringValue(widget.gyroZChannel, "gz"),
+          gyroUnit: widget.gyroUnit === "rad" ? "rad" : "dps",
+          sampleRateHz: Math.min(10_000, Math.max(1, finiteNumber(widget.sampleRateHz, 100))),
+          filterAlpha: Math.min(1, Math.max(0, finiteNumber(widget.filterAlpha, 0.98))),
+          gyroBiasX: finiteNumber(widget.gyroBiasX, 0),
+          gyroBiasY: finiteNumber(widget.gyroBiasY, 0),
+          gyroBiasZ: finiteNumber(widget.gyroBiasZ, 0),
+          rollOffset: finiteNumber(widget.rollOffset, 0),
+          pitchOffset: finiteNumber(widget.pitchOffset, 0),
+          yawOffset: finiteNumber(widget.yawOffset, 0),
+        },
+      ];
+    }
+
     if (type === "value") {
       return [{ ...base, type, channel: stringValue(widget.channel), unit: stringValue(widget.unit) }];
     }
@@ -417,6 +499,35 @@ export function renderSerialJoystickCommand(template: string, x: number, y: numb
 
 export function parseSerialCommandSequence(commands: string) {
   return commands.split(/\r\n?|\n/).filter((command) => command.trim().length > 0);
+}
+
+function normalizeAngle(angle: number) {
+  return ((((angle + 180) % 360) + 360) % 360) - 180;
+}
+
+export function applySerialImuOffsets(
+  raw: { roll: number; pitch: number; yaw: number },
+  offsets: Pick<SerialImu3dWidget, "rollOffset" | "pitchOffset" | "yawOffset">
+) {
+  return {
+    roll: normalizeAngle(raw.roll - offsets.rollOffset),
+    pitch: normalizeAngle(raw.pitch - offsets.pitchOffset),
+    yaw: normalizeAngle(raw.yaw - offsets.yawOffset),
+  };
+}
+
+export function resolveSerialImuAngles(
+  widget: Pick<
+    SerialImu3dWidget,
+    "rollChannel" | "pitchChannel" | "yawChannel" | "angleUnit" | "rollOffset" | "pitchOffset" | "yawOffset"
+  >,
+  values: Record<string, number>
+) {
+  const source = [values[widget.rollChannel], values[widget.pitchChannel], values[widget.yawChannel]];
+  if (!source.every(Number.isFinite)) return null;
+  const factor = widget.angleUnit === "rad" ? 180 / Math.PI : 1;
+  const raw = { roll: source[0] * factor, pitch: source[1] * factor, yaw: source[2] * factor };
+  return { raw, display: applySerialImuOffsets(raw, widget) };
 }
 
 function quantize(value: number, min: number, max: number, step: number) {
