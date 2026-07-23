@@ -122,6 +122,8 @@ const defaultTerminalSettings: SerialTerminalSettings = {
   lineMode: false,
 };
 
+export type SerialInspectorTab = "connection" | "data" | "widget";
+
 interface SerialState {
   // Connection state
   connected: boolean;
@@ -151,6 +153,7 @@ interface SerialState {
   displayMode: "text" | "hex";
   colorParserConfig: ColorParserConfig;
   textViewMode: SerialTextViewMode;
+  inspectorTab: SerialInspectorTab;
 
   // Terminal state
   terminalLines: SerialTerminalLine[];
@@ -212,6 +215,7 @@ interface SerialState {
   setDisplayMode: (mode: "text" | "hex") => void;
   setColorParserConfig: (config: ColorParserConfig) => void;
   setTextViewMode: (mode: SerialTextViewMode) => void;
+  setInspectorTab: (tab: SerialInspectorTab) => void;
 
   appendTerminalChunk: (text: string) => void;
   clearTerminalBuffer: () => void;
@@ -473,6 +477,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   displayMode: "text",
   colorParserConfig: loadColorParserConfig(),
   textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
+  inspectorTab: "connection",
 
   terminalLines: [],
   terminalActiveLine: "",
@@ -639,6 +644,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     saveToStorage(SERIAL_TEXT_VIEW_MODE_KEY, textViewMode);
     set({ textViewMode });
   },
+  setInspectorTab: (inspectorTab) => set({ inspectorTab }),
 
   appendTerminalChunk: (text) => set((state) => processTerminalChunk(text, state)),
 

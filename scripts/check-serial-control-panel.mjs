@@ -9,6 +9,7 @@ try {
   await server.ssrLoadModule("/src/components/serial/SerialSidebar.tsx");
   const {
     joystickPointFromRatio,
+    moveSerialControlWidget,
     parseSerialCommandSequence,
     parseSerialControlPanel,
     renderSerialControlCommand,
@@ -159,11 +160,11 @@ try {
   assert.throws(() => parseHexBytes("0x12"), /十六进制/);
 
   const panel = parseSerialControlPanel({
-    version: 1,
+    version: 2,
     name: "电机控制",
     widgets: [
       { id: "speed", type: "slider", label: "转速", min: 100, max: 10, step: 0, value: 999 },
-      { id: "speed", type: "button", command: "STOP", format: "hex", width: 2 },
+      { id: "speed", type: "button", command: "STOP", format: "hex", columns: 12 },
       { id: "stick", type: "joystick", xMin: 10, xMax: 0, yMin: -5, yMax: -10, step: 0 },
       { id: "power", type: "gauge", channel: "battery", min: 100, max: 50, direction: "vertical" },
       { id: "temp", type: "value", channel: "temperature", unit: "℃" },
@@ -181,11 +182,12 @@ try {
         filterAlpha: 9,
         rollOffset: "invalid",
       },
+      { id: "main-chart", type: "chart", signalDomain: "fft", columns: 12 },
       { type: "unknown" },
     ],
   });
 
-  assert.equal(panel.widgets.length, 11);
+  assert.equal(panel.widgets.length, 12);
   assert.deepEqual(
     panel.widgets.map(({ id, type }) => [id, type]),
     [
@@ -200,8 +202,17 @@ try {
       ["xy", "xy-chart"],
       ["yt", "yt-chart"],
       ["imu", "imu-3d"],
+      ["main-chart", "chart"],
     ]
   );
+  assert.equal(panel.widgets[1].columns, 12);
+  assert.deepEqual(
+    moveSerialControlWidget(panel.widgets, "main-chart", "speed")
+      .slice(0, 3)
+      .map(({ id }) => id),
+    ["main-chart", "speed", "speed-2"]
+  );
+  assert.throws(() => parseSerialControlPanel({ version: 1, widgets: [] }), /不支持/);
   assert.deepEqual(
     {
       min: panel.widgets[0].min,
@@ -257,8 +268,12 @@ try {
       rollOffset: 0,
     }
   );
-  assert.throws(() => parseSerialControlPanel({ version: 2, widgets: [] }), /不支持/);
-  assert.throws(() => parseSerialControlPanel({ version: 1, widgets: [{ type: "unknown" }] }), /没有可用/);
+  assert.deepEqual(parseSerialControlPanel({ version: 2, widgets: [] }), {
+    version: 2,
+    name: "默认控制面板",
+    widgets: [],
+  });
+  assert.throws(() => parseSerialControlPanel({ version: 2, widgets: [{ type: "unknown" }] }), /没有可用/);
 
   console.log("串口控制面板配置检查通过");
 } finally {

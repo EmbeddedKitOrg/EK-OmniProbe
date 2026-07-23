@@ -81,15 +81,52 @@ function LogSection({ splitByDirection }: { splitByDirection: boolean }) {
 function TextSection({
   textViewMode,
   splitByDirection,
+  rawDataCollapsed,
+  onToggleRawData,
+  running,
+  lineCount,
 }: {
   textViewMode: SerialTextViewMode;
   splitByDirection: boolean;
+  rawDataCollapsed: boolean;
+  onToggleRawData: () => void;
+  running: boolean;
+  lineCount: number;
 }) {
   if (textViewMode === "terminal") {
     return <SerialTerminalViewer />;
   }
   if (textViewMode === "control") {
-    return <SerialControlPanel />;
+    return (
+      <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-border/60">
+          <SerialControlPanel />
+        </div>
+        <div className="shrink-0 overflow-hidden rounded-[16px] border border-border/60 bg-white/75">
+          <button
+            type="button"
+            className="flex h-10 w-full items-center gap-2 px-3 text-left"
+            onClick={onToggleRawData}
+          >
+            {rawDataCollapsed ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-sm font-medium">原始串口数据</span>
+            <span className="text-xs text-muted-foreground">
+              {running ? "持续接收" : "已停止"} · {lineCount} 行
+            </span>
+            <span className="ml-auto text-xs text-primary">{rawDataCollapsed ? "展开" : "折叠"}</span>
+          </button>
+          {!rawDataCollapsed && (
+            <div className="h-36 border-t border-border/60">
+              <LogSection splitByDirection={splitByDirection} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return <LogSection splitByDirection={splitByDirection} />;
@@ -204,7 +241,14 @@ export function SerialPanel({ className }: SerialPanelProps) {
                     : "Console"
             }
           >
-            <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
+            <TextSection
+              textViewMode={textViewMode}
+              splitByDirection={splitByDirection}
+              rawDataCollapsed={rawDataCollapsed}
+              onToggleRawData={() => setRawDataCollapsed((collapsed) => !collapsed)}
+              running={running}
+              lineCount={lines.length}
+            />
           </PanelShell>
         ) : viewMode === "chart" ? (
           // Chart only mode
@@ -305,7 +349,14 @@ export function SerialPanel({ className }: SerialPanelProps) {
                     ) : undefined
                   }
                 >
-                  <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
+                  <TextSection
+                    textViewMode={textViewMode}
+                    splitByDirection={splitByDirection}
+                    rawDataCollapsed={rawDataCollapsed}
+                    onToggleRawData={() => setRawDataCollapsed((collapsed) => !collapsed)}
+                    running={running}
+                    lineCount={lines.length}
+                  />
                 </PanelShell>
               </div>
             </Panel>
