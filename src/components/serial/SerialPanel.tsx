@@ -6,18 +6,20 @@ import { SerialTerminalViewer } from "./SerialTerminalViewer";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { cn } from "@/lib/utils";
-import { Activity, AlertCircle, FileText } from "lucide-react";
+import { Activity, AlertCircle, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
+import type { ChartSample } from "@/lib/chartAutoConfig";
 
 interface SerialPanelProps {
   className?: string;
 }
 
 // Wrapper component for chart that uses serial store
-function SerialChartViewer() {
+function SerialChartViewer({ samples }: { samples: ChartSample[] }) {
   const {
     chartData,
     chartConfig,
@@ -50,6 +52,8 @@ function SerialChartViewer() {
       setChartPaused={setChartPaused}
       clearChartData={clearChartData}
       setChartConfig={setChartConfig}
+      parserSamples={samples}
+      allowJustFloat
     />
   );
 }
@@ -116,6 +120,12 @@ export function SerialPanel({ className }: SerialPanelProps) {
   );
   const showSendBar = textViewMode !== "terminal";
   const isVerticalSplit = splitOrientation === "vertical";
+  const [rawDataCollapsed, setRawDataCollapsed] = useState(false);
+  const chartSamples = lines
+    .slice(-100)
+    .filter((line) => line.direction === "rx")
+    .slice(-20)
+    .map(({ text, rawData }) => ({ text, rawData }));
 
   const {
     detached: chartDetached,
@@ -199,9 +209,45 @@ export function SerialPanel({ className }: SerialPanelProps) {
             {chartDetached ? (
               <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
             ) : (
-              <SerialChartViewer />
+              <SerialChartViewer samples={chartSamples} />
             )}
           </PanelShell>
+        ) : isVerticalSplit && textViewMode === "log" && rawDataCollapsed ? (
+          <div className="flex h-full min-h-0 flex-col gap-2">
+            <button
+              type="button"
+              className="flex h-11 shrink-0 items-center gap-2 rounded-[16px] border border-border/60 bg-white/75 px-4 text-left shadow-[0_6px_14px_rgba(73,93,142,0.05)] hover:bg-white/90"
+              onClick={() => setRawDataCollapsed(false)}
+            >
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">原始串口数据</span>
+              <span className="text-xs text-muted-foreground">
+                已折叠 · {running ? "持续接收" : "已停止"} · {lines.length} 行
+              </span>
+              <span className="ml-auto text-xs font-medium text-primary">展开</span>
+            </button>
+            <div className="min-h-0 flex-1">
+              <PanelShell
+                title="图表区"
+                subtitle="波形、FFT 与趋势图。"
+                badge={chartConfig.signalDomain === "fft" ? "FFT" : "Chart"}
+                actions={
+                  <ChartWindowActions
+                    detached={chartDetached}
+                    onDetach={openDetachedWindow}
+                    onFocus={focusDetachedWindow}
+                    onRestore={restoreInline}
+                  />
+                }
+              >
+                {chartDetached ? (
+                  <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
+                ) : (
+                  <SerialChartViewer samples={chartSamples} />
+                )}
+              </PanelShell>
+            </div>
+          </div>
         ) : (
           // Split mode (terminal + chart) - terminal section respects splitByDirection
           <Group orientation={splitOrientation}>
@@ -221,6 +267,18 @@ export function SerialPanel({ className }: SerialPanelProps) {
                         : "原始串口输出。"
                   }
                   badge={textViewMode === "terminal" ? "Terminal" : splitByDirection ? "RX / TX" : "Console"}
+                  actions={
+                    isVerticalSplit && textViewMode === "log" ? (
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                        onClick={() => setRawDataCollapsed(true)}
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                        折叠
+                      </button>
+                    ) : undefined
+                  }
                 >
                   <TextSection textViewMode={textViewMode} splitByDirection={splitByDirection} />
                 </PanelShell>
@@ -247,7 +305,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
                   {chartDetached ? (
                     <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
                   ) : (
-                    <SerialChartViewer />
+                    <SerialChartViewer samples={chartSamples} />
                   )}
                 </PanelShell>
               </div>
