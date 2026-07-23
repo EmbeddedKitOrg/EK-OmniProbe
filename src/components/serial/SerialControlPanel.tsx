@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -16,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useLogStore } from "@/stores/logStore";
@@ -26,6 +26,7 @@ import { sendSerialPayload } from "@/lib/serialSend";
 import {
   createSerialControlWidget,
   loadSerialControlPanel,
+  moveSerialControlWidget,
   joystickPointFromRatio,
   parseSerialCommandSequence,
   parseSerialControlPanel,
@@ -41,13 +42,95 @@ import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
 import { SerialControlMiniChart } from "./SerialControlMiniChart";
 import { SerialImu3DControl } from "./SerialImu3D";
+import { ChartViewer } from "@/components/rtt/ChartViewer";
 
 type RuntimeValue = string | number | boolean | { x: number; y: number };
 const EMPTY_CHART_VALUES: Record<string, number> = {};
 
+const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetType, string]> }> = [
+  {
+    title: "发送控制",
+    items: [
+      ["button", "发送按钮"],
+      ["toggle", "开关"],
+      ["slider", "滑块"],
+      ["input", "参数输入"],
+      ["stepper", "参数微调"],
+      ["joystick", "摇杆"],
+      ["sequence", "命令序列"],
+    ],
+  },
+  {
+    title: "数据显示",
+    items: [
+      ["value", "接收数值"],
+      ["indicator", "状态灯"],
+      ["gauge", "能量槽"],
+    ],
+  },
+  {
+    title: "可视化",
+    items: [
+      ["chart", "Time / FFT"],
+      ["xy-chart", "XY 曲线"],
+      ["yt-chart", "YT 曲线"],
+      ["imu-3d", "IMU 3D"],
+    ],
+  },
+];
+
+function SerialWorkspaceChart({ signalDomain }: { signalDomain: "time" | "fft" }) {
+  const {
+    lines,
+    chartData,
+    chartConfig,
+    chartPaused,
+    parseSuccessCount,
+    parseFailCount,
+    setChartPaused,
+    clearChartData,
+    setChartConfig,
+  } = useSerialStore(
+    useShallow((state) => ({
+      lines: state.lines,
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      chartPaused: state.chartPaused,
+      parseSuccessCount: state.parseSuccessCount,
+      parseFailCount: state.parseFailCount,
+      setChartPaused: state.setChartPaused,
+      clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
+    }))
+  );
+  const samples = lines
+    .slice(-100)
+    .filter((line) => line.direction === "rx")
+    .slice(-20)
+    .map(({ text, rawData }) => ({ text, rawData }));
+  const scopedConfig = { ...chartConfig, signalDomain };
+
+  return (
+    <div className="h-[320px] min-h-0 overflow-hidden rounded-[16px] border border-border/60">
+      <ChartViewer
+        chartData={chartData}
+        chartConfig={scopedConfig}
+        chartPaused={chartPaused}
+        parseSuccessCount={parseSuccessCount}
+        parseFailCount={parseFailCount}
+        setChartPaused={setChartPaused}
+        clearChartData={clearChartData}
+        setChartConfig={(config) => setChartConfig({ ...config, signalDomain })}
+        parserSamples={samples}
+        allowJustFloat
+      />
+    </div>
+  );
+}
+
 function initialRuntimeValues(panel: SerialControlPanelConfig) {
   return Object.fromEntries(
-    panel.widgets.flatMap((widget) =>
+    panel.widgets.flatMap<[string, RuntimeValue]>((widget) =>
       widget.type === "joystick"
         ? [[widget.id, { x: widget.x, y: widget.y }]]
         : "value" in widget
@@ -68,10 +151,13 @@ export function SerialControlPanel() {
     }))
   );
   const addLog = useLogStore((state) => state.addLog);
+  const setInspectorTab = useSerialStore((state) => state.setInspectorTab);
   const [panel, setPanel] = useState(loadSerialControlPanel);
   const [editing, setEditing] = useState(panel.widgets.length === 0);
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(panel.widgets[0]?.id ?? null);
   const [runtimeValues, setRuntimeValues] = useState(() => initialRuntimeValues(panel));
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedType, setDraggedType] = useState<SerialControlWidgetType | null>(null);
   const [status, setStatus] = useState("等待操作");
   const [runningSequenceId, setRunningSequenceId] = useState<string | null>(null);
   const lastContinuousSendRef = useRef<Record<string, number>>({});
@@ -90,14 +176,21 @@ export function SerialControlPanel() {
     }));
   };
 
-  const addWidget = (type: SerialControlWidgetType) => {
+  const addWidget = (type: SerialControlWidgetType, targetIndex?: number) => {
     const widget = createSerialControlWidget(type);
-    setPanel((current) => ({ ...current, widgets: [...current.widgets, widget] }));
+    setPanel((current) => {
+      const widgets = [...current.widgets];
+      widgets.splice(targetIndex ?? widgets.length, 0, widget);
+      return { ...current, widgets };
+    });
     if ("value" in widget) setRuntimeValues((current) => ({ ...current, [widget.id]: widget.value }));
+    setSelectedWidgetId(widget.id);
+    setInspectorTab("widget");
   };
 
   const removeWidget = (id: string) => {
     setPanel((current) => ({ ...current, widgets: current.widgets.filter((widget) => widget.id !== id) }));
+    setSelectedWidgetId((current) => (current === id ? null : current));
   };
 
   const moveWidget = (id: string, offset: number) => {
@@ -113,16 +206,14 @@ export function SerialControlPanel() {
   };
 
   const dropWidget = (targetId: string) => {
+    const targetIndex = panel.widgets.findIndex((widget) => widget.id === targetId);
+    if (draggedType) {
+      addWidget(draggedType, targetIndex < 0 ? undefined : targetIndex);
+      setDraggedType(null);
+      return;
+    }
     if (!draggedId || draggedId === targetId) return;
-    setPanel((current) => {
-      const sourceIndex = current.widgets.findIndex((widget) => widget.id === draggedId);
-      const targetIndex = current.widgets.findIndex((widget) => widget.id === targetId);
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-      const widgets = [...current.widgets];
-      const [widget] = widgets.splice(sourceIndex, 1);
-      widgets.splice(targetIndex, 0, widget);
-      return { ...current, widgets };
-    });
+    setPanel((current) => ({ ...current, widgets: moveSerialControlWidget(current.widgets, draggedId, targetId) }));
     setDraggedId(null);
   };
 
@@ -230,6 +321,8 @@ export function SerialControlPanel() {
       setPanel(nextPanel);
       setRuntimeValues(initialRuntimeValues(nextPanel));
       setEditing(true);
+      setSelectedWidgetId(nextPanel.widgets[0]?.id ?? null);
+      setInspectorTab(nextPanel.widgets.length > 0 ? "widget" : "connection");
       setStatus(`已导入 ${nextPanel.name}`);
     } catch (error) {
       addLog("error", `控制面板导入失败: ${error}`);
@@ -239,17 +332,21 @@ export function SerialControlPanel() {
   const toggleEditing = () => {
     if (!editing) {
       setEditing(true);
+      setSelectedWidgetId(panel.widgets[0]?.id ?? null);
+      if (panel.widgets.length > 0) setInspectorTab("widget");
       return;
     }
     const normalized = parseSerialControlPanel(panel);
     setPanel(normalized);
     setRuntimeValues(initialRuntimeValues(normalized));
     setEditing(false);
+    setSelectedWidgetId(null);
+    setInspectorTab("connection");
   };
 
   const renderEditor = (widget: SerialControlWidget) => (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         <div className="space-y-1.5">
           <Label htmlFor={`${widget.id}-label`}>名称</Label>
           <Input
@@ -261,6 +358,7 @@ export function SerialControlPanel() {
         {widget.type !== "gauge" &&
           widget.type !== "value" &&
           widget.type !== "indicator" &&
+          widget.type !== "chart" &&
           widget.type !== "xy-chart" &&
           widget.type !== "yt-chart" &&
           widget.type !== "imu-3d" && (
@@ -300,8 +398,28 @@ export function SerialControlPanel() {
         </div>
       )}
 
+      {widget.type === "chart" && (
+        <div className="space-y-1.5">
+          <Label>显示模式</Label>
+          <Select
+            value={widget.signalDomain}
+            onValueChange={(signalDomain: "time" | "fft") =>
+              updateWidget(widget.id, (current) => (current.type === "chart" ? { ...current, signalDomain } : current))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="time">Time 实时波形</SelectItem>
+              <SelectItem value="fft">FFT 频谱</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {widget.type === "sequence" && (
-        <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+        <div className="grid gap-3">
           <div className="space-y-1.5">
             <Label htmlFor={`${widget.id}-commands`}>命令列表</Label>
             <textarea
@@ -337,7 +455,7 @@ export function SerialControlPanel() {
       )}
 
       {widget.type === "toggle" && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <div className="space-y-1.5">
             <Label htmlFor={`${widget.id}-on`}>开启时发送</Label>
             <Input
@@ -404,7 +522,7 @@ export function SerialControlPanel() {
       )}
 
       {(widget.type === "slider" || widget.type === "stepper") && (
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3">
           {(["min", "max", "step"] as const).map((key) => (
             <div key={key} className="space-y-1.5">
               <Label htmlFor={`${widget.id}-${key}`}>
@@ -448,7 +566,7 @@ export function SerialControlPanel() {
 
       {widget.type === "joystick" && (
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-5">
+          <div className="grid gap-3">
             {(["xMin", "xMax", "yMin", "yMax", "step"] as const).map((key) => (
               <div key={key} className="space-y-1.5">
                 <Label htmlFor={`${widget.id}-${key}`}>
@@ -475,7 +593,7 @@ export function SerialControlPanel() {
               </div>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3">
             <div className="space-y-1.5">
               <Label>发送方式</Label>
               <Select
@@ -518,7 +636,7 @@ export function SerialControlPanel() {
         widget.type === "value" ||
         widget.type === "indicator" ||
         widget.type === "yt-chart") && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           <div className="space-y-1.5">
             <Label htmlFor={`${widget.id}-channel`}>接收通道 key</Label>
             <Input
@@ -575,7 +693,7 @@ export function SerialControlPanel() {
       )}
 
       {widget.type === "xy-chart" && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3">
           {(["xChannel", "yChannel"] as const).map((key) => (
             <div key={key} className="space-y-1.5">
               <Label htmlFor={`${widget.id}-${key}`}>{key === "xChannel" ? "X 通道 key" : "Y 通道 key"}</Label>
@@ -637,7 +755,7 @@ export function SerialControlPanel() {
 
           {widget.sourceMode === "euler" ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 {(["rollChannel", "pitchChannel", "yawChannel"] as const).map((key) => (
                   <div key={key} className="space-y-1.5">
                     <Label htmlFor={`${widget.id}-${key}`}>
@@ -682,7 +800,7 @@ export function SerialControlPanel() {
             </>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 {(["accelXChannel", "accelYChannel", "accelZChannel"] as const).map((key, index) => (
                   <div key={key} className="space-y-1.5">
                     <Label htmlFor={`${widget.id}-${key}`}>加速度 {"XYZ"[index]} 通道</Label>
@@ -699,7 +817,7 @@ export function SerialControlPanel() {
                   </div>
                 ))}
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 {(["gyroXChannel", "gyroYChannel", "gyroZChannel"] as const).map((key, index) => (
                   <div key={key} className="space-y-1.5">
                     <Label htmlFor={`${widget.id}-${key}`}>陀螺仪 {"XYZ"[index]} 通道</Label>
@@ -716,7 +834,7 @@ export function SerialControlPanel() {
                   </div>
                 ))}
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 <div className="space-y-1.5">
                   <Label>陀螺仪单位</Label>
                   <Select
@@ -757,7 +875,7 @@ export function SerialControlPanel() {
                   </div>
                 ))}
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3">
                 {(["gyroBiasX", "gyroBiasY", "gyroBiasZ"] as const).map((key, index) => (
                   <div key={key} className="space-y-1.5">
                     <Label htmlFor={`${widget.id}-${key}`}>陀螺零偏 {"XYZ"[index]}</Label>
@@ -787,7 +905,7 @@ export function SerialControlPanel() {
       )}
 
       {widget.type === "gauge" && (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3">
           {(["min", "max"] as const).map((key) => (
             <div key={key} className="space-y-1.5">
               <Label htmlFor={`${widget.id}-${key}`}>{key === "min" ? "最小值" : "最大值"}</Label>
@@ -1129,6 +1247,10 @@ export function SerialControlPanel() {
       );
     }
 
+    if (widget.type === "chart") {
+      return <SerialWorkspaceChart signalDomain={widget.signalDomain} />;
+    }
+
     if (widget.type === "xy-chart" || widget.type === "yt-chart") {
       const yChannel = widget.type === "xy-chart" ? widget.yChannel : widget.channel;
       return (
@@ -1194,186 +1316,273 @@ export function SerialControlPanel() {
     );
   };
 
-  return (
-    <div className="flex h-full min-h-0 flex-col bg-muted/10">
-      <datalist id="serial-control-channels">
-        {availableChannels.map((channel) => (
-          <option key={channel} value={channel} />
-        ))}
-      </datalist>
-      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-white/70 px-4 py-3">
-        <LayoutDashboard className="h-4 w-4 text-primary" />
-        {editing ? (
-          <Input
-            value={panel.name}
-            onChange={(event) => setPanel((current) => ({ ...current, name: event.target.value }))}
-            className="h-8 w-48"
-            aria-label="控制面板名称"
-          />
-        ) : (
-          <span className="text-sm font-medium text-foreground">{panel.name}</span>
-        )}
-        <span className="text-xs text-muted-foreground">
-          {connected ? status : "串口未连接"} · 文本 {sendSettings.encoding.toUpperCase()} /{" "}
-          {sendSettings.lineEnding.toUpperCase()} · 控件独立 TEXT/HEX
-        </span>
+  const selectedWidget = panel.widgets.find((widget) => widget.id === selectedWidgetId);
+  const inspectorHost = typeof document === "undefined" ? null : document.getElementById("serial-widget-inspector");
+  const inspectorPortal =
+    editing && selectedWidget && inspectorHost
+      ? createPortal(
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 border-b border-border/60 pb-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{selectedWidget.label}</div>
+                <div className="text-[11px] text-muted-foreground">{selectedWidget.type}</div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-red-500"
+                onClick={() => removeWidget(selectedWidget.id)}
+                title="删除组件"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label>画布宽度</Label>
+              <Select
+                value={String(selectedWidget.columns)}
+                onValueChange={(value) =>
+                  updateWidget(selectedWidget.id, (current) => ({
+                    ...current,
+                    columns: Number(value) as 4 | 8 | 12,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">小 · 4 列</SelectItem>
+                  <SelectItem value="8">中 · 8 列</SelectItem>
+                  <SelectItem value="12">大 · 12 列</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {renderEditor(selectedWidget)}
+          </div>,
+          inspectorHost
+        )
+      : null;
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <input
-            ref={importInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void importPanel(file);
-              event.target.value = "";
-            }}
-          />
-          <Button size="sm" variant="outline" className="gap-1" onClick={() => importInputRef.current?.click()}>
-            <Upload className="h-3.5 w-3.5" />
-            导入
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1" onClick={() => void exportPanel()}>
-            <Download className="h-3.5 w-3.5" />
-            导出
-          </Button>
-          {editing && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-1">
-                  <Plus className="h-3.5 w-3.5" />
-                  添加控件
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="max-h-[70vh] w-52 overflow-y-auto rounded-[20px] p-2">
-                <div className="grid gap-1">
-                  {(
-                    [
-                      ["button", "发送按钮"],
-                      ["toggle", "开关"],
-                      ["slider", "滑块"],
-                      ["input", "参数输入"],
-                      ["stepper", "参数微调"],
-                      ["joystick", "摇杆"],
-                      ["sequence", "命令序列"],
-                      ["gauge", "能量槽"],
-                      ["value", "接收数值"],
-                      ["indicator", "状态灯"],
-                      ["xy-chart", "XY 二维曲线"],
-                      ["yt-chart", "YT 一维曲线"],
-                      ["imu-3d", "IMU 3D 姿态"],
-                    ] as const
-                  ).map(([type, label]) => (
-                    <Button key={type} variant="ghost" className="justify-start" onClick={() => addWidget(type)}>
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+  return (
+    <>
+      {inspectorPortal}
+      <div className="flex h-full min-h-0 flex-col bg-muted/10">
+        <datalist id="serial-control-channels">
+          {availableChannels.map((channel) => (
+            <option key={channel} value={channel} />
+          ))}
+        </datalist>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-white/70 px-3 py-2">
+          <LayoutDashboard className="h-4 w-4 text-primary" />
+          {editing ? (
+            <Input
+              value={panel.name}
+              onChange={(event) => setPanel((current) => ({ ...current, name: event.target.value }))}
+              className="h-8 w-48"
+              aria-label="控制面板名称"
+            />
+          ) : (
+            <span className="text-sm font-medium text-foreground">{panel.name}</span>
           )}
-          <Button size="sm" variant={editing ? "default" : "outline"} className="gap-1" onClick={toggleEditing}>
-            {editing ? <Play className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-            {editing ? "运行" : "编辑"}
-          </Button>
+          <span className="text-xs text-muted-foreground">
+            {connected ? status : "串口未连接"} · 文本 {sendSettings.encoding.toUpperCase()} /{" "}
+            {sendSettings.lineEnding.toUpperCase()} · 控件独立 TEXT/HEX
+          </span>
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importPanel(file);
+                event.target.value = "";
+              }}
+            />
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => importInputRef.current?.click()}>
+              <Upload className="h-3.5 w-3.5" />
+              导入
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => void exportPanel()}>
+              <Download className="h-3.5 w-3.5" />
+              导出
+            </Button>
+            <Button size="sm" variant={editing ? "default" : "outline"} className="gap-1" onClick={toggleEditing}>
+              {editing ? <Play className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+              {editing ? "运行" : "编辑"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 gap-2 overflow-hidden p-2">
+          {editing && (
+            <aside className="w-52 shrink-0 overflow-y-auto rounded-[18px] border border-border/60 bg-white/75 p-3">
+              <div className="text-sm font-medium">组件库</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">拖入画布，或点击直接添加。</div>
+              <div className="mt-4 space-y-4">
+                {PALETTE_GROUPS.map((group) => (
+                  <div key={group.title}>
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {group.title}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.items.map(([type, label]) => (
+                        <button
+                          key={type}
+                          type="button"
+                          draggable
+                          onDragStart={() => {
+                            setDraggedType(type);
+                            setDraggedId(null);
+                          }}
+                          onDragEnd={() => setDraggedType(null)}
+                          onClick={() => addWidget(type)}
+                          className="flex min-h-16 cursor-grab flex-col items-center justify-center rounded-xl border border-border/60 bg-muted/30 px-2 text-center text-[11px] hover:border-primary/60 hover:bg-primary/5 active:cursor-grabbing"
+                        >
+                          <Plus className="mb-1 h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          )}
+
+          <main
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto rounded-[18px] border bg-white/45 p-3",
+              editing ? "border-dashed border-primary/45" : "border-border/60"
+            )}
+            onDragOver={(event) => editing && event.preventDefault()}
+            onDrop={(event) => {
+              if (!editing || event.target !== event.currentTarget) return;
+              event.preventDefault();
+              if (draggedType) addWidget(draggedType);
+              setDraggedType(null);
+            }}
+          >
+            {editing && (
+              <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <GripVertical className="h-4 w-4" />
+                12 列画布 · 从左侧拖入组件，拖动画布组件调整顺序
+              </div>
+            )}
+            {panel.widgets.length === 0 ? (
+              <div
+                className="flex min-h-64 items-center justify-center rounded-[20px] border border-dashed border-border/70 p-8 text-center"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (draggedType) addWidget(draggedType);
+                  setDraggedType(null);
+                }}
+              >
+                <div>
+                  <LayoutDashboard className="mx-auto h-8 w-8 text-muted-foreground" />
+                  <div className="mt-3 text-sm font-medium">空白画布</div>
+                  <div className="mt-1 text-xs text-muted-foreground">把左侧组件拖到这里开始搭建。</div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-12 gap-3">
+                {panel.widgets.map((widget, index) => (
+                  <div
+                    key={widget.id}
+                    draggable={editing}
+                    onDragStart={() => {
+                      setDraggedId(widget.id);
+                      setDraggedType(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedId(null);
+                      setDraggedType(null);
+                    }}
+                    onDragOver={(event) => editing && event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      dropWidget(widget.id);
+                    }}
+                    onClick={() => {
+                      if (!editing) return;
+                      setSelectedWidgetId(widget.id);
+                      setInspectorTab("widget");
+                    }}
+                    className={cn(
+                      "rounded-[18px] border bg-white/90 p-3 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
+                      editing && "cursor-grab border-dashed hover:border-primary/70 active:cursor-grabbing",
+                      editing && selectedWidgetId === widget.id && "border-primary ring-2 ring-primary/15",
+                      draggedId === widget.id && "opacity-50"
+                    )}
+                    style={{ gridColumn: `span ${widget.columns} / span ${widget.columns}` }}
+                  >
+                    {editing ? (
+                      <>
+                        <div className="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
+                          <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {widget.type}
+                          </span>
+                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
+                            {widget.type === "gauge" ||
+                            widget.type === "value" ||
+                            widget.type === "indicator" ||
+                            widget.type === "chart" ||
+                            widget.type === "xy-chart" ||
+                            widget.type === "yt-chart" ||
+                            widget.type === "imu-3d"
+                              ? "RX"
+                              : widget.format.toUpperCase()}
+                          </span>
+                          <div className="ml-auto flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              disabled={index === 0}
+                              onClick={() => moveWidget(widget.id, -1)}
+                              title="前移"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              disabled={index === panel.widgets.length - 1}
+                              onClick={() => moveWidget(widget.id, 1)}
+                              title="后移"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 text-red-500"
+                              onClick={() => removeWidget(widget.id)}
+                              title="删除控件"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="pointer-events-none select-none opacity-80">{renderControl(widget)}</div>
+                      </>
+                    ) : (
+                      renderControl(widget)
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
         </div>
       </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {panel.widgets.length === 0 ? (
-          <div className="flex h-full min-h-48 items-center justify-center rounded-[24px] border border-dashed border-border/70 bg-white/60 p-8 text-center">
-            <div>
-              <LayoutDashboard className="mx-auto h-8 w-8 text-muted-foreground" />
-              <div className="mt-3 text-sm font-medium text-foreground">还没有快捷控件</div>
-              <div className="mt-1 text-xs text-muted-foreground">点击“添加控件”，添加常用发送操作或接收数据显示。</div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-            {panel.widgets.map((widget, index) => (
-              <div
-                key={widget.id}
-                draggable={editing}
-                onDragStart={() => setDraggedId(widget.id)}
-                onDragEnd={() => setDraggedId(null)}
-                onDragOver={(event) => editing && event.preventDefault()}
-                onDrop={() => dropWidget(widget.id)}
-                className={cn(
-                  "rounded-[22px] border border-border/60 bg-white/85 p-4 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
-                  draggedId === widget.id && "opacity-50"
-                )}
-                style={widget.width === 2 ? { gridColumn: "1 / -1" } : undefined}
-              >
-                {editing ? (
-                  <>
-                    <div className="mb-3 flex items-center gap-2 border-b border-border/50 pb-3">
-                      <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
-                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {widget.type}
-                      </span>
-                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
-                        {widget.type === "gauge" ||
-                        widget.type === "value" ||
-                        widget.type === "indicator" ||
-                        widget.type === "xy-chart" ||
-                        widget.type === "yt-chart" ||
-                        widget.type === "imu-3d"
-                          ? "RX"
-                          : widget.format.toUpperCase()}
-                      </span>
-                      <div className="ml-auto flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          disabled={index === 0}
-                          onClick={() => moveWidget(widget.id, -1)}
-                          title="前移"
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          disabled={index === panel.widgets.length - 1}
-                          onClick={() => moveWidget(widget.id, 1)}
-                          title="后移"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() =>
-                            updateWidget(widget.id, (current) => ({ ...current, width: current.width === 1 ? 2 : 1 }))
-                          }
-                        >
-                          {widget.width === 1 ? "全宽" : "半宽"}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-red-500"
-                          onClick={() => removeWidget(widget.id)}
-                          title="删除控件"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    {renderEditor(widget)}
-                  </>
-                ) : (
-                  renderControl(widget)
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
