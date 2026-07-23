@@ -13,12 +13,12 @@ interface SerialImu3DProps {
 }
 
 const FACES = [
-  ["前", "translateZ(48px)", "bg-blue-500/85"],
-  ["后", "rotateY(180deg) translateZ(48px)", "bg-blue-700/80"],
-  ["右", "rotateY(90deg) translateZ(48px)", "bg-cyan-500/80"],
-  ["左", "rotateY(-90deg) translateZ(48px)", "bg-indigo-600/80"],
-  ["上", "rotateX(90deg) translateZ(48px)", "bg-sky-400/85"],
-  ["下", "rotateX(-90deg) translateZ(48px)", "bg-slate-700/80"],
+  ["前", "translateZ(48px)", "bg-blue-600/90"],
+  ["后", "rotateY(180deg) translateZ(48px)", "bg-orange-500/90"],
+  ["右", "rotateY(90deg) translateZ(48px)", "bg-emerald-500/90"],
+  ["左", "rotateY(-90deg) translateZ(48px)", "bg-fuchsia-600/90"],
+  ["上", "rotateX(90deg) translateZ(48px)", "bg-violet-600/90"],
+  ["下", "rotateX(-90deg) translateZ(48px)", "bg-amber-400/90 text-slate-950"],
 ] as const;
 
 function useImu6Fusion(widget: SerialImu3dWidget, chartData: ChartDataPoint[]) {

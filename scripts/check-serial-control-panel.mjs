@@ -59,13 +59,13 @@ try {
     { timestamp: 2000, values: { x: 2, y: 20 } },
     { timestamp: 3000, values: { x: 3, y: 30 } },
   ];
-  assert.deepEqual(buildSerialControlChartData("xy", chartData, "x", "y", 2), [
-    { x: 2, y: 20 },
-    { x: 3, y: 30 },
+  assert.deepEqual(buildSerialControlChartData("xy", chartData, "x", ["y"], 2), [
+    { __x: 2, y: 20 },
+    { __x: 3, y: 30 },
   ]);
-  assert.deepEqual(buildSerialControlChartData("yt", chartData, undefined, "y", 2), [
-    { x: 0, y: 20 },
-    { x: 1, y: 30 },
+  assert.deepEqual(buildSerialControlChartData("yt", chartData, undefined, ["x", "y"], 2), [
+    { __x: 0, x: 2, y: 20 },
+    { __x: 1, x: 3, y: 30 },
   ]);
   assert.deepEqual(
     resolveSerialImuAngles(
@@ -160,7 +160,7 @@ try {
   assert.throws(() => parseHexBytes("0x12"), /十六进制/);
 
   const panel = parseSerialControlPanel({
-    version: 2,
+    version: 3,
     name: "电机控制",
     widgets: [
       { id: "speed", type: "slider", label: "转速", min: 100, max: 10, step: 0, value: 999 },
@@ -172,7 +172,7 @@ try {
       { id: "setup", type: "sequence", commands: "AT\nAT+GMR", intervalMs: 999999 },
       { id: "ready", type: "indicator", channel: "ready", threshold: "invalid" },
       { id: "xy", type: "xy-chart", xChannel: "x", yChannel: "y", pointLimit: 99999 },
-      { id: "yt", type: "yt-chart", channel: "temp", pointLimit: -1 },
+      { id: "yt", type: "yt-chart", channels: ["temp", "speed"], pointLimit: -1, rows: 99 },
       {
         id: "imu",
         type: "imu-3d",
@@ -182,7 +182,7 @@ try {
         filterAlpha: 9,
         rollOffset: "invalid",
       },
-      { id: "main-chart", type: "chart", signalDomain: "fft", columns: 12 },
+      { id: "fft", type: "fft-chart", channels: ["temp", "speed"], pointLimit: 99999, columns: 12 },
       { type: "unknown" },
     ],
   });
@@ -202,15 +202,15 @@ try {
       ["xy", "xy-chart"],
       ["yt", "yt-chart"],
       ["imu", "imu-3d"],
-      ["main-chart", "chart"],
+      ["fft", "fft-chart"],
     ]
   );
   assert.equal(panel.widgets[1].columns, 12);
   assert.deepEqual(
-    moveSerialControlWidget(panel.widgets, "main-chart", "speed")
+    moveSerialControlWidget(panel.widgets, "fft", "speed")
       .slice(0, 3)
       .map(({ id }) => id),
-    ["main-chart", "speed", "speed-2"]
+    ["fft", "speed", "speed-2"]
   );
   assert.throws(() => parseSerialControlPanel({ version: 1, widgets: [] }), /不支持/);
   assert.deepEqual(
@@ -246,6 +246,9 @@ try {
   assert.equal(panel.widgets[7].threshold, 0.5);
   assert.equal(panel.widgets[8].pointLimit, 2000);
   assert.equal(panel.widgets[9].pointLimit, 10);
+  assert.deepEqual(panel.widgets[9].channels, ["temp", "speed"]);
+  assert.equal(panel.widgets[9].rows, 12);
+  assert.equal(panel.widgets[11].pointLimit, 2000);
   assert.deepEqual(
     {
       rollChannel: panel.widgets[10].rollChannel,
@@ -268,12 +271,12 @@ try {
       rollOffset: 0,
     }
   );
-  assert.deepEqual(parseSerialControlPanel({ version: 2, widgets: [] }), {
-    version: 2,
+  assert.deepEqual(parseSerialControlPanel({ version: 3, widgets: [] }), {
+    version: 3,
     name: "默认控制面板",
     widgets: [],
   });
-  assert.throws(() => parseSerialControlPanel({ version: 2, widgets: [{ type: "unknown" }] }), /没有可用/);
+  assert.throws(() => parseSerialControlPanel({ version: 3, widgets: [{ type: "unknown" }] }), /没有可用/);
 
   console.log("串口控制面板配置检查通过");
 } finally {
