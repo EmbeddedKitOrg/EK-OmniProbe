@@ -5,38 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
-import { writeSerialString, writeSerial } from "@/lib/tauri";
-import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory, saveSendHistory } from "@/lib/serialHistory";
 import { useShallow } from "zustand/react/shallow";
-
-function getLineEndingText(lineEnding: LineEnding) {
-  switch (lineEnding) {
-    case "cr":
-      return "\r";
-    case "crlf":
-      return "\r\n";
-    case "none":
-      return "";
-    case "lf":
-    default:
-      return "\n";
-  }
-}
+import { sendSerialBytes, sendSerialPayload } from "@/lib/serialSend";
 
 export function SerialSendBar() {
-  const { connected, sendSettings, terminalSettings, textViewMode, setSendSettings, addLine, appendTerminalChunk } =
-    useSerialStore(
-      useShallow((state) => ({
-        connected: state.connected,
-        sendSettings: state.sendSettings,
-        terminalSettings: state.terminalSettings,
-        textViewMode: state.textViewMode,
-        setSendSettings: state.setSendSettings,
-        addLine: state.addLine,
-        appendTerminalChunk: state.appendTerminalChunk,
-      }))
-    );
+  const { connected, sendSettings, terminalSettings, textViewMode, setSendSettings } = useSerialStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      sendSettings: state.sendSettings,
+      terminalSettings: state.terminalSettings,
+      textViewMode: state.textViewMode,
+      setSendSettings: state.setSendSettings,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
@@ -79,25 +61,14 @@ export function SerialSendBar() {
 
       try {
         setSending(true);
-        await writeSerial(bytes);
-        // 仅在日志模式下把 TX 写进 lines；终端模式有自己的本地回显路径，
-        // 不应往不可见的 log store 里塞幽灵 TX 行
-        if (textViewMode === "log") {
-          addLine({
-            timestamp: new Date(),
-            text: label,
-            level: "info",
-            rawData: bytes,
-            direction: "tx",
-          });
-        }
+        await sendSerialBytes(bytes, label);
       } catch (error) {
         addLog("error", `发送失败: ${error}`);
       } finally {
         setSending(false);
       }
     },
-    [addLine, addLog, connected, textViewMode]
+    [addLog, connected]
   );
 
   // Send text
@@ -114,48 +85,7 @@ export function SerialSendBar() {
     try {
       setSending(true);
 
-      if (sendSettings.hexMode) {
-        // Parse hex string to bytes
-        const hexStr = inputText.replace(/\s+/g, "");
-        if (!/^[0-9a-fA-F]*$/.test(hexStr) || hexStr.length % 2 !== 0) {
-          addLog("error", "无效的十六进制格式");
-          return;
-        }
-
-        const bytes: number[] = [];
-        for (let i = 0; i < hexStr.length; i += 2) {
-          bytes.push(parseInt(hexStr.substr(i, 2), 16));
-        }
-
-        await writeSerial(bytes);
-
-        // 仅在日志模式下记录 TX；终端模式不写日志，避免切回来看到幽灵 TX
-        if (textViewMode === "log") {
-          addLine({
-            timestamp: new Date(),
-            text: `HEX: ${inputText}`,
-            level: "info",
-            rawData: bytes,
-            direction: "tx",
-          });
-        }
-      } else {
-        await writeSerialString(inputText, sendSettings.encoding, sendSettings.lineEnding);
-
-        if (textViewMode === "log") {
-          // 日志模式：把发送内容作为一行 TX 记录
-          addLine({
-            timestamp: new Date(),
-            text: inputText,
-            level: "info",
-            rawData: Array.from(new TextEncoder().encode(inputText)),
-            direction: "tx",
-          });
-        } else if (textViewMode === "terminal" && terminalSettings.localEcho) {
-          // 终端模式：本地回显由 appendTerminalChunk 负责，不污染日志
-          appendTerminalChunk(`${inputText}${getLineEndingText(sendSettings.lineEnding)}`);
-        }
-      }
+      await sendSerialPayload(inputText);
 
       // Save to history
       setHistory((prev) => pushSendHistory(prev, inputText));
@@ -167,16 +97,7 @@ export function SerialSendBar() {
     } finally {
       setSending(false);
     }
-  }, [
-    inputText,
-    connected,
-    sendSettings,
-    addLog,
-    addLine,
-    appendTerminalChunk,
-    terminalSettings.localEcho,
-    textViewMode,
-  ]);
+  }, [inputText, connected, sendSettings, addLog]);
 
   // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
