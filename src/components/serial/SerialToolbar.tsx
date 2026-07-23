@@ -25,6 +25,7 @@ import {
   Columns,
   Binary,
   Tags,
+  Waves,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
@@ -34,7 +35,7 @@ import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
 import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 import { useState } from "react";
-import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
+import { getSignalWorkspaceTransition, isSignalWorkspaceActive } from "@/lib/chartTypes";
 
 export function SerialToolbar() {
   const {
@@ -211,6 +212,14 @@ export function SerialToolbar() {
     addLog("info", `已自动配置 ${result.detectedKeys.length} 个数据系列`);
   };
 
+  const handleToggleWaveform = () => {
+    const closing = isSignalWorkspaceActive(viewMode, chartConfig, "time");
+    const next = getSignalWorkspaceTransition(viewMode, chartConfig, "time");
+    if (next.chartConfig !== chartConfig) setChartConfig(next.chartConfig);
+    if (next.viewMode !== viewMode) setViewMode(next.viewMode);
+    addLog("info", closing ? "已收起波形，继续在后台解析数据" : "已打开时域波形");
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-muted/20 px-2 py-2">
       {!running ? (
@@ -281,6 +290,16 @@ export function SerialToolbar() {
         </Button>
       </div>
 
+      <Button
+        size="sm"
+        variant={isSignalWorkspaceActive(viewMode, chartConfig, "time") ? "secondary" : "outline"}
+        onClick={handleToggleWaveform}
+        className="gap-1"
+      >
+        <Waves className="h-3.5 w-3.5" />
+        波形
+      </Button>
+
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {textViewMode === "log" && (
           <div className="relative w-40 sm:w-48">
@@ -319,39 +338,40 @@ export function SerialToolbar() {
 
               <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">工作流</div>
-                <SignalWorkspaceControls
-                  chartConfig={chartConfig}
-                  viewMode={viewMode}
-                  splitOrientation={splitOrientation}
-                  setChartConfig={setChartConfig}
-                  setViewMode={setViewMode}
-                  setSplitOrientation={setSplitOrientation}
-                  leadingActions={
-                    <Button
-                      size="sm"
-                      variant={chartConfig.enabled ? "secondary" : "outline"}
-                      onClick={handleSmartEnableChart}
-                      disabled={lines.length === 0}
-                      className="gap-1"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      智能启用
-                    </Button>
-                  }
-                  onToggle={(domain, closing) =>
-                    addLog(
-                      "info",
-                      closing
-                        ? "已收起图表，继续在后台解析数据"
-                        : domain === "fft"
-                          ? "已打开 FFT 频谱"
-                          : "已打开时域波形"
-                    )
-                  }
-                >
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={chartConfig.enabled ? "secondary" : "outline"}
+                    onClick={handleSmartEnableChart}
+                    disabled={lines.length === 0}
+                    className="gap-1"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    智能启用
+                  </Button>
                   <AiBridgeControl />
                   <AiSkillLink />
-                </SignalWorkspaceControls>
+                </div>
+                {viewMode === "split" && (
+                  <div className="grid grid-cols-2 gap-1 rounded-[12px] border border-border/50 bg-background/40 p-1">
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "vertical" ? "secondary" : "ghost"}
+                      onClick={() => setSplitOrientation("vertical")}
+                      className="h-8"
+                    >
+                      上下分屏
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={splitOrientation === "horizontal" ? "secondary" : "ghost"}
+                      onClick={() => setSplitOrientation("horizontal")}
+                      className="h-8"
+                    >
+                      左右分屏
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
