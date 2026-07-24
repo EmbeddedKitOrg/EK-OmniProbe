@@ -12,6 +12,7 @@ try {
   const { applyDataFilter, calculateSosFrequencyResponse, designParametricSos, parseMatlabSos, parseMatlabVector } =
     await server.ssrLoadModule("/src/lib/chartFilter.ts");
   const { traceSignalPath } = await server.ssrLoadModule("/src/components/rtt/SignalPlotCanvas.tsx");
+  const { resolveChartDisplayData } = await server.ssrLoadModule("/src/components/rtt/ChartViewer.tsx");
 
   assert.equal(DEFAULT_CHART_CONFIG.waveformInterpolation, "linear");
   assert.equal(migrateChartConfig({ waveformInterpolation: "smooth" }).waveformInterpolation, "smooth");
@@ -22,6 +23,12 @@ try {
     [1, 2, 1, 1, -1.5, 0.7],
   ]);
   assert.equal(parseMatlabSos("1 2 3"), null);
+
+  const livePoints = [{ timestamp: 1, values: { ch1: 1 } }];
+  const newerPoints = [...livePoints, { timestamp: 2, values: { ch1: 2 } }];
+  assert.equal(resolveChartDisplayData(newerPoints, true, livePoints).displayedData, livePoints);
+  assert.equal(resolveChartDisplayData(newerPoints, false, livePoints).displayedData, newerPoints);
+  assert.deepEqual(resolveChartDisplayData([], true, livePoints).displayedData, []);
 
   const samples = [2, 4, 6].map((value, index) => ({ timestamp: index, values: { ch1: value } }));
   const firResult = applyDataFilter(samples, ["ch1"], {

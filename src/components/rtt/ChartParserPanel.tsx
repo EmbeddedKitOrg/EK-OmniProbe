@@ -110,6 +110,7 @@ export function ChartParserPanel({
             setChartConfig={setChartConfig}
             title="串口图表设置"
             allowDataFilter
+            allowParserConfig={false}
             initialSection="filter"
             trigger={
               <Button

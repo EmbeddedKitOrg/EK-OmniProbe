@@ -13,7 +13,7 @@ import {
   Binary,
   SplitSquareHorizontal,
   BarChart3,
-  Pause,
+  Snowflake,
   Play,
   SlidersHorizontal,
   Sparkles,
@@ -180,8 +180,8 @@ export function BleToolbar() {
                     onClick={() => setChartPaused(!chartPaused)}
                     className="gap-1"
                   >
-                    {chartPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
-                    {chartPaused ? "继续" : "暂停"}
+                    {chartPaused ? <Play className="h-3.5 w-3.5" /> : <Snowflake className="h-3.5 w-3.5" />}
+                    {chartPaused ? "恢复跟随" : "冻结图表"}
                   </Button>
                 )}
               </SignalWorkspaceControls>

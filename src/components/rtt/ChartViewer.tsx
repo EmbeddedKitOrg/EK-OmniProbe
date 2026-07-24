@@ -19,7 +19,7 @@ import {
   YAxis,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Download, Info, Pause, Play, Plus, Settings2, Trash2 } from "lucide-react";
+import { Download, Info, Play, Plus, Settings2, Snowflake, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -31,13 +31,6 @@ import { SignalPlotCanvas } from "./SignalPlotCanvas";
 interface BrushDomain {
   startIndex?: number;
   endIndex?: number;
-}
-
-interface SeriesSnapshot {
-  key: string;
-  name: string;
-  color: string;
-  latest: number;
 }
 
 interface ChannelInspectorEntry {
@@ -53,6 +46,17 @@ interface ChannelInspectorEntry {
 
 function fallbackChannelColor(index: number) {
   return `hsl(${(index * 53) % 360} 72% 48%)`;
+}
+
+export function resolveChartDisplayData(
+  chartData: ChartDataPoint[],
+  chartPaused: boolean,
+  frozenData: ChartDataPoint[]
+): { displayedData: ChartDataPoint[]; nextFrozenData: ChartDataPoint[] } {
+  if (!chartPaused || chartData.length === 0) {
+    return { displayedData: chartData, nextFrozenData: chartData };
+  }
+  return { displayedData: frozenData, nextFrozenData: frozenData };
 }
 
 export interface ChartViewerProps {
@@ -78,14 +82,18 @@ export function ChartViewer({
 }: ChartViewerProps) {
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
   const signalDomain = chartConfig.signalDomain ?? "time";
-  const latestPoint = chartData[chartData.length - 1];
+  // ponytail: 冻结快照只跟随当前图表实例；需要跨视图卸载保持同一帧时，再把快照移入各数据源 store。
+  const frozenChartDataRef = useRef(chartData);
+  const { displayedData, nextFrozenData } = resolveChartDisplayData(chartData, chartPaused, frozenChartDataRef.current);
+  frozenChartDataRef.current = nextFrozenData;
+  const latestPoint = displayedData[displayedData.length - 1];
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const addLog = useLogStore((s) => s.addLog);
 
   const chartDataFormatted = useMemo(() => {
-    if (chartData.length === 0) return [];
-    const firstTimestamp = chartData[0].timestamp;
-    const formatted = chartData.map((point, index) => ({
+    if (chartConfig.chartType === "waveform" || displayedData.length === 0) return [];
+    const firstTimestamp = displayedData[0].timestamp;
+    const formatted = displayedData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
       time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
@@ -95,7 +103,7 @@ export function ChartViewer({
       formatted,
       chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : formatted.length
     );
-  }, [chartConfig.visiblePointLimit, chartData]);
+  }, [chartConfig.chartType, chartConfig.visiblePointLimit, displayedData]);
 
   const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
   const xChannelKey = xChannel?.key;
@@ -103,10 +111,10 @@ export function ChartViewer({
   const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
 
   const yAxisDomain = useMemo(() => {
-    if (chartData.length === 0) return [0, 100];
+    if (chartConfig.chartType === "waveform" || displayedData.length === 0) return [0, 100];
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
-    chartData.forEach((point) => {
+    displayedData.forEach((point) => {
       Object.entries(point.values).forEach(([key, value]) => {
         if (chartConfig.chartType === "xy-scatter" && key === xChannelKey) return;
         if (typeof value === "number" && Number.isFinite(value)) {
@@ -122,14 +130,14 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, xChannelKey, chartData]);
+  }, [chartConfig.chartType, displayedData, xChannelKey]);
 
   const xAxisDomain = useMemo(() => {
     if (chartConfig.chartType !== "xy-scatter" || !xChannelKey) return undefined;
-    if (chartData.length === 0) return [0, 100];
+    if (displayedData.length === 0) return [0, 100];
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
-    chartData.forEach((point) => {
+    displayedData.forEach((point) => {
       const value = point.values[xChannelKey];
       if (typeof value === "number" && Number.isFinite(value)) {
         min = Math.min(min, value);
@@ -143,13 +151,13 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, xChannelKey, chartData]);
+  }, [chartConfig.chartType, displayedData, xChannelKey]);
 
   const statistics = useMemo(() => {
-    if (chartData.length === 0) return null;
+    if (displayedData.length === 0) return null;
     const stats: Record<string, { min: number; max: number; avg: number; latest: number }> = {};
     visibleSeries.forEach((series) => {
-      const values = chartData
+      const values = displayedData
         .map((point) => point.values[series.key])
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
       if (values.length > 0) {
@@ -162,34 +170,17 @@ export function ChartViewer({
       }
     });
     return stats;
-  }, [chartData, visibleSeries]);
+  }, [displayedData, visibleSeries]);
 
   // 瞬时估算值本身有抖动，直接展示在徽标上会让文字宽度跟着跳动、挤动工具栏布局，
   // 这里改用共享的 EMA 平滑 hook（与波形图横轴使用同一份平滑结果）。
-  const estimatedSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz);
+  const estimatedSampleRate = useSmoothedSampleRate(displayedData, chartConfig.sampleRateHz);
 
   const parseHealth = useMemo(() => {
     const total = parseSuccessCount + parseFailCount;
     if (total === 0) return null;
     return (parseSuccessCount / total) * 100;
   }, [parseFailCount, parseSuccessCount]);
-
-  const latestSeriesSnapshot = useMemo<SeriesSnapshot[]>(() => {
-    if (!statistics) return [];
-    return visibleSeries
-      .map((series) => {
-        const stat = statistics[series.key];
-        if (!stat) return null;
-        return {
-          key: series.key,
-          name: series.name,
-          color: series.color,
-          latest: stat.latest,
-        };
-      })
-      .filter((item): item is SeriesSnapshot => item !== null)
-      .slice(0, 4);
-  }, [statistics, visibleSeries]);
 
   const seriesInspectorEntries = useMemo<ChannelInspectorEntry[]>(() => {
     const keys = new Set<string>();
@@ -233,9 +224,9 @@ export function ChartViewer({
   };
 
   const handleExportCsv = async () => {
-    if (chartData.length === 0) return;
+    if (displayedData.length === 0) return;
     try {
-      const path = await exportChartDataAsCsv(chartData, chartConfig);
+      const path = await exportChartDataAsCsv(displayedData, chartConfig);
       if (path) addLog("success", `图表数据已导出: ${path}`);
     } catch (err) {
       addLog("error", `导出 CSV 失败: ${err}`);
@@ -243,7 +234,7 @@ export function ChartViewer({
   };
 
   const handleExportPng = async () => {
-    if (chartData.length === 0) return;
+    if (displayedData.length === 0) return;
     const container = chartContainerRef.current;
     if (!container) return;
     try {
@@ -270,12 +261,9 @@ export function ChartViewer({
     }
   };
 
-  const handleClearSeries = () => {
+  const handleClearData = () => {
+    frozenChartDataRef.current = [];
     clearChartData();
-    setChartConfig({
-      ...chartConfig,
-      channels: [],
-    });
   };
 
   const updateChannelConfig = (channelKey: string, updater: (channel: Channel) => Channel) => {
@@ -312,29 +300,6 @@ export function ChartViewer({
           ...overrides,
         },
       ],
-    });
-  };
-
-  const updateNumericConfig = (key: "maxDataPoints" | "visiblePointLimit" | "sampleRateHz", rawValue: string) => {
-    if (key === "sampleRateHz") {
-      setChartConfig({
-        ...chartConfig,
-        sampleRateHz: Math.max(Number.parseFloat(rawValue) || 0, 0),
-      });
-      return;
-    }
-
-    if (key === "visiblePointLimit") {
-      setChartConfig({
-        ...chartConfig,
-        visiblePointLimit: Math.max(Number.parseInt(rawValue, 10) || 0, 0),
-      });
-      return;
-    }
-
-    setChartConfig({
-      ...chartConfig,
-      maxDataPoints: Math.max(Number.parseInt(rawValue, 10) || 0, 100),
     });
   };
 
@@ -497,7 +462,7 @@ export function ChartViewer({
       <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
         <div className="space-y-2 text-center">
           <p className="text-base font-medium text-foreground">图表功能未启用</p>
-          <p className="text-xs text-muted-foreground">点击工具栏的“配置图表”或使用“智能启用”自动识别数据格式</p>
+          <p className="text-xs text-muted-foreground">请先在数据解析中识别数值通道并应用配置</p>
         </div>
       </div>
     );
@@ -515,55 +480,27 @@ export function ChartViewer({
           {chartPaused ? (
             <>
               <Play className="h-3.5 w-3.5" />
-              继续
+              恢复跟随
             </>
           ) : (
             <>
-              <Pause className="h-3.5 w-3.5" />
-              暂停
+              <Snowflake className="h-3.5 w-3.5" />
+              冻结
             </>
           )}
         </Button>
 
         <span className="h-5 w-px bg-border/70" aria-hidden />
 
-        <Button size="sm" variant="outline" onClick={clearChartData} className="gap-1">
+        <Button size="sm" variant="outline" onClick={handleClearData} className="gap-1">
           <Trash2 className="h-3.5 w-3.5" />
-          清空
-        </Button>
-
-        <Button size="sm" variant="outline" onClick={handleClearSeries} className="gap-1">
-          <Trash2 className="h-3.5 w-3.5" />
-          清除曲线
+          清空数据
         </Button>
 
         <span className="h-5 w-px bg-border/70" aria-hidden />
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExportCsv}
-          disabled={chartData.length === 0}
-          className="gap-1"
-        >
-          <Download className="h-3.5 w-3.5" />
-          导出 CSV
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExportPng}
-          disabled={chartData.length === 0}
-          className="gap-1"
-        >
-          <Download className="h-3.5 w-3.5" />
-          导出 PNG
-        </Button>
-
         {chartConfig.chartType === "waveform" && (
           <>
-            <span className="h-5 w-px bg-border/70" aria-hidden />
             <div className="flex items-center gap-1 rounded-full bg-white/85 p-1 shadow-sm">
               <Button
                 size="sm"
@@ -571,7 +508,7 @@ export function ChartViewer({
                 onClick={() => updateSignalDomain("time")}
                 className="h-7 rounded-full px-3"
               >
-                Time
+                时域
               </Button>
               <Button
                 size="sm"
@@ -690,154 +627,72 @@ export function ChartViewer({
           </PopoverContent>
         </Popover>
 
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" disabled={displayedData.length === 0} className="gap-1">
+              <Download className="h-3.5 w-3.5" />
+              导出
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-44 rounded-[18px] p-2">
+            <div className="grid gap-1">
+              <Button size="sm" variant="ghost" className="justify-start" onClick={handleExportCsv}>
+                导出 CSV 数据
+              </Button>
+              <Button size="sm" variant="ghost" className="justify-start" onClick={handleExportPng}>
+                导出 PNG 图像
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
-          <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
-          {chartConfig.chartType === "waveform" && (
-            <span className="rounded-full bg-white/80 px-3 py-1">
-              视图: {signalDomain === "fft" ? "FFT 频谱" : "Time 波形"}
-            </span>
-          )}
-          <span className="rounded-full bg-white/80 px-3 py-1">缓存: {chartData.length}</span>
-          <span className="rounded-full bg-white/80 px-3 py-1">渲染: {chartDataFormatted.length}</span>
-          <span className="rounded-full bg-white/80 px-3 py-1">成功: {parseSuccessCount}</span>
-          <span className="rounded-full bg-white/80 px-3 py-1">失败: {parseFailCount}</span>
-          {estimatedSampleRate && (
-            <span className="rounded-full bg-white/80 px-3 py-1">采样率: {estimatedSampleRate.toFixed(1)} Hz</span>
-          )}
+          {chartPaused && <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">已冻结</span>}
+          <span className="rounded-full bg-white/80 px-3 py-1">
+            {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "采样率待定"}
+          </span>
+          <span className="rounded-full bg-white/80 px-3 py-1">{visibleSeries.length} 通道</span>
+          <span className="rounded-full bg-white/80 px-3 py-1">
+            {displayedData.length} / {chartConfig.maxDataPoints} 点
+          </span>
+          <span className="rounded-full bg-white/80 px-3 py-1">
+            解析 {parseHealth === null ? "—" : `${parseHealth.toFixed(0)}%`}
+          </span>
         </div>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-[22px] border border-border/50 bg-white/70 px-3.5 py-2.5 text-xs text-muted-foreground tabular-nums">
-        <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
-          {chartConfig.chartType === "waveform" ? (signalDomain === "fft" ? "FFT 频谱" : "Time 波形") : "业务图表"}
-        </span>
-        <span className="rounded-full bg-secondary px-3 py-1">
-          {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "等待采样率"}
-        </span>
-        <span className="rounded-full bg-secondary px-3 py-1">
-          解析 {parseHealth === null ? "暂无统计" : `${parseHealth.toFixed(0)}%`}
-        </span>
-        <span className="rounded-full bg-secondary px-3 py-1">系列 {visibleSeries.length} 条</span>
-        <span className="rounded-full bg-secondary px-3 py-1">
-          缓存 {chartData.length} / {chartConfig.maxDataPoints}
-        </span>
-        <span className="rounded-full bg-secondary px-3 py-1">
-          可视 {chartConfig.visiblePointLimit === 0 ? "自动" : chartConfig.visiblePointLimit}
-        </span>
-        {chartConfig.chartType === "xy-scatter" && xChannelKey && (
-          <span className="rounded-full bg-secondary px-3 py-1">X 轴 {xChannel?.name || xChannelKey}</span>
-        )}
-        {chartConfig.chartType === "waveform" && (
-          <span className="rounded-full bg-secondary px-3 py-1">FFT 窗口 {chartConfig.fftWindowSize}</span>
-        )}
-        {latestSeriesSnapshot.slice(0, 2).map((item) => (
-          <span key={item.key} className="rounded-full bg-secondary px-3 py-1">
-            <span
-              className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
-              style={{ backgroundColor: item.color }}
-            />
-            {item.name} {formatChartNumber(item.latest)}
-          </span>
-        ))}
-      </div>
-
-      <div className="min-h-[360px] flex-1">
-        <div className="flex min-h-[360px] flex-col gap-3">
-          <div ref={chartContainerRef} className="min-h-[320px] flex-1">
-            {chartDataFormatted.length === 0 ? (
-              <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
-                <div className="space-y-2 text-center">
-                  <p className="text-sm font-medium text-foreground">等待数据流入…</p>
-                  <p className="text-xs text-muted-foreground">
-                    先接收数值流，再切到图表视图。波形示波器支持 Time / FFT 两种观察方式。
-                  </p>
-                </div>
-              </div>
-            ) : visibleSeries.length === 0 ? (
-              <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
-                <div className="space-y-2 text-center">
-                  <p className="text-sm font-medium text-foreground">当前没有可见曲线</p>
-                  <p className="text-xs text-muted-foreground">点击图表工具栏的“通道”，打开显示开关或加入曲线。</p>
-                </div>
-              </div>
-            ) : chartConfig.chartType === "waveform" ? (
-              <SignalPlotCanvas
-                chartData={chartData}
-                series={visibleSeries}
-                chartConfig={chartConfig}
-                domain={signalDomain}
-              />
-            ) : (
-              <div className="h-full min-h-[320px] rounded-[28px] border border-border/60 bg-white/80 p-3">
-                <ResponsiveContainer width="100%" height="100%">
-                  {renderBusinessChart()}
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          <div className="shrink-0 rounded-[24px] border border-border/60 bg-white/75 px-3 py-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <ControlField
-                label="缓冲区上限"
-                value={chartConfig.maxDataPoints.toString()}
-                suffix="点"
-                onChange={(value) => updateNumericConfig("maxDataPoints", value)}
-              />
-              <ControlField
-                label="可视点数"
-                value={chartConfig.visiblePointLimit.toString()}
-                suffix={chartConfig.visiblePointLimit === 0 ? "自动" : "点"}
-                onChange={(value) => updateNumericConfig("visiblePointLimit", value)}
-              />
-              <ControlField
-                label="采样率"
-                value={chartConfig.sampleRateHz.toString()}
-                suffix="Hz"
-                onChange={(value) => updateNumericConfig("sampleRateHz", value)}
-              />
-              <div className="ml-auto flex flex-wrap gap-2 text-[11px] text-muted-foreground tabular-nums">
-                <span className="rounded-full bg-secondary px-3 py-1">
-                  缓存 {chartData.length} / {chartConfig.maxDataPoints}
-                </span>
-                <span className="rounded-full bg-secondary px-3 py-1">渲染 {chartDataFormatted.length} 点</span>
-                <span className="rounded-full bg-secondary px-3 py-1">可见系列 {visibleSeries.length}</span>
-                {latestSeriesSnapshot[0] && (
-                  <span className="rounded-full bg-secondary px-3 py-1">
-                    当前 {latestSeriesSnapshot[0].name} {formatChartNumber(latestSeriesSnapshot[0].latest)}
-                  </span>
-                )}
-              </div>
+      <div ref={chartContainerRef} className="min-h-[360px] flex-1">
+        {displayedData.length === 0 ? (
+          <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+            <div className="space-y-2 text-center">
+              <p className="text-sm font-medium text-foreground">等待数据流入…</p>
+              <p className="text-xs text-muted-foreground">
+                先接收数值流，再切到图表视图。波形示波器支持时域 / FFT 两种观察方式。
+              </p>
             </div>
           </div>
-        </div>
+        ) : visibleSeries.length === 0 ? (
+          <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+            <div className="space-y-2 text-center">
+              <p className="text-sm font-medium text-foreground">当前没有可见曲线</p>
+              <p className="text-xs text-muted-foreground">点击图表工具栏的“通道”，打开显示开关或加入曲线。</p>
+            </div>
+          </div>
+        ) : chartConfig.chartType === "waveform" ? (
+          <SignalPlotCanvas
+            chartData={displayedData}
+            series={visibleSeries}
+            chartConfig={chartConfig}
+            domain={signalDomain}
+          />
+        ) : (
+          <div className="h-full min-h-[320px] rounded-[28px] border border-border/60 bg-white/80 p-3">
+            <ResponsiveContainer width="100%" height="100%">
+              {renderBusinessChart()}
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
-  );
-}
-
-function ControlField({
-  label,
-  value,
-  suffix,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  suffix: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <Input
-        type="number"
-        inputMode="numeric"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-8 w-28 text-sm"
-      />
-      <span className="text-xs text-muted-foreground">{suffix}</span>
-    </label>
   );
 }
