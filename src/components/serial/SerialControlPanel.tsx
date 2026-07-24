@@ -1627,7 +1627,6 @@ export function SerialControlPanel({
                           draggable
                           onDragStart={() => {
                             setDraggedType(type);
-                            setDraggedId(null);
                           }}
                           onDragEnd={() => setDraggedType(null)}
                           onClick={() => addWidget(type)}
