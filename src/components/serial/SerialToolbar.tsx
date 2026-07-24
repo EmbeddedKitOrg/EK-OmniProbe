@@ -25,8 +25,6 @@ import {
   Columns,
   Binary,
   Tags,
-  Waves,
-  ListFilter,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
@@ -36,7 +34,6 @@ import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
 import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 import { useState } from "react";
-import { getSignalWorkspaceTransition, isSignalWorkspaceActive } from "@/lib/chartTypes";
 import { formatTimestamp } from "@/lib/formatters";
 
 const TIMESTAMP_FORMAT_PRESETS = [
@@ -120,7 +117,6 @@ export function SerialToolbar() {
   const addLog = useLogStore((state) => state.addLog);
   const [moreOpen, setMoreOpen] = useState(false);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
-  const [expandDataFilter, setExpandDataFilter] = useState(false);
 
   // Start serial polling
   const handleStart = async () => {
@@ -232,14 +228,6 @@ export function SerialToolbar() {
     addLog("info", `已自动配置 ${result.detectedKeys.length} 个数据系列`);
   };
 
-  const handleToggleWaveform = () => {
-    const closing = isSignalWorkspaceActive(viewMode, chartConfig, "time");
-    const next = getSignalWorkspaceTransition(viewMode, chartConfig, "time");
-    if (next.chartConfig !== chartConfig) setChartConfig(next.chartConfig);
-    if (next.viewMode !== viewMode) setViewMode(next.viewMode);
-    addLog("info", closing ? "已收起波形，继续在后台解析数据" : "已打开时域波形");
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border/60 bg-muted/20 px-2 py-2">
       {!running ? (
@@ -309,29 +297,6 @@ export function SerialToolbar() {
           <BarChart3 className="h-3.5 w-3.5" />
         </Button>
       </div>
-
-      <Button
-        size="sm"
-        variant={isSignalWorkspaceActive(viewMode, chartConfig, "time") ? "secondary" : "outline"}
-        onClick={handleToggleWaveform}
-        className="gap-1"
-      >
-        <Waves className="h-3.5 w-3.5" />
-        波形
-      </Button>
-
-      <Button
-        size="sm"
-        variant={chartConfig.dataFilter.enabled ? "secondary" : "outline"}
-        onClick={() => {
-          setExpandDataFilter(true);
-          setChartConfigOpen(true);
-        }}
-        className="gap-1"
-      >
-        <ListFilter className="h-3.5 w-3.5" />
-        滤波
-      </Button>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {textViewMode === "log" && (
@@ -618,7 +583,6 @@ export function SerialToolbar() {
                     className="gap-1"
                     onClick={() => {
                       setMoreOpen(false);
-                      setExpandDataFilter(false);
                       setChartConfigOpen(true);
                     }}
                   >
@@ -664,7 +628,6 @@ export function SerialToolbar() {
           title="串口图表配置"
           allowJustFloat
           allowDataFilter
-          expandDataFilter={expandDataFilter}
           samples={lines
             .filter((line) => line.direction === "rx")
             .slice(-20)

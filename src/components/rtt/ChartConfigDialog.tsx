@@ -16,7 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Settings, Plus, Trash2 } from "lucide-react";
+
+type ChartConfigSection = "basic" | "channels" | "performance" | "display" | "filter";
 
 interface ChartConfigDialogProps {
   chartConfig: ChartConfig;
@@ -25,7 +27,7 @@ interface ChartConfigDialogProps {
   title?: string;
   allowJustFloat?: boolean;
   allowDataFilter?: boolean;
-  expandDataFilter?: boolean;
+  initialSection?: ChartConfigSection;
   samples?: ChartSample[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -38,16 +40,14 @@ export function ChartConfigDialog({
   title = "图表配置",
   allowJustFloat = false,
   allowDataFilter = false,
-  expandDataFilter = false,
+  initialSection = "basic",
   samples = [],
   open: controlledOpen,
   onOpenChange,
 }: ChartConfigDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState<ChartConfig>(chartConfig);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showDisplay, setShowDisplay] = useState(false);
-  const [showFilter, setShowFilter] = useState(false);
+  const [activeSection, setActiveSection] = useState<ChartConfigSection>(initialSection);
   const [firText, setFirText] = useState("");
   const [sosText, setSosText] = useState("");
   const [scaleText, setScaleText] = useState("1");
@@ -65,9 +65,7 @@ export function ChartConfigDialog({
     if (open && !wasOpen.current) {
       const nextConfig = populateEmptyChannelsFromSamples(chartConfig, samples);
       setLocalConfig(nextConfig);
-      setShowAdvanced(false);
-      setShowDisplay(false);
-      setShowFilter(expandDataFilter || nextConfig.dataFilter.enabled);
+      setActiveSection(initialSection === "filter" && !allowDataFilter ? "basic" : initialSection);
       setFirText(formatMatlabVector(nextConfig.dataFilter.firCoefficients));
       setSosText(formatMatlabSos(nextConfig.dataFilter.sosSections));
       setScaleText(formatMatlabVector(nextConfig.dataFilter.scaleValues));
@@ -83,7 +81,7 @@ export function ChartConfigDialog({
       );
     }
     wasOpen.current = open;
-  }, [chartConfig, expandDataFilter, open, samples]);
+  }, [allowDataFilter, chartConfig, initialSection, open, samples]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -95,12 +93,14 @@ export function ChartConfigDialog({
     if (allowDataFilter && filter.enabled) {
       if (filter.kind !== "median" && filter.sampleRateHz <= 0) {
         setFilterError("请输入 MATLAB 设计滤波器时使用的采样率 Fs。");
+        setActiveSection("filter");
         return;
       }
       if (filter.kind === "fir") {
         const coefficients = parseMatlabVector(firText);
         if (coefficients.length === 0) {
           setFilterError("FIR 系数不能为空，请粘贴 MATLAB 导出的 b 向量。");
+          setActiveSection("filter");
           return;
         }
         nextConfig = { ...localConfig, dataFilter: { ...filter, firCoefficients: coefficients } };
@@ -108,6 +108,7 @@ export function ChartConfigDialog({
         const sections = parseMatlabSos(sosText);
         if (!sections) {
           setFilterError("SOS 必须由 6 个系数一组组成，且每组 a0 不能为 0。");
+          setActiveSection("filter");
           return;
         }
         const scaleValues = parseMatlabVector(scaleText);
@@ -212,6 +213,109 @@ export function ChartConfigDialog({
     }
   }, [localConfig.parseMode]);
 
+  const filterFields = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2.5">
+        <div>
+          <Label>启用滤波预览</Label>
+          <p className="mt-1 text-xs text-muted-foreground">仅影响波形预览，原始日志、导出和 AI 数据保持不变。</p>
+        </div>
+        <Switch checked={localConfig.dataFilter.enabled} onCheckedChange={(enabled) => updateDataFilter({ enabled })} />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>执行函数</Label>
+          <Select
+            value={localConfig.dataFilter.kind}
+            onValueChange={(kind: DataFilterKind) => updateDataFilter({ kind })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sos">IIR · SOS + ScaleValues</SelectItem>
+              <SelectItem value="fir">FIR · b 系数</SelectItem>
+              <SelectItem value="median">实时中值滤波</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {localConfig.dataFilter.kind !== "median" && (
+          <NumberField
+            id="filterSampleRateHz"
+            label="MATLAB 设计采样率 Fs (Hz)"
+            value={localConfig.dataFilter.sampleRateHz}
+            onChange={(sampleRateHz) => updateDataFilter({ sampleRateHz: Math.max(sampleRateHz, 0) })}
+          />
+        )}
+      </div>
+
+      {localConfig.dataFilter.kind === "fir" && (
+        <MatlabTextField
+          id="firCoefficients"
+          label="FIR 系数 b"
+          value={firText}
+          placeholder="[0.1 0.2 0.4 0.2 0.1]"
+          onChange={(value) => {
+            setFilterError("");
+            setFirText(value);
+          }}
+        />
+      )}
+
+      {localConfig.dataFilter.kind === "sos" && (
+        <div className="space-y-3">
+          <MatlabTextField
+            id="sosSections"
+            label="SOS Matrix（每行 b0 b1 b2 a0 a1 a2）"
+            value={sosText}
+            placeholder={"1 2 1 1 -1.8 0.81;\n1 2 1 1 -1.6 0.64"}
+            onChange={(value) => {
+              setFilterError("");
+              setSosText(value);
+            }}
+          />
+          <MatlabTextField
+            id="scaleValues"
+            label="g / ScaleValues（留空按 1）"
+            value={scaleText}
+            placeholder="1"
+            rows={2}
+            onChange={(value) => {
+              setFilterError("");
+              setScaleText(value);
+            }}
+          />
+        </div>
+      )}
+
+      {localConfig.dataFilter.kind === "median" && (
+        <NumberField
+          id="medianWindowSize"
+          label="窗口大小（奇数，3-255）"
+          value={localConfig.dataFilter.medianWindowSize}
+          onChange={(value) => {
+            const clamped = Math.min(Math.max(Math.round(value), 3), 255);
+            updateDataFilter({ medianWindowSize: clamped % 2 === 0 ? Math.min(clamped + 1, 255) : clamped });
+          }}
+        />
+      )}
+
+      <ToggleRow
+        label="叠加显示原始曲线"
+        checked={localConfig.dataFilter.showOriginal}
+        onCheckedChange={(showOriginal) => updateDataFilter({ showOriginal })}
+      />
+
+      {filterError && <p className="text-sm text-destructive">{filterError}</p>}
+      <p className="text-xs leading-5 text-muted-foreground">
+        Filter Designer 可通过 <code className="font-mono">filterDesigner</code> 打开。高阶 IIR 推荐导出 SOS Matrix 与
+        ScaleValues；参数 Fs 与实际采样率不一致时，波形会显示提醒。
+      </p>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {trigger !== null && (
@@ -230,374 +334,281 @@ export function ChartConfigDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 rounded-[20px] border border-border/60 bg-muted/20 p-2">
+            {(
+              [
+                ["basic", "基础"],
+                ["channels", "通道"],
+                ["performance", "性能与采样"],
+                ["display", "显示"],
+                ...(allowDataFilter ? [["filter", "MATLAB 滤波"]] : []),
+              ] as Array<[ChartConfigSection, string]>
+            ).map(([section, label]) => (
+              <Button
+                key={section}
+                size="sm"
+                variant={activeSection === section ? "default" : "ghost"}
+                onClick={() => setActiveSection(section)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+
           {/* 1. 启用 + 解析模式 + 图表类型 */}
-          <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">基础</div>
-                <p className="text-xs text-muted-foreground">关掉开关后，图表面板不会再消费数据。</p>
-              </div>
-              <Switch
-                checked={localConfig.enabled}
-                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, enabled: checked })}
-              />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="parseMode">解析模式</Label>
-                <Select
-                  value={localConfig.parseMode}
-                  onValueChange={(value: ParseMode) => setLocalConfig({ ...localConfig, parseMode: value })}
-                >
-                  <SelectTrigger id="parseMode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">自动</SelectItem>
-                    <SelectItem value="delimiter">分隔符</SelectItem>
-                    <SelectItem value="json">JSON</SelectItem>
-                    <SelectItem value="kv">KV (key=value)</SelectItem>
-                    <SelectItem value="regex">正则</SelectItem>
-                    {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
-                  </SelectContent>
-                </Select>
+          {activeSection === "basic" && (
+            <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">基础</div>
+                  <p className="text-xs text-muted-foreground">关掉开关后，图表面板不会再消费数据。</p>
+                </div>
+                <Switch
+                  checked={localConfig.enabled}
+                  onCheckedChange={(checked) => setLocalConfig({ ...localConfig, enabled: checked })}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="chartType">图表类型</Label>
-                <Select
-                  value={localConfig.chartType}
-                  onValueChange={(value: ChartType) => setLocalConfig({ ...localConfig, chartType: value })}
-                >
-                  <SelectTrigger id="chartType">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="waveform">波形示波器</SelectItem>
-                    <SelectItem value="line">折线图</SelectItem>
-                    <SelectItem value="bar">柱状图</SelectItem>
-                    <SelectItem value="scatter">散点图（按时间）</SelectItem>
-                    <SelectItem value="xy-scatter">XY 散点图</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="parseMode">解析模式</Label>
+                  <Select
+                    value={localConfig.parseMode}
+                    onValueChange={(value: ParseMode) => setLocalConfig({ ...localConfig, parseMode: value })}
+                  >
+                    <SelectTrigger id="parseMode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">自动</SelectItem>
+                      <SelectItem value="delimiter">分隔符</SelectItem>
+                      <SelectItem value="json">JSON</SelectItem>
+                      <SelectItem value="kv">KV (key=value)</SelectItem>
+                      <SelectItem value="regex">正则</SelectItem>
+                      {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="chartType">图表类型</Label>
+                  <Select
+                    value={localConfig.chartType}
+                    onValueChange={(value: ChartType) => setLocalConfig({ ...localConfig, chartType: value })}
+                  >
+                    <SelectTrigger id="chartType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="waveform">波形示波器</SelectItem>
+                      <SelectItem value="line">折线图</SelectItem>
+                      <SelectItem value="bar">柱状图</SelectItem>
+                      <SelectItem value="scatter">散点图（按时间）</SelectItem>
+                      <SelectItem value="xy-scatter">XY 散点图</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
 
-            <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>
+              <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>
 
-            {isXyScatter && (
-              <p className="text-xs text-muted-foreground leading-5">
-                XY 散点图需要一条通道把「角色」选成「X」，其余通道作为 Y 值。
-              </p>
-            )}
-          </section>
+              {isXyScatter && (
+                <p className="text-xs text-muted-foreground leading-5">
+                  XY 散点图需要一条通道把「角色」选成「X」，其余通道作为 Y 值。
+                </p>
+              )}
+            </section>
+          )}
 
           {/* 2. 模式专属字段 */}
-          {(localConfig.parseMode === "delimiter" || localConfig.parseMode === "regex") && (
+          {activeSection === "basic" &&
+            (localConfig.parseMode === "delimiter" || localConfig.parseMode === "regex") && (
+              <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
+                <div className="text-sm font-medium">
+                  {localConfig.parseMode === "delimiter" ? "分隔符" : "正则表达式"}
+                </div>
+
+                {localConfig.parseMode === "delimiter" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="delimiter">分隔符（字符或转义序列）</Label>
+                    <Input
+                      id="delimiter"
+                      value={localConfig.delimiter}
+                      placeholder=", / \t / ; / 空格"
+                      onChange={(event) => setLocalConfig({ ...localConfig, delimiter: event.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      例如 <code className="font-mono">20,4997.32,122954.44</code> 用{" "}
+                      <code className="font-mono">,</code>。
+                    </p>
+                  </div>
+                )}
+
+                {localConfig.parseMode === "regex" && (
+                  <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+                    <div className="space-y-2">
+                      <Label htmlFor="regexPattern">正则表达式</Label>
+                      <Input
+                        id="regexPattern"
+                        value={localConfig.regexPattern}
+                        placeholder="temp:(?<temp>\d+\.\d+)"
+                        className="font-mono"
+                        onChange={(event) => setLocalConfig({ ...localConfig, regexPattern: event.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="regexFlags">标志</Label>
+                      <Input
+                        id="regexFlags"
+                        value={localConfig.regexFlags || ""}
+                        placeholder="g / gi"
+                        onChange={(event) => setLocalConfig({ ...localConfig, regexFlags: event.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+          {/* 3. 通道表格 */}
+          {activeSection === "channels" && (
             <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
-              <div className="text-sm font-medium">
-                {localConfig.parseMode === "delimiter" ? "分隔符" : "正则表达式"}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">通道</div>
+                  <p className="text-xs text-muted-foreground">一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={addChannel}>
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  添加
+                </Button>
               </div>
 
-              {localConfig.parseMode === "delimiter" && (
-                <div className="space-y-2">
-                  <Label htmlFor="delimiter">分隔符（字符或转义序列）</Label>
-                  <Input
-                    id="delimiter"
-                    value={localConfig.delimiter}
-                    placeholder=", / \t / ; / 空格"
-                    onChange={(event) => setLocalConfig({ ...localConfig, delimiter: event.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    例如 <code className="font-mono">20,4997.32,122954.44</code> 用 <code className="font-mono">,</code>
-                    。
-                  </p>
-                </div>
-              )}
+              {channelHint && <p className="text-xs leading-5 text-muted-foreground">{channelHint}</p>}
 
-              {localConfig.parseMode === "regex" && (
-                <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
-                  <div className="space-y-2">
-                    <Label htmlFor="regexPattern">正则表达式</Label>
-                    <Input
-                      id="regexPattern"
-                      value={localConfig.regexPattern}
-                      placeholder="temp:(?<temp>\d+\.\d+)"
-                      className="font-mono"
-                      onChange={(event) => setLocalConfig({ ...localConfig, regexPattern: event.target.value })}
+              {localConfig.channels.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
+                  还没有通道。
+                  {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
+                    "（留空时会自动提取所有数值字段）"}
+                  {localConfig.parseMode === "justfloat" && "（留空时会按首个有效帧自动生成通道）"}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <ChannelHeaderRow
+                    isDelimiter={isDelimiter}
+                    sourceIndexLabel={sourceIndexLabel}
+                    isXyScatter={isXyScatter}
+                  />
+                  {localConfig.channels.map((channel, index) => (
+                    <ChannelRow
+                      key={`${channel.key}-${index}`}
+                      channel={channel}
+                      index={index}
+                      total={localConfig.channels.length}
+                      isDelimiter={isDelimiter}
+                      isXyScatter={isXyScatter}
+                      onChange={(patch) => updateChannel(index, patch)}
+                      onMove={(dir) => moveChannel(index, dir)}
+                      onRemove={() => removeChannel(index)}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="regexFlags">标志</Label>
-                    <Input
-                      id="regexFlags"
-                      value={localConfig.regexFlags || ""}
-                      placeholder="g / gi"
-                      onChange={(event) => setLocalConfig({ ...localConfig, regexFlags: event.target.value })}
-                    />
-                  </div>
+                  ))}
                 </div>
               )}
             </section>
           )}
 
-          {/* 3. 通道表格 */}
-          <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">通道</div>
-                <p className="text-xs text-muted-foreground">一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。</p>
-              </div>
-              <Button size="sm" variant="outline" onClick={addChannel}>
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                添加
-              </Button>
-            </div>
+          {allowDataFilter && activeSection === "filter" && filterFields}
 
-            {channelHint && <p className="text-xs leading-5 text-muted-foreground">{channelHint}</p>}
-
-            {localConfig.channels.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-border/70 p-6 text-center text-sm text-muted-foreground">
-                还没有通道。
-                {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
-                  "（留空时会自动提取所有数值字段）"}
-                {localConfig.parseMode === "justfloat" && "（留空时会按首个有效帧自动生成通道）"}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <ChannelHeaderRow
-                  isDelimiter={isDelimiter}
-                  sourceIndexLabel={sourceIndexLabel}
-                  isXyScatter={isXyScatter}
+          {/* 4. 性能与采样 */}
+          {activeSection === "performance" && (
+            <section className="rounded-[24px] border border-border/60 p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <NumberField
+                  id="maxDataPoints"
+                  label="最大数据点数"
+                  value={localConfig.maxDataPoints}
+                  onChange={(value) => setLocalConfig({ ...localConfig, maxDataPoints: Math.max(value, 100) })}
                 />
-                {localConfig.channels.map((channel, index) => (
-                  <ChannelRow
-                    key={`${channel.key}-${index}`}
-                    channel={channel}
-                    index={index}
-                    total={localConfig.channels.length}
-                    isDelimiter={isDelimiter}
-                    isXyScatter={isXyScatter}
-                    onChange={(patch) => updateChannel(index, patch)}
-                    onMove={(dir) => moveChannel(index, dir)}
-                    onRemove={() => removeChannel(index)}
-                  />
-                ))}
+                <NumberField
+                  id="visiblePointLimit"
+                  label="可视点数 (0=自动)"
+                  value={localConfig.visiblePointLimit}
+                  onChange={(value) => setLocalConfig({ ...localConfig, visiblePointLimit: Math.max(value, 0) })}
+                />
+                <NumberField
+                  id="updateInterval"
+                  label="独立窗口刷新间隔 (ms)"
+                  value={localConfig.updateInterval}
+                  onChange={(value) => setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })}
+                />
+                <NumberField
+                  id="sampleRateHz"
+                  label="采样率 (Hz, 0=自动)"
+                  value={localConfig.sampleRateHz}
+                  onChange={(value) => setLocalConfig({ ...localConfig, sampleRateHz: Math.max(value, 0) })}
+                />
+                <NumberField
+                  id="fftWindowSize"
+                  label="FFT 窗口大小 (32-4096)"
+                  value={localConfig.fftWindowSize}
+                  onChange={(value) =>
+                    setLocalConfig({
+                      ...localConfig,
+                      fftWindowSize: Math.min(Math.max(value, 32), 4096),
+                    })
+                  }
+                />
               </div>
-            )}
-          </section>
+            </section>
+          )}
 
-          {allowDataFilter && (
-            <CollapsibleSection
-              title="MATLAB 参数滤波"
-              subtitle="MATLAB 负责设计，串口波形实时执行 FIR、SOS 或中值滤波"
-              open={showFilter}
-              onToggle={() => setShowFilter(!showFilter)}
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2.5">
-                  <div>
-                    <Label>启用滤波预览</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      仅影响波形预览，原始日志、导出和 AI 数据保持不变。
-                    </p>
-                  </div>
-                  <Switch
-                    checked={localConfig.dataFilter.enabled}
-                    onCheckedChange={(enabled) => updateDataFilter({ enabled })}
-                  />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>执行函数</Label>
+          {/* 5. 显示选项 */}
+          {activeSection === "display" && (
+            <section className="rounded-[24px] border border-border/60 p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                {localConfig.chartType === "waveform" && (
+                  <div className="space-y-1.5 rounded-[18px] border border-border/60 px-3 py-2.5">
+                    <Label>波形连接方式</Label>
                     <Select
-                      value={localConfig.dataFilter.kind}
-                      onValueChange={(kind: DataFilterKind) => updateDataFilter({ kind })}
+                      value={localConfig.waveformInterpolation}
+                      onValueChange={(waveformInterpolation: WaveformInterpolation) =>
+                        setLocalConfig({ ...localConfig, waveformInterpolation })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sos">IIR · SOS + ScaleValues</SelectItem>
-                        <SelectItem value="fir">FIR · b 系数</SelectItem>
-                        <SelectItem value="median">实时中值滤波</SelectItem>
+                        <SelectItem value="linear">直线连接</SelectItem>
+                        <SelectItem value="smooth">平滑曲线</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {localConfig.dataFilter.kind !== "median" && (
-                    <NumberField
-                      id="filterSampleRateHz"
-                      label="MATLAB 设计采样率 Fs (Hz)"
-                      value={localConfig.dataFilter.sampleRateHz}
-                      onChange={(sampleRateHz) => updateDataFilter({ sampleRateHz: Math.max(sampleRateHz, 0) })}
-                    />
-                  )}
-                </div>
-
-                {localConfig.dataFilter.kind === "fir" && (
-                  <MatlabTextField
-                    id="firCoefficients"
-                    label="FIR 系数 b"
-                    value={firText}
-                    placeholder="[0.1 0.2 0.4 0.2 0.1]"
-                    onChange={(value) => {
-                      setFilterError("");
-                      setFirText(value);
-                    }}
-                  />
                 )}
-
-                {localConfig.dataFilter.kind === "sos" && (
-                  <div className="space-y-3">
-                    <MatlabTextField
-                      id="sosSections"
-                      label="SOS Matrix（每行 b0 b1 b2 a0 a1 a2）"
-                      value={sosText}
-                      placeholder={"1 2 1 1 -1.8 0.81;\n1 2 1 1 -1.6 0.64"}
-                      onChange={(value) => {
-                        setFilterError("");
-                        setSosText(value);
-                      }}
-                    />
-                    <MatlabTextField
-                      id="scaleValues"
-                      label="g / ScaleValues（留空按 1）"
-                      value={scaleText}
-                      placeholder="1"
-                      rows={2}
-                      onChange={(value) => {
-                        setFilterError("");
-                        setScaleText(value);
-                      }}
-                    />
-                  </div>
-                )}
-
-                {localConfig.dataFilter.kind === "median" && (
-                  <NumberField
-                    id="medianWindowSize"
-                    label="窗口大小（奇数，3-255）"
-                    value={localConfig.dataFilter.medianWindowSize}
-                    onChange={(value) => {
-                      const clamped = Math.min(Math.max(Math.round(value), 3), 255);
-                      updateDataFilter({ medianWindowSize: clamped % 2 === 0 ? Math.min(clamped + 1, 255) : clamped });
-                    }}
-                  />
-                )}
-
                 <ToggleRow
-                  label="叠加显示原始曲线"
-                  checked={localConfig.dataFilter.showOriginal}
-                  onCheckedChange={(showOriginal) => updateDataFilter({ showOriginal })}
+                  label="显示网格"
+                  checked={localConfig.showGrid}
+                  onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showGrid: checked })}
                 />
-
-                {filterError && <p className="text-sm text-destructive">{filterError}</p>}
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Filter Designer 可通过 <code className="font-mono">filterDesigner</code> 打开。高阶 IIR 推荐导出 SOS
-                  Matrix 与 ScaleValues；参数 Fs 与实际采样率不一致时，波形会显示提醒。
-                </p>
+                <ToggleRow
+                  label="显示图例"
+                  checked={localConfig.showLegend}
+                  onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showLegend: checked })}
+                />
+                <ToggleRow
+                  label="显示 Tooltip"
+                  checked={localConfig.showTooltip}
+                  onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showTooltip: checked })}
+                />
+                <ToggleRow
+                  label="启用动画"
+                  checked={localConfig.animationEnabled}
+                  onCheckedChange={(checked) => setLocalConfig({ ...localConfig, animationEnabled: checked })}
+                />
               </div>
-            </CollapsibleSection>
+            </section>
           )}
-
-          {/* 4. 性能与采样（折叠） */}
-          <CollapsibleSection
-            title="性能与采样"
-            subtitle="缓冲、刷新、FFT 窗口、采样率"
-            open={showAdvanced}
-            onToggle={() => setShowAdvanced(!showAdvanced)}
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              <NumberField
-                id="maxDataPoints"
-                label="最大数据点数"
-                value={localConfig.maxDataPoints}
-                onChange={(value) => setLocalConfig({ ...localConfig, maxDataPoints: Math.max(value, 100) })}
-              />
-              <NumberField
-                id="visiblePointLimit"
-                label="可视点数 (0=自动)"
-                value={localConfig.visiblePointLimit}
-                onChange={(value) => setLocalConfig({ ...localConfig, visiblePointLimit: Math.max(value, 0) })}
-              />
-              <NumberField
-                id="updateInterval"
-                label="独立窗口刷新间隔 (ms)"
-                value={localConfig.updateInterval}
-                onChange={(value) => setLocalConfig({ ...localConfig, updateInterval: Math.max(value, 16) })}
-              />
-              <NumberField
-                id="sampleRateHz"
-                label="采样率 (Hz, 0=自动)"
-                value={localConfig.sampleRateHz}
-                onChange={(value) => setLocalConfig({ ...localConfig, sampleRateHz: Math.max(value, 0) })}
-              />
-              <NumberField
-                id="fftWindowSize"
-                label="FFT 窗口大小 (32-4096)"
-                value={localConfig.fftWindowSize}
-                onChange={(value) =>
-                  setLocalConfig({
-                    ...localConfig,
-                    fftWindowSize: Math.min(Math.max(value, 32), 4096),
-                  })
-                }
-              />
-            </div>
-          </CollapsibleSection>
-
-          {/* 5. 显示选项（折叠） */}
-          <CollapsibleSection
-            title="显示选项"
-            subtitle="连接方式、网格、图例、Tooltip、动画"
-            open={showDisplay}
-            onToggle={() => setShowDisplay(!showDisplay)}
-          >
-            <div className="grid gap-3 md:grid-cols-2">
-              {localConfig.chartType === "waveform" && (
-                <div className="space-y-1.5 rounded-[18px] border border-border/60 px-3 py-2.5">
-                  <Label>波形连接方式</Label>
-                  <Select
-                    value={localConfig.waveformInterpolation}
-                    onValueChange={(waveformInterpolation: WaveformInterpolation) =>
-                      setLocalConfig({ ...localConfig, waveformInterpolation })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="linear">直线连接</SelectItem>
-                      <SelectItem value="smooth">平滑曲线</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <ToggleRow
-                label="显示网格"
-                checked={localConfig.showGrid}
-                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showGrid: checked })}
-              />
-              <ToggleRow
-                label="显示图例"
-                checked={localConfig.showLegend}
-                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showLegend: checked })}
-              />
-              <ToggleRow
-                label="显示 Tooltip"
-                checked={localConfig.showTooltip}
-                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, showTooltip: checked })}
-              />
-              <ToggleRow
-                label="启用动画"
-                checked={localConfig.animationEnabled}
-                onCheckedChange={(checked) => setLocalConfig({ ...localConfig, animationEnabled: checked })}
-              />
-            </div>
-          </CollapsibleSection>
         </div>
 
         <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 mt-4 flex justify-end gap-2 border-t border-border/60 bg-background/90 px-5 py-4 backdrop-blur">
@@ -754,37 +765,6 @@ function gridTemplate(isDelimiter: boolean, isXyScatter: boolean) {
   cols.push("64px");
   cols.push("auto");
   return cols.join(" ");
-}
-
-function CollapsibleSection({
-  title,
-  subtitle,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-[24px] border border-border/60">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <div>
-          <div className="text-sm font-medium">{title}</div>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-        {open ? <ChevronDown className="h-4 w-4 opacity-70" /> : <ChevronRight className="h-4 w-4 opacity-70" />}
-      </button>
-      {open && <div className="border-t border-border/60 p-4">{children}</div>}
-    </section>
-  );
 }
 
 function NumberField({

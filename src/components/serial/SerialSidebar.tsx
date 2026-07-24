@@ -849,6 +849,7 @@ export function SerialSidebar() {
           chartConfig={chartConfig}
           samples={chartSamples}
           allowJustFloat
+          allowDataFilter
           setChartConfig={setChartConfig}
           onClose={() => setInspectorTab("connection")}
         />
