@@ -1,7 +1,7 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ModeSwitch } from "./components/layout/ModeSwitch";
-import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode } from "./components/modes";
+import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode, ControlPanelMode } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
@@ -20,29 +20,19 @@ import { useThemeStore } from "./stores/themeStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
 import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
-import { SerialControlPanelWindowPage } from "./components/serial/SerialControlPanelWindowPage";
 import { isChartWorkspaceSource, type ChartWorkspaceSource } from "./lib/chartWorkspace";
 import { Cpu } from "lucide-react";
 import { useRttEvents } from "./hooks/useRttEvents";
 import { useSerialEvents } from "./hooks/useSerialEvents";
 import { useBluetoothEvents } from "./hooks/useBluetoothEvents";
 import { useChartWorkspaceHost } from "./hooks/useChartWorkspaceHost";
-import { useSerialControlPanelWindowHost } from "./hooks/useSerialControlPanelWindow";
 import { useShallow } from "zustand/react/shallow";
 
 function App() {
-  const serialControlPanelPopup = useMemo(
-    () => new URLSearchParams(window.location.search).get("serial_control_panel") === "1",
-    []
-  );
   const popupSource = useMemo(() => {
     const value = new URLSearchParams(window.location.search).get("chart_workspace");
     return isChartWorkspaceSource(value) ? value : null;
   }, []);
-
-  if (serialControlPanelPopup) {
-    return <SerialControlPanelPopupApp />;
-  }
 
   if (popupSource) {
     return <ChartWorkspacePopupApp source={popupSource} />;
@@ -267,7 +257,7 @@ function MainApp() {
         <TopBar inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
 
         <div
-          className={`ide-workspace-grid grid min-h-0 overflow-hidden ${inspectorOpen ? "inspector-open" : ""}`}
+          className={`ide-workspace-grid grid min-h-0 overflow-hidden ${inspectorOpen && mode !== "control-panel" ? "inspector-open" : ""}`}
           style={{ "--inspector-width": `${inspectorWidth}px` } as CSSProperties}
         >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
@@ -276,11 +266,12 @@ function MainApp() {
               {mode === "rtt" && <RttMode />}
               {mode === "serial" && <SerialMode />}
               {mode === "bluetooth" && <BluetoothMode />}
+              {mode === "control-panel" && <ControlPanelMode />}
               {mode === "debug" && <DebugMode />}
             </div>
           </div>
 
-          {inspectorOpen && (
+          {inspectorOpen && mode !== "control-panel" && (
             <>
               <button
                 type="button"
@@ -323,73 +314,8 @@ function ChartWorkspaceHosts() {
       <RttChartWorkspaceHost />
       <SerialChartWorkspaceHost />
       <BluetoothChartWorkspaceHost />
-      <SerialControlPanelWindowHost />
     </>
   );
-}
-
-function SerialControlPanelWindowHost() {
-  const {
-    connected,
-    running,
-    lines,
-    autoScroll,
-    showTimestamp,
-    timestampFormat,
-    showDirectionPrefix,
-    displayMode,
-    searchQuery,
-    chartData,
-    chartConfig,
-    sendSettings,
-  } = useSerialStore(
-    useShallow((state) => ({
-      connected: state.connected,
-      running: state.running,
-      lines: state.lines,
-      autoScroll: state.autoScroll,
-      showTimestamp: state.showTimestamp,
-      timestampFormat: state.timestampFormat,
-      showDirectionPrefix: state.showDirectionPrefix,
-      displayMode: state.displayMode,
-      searchQuery: state.searchQuery,
-      chartData: state.chartData,
-      chartConfig: state.chartConfig,
-      sendSettings: state.sendSettings,
-    }))
-  );
-  const snapshot = useMemo(
-    () => ({
-      connected,
-      running,
-      lines: lines.slice(-500).map((line) => ({ ...line, timestamp: line.timestamp.getTime() })),
-      autoScroll,
-      showTimestamp,
-      timestampFormat,
-      showDirectionPrefix,
-      displayMode,
-      searchQuery,
-      chartData,
-      chartConfig,
-      sendSettings,
-    }),
-    [
-      autoScroll,
-      chartConfig,
-      chartData,
-      connected,
-      displayMode,
-      lines,
-      running,
-      searchQuery,
-      sendSettings,
-      showDirectionPrefix,
-      showTimestamp,
-      timestampFormat,
-    ]
-  );
-  useSerialControlPanelWindowHost(snapshot);
-  return null;
 }
 
 function RttChartWorkspaceHost() {
@@ -520,16 +446,6 @@ function ChartWorkspacePopupApp({ source }: { source: ChartWorkspaceSource }) {
   }, [schemeId]);
 
   return <ChartWorkspaceWindowPage source={source} />;
-}
-
-function SerialControlPanelPopupApp() {
-  const schemeId = useThemeStore((state) => state.schemeId);
-
-  useEffect(() => {
-    applyThemeSchemeToDocument(schemeId);
-  }, [schemeId]);
-
-  return <SerialControlPanelWindowPage />;
 }
 
 export default App;

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Bluetooth, Bug, Plug2, Terminal, Zap } from "lucide-react";
+import { Bluetooth, Bug, LayoutDashboard, Plug2, Terminal, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore, type AppMode } from "@/stores/appStore";
 import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { useDebugStore } from "@/stores/debugStore";
+import { useControlPanelStore } from "@/stores/controlPanelStore";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -25,6 +26,7 @@ const MODES = [
   { id: "rtt", label: "RTT", icon: Terminal },
   { id: "serial", label: "串口", icon: Plug2 },
   { id: "bluetooth", label: "蓝牙", icon: Bluetooth },
+  { id: "control-panel", label: "面板", icon: LayoutDashboard },
   { id: "debug", label: "调试", icon: Bug },
 ] as const;
 
@@ -34,6 +36,7 @@ export function ModeSwitch({ className, orientation = "horizontal" }: ModeSwitch
   const rttRunning = useRttStore((state) => state.isRunning);
   const flashing = useFlashStore((state) => state.flashing);
   const debugAttached = useDebugStore((state) => state.state) !== "detached";
+  const setControlPanelSource = useControlPanelStore((state) => state.setSource);
   const vertical = orientation === "vertical";
   type ConfirmReason = "rtt" | "debug";
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -44,6 +47,7 @@ export function ModeSwitch({ className, orientation = "horizontal" }: ModeSwitch
 
   const handleModeChange = (newMode: AppMode) => {
     if (newMode === mode) return;
+    if (newMode === "control-panel" && (mode === "serial" || mode === "rtt")) setControlPanelSource(mode);
     if (rttRunning && newMode === "flash") {
       setConfirmDialog({ open: true, targetMode: newMode, reason: "rtt" });
       return;

@@ -49,7 +49,7 @@ const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
-const TEXT_VIEW_MODE_VALUES = ["log", "terminal", "control"] as const;
+const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
 
@@ -157,7 +157,6 @@ interface SerialState {
   colorParserConfig: ColorParserConfig;
   textViewMode: SerialTextViewMode;
   inspectorTab: SerialInspectorTab;
-  controlPanelDetached: boolean;
 
   // Terminal state
   terminalLines: SerialTerminalLine[];
@@ -221,7 +220,6 @@ interface SerialState {
   setColorParserConfig: (config: ColorParserConfig) => void;
   setTextViewMode: (mode: SerialTextViewMode) => void;
   setInspectorTab: (tab: SerialInspectorTab) => void;
-  setControlPanelDetached: (detached: boolean) => void;
 
   appendTerminalChunk: (text: string) => void;
   clearTerminalBuffer: () => void;
@@ -496,7 +494,6 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   colorParserConfig: loadColorParserConfig(),
   textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
   inspectorTab: "connection",
-  controlPanelDetached: false,
 
   terminalLines: [],
   terminalActiveLine: "",
@@ -674,7 +671,6 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     set({ textViewMode });
   },
   setInspectorTab: (inspectorTab) => set({ inspectorTab }),
-  setControlPanelDetached: (controlPanelDetached) => set({ controlPanelDetached }),
 
   appendTerminalChunk: (text) => set((state) => processTerminalChunk(text, state)),
 
@@ -790,7 +786,6 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       terminalCursorColumn: 0,
       terminalPendingEscape: "",
       terminalLineCounter: 0,
-      controlPanelDetached: false,
     }),
 }));
 

@@ -2,7 +2,7 @@
   "$schema": "https://schemas.tauri.app/capability/2",
   "identifier": "default",
   "description": "Default capability for the main window",
-  "windows": ["main", "chart-workspace-rtt", "chart-workspace-serial", "serial-control-panel"],
+  "windows": ["main", "chart-workspace-rtt", "chart-workspace-serial"],
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",

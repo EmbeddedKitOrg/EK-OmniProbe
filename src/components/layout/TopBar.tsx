@@ -4,6 +4,7 @@ import {
   Bug,
   Cpu,
   FileCode,
+  LayoutDashboard,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
@@ -18,6 +19,7 @@ import { useChipStore } from "@/stores/chipStore";
 import { useAppStore } from "@/stores/appStore";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { useSerialStore } from "@/stores/serialStore";
+import { useControlPanelStore } from "@/stores/controlPanelStore";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
@@ -28,6 +30,7 @@ const MODE_META = {
   rtt: { label: "RTT 调试工作台", icon: Radar },
   serial: { label: "串口工作台", icon: Wifi },
   bluetooth: { label: "蓝牙工作台", icon: Bluetooth },
+  "control-panel": { label: "控制面板", icon: LayoutDashboard },
   debug: { label: "调试工作台", icon: Bug },
 } as const;
 
@@ -49,10 +52,29 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
   const mode = useAppStore((state) => state.mode);
   const serialConnected = useSerialStore((state) => state.connected);
   const bluetoothConnected = useBluetoothStore((state) => state.connected);
+  const controlPanelSource = useControlPanelStore((state) => state.source);
   const firmwareFileName = firmwarePath?.split(/[\\/]/).pop();
   const { label, icon: ModeIcon } = MODE_META[mode];
-  const connectionLabel = mode === "serial" ? "串口" : mode === "bluetooth" ? "蓝牙" : "探针";
-  const connected = mode === "serial" ? serialConnected : mode === "bluetooth" ? bluetoothConnected : probeConnected;
+  const connectionLabel =
+    mode === "serial"
+      ? "串口"
+      : mode === "bluetooth"
+        ? "蓝牙"
+        : mode === "control-panel"
+          ? controlPanelSource === "rtt"
+            ? "RTT"
+            : "串口"
+          : "探针";
+  const connected =
+    mode === "serial"
+      ? serialConnected
+      : mode === "bluetooth"
+        ? bluetoothConnected
+        : mode === "control-panel"
+          ? controlPanelSource === "serial"
+            ? serialConnected
+            : rttConnected
+          : probeConnected;
 
   return (
     <header className="ide-topbar surface-shell no-select flex h-full min-w-0 items-center gap-3 rounded-[14px] px-3">
@@ -111,16 +133,18 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
       <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
         <UpdateChecker showTrigger={false} />
         <SettingsCenterDialog />
-        <Button
-          size="sm"
-          variant="outline"
-          className="px-2"
-          onClick={onToggleInspector}
-          title={inspectorOpen ? "收起配置检查器" : "展开配置检查器"}
-          aria-label={inspectorOpen ? "收起配置检查器" : "展开配置检查器"}
-        >
-          {inspectorOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-        </Button>
+        {mode !== "control-panel" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="px-2"
+            onClick={onToggleInspector}
+            title={inspectorOpen ? "收起配置检查器" : "展开配置检查器"}
+            aria-label={inspectorOpen ? "收起配置检查器" : "展开配置检查器"}
+          >
+            {inspectorOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </Button>
+        )}
         {rttConnected && !rttRunning && (
           <span className="status-chip hidden items-center gap-1.5 xl:flex">
             <span className="h-2 w-2 rounded-full bg-yellow-500" />

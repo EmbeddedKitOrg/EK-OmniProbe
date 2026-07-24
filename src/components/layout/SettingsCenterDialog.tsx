@@ -38,6 +38,7 @@ const workspaceOptions: Array<{ value: AppMode; label: string }> = [
   { value: "rtt", label: "RTT 工作台" },
   { value: "serial", label: "串口工作台" },
   { value: "bluetooth", label: "蓝牙工作台" },
+  { value: "control-panel", label: "控制面板" },
   { value: "debug", label: "调试工作台" },
 ];
 

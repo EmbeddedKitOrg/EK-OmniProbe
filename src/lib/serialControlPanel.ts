@@ -184,6 +184,18 @@ const DEFAULT_PANEL: SerialControlPanelConfig = { version: 4, name: "默认控�
 const LEGACY_CANVAS_WIDTH = 1200;
 const LEGACY_GRID_GAP = 12;
 const LEGACY_COLUMN_WIDTH = (LEGACY_CANVAS_WIDTH - LEGACY_GRID_GAP * 11) / 12;
+
+export function clampFloatingPanelPosition(
+  position: { x: number; y: number },
+  container: { width: number; height: number },
+  panel: { width: number; height: number },
+  inset = 12
+) {
+  return {
+    x: Math.min(0, Math.max(panel.width + inset * 2 - container.width, position.x)),
+    y: Math.min(Math.max(0, container.height - panel.height - inset * 2), Math.max(0, position.y)),
+  };
+}
 const LEGACY_ROW_HEIGHT = 48;
 const LABELS: Record<SerialControlWidgetType, string> = {
   button: "发送按钮",

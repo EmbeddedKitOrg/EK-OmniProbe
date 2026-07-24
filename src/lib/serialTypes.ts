@@ -164,7 +164,7 @@ export const COMMON_BAUD_RATES = [
  */
 export type DataSourceType = "local" | "tcp" | "udp" | "simulation";
 
-export type SerialTextViewMode = "log" | "terminal" | "control";
+export type SerialTextViewMode = "log" | "terminal";
 
 /**
  * Line ending options
