@@ -14,6 +14,19 @@ import { formatTimestamp } from "@/lib/formatters";
 interface SerialViewerProps {
   direction?: "rx" | "tx";
   title?: string;
+  data?: SerialViewerData;
+}
+
+export interface SerialViewerData {
+  autoScroll: boolean;
+  showTimestamp: boolean;
+  timestampFormat: string;
+  showDirectionPrefix: boolean;
+  running: boolean;
+  displayMode: "text" | "hex";
+  connected: boolean;
+  lines: SerialLine[];
+  searchQuery: string;
 }
 
 type CopyMode = "plain" | "with-timestamp" | "full";
@@ -30,18 +43,8 @@ const formatLineForCopy = (line: SerialLine, mode: CopyMode, timestampFormat: st
   return formatSerialLineForCopy(line, o.ts, o.dir, timestampFormat);
 };
 
-export function SerialViewer({ direction, title }: SerialViewerProps) {
-  const {
-    autoScroll,
-    showTimestamp,
-    timestampFormat,
-    showDirectionPrefix,
-    running,
-    displayMode,
-    connected,
-    lines,
-    searchQuery,
-  } = useSerialStore(
+export function SerialViewer({ direction, title, data }: SerialViewerProps) {
+  const storeData = useSerialStore(
     useShallow((state) => ({
       autoScroll: state.autoScroll,
       showTimestamp: state.showTimestamp,
@@ -54,6 +57,17 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       searchQuery: state.searchQuery,
     }))
   );
+  const {
+    autoScroll,
+    showTimestamp,
+    timestampFormat,
+    showDirectionPrefix,
+    running,
+    displayMode,
+    connected,
+    lines,
+    searchQuery,
+  } = data ?? storeData;
   const addLog = useLogStore((state) => state.addLog);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canCopy: boolean } | null>(null);
 

@@ -4,7 +4,7 @@
 
 - 数据与控制面板
   - [输入数据解析格式](DATA_FORMAT_GUIDE.md)
-  - [串口控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)
+  - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)
   - [串口终端](SERIAL_TERMINAL_GUIDE.md)
   - [AI 数据桥接](AI_TUNING_GUIDE.md)
 

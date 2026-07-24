@@ -9,7 +9,7 @@
 | 我想做什么                                              | 从这里开始                                        |
 | ------------------------------------------------------- | ------------------------------------------------- |
 | 确认设备应该输出 JSON、KV、CSV、正则还是 JustFloat      | [输入数据解析格式](DATA_FORMAT_GUIDE.md)          |
-| 配置发送按钮、滑块、摇杆、FFT、XY 或 IMU 等控制面板组件 | [串口控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md) |
+| 配置发送按钮、滑块、摇杆、FFT、XY 或 IMU 等控制面板组件 | [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)     |
 
 ## 按工作流查找
 
@@ -21,7 +21,7 @@
 ### 数据与串口
 
 - [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则和 JustFloat。
-- [串口控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：全部 15 种组件的输入、输出与默认数据流。
+- [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。
 - [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志和终端交互。
 - [AI 数据桥接](AI_TUNING_GUIDE.md)：把已经解析的数值通道提供给本机 AI 工具。
 

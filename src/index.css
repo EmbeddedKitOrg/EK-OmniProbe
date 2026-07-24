@@ -455,15 +455,6 @@ textarea:focus {
   box-shadow: 0 2px 8px rgba(72, 92, 140, 0.07);
 }
 
-.serial-widget-inspector:empty::before {
-  content: "请点击画布中的组件进行配置";
-  display: block;
-  padding: 2rem 1rem;
-  text-align: center;
-  color: hsl(var(--muted-foreground));
-  font-size: 0.75rem;
-}
-
 @keyframes mode-stage-enter {
   0% {
     opacity: 0;

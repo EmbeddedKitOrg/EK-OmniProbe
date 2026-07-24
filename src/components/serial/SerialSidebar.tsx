@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi, Radio, Waves, Braces, LayoutDashboard } from "lucide-react";
+import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi, Radio, Waves, Braces } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -214,12 +214,11 @@ export function SerialSidebar() {
 
   return (
     <aside className="surface-sidebar flex h-full w-full min-h-0 flex-col overflow-hidden rounded-[32px]">
-      <div className="grid shrink-0 grid-cols-3 gap-1 border-b border-border/60 bg-white/45 p-2">
+      <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-border/60 bg-white/45 p-2">
         {(
           [
             ["connection", "连接", Plug2],
             ["data", "数据", Braces],
-            ["widget", "组件", LayoutDashboard],
           ] as const
         ).map(([tab, label, Icon]) => (
           <Button
@@ -853,11 +852,6 @@ export function SerialSidebar() {
           setChartConfig={setChartConfig}
           onClose={() => setInspectorTab("connection")}
         />
-      </div>
-
-      <div className={cn("min-h-0 flex-1 overflow-y-auto p-3", inspectorTab !== "widget" && "hidden")}>
-        <div className="mb-3 text-xs text-muted-foreground">进入编辑模式并点击画布组件，在这里修改属性。</div>
-        <div id="serial-widget-inspector" />
       </div>
 
       {inspectorTab === "connection" && (

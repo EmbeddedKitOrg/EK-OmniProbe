@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
@@ -7,11 +6,6 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const capabilities = JSON.parse(
-    await readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8")
-  );
-  assert.ok(capabilities.windows.includes("serial-control-panel"), "控制面板独立窗口必须获得 Tauri 权限");
-
   await server.ssrLoadModule("/src/components/serial/SerialSidebar.tsx");
   const {
     joystickPointFromRatio,
@@ -20,6 +14,7 @@ try {
     renderSerialControlCommand,
     renderSerialJoystickCommand,
     resolveSerialImuAngles,
+    clampFloatingPanelPosition,
   } = await server.ssrLoadModule("/src/lib/serialControlPanel.ts");
   const { buildSerialControlChartData } = await server.ssrLoadModule(
     "/src/components/serial/SerialControlMiniChart.tsx"
@@ -30,9 +25,6 @@ try {
   const { createSimulationSample, normalizeSimulationConfig } =
     await server.ssrLoadModule("/src/lib/serialSimulation.ts");
   const { formatTimestamp } = await server.ssrLoadModule("/src/lib/formatters.ts");
-  const { clampFloatingPanelPosition } = await server.ssrLoadModule(
-    "/src/components/serial/SerialControlPanelWindowPage.tsx"
-  );
 
   const timestamp = new Date(2026, 6, 24, 15, 44, 34, 123).getTime();
   assert.equal(formatTimestamp(timestamp), "15:44:34.123");
