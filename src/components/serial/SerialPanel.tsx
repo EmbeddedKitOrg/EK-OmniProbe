@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
+import { useSerialControlPanelWindowControls } from "@/hooks/useSerialControlPanelWindow";
 import type { ChartSample } from "@/lib/chartAutoConfig";
 import type { SerialTextViewMode } from "@/lib/serialTypes";
 
@@ -85,6 +86,9 @@ function TextSection({
   onToggleRawData,
   running,
   lineCount,
+  controlDetached,
+  onFocusControl,
+  onRestoreControl,
 }: {
   textViewMode: SerialTextViewMode;
   splitByDirection: boolean;
@@ -92,11 +96,30 @@ function TextSection({
   onToggleRawData: () => void;
   running: boolean;
   lineCount: number;
+  controlDetached: boolean;
+  onFocusControl: () => void | Promise<void>;
+  onRestoreControl: () => void | Promise<void>;
 }) {
   if (textViewMode === "terminal") {
     return <SerialTerminalViewer />;
   }
   if (textViewMode === "control") {
+    if (controlDetached) {
+      return (
+        <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
+          <div className="space-y-3 text-center">
+            <div className="text-base font-medium text-foreground">控制面板已在独立窗口打开</div>
+            <div className="text-xs text-muted-foreground">可以定位独立窗口，也可以随时收回到主界面。</div>
+            <ChartWindowActions
+              detached
+              onDetach={onFocusControl}
+              onFocus={onFocusControl}
+              onRestore={onRestoreControl}
+            />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex h-full min-h-0 flex-col gap-2 p-2">
         <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-border/60">
@@ -175,6 +198,12 @@ export function SerialPanel({ className }: SerialPanelProps) {
     focusDetachedWindow,
     restoreInline,
   } = useChartWorkspaceControls("serial");
+  const {
+    detached: controlDetached,
+    open: openControlWindow,
+    focus: focusControlWindow,
+    restore: restoreControlInline,
+  } = useSerialControlPanelWindowControls();
 
   const workflowHint = !connected
     ? {
@@ -240,6 +269,16 @@ export function SerialPanel({ className }: SerialPanelProps) {
                     ? "RX / TX"
                     : "Console"
             }
+            actions={
+              textViewMode === "control" ? (
+                <ChartWindowActions
+                  detached={controlDetached}
+                  onDetach={openControlWindow}
+                  onFocus={focusControlWindow}
+                  onRestore={restoreControlInline}
+                />
+              ) : undefined
+            }
           >
             <TextSection
               textViewMode={textViewMode}
@@ -248,6 +287,9 @@ export function SerialPanel({ className }: SerialPanelProps) {
               onToggleRawData={() => setRawDataCollapsed((collapsed) => !collapsed)}
               running={running}
               lineCount={lines.length}
+              controlDetached={controlDetached}
+              onFocusControl={focusControlWindow}
+              onRestoreControl={restoreControlInline}
             />
           </PanelShell>
         ) : viewMode === "chart" ? (
@@ -337,7 +379,14 @@ export function SerialPanel({ className }: SerialPanelProps) {
                           : "Console"
                   }
                   actions={
-                    isVerticalSplit && textViewMode === "log" ? (
+                    textViewMode === "control" ? (
+                      <ChartWindowActions
+                        detached={controlDetached}
+                        onDetach={openControlWindow}
+                        onFocus={focusControlWindow}
+                        onRestore={restoreControlInline}
+                      />
+                    ) : isVerticalSplit && textViewMode === "log" ? (
                       <button
                         type="button"
                         className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -356,6 +405,9 @@ export function SerialPanel({ className }: SerialPanelProps) {
                     onToggleRawData={() => setRawDataCollapsed((collapsed) => !collapsed)}
                     running={running}
                     lineCount={lines.length}
+                    controlDetached={controlDetached}
+                    onFocusControl={focusControlWindow}
+                    onRestoreControl={restoreControlInline}
                   />
                 </PanelShell>
               </div>

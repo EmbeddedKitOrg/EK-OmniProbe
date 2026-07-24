@@ -19,8 +19,10 @@ interface SerialControlWidgetBase {
   id: string;
   type: SerialControlWidgetType;
   label: string;
-  columns: 4 | 8 | 12;
-  rows: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
   format: SerialControlFormat;
 }
 
@@ -162,13 +164,17 @@ export type SerialControlWidget =
   | SerialImu3dWidget;
 
 export interface SerialControlPanelConfig {
-  version: 3;
+  version: 4;
   name: string;
   widgets: SerialControlWidget[];
 }
 
 const STORAGE_KEY = "serial_control_panel";
-const DEFAULT_PANEL: SerialControlPanelConfig = { version: 3, name: "默认控制面板", widgets: [] };
+const DEFAULT_PANEL: SerialControlPanelConfig = { version: 4, name: "默认控制面板", widgets: [] };
+const LEGACY_CANVAS_WIDTH = 1200;
+const LEGACY_GRID_GAP = 12;
+const LEGACY_COLUMN_WIDTH = (LEGACY_CANVAS_WIDTH - LEGACY_GRID_GAP * 11) / 12;
+const LEGACY_ROW_HEIGHT = 48;
 const LABELS: Record<SerialControlWidgetType, string> = {
   button: "发送按钮",
   toggle: "开关",
@@ -195,8 +201,10 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
     id: widgetId(),
     type,
     label: LABELS[type],
-    columns: 4 as const,
-    rows: 3,
+    left: 0,
+    top: 0,
+    width: 380,
+    height: 168,
     format: "text" as const,
   };
   if (type === "button") return { ...base, type, command: "PING" };
@@ -230,11 +238,11 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   }
   if (type === "value") return { ...base, type, channel: "", unit: "" };
   if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
-  if (type === "fft-chart") return { ...base, type, channels: [], pointLimit: 1024, columns: 8, rows: 6 };
+  if (type === "fft-chart") return { ...base, type, channels: [], pointLimit: 1024, width: 780, height: 348 };
   if (type === "xy-chart") {
-    return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, columns: 8, rows: 6 };
+    return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 };
   }
-  if (type === "yt-chart") return { ...base, type, channels: [], pointLimit: 200, columns: 8, rows: 6 };
+  if (type === "yt-chart") return { ...base, type, channels: [], pointLimit: 200, width: 780, height: 348 };
   return {
     ...base,
     type,
@@ -258,8 +266,8 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
     rollOffset: 0,
     pitchOffset: 0,
     yawOffset: 0,
-    columns: 8,
-    rows: 6,
+    width: 780,
+    height: 348,
   };
 }
 
@@ -275,9 +283,14 @@ function stringValue(value: unknown, fallback = "") {
 export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig {
   if (!raw || typeof raw !== "object") throw new Error("控制面板配置必须是 JSON 对象");
   const source = raw as Record<string, unknown>;
-  if (source.version !== 3 || !Array.isArray(source.widgets)) throw new Error("不支持的控制面板配置格式");
+  if ((source.version !== 3 && source.version !== 4) || !Array.isArray(source.widgets)) {
+    throw new Error("不支持的控制面板配置格式");
+  }
 
   const usedIds = new Set<string>();
+  let legacyX = 0;
+  let legacyY = 0;
+  let legacyRowHeight = 0;
   const widgets = source.widgets.flatMap((rawWidget, index): SerialControlWidget[] => {
     if (!rawWidget || typeof rawWidget !== "object") return [];
     const widget = rawWidget as Record<string, unknown>;
@@ -303,14 +316,38 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     const candidateId = stringValue(widget.id, `${type}-${index + 1}`) || `${type}-${index + 1}`;
     const id = usedIds.has(candidateId) ? `${candidateId}-${index + 1}` : candidateId;
     usedIds.add(id);
-    const columns: 4 | 8 | 12 = widget.columns === 8 || widget.columns === 12 ? widget.columns : 4;
-    const rows = Math.min(12, Math.max(2, Math.round(finiteNumber(widget.rows, 3))));
+    let left: number;
+    let top: number;
+    let width: number;
+    let height: number;
+    if (source.version === 3) {
+      const columns = widget.columns === 8 || widget.columns === 12 ? widget.columns : 4;
+      const rows = Math.min(12, Math.max(2, Math.round(finiteNumber(widget.rows, 3))));
+      width = columns * LEGACY_COLUMN_WIDTH + (columns - 1) * LEGACY_GRID_GAP;
+      height = rows * LEGACY_ROW_HEIGHT + (rows - 1) * LEGACY_GRID_GAP;
+      if (legacyX > 0 && legacyX + width > LEGACY_CANVAS_WIDTH) {
+        legacyX = 0;
+        legacyY += legacyRowHeight + LEGACY_GRID_GAP;
+        legacyRowHeight = 0;
+      }
+      left = legacyX;
+      top = legacyY;
+      legacyX += width + LEGACY_GRID_GAP;
+      legacyRowHeight = Math.max(legacyRowHeight, height);
+    } else {
+      left = Math.max(0, finiteNumber(widget.left, 0));
+      top = Math.max(0, finiteNumber(widget.top, 0));
+      width = Math.min(2_400, Math.max(200, finiteNumber(widget.width, 380)));
+      height = Math.min(2_000, Math.max(96, finiteNumber(widget.height, 168)));
+    }
     const base = {
       id,
       type,
       label: stringValue(widget.label, LABELS[type]) || LABELS[type],
-      columns,
-      rows,
+      left,
+      top,
+      width,
+      height,
       format: widget.format === "hex" ? ("hex" as const) : ("text" as const),
     };
 
@@ -506,7 +543,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
   if (source.widgets.length > 0 && widgets.length === 0) throw new Error("配置中没有可用的控制面板控件");
 
   return {
-    version: 3,
+    version: 4,
     name: stringValue(source.name, DEFAULT_PANEL.name) || DEFAULT_PANEL.name,
     widgets,
   };
@@ -539,16 +576,6 @@ export function renderSerialJoystickCommand(template: string, x: number, y: numb
 
 export function parseSerialCommandSequence(commands: string) {
   return commands.split(/\r\n?|\n/).filter((command) => command.trim().length > 0);
-}
-
-export function moveSerialControlWidget(widgets: SerialControlWidget[], sourceId: string, targetId: string) {
-  const sourceIndex = widgets.findIndex((widget) => widget.id === sourceId);
-  const targetIndex = widgets.findIndex((widget) => widget.id === targetId);
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return widgets;
-  const next = [...widgets];
-  const [widget] = next.splice(sourceIndex, 1);
-  next.splice(targetIndex, 0, widget);
-  return next;
 }
 
 function normalizeAngle(angle: number) {
