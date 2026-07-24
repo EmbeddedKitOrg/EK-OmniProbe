@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.8.1-blue" alt="Version 1.8.1" />
+  <img src="https://img.shields.io/badge/version-1.9.0-blue" alt="Version 1.9.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -36,11 +36,16 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 1.8.1 的工作方式
+## 1.9.0 更新重点
+
+- 控制面板成为独立工作台，可在串口与 RTT 数据源之间切换，并直接复用现有连接和解析配置
+- 串口时域波形支持 MATLAB FIR、IIR SOS/ScaleValues、中值滤波和图形化低通、高通、带通级联
+- RTT、串口和 BLE 图表精简为统一工具栏，通道、性能、显示与滤波配置集中管理
+- 文本数据解析支持可选数据帧前缀，混合输出日志和采样值时只让匹配行进入图表和控制面板
 
 当前界面采用统一的 IDE 式布局：
 
-- 左侧模式轨道切换烧录、RTT、串口、蓝牙和调试工作台
+- 左侧模式轨道切换烧录、RTT、串口、控制面板、蓝牙和调试工作台
 - 顶部命令栏显示当前模式、目标芯片、探针和连接状态
 - 中央工作区专注当前任务，低频操作统一收进“更多”
 - 右侧配置检查器负责连接和参数设置，可折叠、拖动宽度
@@ -67,7 +72,7 @@ sudo ./install-udev-rules.sh
 
 ## 快速开始
 
-应用中的五个工作台遵循相同操作逻辑：
+应用中的六个工作台遵循相同操作逻辑：
 
 1. 从左侧选择工作台。
 2. 在右侧配置检查器选择设备、数据源或目标参数。
@@ -127,6 +132,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - CSV：多通道曲线
 - JSON / KV：按字段生成通道
 - XY 数据：XY 散点图
+- 数据帧前缀：混合日志中只解析带指定前缀的文本行
 - JustFloat / VOFA RawData：串口二进制浮点流
 - 时域 / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
@@ -228,7 +234,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`1.8.1`
+- 当前版本：`1.9.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
