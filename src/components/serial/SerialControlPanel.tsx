@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   Maximize2,
   Minus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Play,
   Plus,
@@ -317,6 +319,7 @@ export function SerialControlPanel({
   const setInspectorTab = useSerialStore((state) => state.setInspectorTab);
   const [panel, setPanel] = useState(loadSerialControlPanel);
   const [editing, setEditing] = useState(panel.widgets.length === 0);
+  const [paletteOpen, setPaletteOpen] = useState(() => !window.matchMedia("(max-width: 1100px)").matches);
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(panel.widgets[0]?.id ?? null);
   const [runtimeValues, setRuntimeValues] = useState(() => initialRuntimeValues(panel));
   const [draggedType, setDraggedType] = useState<SerialControlWidgetType | null>(null);
@@ -342,6 +345,16 @@ export function SerialControlPanel({
   );
 
   useEffect(() => saveSerialControlPanel(panel), [panel]);
+
+  useEffect(() => {
+    const compactLayout = window.matchMedia("(max-width: 1100px)");
+    const collapsePalette = (event: MediaQueryListEvent) => {
+      if (event.matches) setPaletteOpen(false);
+    };
+
+    compactLayout.addEventListener("change", collapsePalette);
+    return () => compactLayout.removeEventListener("change", collapsePalette);
+  }, []);
 
   const updateWidget = (id: string, updater: (widget: SerialControlWidget) => SerialControlWidget) => {
     setPanel((current) => ({
@@ -1757,6 +1770,19 @@ export function SerialControlPanel({
                 event.target.value = "";
               }}
             />
+            {editing && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => setPaletteOpen((open) => !open)}
+                title={paletteOpen ? "收起组件库" : "展开组件库"}
+                aria-label={paletteOpen ? "收起组件库" : "展开组件库"}
+              >
+                {paletteOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
+                组件库
+              </Button>
+            )}
             <Button size="sm" variant="outline" className="gap-1" onClick={() => importInputRef.current?.click()}>
               <Upload className="h-3.5 w-3.5" />
               导入
@@ -1773,7 +1799,7 @@ export function SerialControlPanel({
         </div>
 
         <div className="flex min-h-0 flex-1 gap-2 overflow-hidden p-2">
-          {editing && (
+          {editing && paletteOpen && (
             <aside className="w-52 shrink-0 overflow-y-auto rounded-[18px] border border-border/60 bg-white/75 p-3">
               <div className="text-sm font-medium">组件库</div>
               <div className="mt-1 text-[11px] text-muted-foreground">拖入画布，或点击直接添加。</div>
