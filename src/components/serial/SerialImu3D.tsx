@@ -87,7 +87,7 @@ export function SerialImu3DControl({ widget, chartData, latestValues, onUpdate }
   const display = raw ? applySerialImuOffsets(raw, widget) : { roll: 0, pitch: 0, yaw: 0 };
 
   return (
-    <div className="space-y-3">
+    <div className="serial-imu-container space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-foreground">{widget.label}</span>
         <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] text-secondary-foreground">
@@ -134,7 +134,7 @@ export function SerialImu3DControl({ widget, chartData, latestValues, onUpdate }
 
 export function SerialImu3D({ roll, pitch, yaw, ready }: SerialImu3DProps) {
   return (
-    <div className="grid min-h-72 gap-4 sm:grid-cols-[minmax(240px,1fr)_180px]">
+    <div className="serial-imu-grid grid min-h-72 gap-4">
       <div
         role="img"
         aria-label={`IMU 姿态，Roll ${roll.toFixed(1)} 度，Pitch ${pitch.toFixed(1)} 度，Yaw ${yaw.toFixed(1)} 度`}
