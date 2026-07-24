@@ -212,6 +212,11 @@ textarea:focus {
   border-radius: 14px;
 }
 
+.ide-workbench .mode-stage > .surface-strong {
+  gap: 0.375rem;
+  padding: 0.375rem;
+}
+
 .ide-workspace-grid {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -231,6 +236,36 @@ textarea:focus {
 }
 
 @media (max-width: 1100px) {
+  .ide-workbench {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: 52px minmax(0, 1fr);
+    gap: 0.375rem;
+    padding: 0.5rem;
+  }
+
+  .ide-workbench > aside {
+    padding: 0.375rem;
+  }
+
+  .ide-workbench .mode-stage > .surface-strong {
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .ide-topbar {
+    gap: 0.5rem;
+    padding-inline: 0.5rem;
+  }
+
+  .ide-topbar-subtitle,
+  .panel-shell-subtitle {
+    display: none;
+  }
+
+  .panel-shell-header {
+    padding: 0.5rem 0.75rem;
+  }
+
   .ide-workspace-grid.inspector-open {
     position: relative;
     grid-template-columns: minmax(0, 1fr);
