@@ -335,6 +335,7 @@ function SerialControlPanelWindowHost() {
     lines,
     autoScroll,
     showTimestamp,
+    timestampFormat,
     showDirectionPrefix,
     displayMode,
     searchQuery,
@@ -348,6 +349,7 @@ function SerialControlPanelWindowHost() {
       lines: state.lines,
       autoScroll: state.autoScroll,
       showTimestamp: state.showTimestamp,
+      timestampFormat: state.timestampFormat,
       showDirectionPrefix: state.showDirectionPrefix,
       displayMode: state.displayMode,
       searchQuery: state.searchQuery,
@@ -363,6 +365,7 @@ function SerialControlPanelWindowHost() {
       lines: lines.slice(-500).map((line) => ({ ...line, timestamp: line.timestamp.getTime() })),
       autoScroll,
       showTimestamp,
+      timestampFormat,
       showDirectionPrefix,
       displayMode,
       searchQuery,
@@ -382,6 +385,7 @@ function SerialControlPanelWindowHost() {
       sendSettings,
       showDirectionPrefix,
       showTimestamp,
+      timestampFormat,
     ]
   );
   useSerialControlPanelWindowHost(snapshot);

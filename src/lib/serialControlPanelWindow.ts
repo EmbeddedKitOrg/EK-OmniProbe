@@ -11,6 +11,7 @@ export interface SerialControlPanelSnapshot {
   lines: SerialControlPanelLogLine[];
   autoScroll: boolean;
   showTimestamp: boolean;
+  timestampFormat: string;
   showDirectionPrefix: boolean;
   displayMode: "text" | "hex";
   searchQuery: string;

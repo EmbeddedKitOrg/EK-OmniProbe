@@ -20,6 +20,23 @@ export function formatTime(timestamp: number): string {
   return `${h}:${m}:${s}.${ms}`;
 }
 
+export const DEFAULT_TIMESTAMP_FORMAT = "HH:mm:ss.SSS";
+
+/** 按本地时间格式化时间戳，支持 YYYY、MM、DD、HH、mm、ss、SSS。 */
+export function formatTimestamp(timestamp: number, pattern = DEFAULT_TIMESTAMP_FORMAT): string {
+  const date = new Date(timestamp);
+  const values: Record<string, string> = {
+    YYYY: date.getFullYear().toString().padStart(4, "0"),
+    MM: (date.getMonth() + 1).toString().padStart(2, "0"),
+    DD: date.getDate().toString().padStart(2, "0"),
+    HH: date.getHours().toString().padStart(2, "0"),
+    mm: date.getMinutes().toString().padStart(2, "0"),
+    ss: date.getSeconds().toString().padStart(2, "0"),
+    SSS: date.getMilliseconds().toString().padStart(3, "0"),
+  };
+  return (pattern.trim() || DEFAULT_TIMESTAMP_FORMAT).replace(/YYYY|SSS|MM|DD|HH|mm|ss/g, (token) => values[token]);
+}
+
 /** 格式化数字为十六进制字符串，带 0x 前缀 */
 export function formatHex(value: number, width = 2): string {
   return "0x" + value.toString(16).toUpperCase().padStart(width, "0");

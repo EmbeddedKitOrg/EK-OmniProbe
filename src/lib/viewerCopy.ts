@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
-import { formatTime } from "./formatters";
+import { DEFAULT_TIMESTAMP_FORMAT, formatTime, formatTimestamp } from "./formatters";
 
 export type CopyLog = (level: "info" | "warn", message: string) => void;
 
@@ -30,9 +30,10 @@ export function formatRttLineForCopy(line: RttLine, showTimestamp: boolean): str
 export function formatSerialLineForCopy(
   line: SerialLine,
   showTimestamp: boolean,
-  showDirectionPrefix: boolean
+  showDirectionPrefix: boolean,
+  timestampFormat = DEFAULT_TIMESTAMP_FORMAT
 ): string {
-  const ts = showTimestamp ? `[${formatTime(line.timestamp.getTime())}] ` : "";
+  const ts = showTimestamp ? `[${formatTimestamp(line.timestamp.getTime(), timestampFormat)}] ` : "";
   const dir = showDirectionPrefix ? (line.direction === "rx" ? "【RX】 " : "【TX】 ") : "";
   return `${ts}${dir}${line.text}`;
 }
