@@ -26,6 +26,7 @@ import {
   Binary,
   Tags,
   Waves,
+  ListFilter,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
@@ -119,6 +120,7 @@ export function SerialToolbar() {
   const addLog = useLogStore((state) => state.addLog);
   const [moreOpen, setMoreOpen] = useState(false);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
+  const [expandDataFilter, setExpandDataFilter] = useState(false);
 
   // Start serial polling
   const handleStart = async () => {
@@ -316,6 +318,19 @@ export function SerialToolbar() {
       >
         <Waves className="h-3.5 w-3.5" />
         波形
+      </Button>
+
+      <Button
+        size="sm"
+        variant={chartConfig.dataFilter.enabled ? "secondary" : "outline"}
+        onClick={() => {
+          setExpandDataFilter(true);
+          setChartConfigOpen(true);
+        }}
+        className="gap-1"
+      >
+        <ListFilter className="h-3.5 w-3.5" />
+        滤波
       </Button>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -603,6 +618,7 @@ export function SerialToolbar() {
                     className="gap-1"
                     onClick={() => {
                       setMoreOpen(false);
+                      setExpandDataFilter(false);
                       setChartConfigOpen(true);
                     }}
                   >
@@ -647,6 +663,8 @@ export function SerialToolbar() {
           setChartConfig={setChartConfig}
           title="串口图表配置"
           allowJustFloat
+          allowDataFilter
+          expandDataFilter={expandDataFilter}
           samples={lines
             .filter((line) => line.direction === "rx")
             .slice(-20)

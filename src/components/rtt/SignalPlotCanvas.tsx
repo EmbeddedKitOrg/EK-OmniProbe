@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
+import { applyDataFilter, isDataFilterReady } from "@/lib/chartFilter";
 import { Button } from "@/components/ui/button";
 import { ScanLine } from "lucide-react";
 
@@ -20,6 +21,7 @@ interface NormalizedPoint {
   timestamp: number;
   timeSec: number;
   values: Record<string, number>;
+  rawValues?: Record<string, number>;
 }
 
 interface TimeViewModel {
@@ -255,24 +257,31 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
   });
 
   const visibleSeries = useMemo(() => series.filter((item) => item.visible), [series]);
+  const visibleKeys = useMemo(() => visibleSeries.map((item) => item.key), [visibleSeries]);
+  const filterActive = domain === "time" && isDataFilterReady(chartConfig.dataFilter);
+  const filteredChartData = useMemo(
+    () => (filterActive ? applyDataFilter(chartData, visibleKeys, chartConfig.dataFilter) : chartData),
+    [chartConfig.dataFilter, chartData, filterActive, visibleKeys]
+  );
 
   // 串口/RTT 数据到达间隔本身有抖动，若每帧都直接采用瞬时估算值，波形横轴（index / 采样率）
   // 会跟着来回轻微缩放，看起来像“画面一直在抖”。用共享的 EMA 平滑 hook 处理。
   const effectiveSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz, 200);
 
   const normalizedData = useMemo<NormalizedPoint[]>(() => {
-    if (chartData.length === 0) return [];
+    if (filteredChartData.length === 0) return [];
     const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate) ? effectiveSampleRate : 1;
 
-    return chartData.map((point, index) => ({
+    return filteredChartData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
       // Waveform should use uniformly spaced samples instead of host receive timestamps.
       // Serial/RTT data often arrives in batches, which makes Date.now()-based X positions fold back.
       timeSec: index / sampleRate,
       values: point.values,
+      rawValues: filterActive && chartConfig.dataFilter.showOriginal ? chartData[index]?.values : undefined,
     }));
-  }, [chartData, effectiveSampleRate]);
+  }, [chartConfig.dataFilter.showOriginal, chartData, effectiveSampleRate, filterActive, filteredChartData]);
 
   const timeView = useMemo<TimeViewModel | null>(() => {
     if (normalizedData.length === 0 || visibleSeries.length === 0) return null;
@@ -305,6 +314,11 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
         if (Number.isFinite(value)) {
           min = Math.min(min, value);
           max = Math.max(max, value);
+        }
+        const rawValue = point.rawValues?.[item.key];
+        if (Number.isFinite(rawValue)) {
+          min = Math.min(min, rawValue as number);
+          max = Math.max(max, rawValue as number);
         }
       }
     }
@@ -598,7 +612,8 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       {chartConfig.showLegend && (
         <div className="pointer-events-none absolute left-4 right-28 top-4 flex flex-wrap gap-2">
           {visibleSeries.map((item) => {
-            const latestValue = chartData[chartData.length - 1]?.values[item.key];
+            const latestValue = filteredChartData[filteredChartData.length - 1]?.values[item.key];
+            const latestRawValue = filterActive ? chartData[chartData.length - 1]?.values[item.key] : undefined;
             return (
               <div
                 key={item.key}
@@ -608,7 +623,11 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
                 <span className="font-medium text-foreground">{item.name}</span>
                 {Number.isFinite(latestValue) && (
                   <span className="ml-2 text-muted-foreground">
+                    {filterActive ? "滤 " : ""}
                     {formatChartNumber(latestValue as number)}
+                    {filterActive && chartConfig.dataFilter.showOriginal && Number.isFinite(latestRawValue)
+                      ? ` · 原 ${formatChartNumber(latestRawValue as number)}`
+                      : ""}
                     {item.unit ? ` ${item.unit}` : ""}
                   </span>
                 )}
@@ -634,6 +653,26 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       <div className="pointer-events-none absolute bottom-3 left-4 rounded-full bg-secondary/85 px-3 py-1 text-[11px] text-muted-foreground shadow-sm">
         左键拖拽平移，滚轮缩放 Y，Shift + 滚轮缩放 X，右键或“自适应”重置
       </div>
+
+      {filterActive && (
+        <div
+          className={cn(
+            "pointer-events-none absolute bottom-3 right-4 rounded-full px-3 py-1 text-[11px] shadow-sm",
+            chartConfig.dataFilter.sampleRateHz > 0 &&
+              effectiveSampleRate &&
+              Math.abs(effectiveSampleRate - chartConfig.dataFilter.sampleRateHz) /
+                chartConfig.dataFilter.sampleRateHz >
+                0.05
+              ? "bg-amber-100 text-amber-800"
+              : "bg-emerald-100 text-emerald-800"
+          )}
+        >
+          {chartConfig.dataFilter.kind === "sos" ? "SOS" : chartConfig.dataFilter.kind === "fir" ? "FIR" : "中值"}
+          {chartConfig.dataFilter.sampleRateHz > 0 && effectiveSampleRate
+            ? ` · 参数 ${chartConfig.dataFilter.sampleRateHz} Hz / 当前 ${effectiveSampleRate.toFixed(1)} Hz`
+            : " · 滤波预览"}
+        </div>
+      )}
     </div>
   );
 }
@@ -673,31 +712,40 @@ function drawTimeChart(
   context.rect(MARGIN.left, MARGIN.top, plotWidth, plotHeight);
   context.clip();
 
-  for (const item of visibleSeries) {
-    context.beginPath();
-    context.strokeStyle = item.color;
-    context.lineWidth = 2;
-    const pathPoints: SignalPathPoint[] = [];
-    const flushPath = () => {
-      traceSignalPath(context, pathPoints, interpolation);
-      pathPoints.length = 0;
-    };
+  const drawSeries = (useRawValues: boolean) => {
+    context.save();
+    context.globalAlpha = useRawValues ? 0.35 : 1;
+    context.lineWidth = useRawValues ? 1.25 : 2;
+    context.setLineDash(useRawValues ? [5, 4] : []);
+    for (const item of visibleSeries) {
+      context.beginPath();
+      context.strokeStyle = item.color;
+      const pathPoints: SignalPathPoint[] = [];
+      const flushPath = () => {
+        traceSignalPath(context, pathPoints, interpolation);
+        pathPoints.length = 0;
+      };
 
-    for (const point of points) {
-      const value = point.values[item.key];
-      if (!Number.isFinite(value)) {
-        flushPath();
-        continue;
+      for (const point of points) {
+        const value = useRawValues ? point.rawValues?.[item.key] : point.values[item.key];
+        if (!Number.isFinite(value)) {
+          flushPath();
+          continue;
+        }
+
+        const x = MARGIN.left + ((point.timeSec - startSec) / (endSec - startSec || 1)) * plotWidth;
+        const y = MARGIN.top + (1 - ((value as number) - yMin) / (yMax - yMin || 1)) * plotHeight;
+        pathPoints.push({ x, y });
       }
 
-      const x = MARGIN.left + ((point.timeSec - startSec) / (endSec - startSec || 1)) * plotWidth;
-      const y = MARGIN.top + (1 - (value - yMin) / (yMax - yMin || 1)) * plotHeight;
-      pathPoints.push({ x, y });
+      flushPath();
+      context.stroke();
     }
+    context.restore();
+  };
 
-    flushPath();
-    context.stroke();
-  }
+  if (points.some((point) => point.rawValues)) drawSeries(true);
+  drawSeries(false);
 
   if (
     showTooltip &&
@@ -722,7 +770,13 @@ function drawTimeChart(
       `t = ${formatRelativeTime(nearestPoint.timeSec - latestSec, visibleDurationSec)}`,
       ...visibleSeries.map((item) => {
         const value = nearestPoint.values[item.key];
-        return `${item.name}: ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${item.unit ? ` ${item.unit}` : ""}`;
+        const rawValue = nearestPoint.rawValues?.[item.key];
+        const suffix = item.unit ? ` ${item.unit}` : "";
+        return nearestPoint.rawValues
+          ? `${item.name}: 滤 ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${suffix} · 原 ${
+              Number.isFinite(rawValue) ? formatChartNumber(rawValue as number) : "NaN"
+            }${suffix}`
+          : `${item.name}: ${Number.isFinite(value) ? formatChartNumber(value) : "NaN"}${suffix}`;
       }),
     ]);
   }

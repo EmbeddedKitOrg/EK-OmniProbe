@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Channel, ChartConfig, ChartType, ParseMode, WaveformInterpolation } from "@/lib/chartTypes";
+import type {
+  Channel,
+  ChartConfig,
+  ChartType,
+  DataFilterKind,
+  ParseMode,
+  WaveformInterpolation,
+} from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
+import { formatMatlabSos, formatMatlabVector, parseMatlabSos, parseMatlabVector } from "@/lib/chartFilter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +24,8 @@ interface ChartConfigDialogProps {
   trigger?: React.ReactNode;
   title?: string;
   allowJustFloat?: boolean;
+  allowDataFilter?: boolean;
+  expandDataFilter?: boolean;
   samples?: ChartSample[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -27,6 +37,8 @@ export function ChartConfigDialog({
   trigger,
   title = "图表配置",
   allowJustFloat = false,
+  allowDataFilter = false,
+  expandDataFilter = false,
   samples = [],
   open: controlledOpen,
   onOpenChange,
@@ -35,6 +47,11 @@ export function ChartConfigDialog({
   const [localConfig, setLocalConfig] = useState<ChartConfig>(chartConfig);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDisplay, setShowDisplay] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [firText, setFirText] = useState("");
+  const [sosText, setSosText] = useState("");
+  const [scaleText, setScaleText] = useState("1");
+  const [filterError, setFilterError] = useState("");
   const [channelHint, setChannelHint] = useState("");
   const wasOpen = useRef(false);
   const open = controlledOpen ?? internalOpen;
@@ -50,6 +67,11 @@ export function ChartConfigDialog({
       setLocalConfig(nextConfig);
       setShowAdvanced(false);
       setShowDisplay(false);
+      setShowFilter(expandDataFilter || nextConfig.dataFilter.enabled);
+      setFirText(formatMatlabVector(nextConfig.dataFilter.firCoefficients));
+      setSosText(formatMatlabSos(nextConfig.dataFilter.sosSections));
+      setScaleText(formatMatlabVector(nextConfig.dataFilter.scaleValues));
+      setFilterError("");
       setChannelHint(
         chartConfig.channels.length > 0
           ? ""
@@ -61,14 +83,41 @@ export function ChartConfigDialog({
       );
     }
     wasOpen.current = open;
-  }, [chartConfig, open, samples]);
+  }, [chartConfig, expandDataFilter, open, samples]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
   };
 
   const handleSave = () => {
-    setChartConfig(localConfig);
+    let nextConfig = localConfig;
+    const filter = localConfig.dataFilter;
+    if (allowDataFilter && filter.enabled) {
+      if (filter.kind !== "median" && filter.sampleRateHz <= 0) {
+        setFilterError("请输入 MATLAB 设计滤波器时使用的采样率 Fs。");
+        return;
+      }
+      if (filter.kind === "fir") {
+        const coefficients = parseMatlabVector(firText);
+        if (coefficients.length === 0) {
+          setFilterError("FIR 系数不能为空，请粘贴 MATLAB 导出的 b 向量。");
+          return;
+        }
+        nextConfig = { ...localConfig, dataFilter: { ...filter, firCoefficients: coefficients } };
+      } else if (filter.kind === "sos") {
+        const sections = parseMatlabSos(sosText);
+        if (!sections) {
+          setFilterError("SOS 必须由 6 个系数一组组成，且每组 a0 不能为 0。");
+          return;
+        }
+        const scaleValues = parseMatlabVector(scaleText);
+        nextConfig = {
+          ...localConfig,
+          dataFilter: { ...filter, sosSections: sections, scaleValues: scaleValues.length > 0 ? scaleValues : [1] },
+        };
+      }
+    }
+    setChartConfig(nextConfig);
     setOpen(false);
   };
 
@@ -76,6 +125,14 @@ export function ChartConfigDialog({
     localConfig.parseMode === "delimiter" || localConfig.parseMode === "justfloat" || localConfig.parseMode === "auto";
   const sourceIndexLabel = localConfig.parseMode === "justfloat" ? "浮点序号" : "列号";
   const isXyScatter = localConfig.chartType === "xy-scatter";
+
+  const updateDataFilter = (patch: Partial<ChartConfig["dataFilter"]>) => {
+    setFilterError("");
+    setLocalConfig((current) => ({
+      ...current,
+      dataFilter: { ...current.dataFilter, ...patch },
+    }));
+  };
 
   const updateChannel = (index: number, patch: Partial<Channel>) => {
     setLocalConfig((current) => {
@@ -330,6 +387,121 @@ export function ChartConfigDialog({
               </div>
             )}
           </section>
+
+          {allowDataFilter && (
+            <CollapsibleSection
+              title="MATLAB 参数滤波"
+              subtitle="MATLAB 负责设计，串口波形实时执行 FIR、SOS 或中值滤波"
+              open={showFilter}
+              onToggle={() => setShowFilter(!showFilter)}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2.5">
+                  <div>
+                    <Label>启用滤波预览</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      仅影响波形预览，原始日志、导出和 AI 数据保持不变。
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localConfig.dataFilter.enabled}
+                    onCheckedChange={(enabled) => updateDataFilter({ enabled })}
+                  />
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>执行函数</Label>
+                    <Select
+                      value={localConfig.dataFilter.kind}
+                      onValueChange={(kind: DataFilterKind) => updateDataFilter({ kind })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sos">IIR · SOS + ScaleValues</SelectItem>
+                        <SelectItem value="fir">FIR · b 系数</SelectItem>
+                        <SelectItem value="median">实时中值滤波</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {localConfig.dataFilter.kind !== "median" && (
+                    <NumberField
+                      id="filterSampleRateHz"
+                      label="MATLAB 设计采样率 Fs (Hz)"
+                      value={localConfig.dataFilter.sampleRateHz}
+                      onChange={(sampleRateHz) => updateDataFilter({ sampleRateHz: Math.max(sampleRateHz, 0) })}
+                    />
+                  )}
+                </div>
+
+                {localConfig.dataFilter.kind === "fir" && (
+                  <MatlabTextField
+                    id="firCoefficients"
+                    label="FIR 系数 b"
+                    value={firText}
+                    placeholder="[0.1 0.2 0.4 0.2 0.1]"
+                    onChange={(value) => {
+                      setFilterError("");
+                      setFirText(value);
+                    }}
+                  />
+                )}
+
+                {localConfig.dataFilter.kind === "sos" && (
+                  <div className="space-y-3">
+                    <MatlabTextField
+                      id="sosSections"
+                      label="SOS Matrix（每行 b0 b1 b2 a0 a1 a2）"
+                      value={sosText}
+                      placeholder={"1 2 1 1 -1.8 0.81;\n1 2 1 1 -1.6 0.64"}
+                      onChange={(value) => {
+                        setFilterError("");
+                        setSosText(value);
+                      }}
+                    />
+                    <MatlabTextField
+                      id="scaleValues"
+                      label="g / ScaleValues（留空按 1）"
+                      value={scaleText}
+                      placeholder="1"
+                      rows={2}
+                      onChange={(value) => {
+                        setFilterError("");
+                        setScaleText(value);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {localConfig.dataFilter.kind === "median" && (
+                  <NumberField
+                    id="medianWindowSize"
+                    label="窗口大小（奇数，3-255）"
+                    value={localConfig.dataFilter.medianWindowSize}
+                    onChange={(value) => {
+                      const clamped = Math.min(Math.max(Math.round(value), 3), 255);
+                      updateDataFilter({ medianWindowSize: clamped % 2 === 0 ? Math.min(clamped + 1, 255) : clamped });
+                    }}
+                  />
+                )}
+
+                <ToggleRow
+                  label="叠加显示原始曲线"
+                  checked={localConfig.dataFilter.showOriginal}
+                  onCheckedChange={(showOriginal) => updateDataFilter({ showOriginal })}
+                />
+
+                {filterError && <p className="text-sm text-destructive">{filterError}</p>}
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Filter Designer 可通过 <code className="font-mono">filterDesigner</code> 打开。高阶 IIR 推荐导出 SOS
+                  Matrix 与 ScaleValues；参数 Fs 与实际采样率不一致时，波形会显示提醒。
+                </p>
+              </div>
+            </CollapsibleSection>
+          )}
 
           {/* 4. 性能与采样（折叠） */}
           <CollapsibleSection
@@ -630,6 +802,36 @@ function NumberField({
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
       <Input id={id} type="number" value={value} onChange={(event) => onChange(parseFloat(event.target.value) || 0)} />
+    </div>
+  );
+}
+
+function MatlabTextField({
+  id,
+  label,
+  value,
+  placeholder,
+  rows = 4,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <textarea
+        id={id}
+        rows={rows}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      />
     </div>
   );
 }

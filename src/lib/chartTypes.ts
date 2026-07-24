@@ -53,6 +53,34 @@ export type SignalDomain = "time" | "fft";
 /** 时域波形相邻采样点的连接方式 */
 export type WaveformInterpolation = "linear" | "smooth";
 
+/** MATLAB 设计参数对应的实时滤波执行方式 */
+export type DataFilterKind = "fir" | "sos" | "median";
+
+export interface DataFilterConfig {
+  enabled: boolean;
+  kind: DataFilterKind;
+  /** MATLAB 设计滤波器时使用的采样率，仅用于一致性检查 */
+  sampleRateHz: number;
+  firCoefficients: number[];
+  /** 每行格式：[b0, b1, b2, a0, a1, a2] */
+  sosSections: number[][];
+  /** MATLAB 导出的 g 或 ScaleValues；运行时使用其乘积 */
+  scaleValues: number[];
+  medianWindowSize: number;
+  showOriginal: boolean;
+}
+
+export const DEFAULT_DATA_FILTER_CONFIG: DataFilterConfig = {
+  enabled: false,
+  kind: "sos",
+  sampleRateHz: 0,
+  firCoefficients: [],
+  sosSections: [],
+  scaleValues: [1],
+  medianWindowSize: 3,
+  showOriginal: true,
+};
+
 /**
  * 图表配置
  */
@@ -93,6 +121,8 @@ export interface ChartConfig {
   signalDomain: SignalDomain;
   /** 时域波形连接方式 */
   waveformInterpolation: WaveformInterpolation;
+  /** 串口波形的 MATLAB 参数滤波预览 */
+  dataFilter: DataFilterConfig;
 
   // 显示配置
   /** 是否显示网格 */
@@ -139,6 +169,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   sampleRateHz: 0,
   signalDomain: "time",
   waveformInterpolation: "linear",
+  dataFilter: DEFAULT_DATA_FILTER_CONFIG,
 
   showGrid: true,
   showLegend: true,
@@ -249,11 +280,46 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
     sampleRateHz: clampNumber(source.sampleRateHz, 0, Number.MAX_SAFE_INTEGER, 0),
     signalDomain,
     waveformInterpolation: source.waveformInterpolation === "smooth" ? "smooth" : "linear",
+    dataFilter: sanitizeDataFilter(source.dataFilter),
     showGrid: source.showGrid !== false,
     showLegend: source.showLegend !== false,
     showTooltip: source.showTooltip !== false,
     animationEnabled: source.animationEnabled !== false,
   };
+}
+
+function sanitizeDataFilter(raw: unknown): DataFilterConfig {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_DATA_FILTER_CONFIG };
+  const source = raw as Record<string, unknown>;
+  const kind: DataFilterKind = source.kind === "fir" || source.kind === "median" ? source.kind : "sos";
+  const firCoefficients = sanitizeNumberArray(source.firCoefficients, 2048);
+  const sosSections = Array.isArray(source.sosSections)
+    ? source.sosSections
+        .slice(0, 128)
+        .map((row) => sanitizeNumberArray(row, 6))
+        .filter((row) => row.length === 6 && row[3] !== 0)
+    : [];
+  const scaleValues = sanitizeNumberArray(source.scaleValues, 129);
+  let medianWindowSize = clampInt(source.medianWindowSize, 3, 255, 3);
+  if (medianWindowSize % 2 === 0) medianWindowSize += medianWindowSize < 255 ? 1 : -1;
+
+  return {
+    enabled: source.enabled === true,
+    kind,
+    sampleRateHz: clampNumber(source.sampleRateHz, 0, Number.MAX_SAFE_INTEGER, 0),
+    firCoefficients,
+    sosSections,
+    scaleValues: scaleValues.length > 0 ? scaleValues : [1],
+    medianWindowSize,
+    showOriginal: source.showOriginal !== false,
+  };
+}
+
+function sanitizeNumberArray(raw: unknown, maxLength: number): number[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .slice(0, maxLength)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 }
 
 function sanitizeChannels(raw: unknown[]): Channel[] {

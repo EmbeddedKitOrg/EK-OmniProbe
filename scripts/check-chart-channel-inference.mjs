@@ -9,11 +9,68 @@ try {
   const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
+  const { applyDataFilter, parseMatlabSos, parseMatlabVector } =
+    await server.ssrLoadModule("/src/lib/chartFilter.ts");
   const { traceSignalPath } = await server.ssrLoadModule("/src/components/rtt/SignalPlotCanvas.tsx");
 
   assert.equal(DEFAULT_CHART_CONFIG.waveformInterpolation, "linear");
   assert.equal(migrateChartConfig({ waveformInterpolation: "smooth" }).waveformInterpolation, "smooth");
   assert.equal(migrateChartConfig({ waveformInterpolation: "invalid" }).waveformInterpolation, "linear");
+  assert.deepEqual(parseMatlabVector("b = [0.25 0.5 0.25]"), [0.25, 0.5, 0.25]);
+  assert.deepEqual(parseMatlabSos("1 0 0 1 0 0;\n1 2 1 1 -1.5 0.7"), [
+    [1, 0, 0, 1, 0, 0],
+    [1, 2, 1, 1, -1.5, 0.7],
+  ]);
+  assert.equal(parseMatlabSos("1 2 3"), null);
+
+  const samples = [2, 4, 6].map((value, index) => ({ timestamp: index, values: { ch1: value } }));
+  const firResult = applyDataFilter(samples, ["ch1"], {
+    ...DEFAULT_CHART_CONFIG.dataFilter,
+    enabled: true,
+    kind: "fir",
+    firCoefficients: [0.5, 0.5],
+  });
+  assert.deepEqual(
+    firResult.map((point) => point.values.ch1),
+    [1, 3, 5]
+  );
+  assert.deepEqual(
+    samples.map((point) => point.values.ch1),
+    [2, 4, 6]
+  );
+
+  const sosResult = applyDataFilter(samples, ["ch1"], {
+    ...DEFAULT_CHART_CONFIG.dataFilter,
+    enabled: true,
+    kind: "sos",
+    sosSections: [[1, 0, 0, 1, 0, 0]],
+    scaleValues: [2],
+  });
+  assert.deepEqual(
+    sosResult.map((point) => point.values.ch1),
+    [4, 8, 12]
+  );
+  const recursiveResult = applyDataFilter(
+    [1, 0, 0].map((value, index) => ({ timestamp: index, values: { ch1: value } })),
+    ["ch1"],
+    {
+      ...DEFAULT_CHART_CONFIG.dataFilter,
+      enabled: true,
+      kind: "sos",
+      sosSections: [[1, 0, 0, 1, -0.5, 0]],
+    }
+  );
+  assert.deepEqual(
+    recursiveResult.map((point) => point.values.ch1),
+    [1, 0.5, 0.25]
+  );
+  const medianResult = applyDataFilter(samples, ["ch1"], {
+    ...DEFAULT_CHART_CONFIG.dataFilter,
+    enabled: true,
+    kind: "median",
+    medianWindowSize: 3,
+  });
+  assert.equal(medianResult.at(-1).values.ch1, 4);
 
   const pathCalls = [];
   const pathContext = {
