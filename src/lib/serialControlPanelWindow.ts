@@ -1,8 +1,19 @@
 import type { ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
-import type { Encoding, LineEnding } from "@/lib/serialTypes";
+import type { Encoding, LineEnding, SerialLine } from "@/lib/serialTypes";
+
+export interface SerialControlPanelLogLine extends Omit<SerialLine, "timestamp"> {
+  timestamp: number;
+}
 
 export interface SerialControlPanelSnapshot {
   connected: boolean;
+  running: boolean;
+  lines: SerialControlPanelLogLine[];
+  autoScroll: boolean;
+  showTimestamp: boolean;
+  showDirectionPrefix: boolean;
+  displayMode: "text" | "hex";
+  searchQuery: string;
   chartData: ChartDataPoint[];
   chartConfig: ChartConfig;
   sendSettings: {

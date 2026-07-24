@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
 import { SerialControlMiniChart } from "./SerialControlMiniChart";
 import { SerialImu3DControl } from "./SerialImu3D";
+import { SerialViewer } from "./SerialViewer";
 import { SignalPlotCanvas } from "@/components/rtt/SignalPlotCanvas";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import type { ChartSeries } from "@/lib/chartTypes";
@@ -75,6 +76,7 @@ const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetTy
       ["value", "接收数值"],
       ["indicator", "状态灯"],
       ["gauge", "能量槽"],
+      ["serial-log", "串口日志"],
     ],
   },
   {
@@ -447,6 +449,7 @@ export function SerialControlPanel({
         {widget.type !== "gauge" &&
           widget.type !== "value" &&
           widget.type !== "indicator" &&
+          widget.type !== "serial-log" &&
           widget.type !== "fft-chart" &&
           widget.type !== "xy-chart" &&
           widget.type !== "yt-chart" &&
@@ -814,6 +817,29 @@ export function SerialControlPanel({
               )
             }
           />
+        </div>
+      )}
+
+      {widget.type === "serial-log" && (
+        <div className="space-y-1.5">
+          <Label>日志方向</Label>
+          <Select
+            value={widget.direction}
+            onValueChange={(direction: "all" | "rx" | "tx") =>
+              updateWidget(widget.id, (current) =>
+                current.type === "serial-log" ? { ...current, direction } : current
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部</SelectItem>
+              <SelectItem value="rx">仅接收 RX</SelectItem>
+              <SelectItem value="tx">仅发送 TX</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -1372,6 +1398,16 @@ export function SerialControlPanel({
       );
     }
 
+    if (widget.type === "serial-log") {
+      const direction = widget.direction === "all" ? undefined : widget.direction;
+      return (
+        <SerialViewer
+          direction={direction}
+          title={`${widget.label} · ${widget.direction === "all" ? "全部" : widget.direction.toUpperCase()}`}
+        />
+      );
+    }
+
     if (widget.type === "yt-chart" || widget.type === "fft-chart") {
       return <SerialSignalPreview widget={widget} showWorkspaceActions={showWorkspaceActions} />;
     }
@@ -1657,15 +1693,17 @@ export function SerialControlPanel({
                               {widget.type}
                             </span>
                             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
-                              {widget.type === "gauge" ||
-                              widget.type === "value" ||
-                              widget.type === "indicator" ||
-                              widget.type === "fft-chart" ||
-                              widget.type === "xy-chart" ||
-                              widget.type === "yt-chart" ||
-                              widget.type === "imu-3d"
-                                ? "RX"
-                                : widget.format.toUpperCase()}
+                              {widget.type === "serial-log"
+                                ? widget.direction.toUpperCase()
+                                : widget.type === "gauge" ||
+                                    widget.type === "value" ||
+                                    widget.type === "indicator" ||
+                                    widget.type === "fft-chart" ||
+                                    widget.type === "xy-chart" ||
+                                    widget.type === "yt-chart" ||
+                                    widget.type === "imu-3d"
+                                  ? "RX"
+                                  : widget.format.toUpperCase()}
                             </span>
                             <div className="ml-auto flex items-center gap-1">
                               <Button

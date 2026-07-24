@@ -9,6 +9,7 @@ export type SerialControlWidgetType =
   | "gauge"
   | "value"
   | "indicator"
+  | "serial-log"
   | "fft-chart"
   | "xy-chart"
   | "yt-chart"
@@ -104,6 +105,11 @@ export interface SerialIndicatorWidget extends SerialControlWidgetBase {
   threshold: number;
 }
 
+export interface SerialLogWidget extends SerialControlWidgetBase {
+  type: "serial-log";
+  direction: "all" | "rx" | "tx";
+}
+
 export interface SerialFftChartWidget extends SerialControlWidgetBase {
   type: "fft-chart";
   channels: string[];
@@ -158,6 +164,7 @@ export type SerialControlWidget =
   | SerialGaugeWidget
   | SerialValueWidget
   | SerialIndicatorWidget
+  | SerialLogWidget
   | SerialFftChartWidget
   | SerialXyChartWidget
   | SerialYtChartWidget
@@ -186,6 +193,7 @@ const LABELS: Record<SerialControlWidgetType, string> = {
   gauge: "能量槽",
   value: "接收数值",
   indicator: "状态灯",
+  "serial-log": "串口日志",
   "fft-chart": "FFT 频谱",
   "xy-chart": "XY 二维曲线",
   "yt-chart": "YT 一维曲线",
@@ -238,6 +246,7 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   }
   if (type === "value") return { ...base, type, channel: "", unit: "" };
   if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
+  if (type === "serial-log") return { ...base, type, direction: "all", width: 780, height: 348 };
   if (type === "fft-chart") return { ...base, type, channels: [], pointLimit: 1024, width: 780, height: 348 };
   if (type === "xy-chart") {
     return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 };
@@ -306,6 +315,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
       type !== "gauge" &&
       type !== "value" &&
       type !== "indicator" &&
+      type !== "serial-log" &&
       type !== "fft-chart" &&
       type !== "xy-chart" &&
       type !== "yt-chart" &&
@@ -429,6 +439,16 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
           type,
           channel: stringValue(widget.channel),
           threshold: finiteNumber(widget.threshold, 0.5),
+        },
+      ];
+    }
+
+    if (type === "serial-log") {
+      return [
+        {
+          ...base,
+          type,
+          direction: widget.direction === "rx" || widget.direction === "tx" ? widget.direction : "all",
         },
       ];
     }
