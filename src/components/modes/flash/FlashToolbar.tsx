@@ -18,7 +18,7 @@ import { EraseDialog } from "@/components/dialogs/EraseDialog";
 import { useShallow } from "zustand/react/shallow";
 
 function ToolbarSeparator() {
-  return <div className="w-px h-6 bg-border mx-2" />;
+  return <div className="mx-1 h-6 w-px bg-border min-[1101px]:mx-2" />;
 }
 
 export function FlashToolbar() {
@@ -277,7 +277,7 @@ export function FlashToolbar() {
         {/* Erase mode selector */}
         <TooltipWrapper tooltip="烧录时的擦除模式：扇区擦除只擦除需要写入的区域（快），整片擦除会清空整个Flash（慢但彻底）">
           <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">烧录模式:</span>
+            <span className="hidden text-xs text-muted-foreground min-[1101px]:inline">烧录模式:</span>
             <Select value={eraseMode} onValueChange={(value) => setEraseMode(value as EraseMode)} disabled={flashing}>
               <SelectTrigger className="w-[100px] h-8 text-xs">
                 <SelectValue />
@@ -347,7 +347,7 @@ export function FlashToolbar() {
       </div>
 
       {/* Status display */}
-      <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="ml-auto hidden items-center gap-2 text-sm text-muted-foreground min-[1101px]:flex">
         {firmwarePath && (
           <span className="max-w-[200px] truncate text-xs" title={firmwarePath}>
             {firmwarePath.split(/[\\/]/).pop()}

@@ -36,6 +36,7 @@ const PANEL_REINSERT_GROUP: Record<PanelId, ReinsertGroup> = {
 
 function buildDefaultLayout(api: DockviewApi) {
   api.clear();
+  const compactLayout = window.matchMedia("(max-width: 1400px)").matches;
 
   const source = api.addPanel({
     id: "source",
@@ -47,14 +48,14 @@ function buildDefaultLayout(api: DockviewApi) {
     component: "symbols",
     title: PANEL_REGISTRY.symbols.title,
     position: { direction: "left", referencePanel: source.id },
-    initialWidth: 220,
+    initialWidth: compactLayout ? 180 : 220,
   });
   const registers = api.addPanel({
     id: "registers",
     component: "registers",
     title: PANEL_REGISTRY.registers.title,
     position: { direction: "right", referencePanel: source.id },
-    initialWidth: 340,
+    initialWidth: compactLayout ? 260 : 340,
   });
   api.addPanel({
     id: "locals",
@@ -79,7 +80,7 @@ function buildDefaultLayout(api: DockviewApi) {
     component: "callStack",
     title: PANEL_REGISTRY.callStack.title,
     position: { direction: "below", referencePanel: source.id },
-    initialHeight: 220,
+    initialHeight: compactLayout ? 180 : 220,
   });
   api.addPanel({
     id: "breakpoints",
