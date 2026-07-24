@@ -9,7 +9,6 @@ try {
   await server.ssrLoadModule("/src/components/serial/SerialSidebar.tsx");
   const {
     joystickPointFromRatio,
-    moveSerialControlWidget,
     parseSerialCommandSequence,
     parseSerialControlPanel,
     renderSerialControlCommand,
@@ -205,13 +204,9 @@ try {
       ["fft", "fft-chart"],
     ]
   );
-  assert.equal(panel.widgets[1].columns, 12);
-  assert.deepEqual(
-    moveSerialControlWidget(panel.widgets, "fft", "speed")
-      .slice(0, 3)
-      .map(({ id }) => id),
-    ["fft", "speed", "speed-2"]
-  );
+  assert.equal(panel.version, 4);
+  assert.equal(panel.widgets[1].width, 1200);
+  assert.deepEqual({ left: panel.widgets[1].left, top: panel.widgets[1].top }, { left: 0, top: 180 });
   assert.throws(() => parseSerialControlPanel({ version: 1, widgets: [] }), /不支持/);
   assert.deepEqual(
     {
@@ -229,8 +224,10 @@ try {
       yMin: panel.widgets[2].yMin,
       yMax: panel.widgets[2].yMax,
       step: panel.widgets[2].step,
+      x: panel.widgets[2].x,
+      left: panel.widgets[2].left,
     },
-    { xMin: 10, xMax: 11, yMin: -5, yMax: -4, step: 1 }
+    { xMin: 10, xMax: 11, yMin: -5, yMax: -4, step: 1, x: 10.5, left: 0 }
   );
   assert.equal(panel.widgets[3].max, 101);
   assert.deepEqual(
@@ -247,7 +244,7 @@ try {
   assert.equal(panel.widgets[8].pointLimit, 2000);
   assert.equal(panel.widgets[9].pointLimit, 10);
   assert.deepEqual(panel.widgets[9].channels, ["temp", "speed"]);
-  assert.equal(panel.widgets[9].rows, 12);
+  assert.equal(panel.widgets[9].height, 708);
   assert.equal(panel.widgets[11].pointLimit, 2000);
   assert.deepEqual(
     {
@@ -272,9 +269,19 @@ try {
     }
   );
   assert.deepEqual(parseSerialControlPanel({ version: 3, widgets: [] }), {
-    version: 3,
+    version: 4,
     name: "默认控制面板",
     widgets: [],
+  });
+  const freeLayout = parseSerialControlPanel({
+    version: 4,
+    widgets: [{ id: "free", type: "button", left: 123.5, top: 45.25, width: 456.75, height: 222.5 }],
+  });
+  assert.deepEqual((({ left, top, width, height }) => ({ left, top, width, height }))(freeLayout.widgets[0]), {
+    left: 123.5,
+    top: 45.25,
+    width: 456.75,
+    height: 222.5,
   });
   assert.throws(() => parseSerialControlPanel({ version: 3, widgets: [{ type: "unknown" }] }), /没有可用/);
 

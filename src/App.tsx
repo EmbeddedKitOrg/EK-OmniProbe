@@ -20,19 +20,29 @@ import { useThemeStore } from "./stores/themeStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
 import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
+import { SerialControlPanelWindowPage } from "./components/serial/SerialControlPanelWindowPage";
 import { isChartWorkspaceSource, type ChartWorkspaceSource } from "./lib/chartWorkspace";
 import { Cpu } from "lucide-react";
 import { useRttEvents } from "./hooks/useRttEvents";
 import { useSerialEvents } from "./hooks/useSerialEvents";
 import { useBluetoothEvents } from "./hooks/useBluetoothEvents";
 import { useChartWorkspaceHost } from "./hooks/useChartWorkspaceHost";
+import { useSerialControlPanelWindowHost } from "./hooks/useSerialControlPanelWindow";
 import { useShallow } from "zustand/react/shallow";
 
 function App() {
+  const serialControlPanelPopup = useMemo(
+    () => new URLSearchParams(window.location.search).get("serial_control_panel") === "1",
+    []
+  );
   const popupSource = useMemo(() => {
     const value = new URLSearchParams(window.location.search).get("chart_workspace");
     return isChartWorkspaceSource(value) ? value : null;
   }, []);
+
+  if (serialControlPanelPopup) {
+    return <SerialControlPanelPopupApp />;
+  }
 
   if (popupSource) {
     return <ChartWorkspacePopupApp source={popupSource} />;
@@ -303,8 +313,26 @@ function ChartWorkspaceHosts() {
       <RttChartWorkspaceHost />
       <SerialChartWorkspaceHost />
       <BluetoothChartWorkspaceHost />
+      <SerialControlPanelWindowHost />
     </>
   );
+}
+
+function SerialControlPanelWindowHost() {
+  const { connected, chartData, chartConfig, sendSettings } = useSerialStore(
+    useShallow((state) => ({
+      connected: state.connected,
+      chartData: state.chartData,
+      chartConfig: state.chartConfig,
+      sendSettings: state.sendSettings,
+    }))
+  );
+  const snapshot = useMemo(
+    () => ({ connected, chartData, chartConfig, sendSettings }),
+    [chartConfig, chartData, connected, sendSettings]
+  );
+  useSerialControlPanelWindowHost(snapshot);
+  return null;
 }
 
 function RttChartWorkspaceHost() {
@@ -435,6 +463,16 @@ function ChartWorkspacePopupApp({ source }: { source: ChartWorkspaceSource }) {
   }, [schemeId]);
 
   return <ChartWorkspaceWindowPage source={source} />;
+}
+
+function SerialControlPanelPopupApp() {
+  const schemeId = useThemeStore((state) => state.schemeId);
+
+  useEffect(() => {
+    applyThemeSchemeToDocument(schemeId);
+  }, [schemeId]);
+
+  return <SerialControlPanelWindowPage />;
 }
 
 export default App;

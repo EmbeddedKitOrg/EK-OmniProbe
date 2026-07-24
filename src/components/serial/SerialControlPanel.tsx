@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
   GripVertical,
   LayoutDashboard,
@@ -28,7 +26,6 @@ import { sendSerialPayload } from "@/lib/serialSend";
 import {
   createSerialControlWidget,
   loadSerialControlPanel,
-  moveSerialControlWidget,
   joystickPointFromRatio,
   parseSerialCommandSequence,
   parseSerialControlPanel,
@@ -50,7 +47,14 @@ import type { ChartSeries } from "@/lib/chartTypes";
 
 type RuntimeValue = string | number | boolean | { x: number; y: number };
 const EMPTY_CHART_VALUES: Record<string, number> = {};
-const CANVAS_ROW_HEIGHT = 48;
+const CANVAS_GAP = 12;
+const MIN_WIDGET_WIDTH = 200;
+const MIN_WIDGET_HEIGHT = 96;
+
+interface SerialControlPanelProps {
+  sendPayload?: (text: string, options?: { hexMode?: boolean }) => Promise<void>;
+  showWorkspaceActions?: boolean;
+}
 
 const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetType, string]> }> = [
   {
@@ -84,7 +88,13 @@ const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetTy
   },
 ];
 
-function SerialSignalPreview({ widget }: { widget: Extract<SerialControlWidget, { type: "yt-chart" | "fft-chart" }> }) {
+function SerialSignalPreview({
+  widget,
+  showWorkspaceActions,
+}: {
+  widget: Extract<SerialControlWidget, { type: "yt-chart" | "fft-chart" }>;
+  showWorkspaceActions: boolean;
+}) {
   const { chartData, chartConfig, setViewMode } = useSerialStore(
     useShallow((state) => ({
       chartData: state.chartData,
@@ -115,26 +125,28 @@ function SerialSignalPreview({ widget }: { widget: Extract<SerialControlWidget, 
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-medium">{widget.label}</span>
         <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] uppercase">{domain}</span>
-        <div className="ml-auto flex gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={() => setViewMode("chart")}
-            title="打开图形工作台"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={() => void openDetachedWindow()}
-            title="独立窗口"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        {showWorkspaceActions && (
+          <div className="ml-auto flex gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => setViewMode("chart")}
+              title="打开图形工作台"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => void openDetachedWindow()}
+              title="独立窗口"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background/70">
         {series.length > 0 ? (
@@ -167,7 +179,10 @@ function initialRuntimeValues(panel: SerialControlPanelConfig) {
   ) as Record<string, RuntimeValue>;
 }
 
-export function SerialControlPanel() {
+export function SerialControlPanel({
+  sendPayload = sendSerialPayload,
+  showWorkspaceActions = true,
+}: SerialControlPanelProps = {}) {
   const { connected, sendSettings, chartData, latestValues, chartChannels } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
@@ -183,22 +198,23 @@ export function SerialControlPanel() {
   const [editing, setEditing] = useState(panel.widgets.length === 0);
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(panel.widgets[0]?.id ?? null);
   const [runtimeValues, setRuntimeValues] = useState(() => initialRuntimeValues(panel));
-  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [draggedType, setDraggedType] = useState<SerialControlWidgetType | null>(null);
-  const [resizingId, setResizingId] = useState<string | null>(null);
+  const [gesture, setGesture] = useState<{ id: string; mode: "move" | "resize" } | null>(null);
   const [status, setStatus] = useState("等待操作");
   const [runningSequenceId, setRunningSequenceId] = useState<string | null>(null);
   const lastContinuousSendRef = useRef<Record<string, number>>({});
   const runningSequenceRef = useRef<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
-  const resizeStartRef = useRef<{
+  const gestureStartRef = useRef<{
     id: string;
     x: number;
     y: number;
-    columns: 4 | 8 | 12;
-    rows: number;
-    columnWidth: number;
+    widgetLeft: number;
+    widgetTop: number;
+    width: number;
+    height: number;
+    mode: "move" | "resize";
   } | null>(null);
   const availableChannels = Array.from(
     new Set([...chartChannels.map((channel) => channel.key), ...Object.keys(latestValues)])
@@ -213,13 +229,15 @@ export function SerialControlPanel() {
     }));
   };
 
-  const addWidget = (type: SerialControlWidgetType, targetIndex?: number) => {
-    const widget = createSerialControlWidget(type);
-    setPanel((current) => {
-      const widgets = [...current.widgets];
-      widgets.splice(targetIndex ?? widgets.length, 0, widget);
-      return { ...current, widgets };
-    });
+  const addWidget = (type: SerialControlWidgetType, position?: { x: number; y: number }) => {
+    const created = createSerialControlWidget(type);
+    const widget = {
+      ...created,
+      left: Math.max(0, position?.x ?? 0),
+      top:
+        position?.y ?? panel.widgets.reduce((bottom, item) => Math.max(bottom, item.top + item.height + CANVAS_GAP), 0),
+    };
+    setPanel((current) => ({ ...current, widgets: [...current.widgets, widget] }));
     if ("value" in widget) setRuntimeValues((current) => ({ ...current, [widget.id]: widget.value }));
     setSelectedWidgetId(widget.id);
     setInspectorTab("widget");
@@ -230,65 +248,62 @@ export function SerialControlPanel() {
     setSelectedWidgetId((current) => (current === id ? null : current));
   };
 
-  const moveWidget = (id: string, offset: number) => {
-    setPanel((current) => {
-      const index = current.widgets.findIndex((widget) => widget.id === id);
-      const nextIndex = Math.min(current.widgets.length - 1, Math.max(0, index + offset));
-      if (index < 0 || nextIndex === index) return current;
-      const widgets = [...current.widgets];
-      const [widget] = widgets.splice(index, 1);
-      widgets.splice(nextIndex, 0, widget);
-      return { ...current, widgets };
-    });
-  };
-
-  const dropWidget = (targetId: string) => {
-    const targetIndex = panel.widgets.findIndex((widget) => widget.id === targetId);
-    if (draggedType) {
-      addWidget(draggedType, targetIndex < 0 ? undefined : targetIndex);
-      setDraggedType(null);
-      return;
-    }
-    if (!draggedId || draggedId === targetId) return;
-    setPanel((current) => ({ ...current, widgets: moveSerialControlWidget(current.widgets, draggedId, targetId) }));
-    setDraggedId(null);
-  };
-
-  const startResize = (widget: SerialControlWidget, event: ReactPointerEvent<HTMLButtonElement>) => {
+  const startGesture = (
+    widget: SerialControlWidget,
+    mode: "move" | "resize",
+    event: ReactPointerEvent<HTMLButtonElement>
+  ) => {
     if (!editing || !canvasRef.current) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    resizeStartRef.current = {
+    gestureStartRef.current = {
       id: widget.id,
       x: event.clientX,
       y: event.clientY,
-      columns: widget.columns,
-      rows: widget.rows,
-      columnWidth: canvasRef.current.getBoundingClientRect().width / 12,
+      widgetLeft: widget.left,
+      widgetTop: widget.top,
+      width: widget.width,
+      height: widget.height,
+      mode,
     };
-    setResizingId(widget.id);
+    setGesture({ id: widget.id, mode });
     setSelectedWidgetId(widget.id);
     setInspectorTab("widget");
   };
 
-  const resizeWidget = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const start = resizeStartRef.current;
+  const moveGesture = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const start = gestureStartRef.current;
     if (!start || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    const targetColumns = start.columns + (event.clientX - start.x) / start.columnWidth;
-    const columns: 4 | 8 | 12 = targetColumns < 6 ? 4 : targetColumns < 10 ? 8 : 12;
-    const rows = Math.min(12, Math.max(2, start.rows + Math.round((event.clientY - start.y) / CANVAS_ROW_HEIGHT)));
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
     updateWidget(start.id, (current) =>
-      current.columns === columns && current.rows === rows ? current : { ...current, columns, rows }
+      start.mode === "move"
+        ? { ...current, left: Math.max(0, start.widgetLeft + dx), top: Math.max(0, start.widgetTop + dy) }
+        : {
+            ...current,
+            width: Math.min(2_400, Math.max(MIN_WIDGET_WIDTH, start.width + dx)),
+            height: Math.min(2_000, Math.max(MIN_WIDGET_HEIGHT, start.height + dy)),
+          }
     );
   };
 
-  const finishResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const finishGesture = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const movedId = gestureStartRef.current?.id;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    resizeStartRef.current = null;
-    setResizingId(null);
+    if (movedId) {
+      setPanel((current) => ({
+        ...current,
+        widgets: [
+          ...current.widgets.filter((item) => item.id !== movedId),
+          ...current.widgets.filter((item) => item.id === movedId),
+        ],
+      }));
+    }
+    gestureStartRef.current = null;
+    setGesture(null);
   };
 
   const sendCommand = async (widget: SerialControlWidget, command: string) => {
@@ -297,7 +312,7 @@ export function SerialControlPanel() {
       return false;
     }
     try {
-      await sendSerialPayload(command, { hexMode: widget.format === "hex" });
+      await sendPayload(command, { hexMode: widget.format === "hex" });
       setStatus(`${widget.label} 已发送`);
       return true;
     } catch (error) {
@@ -1358,7 +1373,7 @@ export function SerialControlPanel() {
     }
 
     if (widget.type === "yt-chart" || widget.type === "fft-chart") {
-      return <SerialSignalPreview widget={widget} />;
+      return <SerialSignalPreview widget={widget} showWorkspaceActions={showWorkspaceActions} />;
     }
 
     if (widget.type === "xy-chart") {
@@ -1423,6 +1438,8 @@ export function SerialControlPanel() {
   };
 
   const selectedWidget = panel.widgets.find((widget) => widget.id === selectedWidgetId);
+  const canvasWidth = Math.max(900, ...panel.widgets.map((widget) => widget.left + widget.width + CANVAS_GAP));
+  const canvasHeight = Math.max(560, ...panel.widgets.map((widget) => widget.top + widget.height + CANVAS_GAP));
   const inspectorHost = typeof document === "undefined" ? null : document.getElementById("serial-widget-inspector");
   const inspectorPortal =
     editing && selectedWidget && inspectorHost
@@ -1443,42 +1460,31 @@ export function SerialControlPanel() {
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label>画布宽度</Label>
-              <Select
-                value={String(selectedWidget.columns)}
-                onValueChange={(value) =>
-                  updateWidget(selectedWidget.id, (current) => ({
-                    ...current,
-                    columns: Number(value) as 4 | 8 | 12,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="4">小 · 4 列</SelectItem>
-                  <SelectItem value="8">中 · 8 列</SelectItem>
-                  <SelectItem value="12">大 · 12 列</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${selectedWidget.id}-rows`}>画布高度（2–12 行）</Label>
-              <Input
-                id={`${selectedWidget.id}-rows`}
-                type="number"
-                min={2}
-                max={12}
-                value={selectedWidget.rows}
-                onChange={(event) =>
-                  updateWidget(selectedWidget.id, (current) => ({
-                    ...current,
-                    rows: Math.min(12, Math.max(2, Number(event.target.value) || 2)),
-                  }))
-                }
-              />
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["left", "X", 0],
+                  ["top", "Y", 0],
+                  ["width", "宽度", MIN_WIDGET_WIDTH],
+                  ["height", "高度", MIN_WIDGET_HEIGHT],
+                ] as const
+              ).map(([key, label, min]) => (
+                <div key={key} className="space-y-1.5">
+                  <Label htmlFor={`${selectedWidget.id}-${key}`}>{label}</Label>
+                  <Input
+                    id={`${selectedWidget.id}-${key}`}
+                    type="number"
+                    min={min}
+                    value={Math.round(selectedWidget[key])}
+                    onChange={(event) =>
+                      updateWidget(selectedWidget.id, (current) => ({
+                        ...current,
+                        [key]: Math.max(min, Number(event.target.value) || min),
+                      }))
+                    }
+                  />
+                </div>
+              ))}
             </div>
             {renderEditor(selectedWidget)}
           </div>,
@@ -1576,154 +1582,131 @@ export function SerialControlPanel() {
           )}
 
           <main
-            ref={canvasRef}
             className={cn(
-              "min-h-0 flex-1 overflow-y-auto rounded-[18px] border bg-white/45 p-3",
+              "min-h-0 flex-1 overflow-auto rounded-[18px] border bg-white/45 p-3",
               editing ? "border-dashed border-primary/45" : "border-border/60"
             )}
-            onDragOver={(event) => editing && event.preventDefault()}
-            onDrop={(event) => {
-              if (!editing || event.target !== event.currentTarget) return;
-              event.preventDefault();
-              if (draggedType) addWidget(draggedType);
-              setDraggedType(null);
-            }}
           >
             {editing && (
               <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <GripVertical className="h-4 w-4" />
-                12 列画布 · 拖动组件调整顺序，拖动右下角调整大小
+                自由画布 · 拖动组件标题移动，拖动右下角连续调整大小
               </div>
             )}
-            {panel.widgets.length === 0 ? (
-              <div
-                className="flex min-h-64 items-center justify-center rounded-[20px] border border-dashed border-border/70 p-8 text-center"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  if (draggedType) addWidget(draggedType);
-                  setDraggedType(null);
-                }}
-              >
-                <div>
-                  <LayoutDashboard className="mx-auto h-8 w-8 text-muted-foreground" />
-                  <div className="mt-3 text-sm font-medium">空白画布</div>
-                  <div className="mt-1 text-xs text-muted-foreground">把左侧组件拖到这里开始搭建。</div>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-12 gap-3" style={{ gridAutoRows: `${CANVAS_ROW_HEIGHT}px` }}>
-                {panel.widgets.map((widget, index) => (
-                  <div
-                    key={widget.id}
-                    draggable={editing && resizingId !== widget.id}
-                    onDragStart={() => {
-                      setDraggedId(widget.id);
-                      setDraggedType(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedId(null);
-                      setDraggedType(null);
-                    }}
-                    onDragOver={(event) => editing && event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      dropWidget(widget.id);
-                    }}
-                    onClick={() => {
-                      if (!editing) return;
-                      setSelectedWidgetId(widget.id);
-                      setInspectorTab("widget");
-                    }}
-                    className={cn(
-                      "relative h-full overflow-hidden rounded-[18px] border bg-white/90 p-3 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
-                      editing && "cursor-grab border-dashed hover:border-primary/70 active:cursor-grabbing",
-                      editing && selectedWidgetId === widget.id && "border-primary ring-2 ring-primary/15",
-                      draggedId === widget.id && "opacity-50"
-                    )}
-                    style={{
-                      gridColumn: `span ${widget.columns} / span ${widget.columns}`,
-                      gridRow: `span ${widget.rows} / span ${widget.rows}`,
-                    }}
-                  >
-                    {editing ? (
-                      <>
-                        <div className="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-                          <GripVertical className="h-4 w-4 cursor-grab text-muted-foreground" />
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            {widget.type}
-                          </span>
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
-                            {widget.type === "gauge" ||
-                            widget.type === "value" ||
-                            widget.type === "indicator" ||
-                            widget.type === "fft-chart" ||
-                            widget.type === "xy-chart" ||
-                            widget.type === "yt-chart" ||
-                            widget.type === "imu-3d"
-                              ? "RX"
-                              : widget.format.toUpperCase()}
-                          </span>
-                          <div className="ml-auto flex items-center gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              disabled={index === 0}
-                              onClick={() => moveWidget(widget.id, -1)}
-                              title="前移"
-                            >
-                              <ChevronLeft className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              disabled={index === panel.widgets.length - 1}
-                              onClick={() => moveWidget(widget.id, 1)}
-                              title="后移"
-                            >
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 text-red-500"
-                              onClick={() => removeWidget(widget.id)}
-                              title="删除控件"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="pointer-events-none h-[calc(100%_-_40px)] select-none overflow-hidden opacity-80">
-                          {renderControl(widget)}
-                        </div>
-                      </>
-                    ) : (
-                      renderControl(widget)
-                    )}
-                    {editing && (
-                      <button
-                        type="button"
-                        draggable={false}
-                        className="absolute bottom-0 right-0 h-7 w-7 touch-none cursor-se-resize rounded-tl-xl border-l border-t border-primary/40 bg-primary/10 text-primary"
-                        onPointerDown={(event) => startResize(widget, event)}
-                        onPointerMove={resizeWidget}
-                        onPointerUp={finishResize}
-                        onPointerCancel={finishResize}
-                        onClick={(event) => event.stopPropagation()}
-                        aria-label={`调整 ${widget.label} 大小`}
-                        title="拖动调整大小"
-                      >
-                        <span className="absolute bottom-1 right-1 h-2.5 w-2.5 border-b-2 border-r-2 border-current" />
-                      </button>
-                    )}
+            <section
+              ref={canvasRef}
+              className="relative min-h-full min-w-full"
+              style={{ width: canvasWidth, height: canvasHeight }}
+              onDragOver={(event) => editing && event.preventDefault()}
+              onDrop={(event) => {
+                if (!editing || !draggedType) return;
+                event.preventDefault();
+                const rect = event.currentTarget.getBoundingClientRect();
+                addWidget(draggedType, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+                setDraggedType(null);
+              }}
+            >
+              {panel.widgets.length === 0 ? (
+                <div className="flex h-full min-h-64 items-center justify-center rounded-[20px] border border-dashed border-border/70 p-8 text-center">
+                  <div>
+                    <LayoutDashboard className="mx-auto h-8 w-8 text-muted-foreground" />
+                    <div className="mt-3 text-sm font-medium">空白画布</div>
+                    <div className="mt-1 text-xs text-muted-foreground">把左侧组件拖到这里开始搭建。</div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <>
+                  {panel.widgets.map((widget) => (
+                    <div
+                      key={widget.id}
+                      onClick={() => {
+                        if (!editing) return;
+                        setSelectedWidgetId(widget.id);
+                        setInspectorTab("widget");
+                      }}
+                      className={cn(
+                        "absolute overflow-hidden rounded-[18px] border bg-white/90 p-3 shadow-[0_8px_18px_rgba(73,93,142,0.06)]",
+                        editing && "border-dashed hover:border-primary/70",
+                        editing && selectedWidgetId === widget.id && "border-primary ring-2 ring-primary/15",
+                        gesture?.id === widget.id && "select-none"
+                      )}
+                      style={{
+                        left: widget.left,
+                        top: widget.top,
+                        width: widget.width,
+                        height: widget.height,
+                        zIndex: selectedWidgetId === widget.id ? 2 : 1,
+                      }}
+                    >
+                      {editing ? (
+                        <>
+                          <div className="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
+                            <button
+                              type="button"
+                              className="touch-none cursor-grab text-muted-foreground active:cursor-grabbing"
+                              onPointerDown={(event) => startGesture(widget, "move", event)}
+                              onPointerMove={moveGesture}
+                              onPointerUp={finishGesture}
+                              onPointerCancel={finishGesture}
+                              aria-label={`移动 ${widget.label}`}
+                              title="拖动移动组件"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </button>
+                            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              {widget.type}
+                            </span>
+                            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px]">
+                              {widget.type === "gauge" ||
+                              widget.type === "value" ||
+                              widget.type === "indicator" ||
+                              widget.type === "fft-chart" ||
+                              widget.type === "xy-chart" ||
+                              widget.type === "yt-chart" ||
+                              widget.type === "imu-3d"
+                                ? "RX"
+                                : widget.format.toUpperCase()}
+                            </span>
+                            <div className="ml-auto flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-red-500"
+                                onClick={() => removeWidget(widget.id)}
+                                title="删除控件"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="pointer-events-none h-[calc(100%_-_40px)] select-none overflow-hidden opacity-80">
+                            {renderControl(widget)}
+                          </div>
+                        </>
+                      ) : (
+                        renderControl(widget)
+                      )}
+                      {editing && (
+                        <button
+                          type="button"
+                          draggable={false}
+                          className="absolute bottom-0 right-0 h-7 w-7 touch-none cursor-se-resize rounded-tl-xl border-l border-t border-primary/40 bg-primary/10 text-primary"
+                          onPointerDown={(event) => startGesture(widget, "resize", event)}
+                          onPointerMove={moveGesture}
+                          onPointerUp={finishGesture}
+                          onPointerCancel={finishGesture}
+                          onClick={(event) => event.stopPropagation()}
+                          aria-label={`调整 ${widget.label} 大小`}
+                          title="拖动调整大小"
+                        >
+                          <span className="absolute bottom-1 right-1 h-2.5 w-2.5 border-b-2 border-r-2 border-current" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </section>
           </main>
         </div>
       </div>
