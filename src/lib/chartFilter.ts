@@ -1,4 +1,4 @@
-import type { ChartDataPoint, DataFilterConfig } from "@/lib/chartTypes";
+import type { ChartDataPoint, DataFilterConfig, ParametricFilterStage } from "@/lib/chartTypes";
 
 const MATLAB_NUMBER = /[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g;
 
@@ -29,10 +29,84 @@ export function formatMatlabSos(sections: number[][]): string {
 export function isDataFilterReady(config: DataFilterConfig): boolean {
   if (!config.enabled) return false;
   if (config.kind === "fir") return config.firCoefficients.length > 0;
+  if (config.kind === "cascade") {
+    return designParametricSos(config.parametricStages, config.sampleRateHz) !== null;
+  }
   if (config.kind === "sos") {
     return config.sosSections.length > 0 && Number.isFinite(config.scaleValues.reduce((a, b) => a * b, 1));
   }
   return config.medianWindowSize >= 3;
+}
+
+/** 把参数化二阶滤波器转换为与 MATLAB SOS 相同的 [b0,b1,b2,a0,a1,a2] 结构。 */
+export function designParametricSos(stages: ParametricFilterStage[], sampleRateHz: number): number[][] | null {
+  if (!Number.isFinite(sampleRateHz) || sampleRateHz <= 0 || stages.length === 0) return null;
+  const nyquist = sampleRateHz / 2;
+  const sections: number[][] = [];
+
+  for (const stage of stages) {
+    if (
+      !Number.isFinite(stage.frequencyHz) ||
+      stage.frequencyHz <= 0 ||
+      stage.frequencyHz >= nyquist ||
+      !Number.isFinite(stage.q) ||
+      stage.q <= 0
+    ) {
+      return null;
+    }
+
+    if (!stage.enabled) continue;
+
+    const omega = (2 * Math.PI * stage.frequencyHz) / sampleRateHz;
+    const cosine = Math.cos(omega);
+    const alpha = Math.sin(omega) / (2 * stage.q);
+    const a0 = 1 + alpha;
+    const a1 = -2 * cosine;
+    const a2 = 1 - alpha;
+
+    if (stage.type === "highpass") {
+      const b0 = (1 + cosine) / 2;
+      sections.push([b0, -(1 + cosine), b0, a0, a1, a2]);
+    } else if (stage.type === "bandpass") {
+      sections.push([alpha, 0, -alpha, a0, a1, a2]);
+    } else {
+      const b0 = (1 - cosine) / 2;
+      sections.push([b0, 1 - cosine, b0, a0, a1, a2]);
+    }
+  }
+
+  return sections;
+}
+
+/** 计算 SOS 级联在对数频率轴上的幅频响应，用于配置预览。 */
+export function calculateSosFrequencyResponse(
+  sosSections: number[][],
+  sampleRateHz: number,
+  pointCount = 160
+): Array<{ frequencyHz: number; magnitudeDb: number }> {
+  if (sampleRateHz <= 0 || pointCount < 2) return [];
+  const nyquist = sampleRateHz / 2;
+  const minFrequency = Math.max(nyquist / 1000, 0.001);
+
+  return Array.from({ length: pointCount }, (_, index) => {
+    const ratio = index / (pointCount - 1);
+    const frequencyHz = minFrequency * Math.pow(nyquist / minFrequency, ratio);
+    const omega = (2 * Math.PI * frequencyHz) / sampleRateHz;
+    let magnitude = 1;
+
+    for (const [b0, b1, b2, a0, a1, a2] of sosSections) {
+      const numeratorReal = b0 + b1 * Math.cos(omega) + b2 * Math.cos(2 * omega);
+      const numeratorImag = -b1 * Math.sin(omega) - b2 * Math.sin(2 * omega);
+      const denominatorReal = a0 + a1 * Math.cos(omega) + a2 * Math.cos(2 * omega);
+      const denominatorImag = -a1 * Math.sin(omega) - a2 * Math.sin(2 * omega);
+      magnitude *= Math.sqrt(
+        (numeratorReal * numeratorReal + numeratorImag * numeratorImag) /
+          (denominatorReal * denominatorReal + denominatorImag * denominatorImag)
+      );
+    }
+
+    return { frequencyHz, magnitudeDb: Math.max(-80, Math.min(12, 20 * Math.log10(magnitude))) };
+  });
 }
 
 /**
@@ -83,8 +157,18 @@ function createProcessor(config: DataFilterConfig): (sample: number) => number {
     };
   }
 
-  const gain = config.scaleValues.reduce((product, value) => product * value, 1);
-  const sections = config.sosSections.map(([b0, b1, b2, a0, a1, a2]) => ({
+  if (config.kind === "cascade") {
+    return createSosProcessor(designParametricSos(config.parametricStages, config.sampleRateHz) ?? [], 1);
+  }
+
+  return createSosProcessor(
+    config.sosSections,
+    config.scaleValues.reduce((product, value) => product * value, 1)
+  );
+}
+
+function createSosProcessor(sosSections: number[][], gain: number): (sample: number) => number {
+  const sections = sosSections.map(([b0, b1, b2, a0, a1, a2]) => ({
     b0: b0 / a0,
     b1: b1 / a0,
     b2: b2 / a0,
@@ -94,7 +178,7 @@ function createProcessor(config: DataFilterConfig): (sample: number) => number {
     z2: 0,
   }));
 
-  return (sample) => {
+  return (sample: number) => {
     let output = sample * gain;
     for (const section of sections) {
       const next = section.b0 * output + section.z1;

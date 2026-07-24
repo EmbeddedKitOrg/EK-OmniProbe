@@ -9,7 +9,7 @@ try {
   const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
-  const { applyDataFilter, parseMatlabSos, parseMatlabVector } =
+  const { applyDataFilter, calculateSosFrequencyResponse, designParametricSos, parseMatlabSos, parseMatlabVector } =
     await server.ssrLoadModule("/src/lib/chartFilter.ts");
   const { traceSignalPath } = await server.ssrLoadModule("/src/components/rtt/SignalPlotCanvas.tsx");
 
@@ -71,6 +71,44 @@ try {
     medianWindowSize: 3,
   });
   assert.equal(medianResult.at(-1).values.ch1, 4);
+
+  const parametricStages = [
+    { id: "low", type: "lowpass", enabled: true, frequencyHz: 20, q: Math.SQRT1_2 },
+    { id: "high", type: "highpass", enabled: true, frequencyHz: 2, q: Math.SQRT1_2 },
+    { id: "band", type: "bandpass", enabled: true, frequencyHz: 10, q: 2 },
+  ];
+  const migratedCascade = migrateChartConfig({
+    dataFilter: { enabled: true, kind: "cascade", sampleRateHz: 1000, parametricStages },
+  }).dataFilter;
+  assert.equal(migratedCascade.kind, "cascade");
+  assert.equal(migratedCascade.parametricStages.length, 3);
+  const designedSos = designParametricSos(parametricStages, 1000);
+  assert.equal(designedSos.length, 3);
+  const responseAtDc = ([b0, b1, b2, a0, a1, a2]) => (b0 + b1 + b2) / (a0 + a1 + a2);
+  const responseAtNyquist = ([b0, b1, b2, a0, a1, a2]) => (b0 - b1 + b2) / (a0 - a1 + a2);
+  assert.ok(Math.abs(responseAtDc(designedSos[0]) - 1) < 1e-9);
+  assert.ok(Math.abs(responseAtDc(designedSos[1])) < 1e-9);
+  assert.ok(Math.abs(responseAtDc(designedSos[2])) < 1e-9);
+  assert.ok(Math.abs(responseAtNyquist(designedSos[0])) < 1e-9);
+  assert.ok(Math.abs(responseAtNyquist(designedSos[1]) - 1) < 1e-9);
+  assert.ok(Math.abs(responseAtNyquist(designedSos[2])) < 1e-9);
+  assert.ok(designedSos[2][0] > 0 && designedSos[2][2] === -designedSos[2][0]);
+  assert.equal(designParametricSos(parametricStages, 0), null);
+  assert.equal(designParametricSos([{ ...parametricStages[0], frequencyHz: 500 }], 1000), null);
+  assert.equal(designParametricSos([{ ...parametricStages[0], enabled: false }], 1000).length, 0);
+  const response = calculateSosFrequencyResponse(designedSos.slice(0, 1), 1000, 3);
+  assert.equal(response.length, 3);
+  assert.ok(response[0].magnitudeDb > response[2].magnitudeDb);
+
+  const cascadeResult = applyDataFilter(samples, ["ch1"], {
+    ...DEFAULT_CHART_CONFIG.dataFilter,
+    enabled: true,
+    kind: "cascade",
+    sampleRateHz: 1000,
+    parametricStages: parametricStages.slice(0, 2),
+  });
+  assert.equal(cascadeResult.length, samples.length);
+  assert.ok(cascadeResult.every((point) => Number.isFinite(point.values.ch1)));
 
   const pathCalls = [];
   const pathContext = {

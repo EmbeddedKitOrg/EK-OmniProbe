@@ -21,7 +21,7 @@
 ### 数据与串口
 
 - [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则和 JustFloat。
-- [MATLAB 参数滤波](MATLAB_FILTER_GUIDE.md)：把 FIR 系数或 IIR 的 SOS/ScaleValues 用于串口实时波形对比。
+- [数据滤波与 MATLAB 参数](MATLAB_FILTER_GUIDE.md)：图形化级联低通、高通、带通，预览和导出参数，或导入 FIR 与 SOS/ScaleValues。
 - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。
 - [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志和终端交互。
 - [AI 数据桥接](AI_TUNING_GUIDE.md)：把已经解析的数值通道提供给本机 AI 工具。
