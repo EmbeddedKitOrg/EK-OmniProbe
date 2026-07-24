@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { LogEntry, RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
 import type { ChartConfig, ChartDataPoint } from "./chartTypes";
-import { formatTime } from "./formatters";
+import { DEFAULT_TIMESTAMP_FORMAT, formatTime, formatTimestamp } from "./formatters";
 
 interface DialogFilter {
   name: string;
@@ -90,11 +90,14 @@ export async function exportRttLinesAsCsv(lines: RttLine[]): Promise<string | nu
 
 // ============ Serial ============
 
-export async function exportSerialLinesAsTxt(lines: SerialLine[]): Promise<string | null> {
+export async function exportSerialLinesAsTxt(
+  lines: SerialLine[],
+  timestampFormat = DEFAULT_TIMESTAMP_FORMAT
+): Promise<string | null> {
   const content = lines
     .map((line) => {
       const dir = line.direction === "tx" ? ">>" : "<<";
-      return `[${formatTime(line.timestamp.getTime())}] ${dir} ${line.text}`;
+      return `[${formatTimestamp(line.timestamp.getTime(), timestampFormat)}] ${dir} ${line.text}`;
     })
     .join("\n");
   return saveTextFile(content, `serial-${timestampSuffix()}.txt`, TEXT_FILTERS);

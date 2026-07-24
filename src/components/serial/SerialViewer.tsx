@@ -9,6 +9,7 @@ import { parseAnsiText } from "@/lib/ansiParser";
 import { useViewerSelection, formatSerialLineForCopy, formatDataAsHex } from "@/lib/viewerCopy";
 import { exportTextAsTxt } from "@/lib/exporters";
 import { useShallow } from "zustand/react/shallow";
+import { formatTimestamp } from "@/lib/formatters";
 
 interface SerialViewerProps {
   direction?: "rx" | "tx";
@@ -24,25 +25,35 @@ const COPY_MODE_OPTS: Record<CopyMode, { ts: boolean; dir: boolean; label: strin
   full: { ts: true, dir: true, label: "完整行" },
 };
 
-const formatLineForCopy = (line: SerialLine, mode: CopyMode): string => {
+const formatLineForCopy = (line: SerialLine, mode: CopyMode, timestampFormat: string): string => {
   const o = COPY_MODE_OPTS[mode];
-  return formatSerialLineForCopy(line, o.ts, o.dir);
+  return formatSerialLineForCopy(line, o.ts, o.dir, timestampFormat);
 };
 
 export function SerialViewer({ direction, title }: SerialViewerProps) {
-  const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
-    useSerialStore(
-      useShallow((state) => ({
-        autoScroll: state.autoScroll,
-        showTimestamp: state.showTimestamp,
-        showDirectionPrefix: state.showDirectionPrefix,
-        running: state.running,
-        displayMode: state.displayMode,
-        connected: state.connected,
-        lines: state.lines,
-        searchQuery: state.searchQuery,
-      }))
-    );
+  const {
+    autoScroll,
+    showTimestamp,
+    timestampFormat,
+    showDirectionPrefix,
+    running,
+    displayMode,
+    connected,
+    lines,
+    searchQuery,
+  } = useSerialStore(
+    useShallow((state) => ({
+      autoScroll: state.autoScroll,
+      showTimestamp: state.showTimestamp,
+      timestampFormat: state.timestampFormat,
+      showDirectionPrefix: state.showDirectionPrefix,
+      running: state.running,
+      displayMode: state.displayMode,
+      connected: state.connected,
+      lines: state.lines,
+      searchQuery: state.searchQuery,
+    }))
+  );
   const addLog = useLogStore((state) => state.addLog);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canCopy: boolean } | null>(null);
 
@@ -115,11 +126,11 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
       }
       const slice = filteredLines.slice(range.start, range.end + 1);
       if (slice.length === 0) return false;
-      const text = slice.map((line) => formatLineForCopy(line, mode)).join("\n");
+      const text = slice.map((line) => formatLineForCopy(line, mode, timestampFormat)).join("\n");
       writeToClipboard(text, COPY_MODE_OPTS[mode].label);
       return true;
     },
-    [filteredLines, writeToClipboard, getSelectedRange, isSelectAll]
+    [filteredLines, writeToClipboard, getSelectedRange, isSelectAll, timestampFormat]
   );
 
   // Ctrl+C 纯文本 / Ctrl+Shift+C 完整行（均按行号区间重建，跨滚动不丢）
@@ -152,7 +163,8 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
           formatSerialLineForCopy(
             { ...line, text: displayMode === "hex" ? formatDataAsHex(line.rawData, line.text) : line.text },
             showTimestamp,
-            showDirectionPrefix
+            showDirectionPrefix,
+            timestampFormat
           )
         )
         .join("\n");
@@ -161,7 +173,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
     } catch (error) {
       addLog("error", `保存当前窗口失败: ${error}`);
     }
-  }, [addLog, displayMode, filteredLines, showDirectionPrefix, showTimestamp]);
+  }, [addLog, displayMode, filteredLines, showDirectionPrefix, showTimestamp, timestampFormat]);
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     const sel = window.getSelection();
@@ -263,6 +275,7 @@ export function SerialViewer({ direction, title }: SerialViewerProps) {
                 <SerialLineItem
                   line={line}
                   showTimestamp={showTimestamp}
+                  timestampFormat={timestampFormat}
                   showDirectionPrefix={showDirectionPrefix}
                   displayMode={displayMode}
                   selected={selected}
@@ -336,6 +349,7 @@ function CopyContextMenu({ x, y, canCopy, onPick, onSave }: CopyContextMenuProps
 interface SerialLineItemProps {
   line: SerialLine;
   showTimestamp: boolean;
+  timestampFormat: string;
   showDirectionPrefix: boolean;
   displayMode: "text" | "hex";
   selected: boolean;
@@ -344,6 +358,7 @@ interface SerialLineItemProps {
 const SerialLineItem = React.memo(function SerialLineItem({
   line,
   showTimestamp,
+  timestampFormat,
   showDirectionPrefix,
   displayMode,
   selected,
@@ -355,14 +370,6 @@ const SerialLineItem = React.memo(function SerialLineItem({
     warn: "text-yellow-500",
     debug: "text-blue-400",
     info: "text-foreground",
-  };
-
-  const formatTime = (date: Date) => {
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    const seconds = date.getSeconds().toString().padStart(2, "0");
-    const ms = date.getMilliseconds().toString().padStart(3, "0");
-    return `${hours}:${minutes}:${seconds}.${ms}`;
   };
 
   // Parse ANSI and custom color markers
@@ -407,7 +414,9 @@ const SerialLineItem = React.memo(function SerialLineItem({
       )}
     >
       {showTimestamp && (
-        <span className="text-muted-foreground shrink-0 select-none font-mono">[{formatTime(line.timestamp)}]</span>
+        <span className="text-muted-foreground shrink-0 select-none font-mono">
+          [{formatTimestamp(line.timestamp.getTime(), timestampFormat)}]
+        </span>
       )}
       {showDirectionPrefix && (
         <span

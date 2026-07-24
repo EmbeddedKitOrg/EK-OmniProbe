@@ -22,6 +22,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { parseLogLevel } from "@/lib/utils";
+import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -38,6 +39,7 @@ const SERIAL_VIEW_MODE_KEY = "serial_view_mode";
 const SERIAL_SPLIT_RATIO_KEY = "serial_split_ratio";
 const SERIAL_SPLIT_ORIENTATION_KEY = "serial_split_orientation";
 const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
+const SERIAL_TIMESTAMP_SETTINGS_KEY = "serial_timestamp_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
 const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
@@ -147,6 +149,7 @@ interface SerialState {
   // Display settings
   autoScroll: boolean;
   showTimestamp: boolean;
+  timestampFormat: string;
   showDirectionPrefix: boolean;
   splitByDirection: boolean;
   searchQuery: string;
@@ -210,6 +213,7 @@ interface SerialState {
 
   setAutoScroll: (enabled: boolean) => void;
   setShowTimestamp: (show: boolean) => void;
+  setTimestampFormat: (format: string) => void;
   setShowDirectionPrefix: (show: boolean) => void;
   setSplitByDirection: (split: boolean) => void;
   setSearchQuery: (query: string) => void;
@@ -245,6 +249,17 @@ interface SerialState {
 
 const savedConfig = loadFromStorage(SERIAL_CONFIG_KEY, defaultSerialConfigBundle);
 const savedSendSettings = loadFromStorage(SERIAL_SEND_SETTINGS_KEY, defaultSendSettings);
+const loadedTimestampSettings = loadFromStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, {
+  show: true,
+  format: DEFAULT_TIMESTAMP_FORMAT,
+});
+const savedTimestampSettings = {
+  show: typeof loadedTimestampSettings.show === "boolean" ? loadedTimestampSettings.show : true,
+  format:
+    typeof loadedTimestampSettings.format === "string" && loadedTimestampSettings.format.trim()
+      ? loadedTimestampSettings.format.slice(0, 80)
+      : DEFAULT_TIMESTAMP_FORMAT,
+};
 // 合并默认值，保证老配置缺字段时也有完整结构
 const savedRxFraming: RxFramingSettings = {
   ...DEFAULT_RX_FRAMING,
@@ -472,7 +487,8 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   stats: { bytes_received: 0, bytes_sent: 0 },
 
   autoScroll: true,
-  showTimestamp: true,
+  showTimestamp: savedTimestampSettings.show,
+  timestampFormat: savedTimestampSettings.format,
   showDirectionPrefix: loadBooleanFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
   splitByDirection: false,
   searchQuery: "",
@@ -629,7 +645,17 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   updateStats: (stats) => set({ stats }),
 
   setAutoScroll: (autoScroll) => set({ autoScroll }),
-  setShowTimestamp: (showTimestamp) => set({ showTimestamp }),
+  setShowTimestamp: (showTimestamp) =>
+    set((state) => {
+      saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: showTimestamp, format: state.timestampFormat });
+      return { showTimestamp };
+    }),
+  setTimestampFormat: (timestampFormat) =>
+    set((state) => {
+      const format = timestampFormat.slice(0, 80);
+      saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: state.showTimestamp, format });
+      return { timestampFormat: format };
+    }),
   setShowDirectionPrefix: (showDirectionPrefix) => {
     saveToStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, showDirectionPrefix);
     set({ showDirectionPrefix });

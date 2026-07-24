@@ -37,6 +37,16 @@ import { useShallow } from "zustand/react/shallow";
 import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 import { useState } from "react";
 import { getSignalWorkspaceTransition, isSignalWorkspaceActive } from "@/lib/chartTypes";
+import { formatTimestamp } from "@/lib/formatters";
+
+const TIMESTAMP_FORMAT_PRESETS = [
+  ["YYYY-MM-DD HH:mm:ss.SSS", "年月日 + 时分秒毫秒"],
+  ["YYYY-MM-DD HH:mm:ss", "年月日 + 时分秒"],
+  ["HH:mm:ss.SSS", "时分秒毫秒"],
+  ["HH:mm:ss", "时分秒"],
+  ["mm:ss.SSS", "分秒毫秒"],
+  ["mm:ss", "分秒"],
+] as const;
 
 export function SerialToolbar() {
   const {
@@ -44,6 +54,7 @@ export function SerialToolbar() {
     running,
     autoScroll,
     showTimestamp,
+    timestampFormat,
     showDirectionPrefix,
     splitByDirection,
     searchQuery,
@@ -59,6 +70,7 @@ export function SerialToolbar() {
     setRunning,
     setAutoScroll,
     setShowTimestamp,
+    setTimestampFormat,
     setShowDirectionPrefix,
     setSplitByDirection,
     setSearchQuery,
@@ -75,6 +87,7 @@ export function SerialToolbar() {
       running: state.running,
       autoScroll: state.autoScroll,
       showTimestamp: state.showTimestamp,
+      timestampFormat: state.timestampFormat,
       showDirectionPrefix: state.showDirectionPrefix,
       splitByDirection: state.splitByDirection,
       searchQuery: state.searchQuery,
@@ -90,6 +103,7 @@ export function SerialToolbar() {
       setRunning: state.setRunning,
       setAutoScroll: state.setAutoScroll,
       setShowTimestamp: state.setShowTimestamp,
+      setTimestampFormat: state.setTimestampFormat,
       setShowDirectionPrefix: state.setShowDirectionPrefix,
       setSplitByDirection: state.setSplitByDirection,
       setSearchQuery: state.setSearchQuery,
@@ -146,20 +160,24 @@ export function SerialToolbar() {
 
   // 复制全部：从数据数组直接生成（不受虚拟滚动卸载影响），与文本区显示一致
   const handleCopyAll = () => {
-    const { lines, searchQuery, showTimestamp, showDirectionPrefix } = useSerialStore.getState();
+    const { lines, searchQuery, showTimestamp, showDirectionPrefix, timestampFormat } = useSerialStore.getState();
     const q = searchQuery.trim().toLowerCase();
     const filtered = q ? lines.filter((l) => l.text.toLowerCase().includes(q)) : lines;
-    copyAllLines(filtered, (l) => formatSerialLineForCopy(l, showTimestamp, showDirectionPrefix), addLog);
+    copyAllLines(
+      filtered,
+      (l) => formatSerialLineForCopy(l, showTimestamp, showDirectionPrefix, timestampFormat),
+      addLog
+    );
   };
 
   const handleExportTxt = async () => {
-    const { lines } = useSerialStore.getState();
+    const { lines, timestampFormat } = useSerialStore.getState();
     if (lines.length === 0) {
       addLog("warn", "没有数据可导出");
       return;
     }
     try {
-      const path = await exportSerialLinesAsTxt(lines);
+      const path = await exportSerialLinesAsTxt(lines, timestampFormat);
       if (path) addLog("success", `已导出 ${lines.length} 行到 ${path}`);
     } catch (err) {
       addLog("error", `导出失败: ${err}`);
@@ -485,6 +503,46 @@ export function SerialToolbar() {
                     </>
                   ) : null}
                 </div>
+                {textViewMode === "log" && showTimestamp && (
+                  <div className="space-y-2 rounded-xl border border-border/50 bg-background/55 p-2.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-medium text-foreground">时间格式</span>
+                      <code className="text-[11px] text-muted-foreground">
+                        {formatTimestamp(Date.now(), timestampFormat)}
+                      </code>
+                    </div>
+                    <Select
+                      value={
+                        TIMESTAMP_FORMAT_PRESETS.some(([value]) => value === timestampFormat)
+                          ? timestampFormat
+                          : "custom"
+                      }
+                      onValueChange={(value) => value !== "custom" && setTimestampFormat(value)}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIMESTAMP_FORMAT_PRESETS.map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">自定义</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={timestampFormat}
+                      maxLength={80}
+                      onChange={(event) => setTimestampFormat(event.target.value)}
+                      placeholder="例如 YYYY年MM月DD日 HH:mm:ss.SSS"
+                      className="h-8 font-mono text-xs"
+                    />
+                    <div className="text-[11px] leading-4 text-muted-foreground">
+                      可用：YYYY 年、MM 月、DD 日、HH 时、mm 分、ss 秒、SSS 毫秒；留空使用默认格式。
+                    </div>
+                  </div>
+                )}
               </div>
 
               {textViewMode === "log" && (

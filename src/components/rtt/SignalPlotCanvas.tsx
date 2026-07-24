@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
+import { Button } from "@/components/ui/button";
+import { ScanLine } from "lucide-react";
 
 interface SignalPlotCanvasProps {
   chartData: ChartDataPoint[];
@@ -594,7 +596,7 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       <canvas ref={canvasRef} className="h-full w-full cursor-crosshair" />
 
       {chartConfig.showLegend && (
-        <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
+        <div className="pointer-events-none absolute left-4 right-28 top-4 flex flex-wrap gap-2">
           {visibleSeries.map((item) => {
             const latestValue = chartData[chartData.length - 1]?.values[item.key];
             return (
@@ -616,8 +618,21 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
         </div>
       )}
 
+      <Button
+        size="sm"
+        variant="outline"
+        className="absolute right-3 top-3 z-10 h-8 gap-1 bg-white/90 shadow-sm backdrop-blur"
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={handleReset}
+        title="恢复 X/Y 自动范围"
+        aria-label="自适应显示全部曲线"
+      >
+        <ScanLine className="h-3.5 w-3.5" />
+        自适应
+      </Button>
+
       <div className="pointer-events-none absolute bottom-3 left-4 rounded-full bg-secondary/85 px-3 py-1 text-[11px] text-muted-foreground shadow-sm">
-        左键拖拽平移，滚轮缩放 Y，Shift + 滚轮缩放 X，右键重置
+        左键拖拽平移，滚轮缩放 Y，Shift + 滚轮缩放 X，右键或“自适应”重置
       </div>
     </div>
   );

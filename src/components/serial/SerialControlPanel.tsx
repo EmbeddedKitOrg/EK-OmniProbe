@@ -171,6 +171,7 @@ const WIDGET_INPUT_HELP: Record<
 interface SerialControlPanelProps {
   sendPayload?: (text: string, options?: { hexMode?: boolean }) => Promise<void>;
   showWorkspaceActions?: boolean;
+  onEditingChange?: (editing: boolean) => void;
 }
 
 const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetType, string]> }> = [
@@ -305,6 +306,7 @@ function initialRuntimeValues(panel: SerialControlPanelConfig) {
 export function SerialControlPanel({
   sendPayload = sendSerialPayload,
   showWorkspaceActions = true,
+  onEditingChange,
 }: SerialControlPanelProps = {}) {
   const { connected, sendSettings, chartData, latestValues, chartChannels } = useSerialStore(
     useShallow((state) => ({
@@ -345,6 +347,8 @@ export function SerialControlPanel({
   );
 
   useEffect(() => saveSerialControlPanel(panel), [panel]);
+
+  useEffect(() => onEditingChange?.(editing), [editing, onEditingChange]);
 
   useEffect(() => {
     const compactLayout = window.matchMedia("(max-width: 1100px)");
@@ -1753,9 +1757,17 @@ export function SerialControlPanel({
           ) : (
             <span className="text-sm font-medium text-foreground">{panel.name}</span>
           )}
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] font-medium",
+              connected ? "bg-emerald-500/12 text-emerald-700" : "bg-red-500/12 text-red-600"
+            )}
+          >
+            {connected ? "串口已连接" : "串口未连接"}
+          </span>
           <span className="text-xs text-muted-foreground">
-            {connected ? status : "串口未连接"} · 文本 {sendSettings.encoding.toUpperCase()} /{" "}
-            {sendSettings.lineEnding.toUpperCase()} · 控件独立 TEXT/HEX
+            {status} · 文本 {sendSettings.encoding.toUpperCase()} / {sendSettings.lineEnding.toUpperCase()} · 控件独立
+            TEXT/HEX
           </span>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">

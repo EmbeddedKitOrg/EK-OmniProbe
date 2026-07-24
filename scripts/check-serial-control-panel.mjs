@@ -29,6 +29,20 @@ try {
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
   const { createSimulationSample, normalizeSimulationConfig } =
     await server.ssrLoadModule("/src/lib/serialSimulation.ts");
+  const { formatTimestamp } = await server.ssrLoadModule("/src/lib/formatters.ts");
+  const { clampFloatingPanelPosition } = await server.ssrLoadModule(
+    "/src/components/serial/SerialControlPanelWindowPage.tsx"
+  );
+
+  const timestamp = new Date(2026, 6, 24, 15, 44, 34, 123).getTime();
+  assert.equal(formatTimestamp(timestamp), "15:44:34.123");
+  assert.equal(formatTimestamp(timestamp, "YYYY年MM月DD日 HH:mm:ss"), "2026年07月24日 15:44:34");
+  assert.equal(formatTimestamp(timestamp, "mm:ss"), "44:34");
+  assert.equal(formatTimestamp(timestamp, ""), "15:44:34.123");
+  assert.deepEqual(
+    clampFloatingPanelPosition({ x: -999, y: 999 }, { width: 1000, height: 800 }, { width: 320, height: 600 }),
+    { x: -656, y: 176 }
+  );
 
   const simulationConfig = {
     preset: "imu6",
