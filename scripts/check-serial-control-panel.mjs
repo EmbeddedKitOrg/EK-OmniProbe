@@ -182,11 +182,12 @@ try {
         rollOffset: "invalid",
       },
       { id: "fft", type: "fft-chart", channels: ["temp", "speed"], pointLimit: 99999, columns: 12 },
+      { id: "rx-log", type: "serial-log", direction: "rx", columns: 8, rows: 5 },
       { type: "unknown" },
     ],
   });
 
-  assert.equal(panel.widgets.length, 12);
+  assert.equal(panel.widgets.length, 13);
   assert.deepEqual(
     panel.widgets.map(({ id, type }) => [id, type]),
     [
@@ -202,6 +203,7 @@ try {
       ["yt", "yt-chart"],
       ["imu", "imu-3d"],
       ["fft", "fft-chart"],
+      ["rx-log", "serial-log"],
     ]
   );
   assert.equal(panel.version, 4);
@@ -246,6 +248,7 @@ try {
   assert.deepEqual(panel.widgets[9].channels, ["temp", "speed"]);
   assert.equal(panel.widgets[9].height, 708);
   assert.equal(panel.widgets[11].pointLimit, 2000);
+  assert.equal(panel.widgets[12].direction, "rx");
   assert.deepEqual(
     {
       rollChannel: panel.widgets[10].rollChannel,

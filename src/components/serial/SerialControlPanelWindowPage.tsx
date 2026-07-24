@@ -28,6 +28,13 @@ export function SerialControlPanelWindowPage() {
       ({ payload }) => {
         useSerialStore.setState({
           connected: payload.connected,
+          running: payload.running,
+          lines: payload.lines.map((line) => ({ ...line, timestamp: new Date(line.timestamp) })),
+          autoScroll: payload.autoScroll,
+          showTimestamp: payload.showTimestamp,
+          showDirectionPrefix: payload.showDirectionPrefix,
+          displayMode: payload.displayMode,
+          searchQuery: payload.searchQuery,
           chartData: payload.chartData,
           chartConfig: payload.chartConfig,
           sendSettings: payload.sendSettings,

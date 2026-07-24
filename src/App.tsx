@@ -319,17 +319,60 @@ function ChartWorkspaceHosts() {
 }
 
 function SerialControlPanelWindowHost() {
-  const { connected, chartData, chartConfig, sendSettings } = useSerialStore(
+  const {
+    connected,
+    running,
+    lines,
+    autoScroll,
+    showTimestamp,
+    showDirectionPrefix,
+    displayMode,
+    searchQuery,
+    chartData,
+    chartConfig,
+    sendSettings,
+  } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
+      running: state.running,
+      lines: state.lines,
+      autoScroll: state.autoScroll,
+      showTimestamp: state.showTimestamp,
+      showDirectionPrefix: state.showDirectionPrefix,
+      displayMode: state.displayMode,
+      searchQuery: state.searchQuery,
       chartData: state.chartData,
       chartConfig: state.chartConfig,
       sendSettings: state.sendSettings,
     }))
   );
   const snapshot = useMemo(
-    () => ({ connected, chartData, chartConfig, sendSettings }),
-    [chartConfig, chartData, connected, sendSettings]
+    () => ({
+      connected,
+      running,
+      lines: lines.slice(-500).map((line) => ({ ...line, timestamp: line.timestamp.getTime() })),
+      autoScroll,
+      showTimestamp,
+      showDirectionPrefix,
+      displayMode,
+      searchQuery,
+      chartData,
+      chartConfig,
+      sendSettings,
+    }),
+    [
+      autoScroll,
+      chartConfig,
+      chartData,
+      connected,
+      displayMode,
+      lines,
+      running,
+      searchQuery,
+      sendSettings,
+      showDirectionPrefix,
+      showTimestamp,
+    ]
   );
   useSerialControlPanelWindowHost(snapshot);
   return null;
