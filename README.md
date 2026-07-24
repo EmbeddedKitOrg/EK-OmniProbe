@@ -132,7 +132,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 
 图表工作台支持字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。串口的数据解析统一放在右侧“数据”页，通道实时值与显隐控制收进图表工具栏弹窗，画布使用完整宽度。
 
-串口右侧“数据”页支持粘贴 MATLAB 生成的 FIR 系数或 IIR 的 SOS/ScaleValues，实时叠加比较原始与滤波结果；滤波不会覆盖日志、CSV、FFT 和 AI 使用的原始数据。详见 [MATLAB 参数滤波](docs/MATLAB_FILTER_GUIDE.md)。
+串口右侧“数据”页支持图形化级联低通、高通和带通滤波，可预览频率响应并导出 JSON 参数；也可以粘贴 MATLAB 生成的 FIR 系数或 IIR 的 SOS/ScaleValues。滤波不会覆盖日志、CSV、FFT 和 AI 使用的原始数据。详见 [数据滤波与 MATLAB 参数](docs/MATLAB_FILTER_GUIDE.md)。
 
 ## 控制面板与模拟数据
 

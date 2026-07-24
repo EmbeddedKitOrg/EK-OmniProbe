@@ -667,7 +667,13 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
               : "bg-emerald-100 text-emerald-800"
           )}
         >
-          {chartConfig.dataFilter.kind === "sos" ? "SOS" : chartConfig.dataFilter.kind === "fir" ? "FIR" : "中值"}
+          {chartConfig.dataFilter.kind === "sos"
+            ? "SOS"
+            : chartConfig.dataFilter.kind === "fir"
+              ? "FIR"
+              : chartConfig.dataFilter.kind === "cascade"
+                ? "参数级联"
+                : "中值"}
           {chartConfig.dataFilter.sampleRateHz > 0 && effectiveSampleRate
             ? ` · 参数 ${chartConfig.dataFilter.sampleRateHz} Hz / 当前 ${effectiveSampleRate.toFixed(1)} Hz`
             : " · 滤波预览"}

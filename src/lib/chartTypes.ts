@@ -53,13 +53,26 @@ export type SignalDomain = "time" | "fft";
 /** 时域波形相邻采样点的连接方式 */
 export type WaveformInterpolation = "linear" | "smooth";
 
-/** MATLAB 设计参数对应的实时滤波执行方式 */
-export type DataFilterKind = "fir" | "sos" | "median";
+/** 时域波形的实时滤波执行方式 */
+export type DataFilterKind = "fir" | "sos" | "median" | "cascade";
+
+export type ParametricFilterType = "lowpass" | "highpass" | "bandpass";
+
+export interface ParametricFilterStage {
+  id: string;
+  type: ParametricFilterType;
+  /** false 时保留参数但不参与级联 */
+  enabled: boolean;
+  /** 低/高通为截止频率，带通为中心频率 */
+  frequencyHz: number;
+  /** 品质因数；带通的近似带宽为 frequencyHz / q */
+  q: number;
+}
 
 export interface DataFilterConfig {
   enabled: boolean;
   kind: DataFilterKind;
-  /** MATLAB 设计滤波器时使用的采样率，仅用于一致性检查 */
+  /** 设计或计算滤波参数时使用的采样率 */
   sampleRateHz: number;
   firCoefficients: number[];
   /** 每行格式：[b0, b1, b2, a0, a1, a2] */
@@ -67,6 +80,7 @@ export interface DataFilterConfig {
   /** MATLAB 导出的 g 或 ScaleValues；运行时使用其乘积 */
   scaleValues: number[];
   medianWindowSize: number;
+  parametricStages: ParametricFilterStage[];
   showOriginal: boolean;
 }
 
@@ -78,6 +92,7 @@ export const DEFAULT_DATA_FILTER_CONFIG: DataFilterConfig = {
   sosSections: [],
   scaleValues: [1],
   medianWindowSize: 3,
+  parametricStages: [],
   showOriginal: true,
 };
 
@@ -121,7 +136,7 @@ export interface ChartConfig {
   signalDomain: SignalDomain;
   /** 时域波形连接方式 */
   waveformInterpolation: WaveformInterpolation;
-  /** 串口波形的 MATLAB 参数滤波预览 */
+  /** 串口波形的滤波预览 */
   dataFilter: DataFilterConfig;
 
   // 显示配置
@@ -291,7 +306,8 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
 function sanitizeDataFilter(raw: unknown): DataFilterConfig {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_DATA_FILTER_CONFIG };
   const source = raw as Record<string, unknown>;
-  const kind: DataFilterKind = source.kind === "fir" || source.kind === "median" ? source.kind : "sos";
+  const kind: DataFilterKind =
+    source.kind === "fir" || source.kind === "median" || source.kind === "cascade" ? source.kind : "sos";
   const firCoefficients = sanitizeNumberArray(source.firCoefficients, 2048);
   const sosSections = Array.isArray(source.sosSections)
     ? source.sosSections
@@ -311,8 +327,28 @@ function sanitizeDataFilter(raw: unknown): DataFilterConfig {
     sosSections,
     scaleValues: scaleValues.length > 0 ? scaleValues : [1],
     medianWindowSize,
+    parametricStages: sanitizeParametricStages(source.parametricStages),
     showOriginal: source.showOriginal !== false,
   };
+}
+
+function sanitizeParametricStages(raw: unknown): ParametricFilterStage[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const source = entry as Record<string, unknown>;
+    const type: ParametricFilterType =
+      source.type === "highpass" || source.type === "bandpass" ? source.type : "lowpass";
+    return [
+      {
+        id: typeof source.id === "string" && source.id ? source.id : `stage-${index + 1}`,
+        type,
+        enabled: source.enabled !== false,
+        frequencyHz: clampNumber(source.frequencyHz, 0, Number.MAX_SAFE_INTEGER, 10),
+        q: clampNumber(source.q, 0.001, 1000, Math.SQRT1_2),
+      },
+    ];
+  });
 }
 
 function sanitizeNumberArray(raw: unknown, maxLength: number): number[] {

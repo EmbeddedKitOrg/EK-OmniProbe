@@ -1,22 +1,32 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Channel,
   ChartConfig,
   ChartType,
   DataFilterKind,
+  ParametricFilterStage,
+  ParametricFilterType,
   ParseMode,
   WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
-import { formatMatlabSos, formatMatlabVector, parseMatlabSos, parseMatlabVector } from "@/lib/chartFilter";
+import {
+  calculateSosFrequencyResponse,
+  designParametricSos,
+  formatMatlabSos,
+  formatMatlabVector,
+  parseMatlabSos,
+  parseMatlabVector,
+} from "@/lib/chartFilter";
+import { exportJson } from "@/lib/exporters";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings, Plus, Trash2 } from "lucide-react";
+import { Download, Eye, EyeOff, GripVertical, Plus, Settings, Trash2 } from "lucide-react";
 
 type ChartConfigSection = "basic" | "channels" | "performance" | "display" | "filter";
 
@@ -53,7 +63,9 @@ export function ChartConfigDialog({
   const [scaleText, setScaleText] = useState("1");
   const [filterError, setFilterError] = useState("");
   const [channelHint, setChannelHint] = useState("");
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const wasOpen = useRef(false);
+  const draggedStageId = useRef<string | null>(null);
   const open = controlledOpen ?? internalOpen;
 
   const setOpen = (nextOpen: boolean) => {
@@ -69,6 +81,7 @@ export function ChartConfigDialog({
       setFirText(formatMatlabVector(nextConfig.dataFilter.firCoefficients));
       setSosText(formatMatlabSos(nextConfig.dataFilter.sosSections));
       setScaleText(formatMatlabVector(nextConfig.dataFilter.scaleValues));
+      setSelectedStageId(nextConfig.dataFilter.parametricStages[0]?.id ?? null);
       setFilterError("");
       setChannelHint(
         chartConfig.channels.length > 0
@@ -92,7 +105,11 @@ export function ChartConfigDialog({
     const filter = localConfig.dataFilter;
     if (allowDataFilter && filter.enabled) {
       if (filter.kind !== "median" && filter.sampleRateHz <= 0) {
-        setFilterError("请输入 MATLAB 设计滤波器时使用的采样率 Fs。");
+        setFilterError(
+          filter.kind === "cascade"
+            ? "请输入参数化滤波器使用的采样率 Fs。"
+            : "请输入 MATLAB 设计滤波器时使用的采样率 Fs。"
+        );
         setActiveSection("filter");
         return;
       }
@@ -116,6 +133,25 @@ export function ChartConfigDialog({
           ...localConfig,
           dataFilter: { ...filter, sosSections: sections, scaleValues: scaleValues.length > 0 ? scaleValues : [1] },
         };
+      } else if (filter.kind === "cascade") {
+        if (filter.parametricStages.length === 0) {
+          setFilterError("请至少添加一级参数化滤波器。");
+          setActiveSection("filter");
+          return;
+        }
+        const invalidIndex = filter.parametricStages.findIndex(
+          (stage) =>
+            !Number.isFinite(stage.frequencyHz) ||
+            stage.frequencyHz <= 0 ||
+            stage.frequencyHz >= filter.sampleRateHz / 2 ||
+            !Number.isFinite(stage.q) ||
+            stage.q <= 0
+        );
+        if (invalidIndex >= 0) {
+          setFilterError(`第 ${invalidIndex + 1} 级参数无效：频率必须低于 Nyquist，Q 必须大于 0。`);
+          setActiveSection("filter");
+          return;
+        }
       }
     }
     setChartConfig(nextConfig);
@@ -133,6 +169,81 @@ export function ChartConfigDialog({
       ...current,
       dataFilter: { ...current.dataFilter, ...patch },
     }));
+  };
+
+  const updateParametricStage = (index: number, patch: Partial<ParametricFilterStage>) => {
+    updateDataFilter({
+      parametricStages: localConfig.dataFilter.parametricStages.map((stage, stageIndex) =>
+        stageIndex === index ? { ...stage, ...patch } : stage
+      ),
+    });
+  };
+
+  const addParametricStage = (afterIndex: number) => {
+    const stage: ParametricFilterStage = {
+      id: crypto.randomUUID(),
+      type: "lowpass",
+      enabled: true,
+      frequencyHz: Math.min(10, localConfig.dataFilter.sampleRateHz / 4 || 10),
+      q: Math.SQRT1_2,
+    };
+    const stages = localConfig.dataFilter.parametricStages.slice();
+    stages.splice(afterIndex + 1, 0, stage);
+    updateDataFilter({
+      parametricStages: stages,
+    });
+    setSelectedStageId(stage.id);
+  };
+
+  const moveParametricStage = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= localConfig.dataFilter.parametricStages.length) return;
+    const stages = localConfig.dataFilter.parametricStages.slice();
+    [stages[index], stages[target]] = [stages[target], stages[index]];
+    updateDataFilter({ parametricStages: stages });
+  };
+
+  const moveParametricStageTo = (stageId: string, targetIndex: number) => {
+    const stages = localConfig.dataFilter.parametricStages.slice();
+    const sourceIndex = stages.findIndex((stage) => stage.id === stageId);
+    if (sourceIndex < 0 || sourceIndex === targetIndex) return;
+    const [stage] = stages.splice(sourceIndex, 1);
+    stages.splice(targetIndex, 0, stage);
+    updateDataFilter({ parametricStages: stages });
+  };
+
+  const removeParametricStage = (index: number) => {
+    const stages = localConfig.dataFilter.parametricStages.filter((_, stageIndex) => stageIndex !== index);
+    updateDataFilter({ parametricStages: stages });
+    setSelectedStageId(stages[Math.min(index, stages.length - 1)]?.id ?? null);
+  };
+
+  const exportParametricStages = async () => {
+    const filter = localConfig.dataFilter;
+    const sosSections = designParametricSos(filter.parametricStages, filter.sampleRateHz);
+    if (!sosSections) {
+      setFilterError("请先填写有效的采样率和滤波级参数，再导出。");
+      return;
+    }
+    try {
+      await exportJson(
+        JSON.stringify(
+          {
+            format: "EK-OmniProbe parametric cascade",
+            version: 1,
+            sampleRateHz: filter.sampleRateHz,
+            stages: filter.parametricStages,
+            sosSections,
+            scaleValues: [1],
+          },
+          null,
+          2
+        ),
+        "omniprobe-filter.json"
+      );
+    } catch (error) {
+      setFilterError(`导出失败：${String(error)}`);
+    }
   };
 
   const updateChannel = (index: number, patch: Partial<Channel>) => {
@@ -213,6 +324,9 @@ export function ChartConfigDialog({
     }
   }, [localConfig.parseMode]);
 
+  const selectedStageIndex = localConfig.dataFilter.parametricStages.findIndex((stage) => stage.id === selectedStageId);
+  const selectedStage = localConfig.dataFilter.parametricStages[selectedStageIndex];
+
   const filterFields = (
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2.5">
@@ -237,6 +351,7 @@ export function ChartConfigDialog({
               <SelectItem value="sos">IIR · SOS + ScaleValues</SelectItem>
               <SelectItem value="fir">FIR · b 系数</SelectItem>
               <SelectItem value="median">实时中值滤波</SelectItem>
+              <SelectItem value="cascade">参数化级联</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -244,7 +359,7 @@ export function ChartConfigDialog({
         {localConfig.dataFilter.kind !== "median" && (
           <NumberField
             id="filterSampleRateHz"
-            label="MATLAB 设计采样率 Fs (Hz)"
+            label={localConfig.dataFilter.kind === "cascade" ? "滤波采样率 Fs (Hz)" : "MATLAB 设计采样率 Fs (Hz)"}
             value={localConfig.dataFilter.sampleRateHz}
             onChange={(sampleRateHz) => updateDataFilter({ sampleRateHz: Math.max(sampleRateHz, 0) })}
           />
@@ -302,6 +417,203 @@ export function ChartConfigDialog({
         />
       )}
 
+      {localConfig.dataFilter.kind === "cascade" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium">滤波器链</div>
+              <p className="text-xs text-muted-foreground">
+                从左到右依次执行；点击节点编辑，拖动节点排序，点击 ＋ 插入
+                {localConfig.dataFilter.sampleRateHz > 0
+                  ? `；频率必须低于 ${(localConfig.dataFilter.sampleRateHz / 2).toFixed(2)} Hz`
+                  : ""}
+                。
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportParametricStages}
+              disabled={localConfig.dataFilter.parametricStages.length === 0}
+              className="shrink-0 gap-1"
+            >
+              <Download className="h-3.5 w-3.5" />
+              导出参数
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto rounded-[18px] border border-border/60 bg-muted/10 p-3">
+            <div className="flex min-w-max items-center gap-2">
+              <span className="rounded-full border border-border/70 bg-background px-3 py-2 text-xs font-medium">
+                输入
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 shrink-0 rounded-full p-0"
+                onClick={() => addParametricStage(-1)}
+                aria-label="在开头添加滤波级"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              {localConfig.dataFilter.parametricStages.map((stage, index) => (
+                <Fragment key={stage.id}>
+                  <span className="text-muted-foreground">→</span>
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(event) => {
+                      draggedStageId.current = stage.id;
+                      event.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      draggedStageId.current = null;
+                    }}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      if (draggedStageId.current) moveParametricStageTo(draggedStageId.current, index);
+                    }}
+                    onClick={() => setSelectedStageId(stage.id)}
+                    className={`flex min-w-36 items-center gap-2 rounded-[16px] border px-3 py-2 text-left transition-colors ${
+                      selectedStageId === stage.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border/70 bg-background hover:border-primary/50"
+                    } ${stage.enabled ? "" : "opacity-50"}`}
+                    aria-pressed={selectedStageId === stage.id}
+                  >
+                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-medium">{parametricTypeLabel(stage.type)}</span>
+                      <span className="block text-[11px] text-muted-foreground">
+                        {formatFrequency(stage.frequencyHz)} · Q {stage.q.toFixed(2)}
+                      </span>
+                    </span>
+                    {stage.enabled ? (
+                      <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 shrink-0 rounded-full p-0"
+                    onClick={() => addParametricStage(index)}
+                    aria-label={`在第 ${index + 1} 级后添加滤波级`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </Fragment>
+              ))}
+              <span className="text-muted-foreground">→</span>
+              <span className="rounded-full border border-border/70 bg-background px-3 py-2 text-xs font-medium">
+                输出
+              </span>
+            </div>
+          </div>
+
+          {selectedStage ? (
+            <div className="rounded-[18px] border border-border/60 p-3">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">第 {selectedStageIndex + 1} 级参数</span>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={selectedStage.enabled}
+                      onCheckedChange={(enabled) => updateParametricStage(selectedStageIndex, { enabled })}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {selectedStage.enabled ? "参与级联" : "已旁路"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    disabled={selectedStageIndex === 0}
+                    onClick={() => moveParametricStage(selectedStageIndex, -1)}
+                    aria-label="左移滤波级"
+                  >
+                    ←
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    disabled={selectedStageIndex === localConfig.dataFilter.parametricStages.length - 1}
+                    onClick={() => moveParametricStage(selectedStageIndex, 1)}
+                    aria-label="右移滤波级"
+                  >
+                    →
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => removeParametricStage(selectedStageIndex)}
+                    aria-label="删除滤波级"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>类型</Label>
+                  <Select
+                    value={selectedStage.type}
+                    onValueChange={(type: ParametricFilterType) => updateParametricStage(selectedStageIndex, { type })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lowpass">低通</SelectItem>
+                      <SelectItem value="highpass">高通</SelectItem>
+                      <SelectItem value="bandpass">带通</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <NumberField
+                  id={`parametric-frequency-${selectedStage.id}`}
+                  label={selectedStage.type === "bandpass" ? "中心频率 (Hz)" : "截止频率 (Hz)"}
+                  value={selectedStage.frequencyHz}
+                  min={0.001}
+                  onChange={(frequencyHz) => updateParametricStage(selectedStageIndex, { frequencyHz })}
+                />
+                <NumberField
+                  id={`parametric-q-${selectedStage.id}`}
+                  label="Q 值"
+                  value={selectedStage.q}
+                  min={0.001}
+                  step={0.01}
+                  onChange={(q) => updateParametricStage(selectedStageIndex, { q })}
+                />
+              </div>
+              {selectedStage.type === "bandpass" && selectedStage.q > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  近似带宽 {(selectedStage.frequencyHz / selectedStage.q).toFixed(2)} Hz；Q 越大，通带越窄。
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-[18px] border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">
+              点击 ＋ 添加第一级滤波器。
+            </div>
+          )}
+
+          <FrequencyResponsePreview
+            stages={localConfig.dataFilter.parametricStages}
+            selectedStage={selectedStage}
+            sampleRateHz={localConfig.dataFilter.sampleRateHz}
+          />
+        </div>
+      )}
+
       <ToggleRow
         label="叠加显示原始曲线"
         checked={localConfig.dataFilter.showOriginal}
@@ -328,7 +640,10 @@ export function ChartConfigDialog({
           )}
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-5xl" style={{ width: "min(calc(100vw - 1rem), 64rem)" }}>
+      <DialogContent
+        className="max-h-[calc(100vh-1rem)] max-w-5xl overflow-y-auto"
+        style={{ width: "min(calc(100vw - 1rem), 64rem)" }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -341,7 +656,7 @@ export function ChartConfigDialog({
                 ["channels", "通道"],
                 ["performance", "性能与采样"],
                 ["display", "显示"],
-                ...(allowDataFilter ? [["filter", "MATLAB 滤波"]] : []),
+                ...(allowDataFilter ? [["filter", "滤波"]] : []),
               ] as Array<[ChartConfigSection, string]>
             ).map(([section, label]) => (
               <Button
@@ -767,21 +1082,150 @@ function gridTemplate(isDelimiter: boolean, isXyScatter: boolean) {
   return cols.join(" ");
 }
 
+function FrequencyResponsePreview({
+  stages,
+  selectedStage,
+  sampleRateHz,
+}: {
+  stages: ParametricFilterStage[];
+  selectedStage?: ParametricFilterStage;
+  sampleRateHz: number;
+}) {
+  const overallSos = designParametricSos(stages, sampleRateHz);
+  const selectedSos = selectedStage ? designParametricSos([{ ...selectedStage, enabled: true }], sampleRateHz) : null;
+  const overall = overallSos ? calculateSosFrequencyResponse(overallSos, sampleRateHz) : [];
+  const selected = selectedSos ? calculateSosFrequencyResponse(selectedSos, sampleRateHz) : [];
+
+  if (overall.length === 0) {
+    return (
+      <div className="rounded-[18px] border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+        填写有效的采样率和滤波级参数后显示频率响应。
+      </div>
+    );
+  }
+
+  const width = 720;
+  const height = 220;
+  const left = 48;
+  const right = 16;
+  const top = 14;
+  const bottom = 30;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const responsePath = (response: typeof overall) =>
+    response
+      .map((point, index) => {
+        const x = left + (index / (response.length - 1)) * plotWidth;
+        const y = top + ((12 - point.magnitudeDb) / 92) * plotHeight;
+        return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+  const minFrequency = overall[0].frequencyHz;
+  const maxFrequency = overall[overall.length - 1]?.frequencyHz ?? sampleRateHz / 2;
+  const markerX =
+    selectedStage && selectedStage.frequencyHz > 0 && selectedStage.frequencyHz < maxFrequency
+      ? left + (Math.log(selectedStage.frequencyHz / minFrequency) / Math.log(maxFrequency / minFrequency)) * plotWidth
+      : null;
+
+  return (
+    <div className="rounded-[18px] border border-border/60 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium">频率响应</div>
+          <p className="text-xs text-muted-foreground">实线为综合响应，虚线为当前选中级；横轴为对数频率。</p>
+        </div>
+        <div className="flex gap-3 text-[11px] text-muted-foreground">
+          <span>— 综合</span>
+          <span className="text-amber-500">┄ 当前级</span>
+        </div>
+      </div>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-auto w-full text-muted-foreground"
+        role="img"
+        aria-label="滤波器幅频响应图"
+      >
+        {[-80, -60, -40, -20, 0].map((db) => {
+          const y = top + ((12 - db) / 92) * plotHeight;
+          return (
+            <g key={db}>
+              <line x1={left} y1={y} x2={width - right} y2={y} stroke="currentColor" opacity="0.16" />
+              <text x={left - 7} y={y + 4} textAnchor="end" fill="currentColor" fontSize="10">
+                {db} dB
+              </text>
+            </g>
+          );
+        })}
+        {[0, Math.floor((overall.length - 1) / 2), overall.length - 1].map((index) => {
+          const x = left + (index / (overall.length - 1)) * plotWidth;
+          return (
+            <g key={index}>
+              <line x1={x} y1={top} x2={x} y2={height - bottom} stroke="currentColor" opacity="0.12" />
+              <text x={x} y={height - 9} textAnchor="middle" fill="currentColor" fontSize="10">
+                {formatFrequency(overall[index].frequencyHz)}
+              </text>
+            </g>
+          );
+        })}
+        {markerX !== null && (
+          <line
+            x1={markerX}
+            y1={top}
+            x2={markerX}
+            y2={height - bottom}
+            stroke="#f59e0b"
+            strokeDasharray="2 4"
+            opacity="0.55"
+          />
+        )}
+        <path d={responsePath(overall)} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" />
+        {selected.length > 0 && (
+          <path d={responsePath(selected)} fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeDasharray="6 4" />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function parametricTypeLabel(type: ParametricFilterType): string {
+  if (type === "highpass") return "高通";
+  if (type === "bandpass") return "带通";
+  return "低通";
+}
+
+function formatFrequency(value: number): string {
+  return value >= 1000 ? `${(value / 1000).toFixed(2)} kHz` : `${Number(value.toPrecision(3))} Hz`;
+}
+
 function NumberField({
   id,
   label,
   value,
+  min,
+  max,
+  step = "any",
   onChange,
 }: {
   id: string;
   label: string;
   value: number;
+  min?: number;
+  max?: number;
+  step?: number | "any";
   onChange: (value: number) => void;
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} type="number" value={value} onChange={(event) => onChange(parseFloat(event.target.value) || 0)} />
+      <Input
+        id={id}
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
+      />
     </div>
   );
 }
