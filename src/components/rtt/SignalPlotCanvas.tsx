@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
-import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain } from "@/lib/chartTypes";
+import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain, WaveformInterpolation } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
@@ -54,6 +54,47 @@ const MARGIN = { top: 20, right: 20, bottom: 28, left: 60 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+interface SignalPathPoint {
+  x: number;
+  y: number;
+}
+
+type SignalPathContext = Pick<CanvasRenderingContext2D, "moveTo" | "lineTo" | "bezierCurveTo">;
+
+export function traceSignalPath(
+  context: SignalPathContext,
+  points: SignalPathPoint[],
+  interpolation: WaveformInterpolation
+) {
+  if (points.length === 0) return;
+  context.moveTo(points[0].x, points[0].y);
+
+  if (interpolation === "linear" || points.length < 3) {
+    for (let index = 1; index < points.length; index += 1) {
+      context.lineTo(points[index].x, points[index].y);
+    }
+    return;
+  }
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[Math.max(index - 1, 0)];
+    const current = points[index];
+    const next = points[index + 1];
+    const following = points[Math.min(index + 2, points.length - 1)];
+    const minY = Math.min(current.y, next.y);
+    const maxY = Math.max(current.y, next.y);
+
+    context.bezierCurveTo(
+      current.x + (next.x - previous.x) / 6,
+      clamp(current.y + (next.y - previous.y) / 6, minY, maxY),
+      next.x - (following.x - current.x) / 6,
+      clamp(next.y - (following.y - current.y) / 6, minY, maxY),
+      next.x,
+      next.y
+    );
+  }
 }
 
 function nextPowerOfTwo(value: number) {
@@ -425,6 +466,7 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
         timeView,
         hoverPoint,
         visibleSeries,
+        interpolation: chartConfig.waveformInterpolation,
         showGrid: chartConfig.showGrid,
         showTooltip: chartConfig.showTooltip,
       });
@@ -444,7 +486,17 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       context.textAlign = "center";
       context.fillText("等待足够的数据样本…", size.width / 2, size.height / 2);
     }
-  }, [chartConfig.showGrid, chartConfig.showTooltip, domain, fftView, hoverPoint, size, timeView, visibleSeries]);
+  }, [
+    chartConfig.showGrid,
+    chartConfig.showTooltip,
+    chartConfig.waveformInterpolation,
+    domain,
+    fftView,
+    hoverPoint,
+    size,
+    timeView,
+    visibleSeries,
+  ]);
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -580,11 +632,13 @@ function drawTimeChart(
     timeView: TimeViewModel;
     hoverPoint: { x: number; y: number } | null;
     visibleSeries: ChartSeries[];
+    interpolation: WaveformInterpolation;
     showGrid: boolean;
     showTooltip: boolean;
   }
 ) {
-  const { size, plotWidth, plotHeight, timeView, hoverPoint, visibleSeries, showGrid, showTooltip } = options;
+  const { size, plotWidth, plotHeight, timeView, hoverPoint, visibleSeries, interpolation, showGrid, showTooltip } =
+    options;
   const { latestSec, visibleDurationSec, startSec, endSec, points, yMin, yMax } = timeView;
 
   if (showGrid) {
@@ -608,26 +662,25 @@ function drawTimeChart(
     context.beginPath();
     context.strokeStyle = item.color;
     context.lineWidth = 2;
-    let started = false;
+    const pathPoints: SignalPathPoint[] = [];
+    const flushPath = () => {
+      traceSignalPath(context, pathPoints, interpolation);
+      pathPoints.length = 0;
+    };
 
     for (const point of points) {
       const value = point.values[item.key];
       if (!Number.isFinite(value)) {
-        started = false;
+        flushPath();
         continue;
       }
 
       const x = MARGIN.left + ((point.timeSec - startSec) / (endSec - startSec || 1)) * plotWidth;
       const y = MARGIN.top + (1 - (value - yMin) / (yMax - yMin || 1)) * plotHeight;
-
-      if (!started) {
-        context.moveTo(x, y);
-        started = true;
-      } else {
-        context.lineTo(x, y);
-      }
+      pathPoints.push({ x, y });
     }
 
+    flushPath();
     context.stroke();
   }
 

@@ -50,6 +50,9 @@ export type ChartType = "waveform" | "line" | "bar" | "scatter" | "xy-scatter";
  */
 export type SignalDomain = "time" | "fft";
 
+/** 时域波形相邻采样点的连接方式 */
+export type WaveformInterpolation = "linear" | "smooth";
+
 /**
  * 图表配置
  */
@@ -88,6 +91,8 @@ export interface ChartConfig {
   sampleRateHz: number;
   /** 波形示波器的默认显示域 */
   signalDomain: SignalDomain;
+  /** 时域波形连接方式 */
+  waveformInterpolation: WaveformInterpolation;
 
   // 显示配置
   /** 是否显示网格 */
@@ -133,6 +138,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   fftWindowSize: 1024,
   sampleRateHz: 0,
   signalDomain: "time",
+  waveformInterpolation: "linear",
 
   showGrid: true,
   showLegend: true,
@@ -242,6 +248,7 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
     fftWindowSize: clampInt(source.fftWindowSize, 32, 4096, DEFAULT_CHART_CONFIG.fftWindowSize),
     sampleRateHz: clampNumber(source.sampleRateHz, 0, Number.MAX_SAFE_INTEGER, 0),
     signalDomain,
+    waveformInterpolation: source.waveformInterpolation === "smooth" ? "smooth" : "linear",
     showGrid: source.showGrid !== false,
     showLegend: source.showLegend !== false,
     showTooltip: source.showTooltip !== false,

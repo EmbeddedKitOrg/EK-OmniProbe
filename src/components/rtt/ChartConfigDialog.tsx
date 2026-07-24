@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Channel, ChartConfig, ChartType, ParseMode } from "@/lib/chartTypes";
+import type { Channel, ChartConfig, ChartType, ParseMode, WaveformInterpolation } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -380,11 +380,30 @@ export function ChartConfigDialog({
           {/* 5. 显示选项（折叠） */}
           <CollapsibleSection
             title="显示选项"
-            subtitle="网格、图例、Tooltip、动画"
+            subtitle="连接方式、网格、图例、Tooltip、动画"
             open={showDisplay}
             onToggle={() => setShowDisplay(!showDisplay)}
           >
             <div className="grid gap-3 md:grid-cols-2">
+              {localConfig.chartType === "waveform" && (
+                <div className="space-y-1.5 rounded-[18px] border border-border/60 px-3 py-2.5">
+                  <Label>波形连接方式</Label>
+                  <Select
+                    value={localConfig.waveformInterpolation}
+                    onValueChange={(waveformInterpolation: WaveformInterpolation) =>
+                      setLocalConfig({ ...localConfig, waveformInterpolation })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="linear">直线连接</SelectItem>
+                      <SelectItem value="smooth">平滑曲线</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <ToggleRow
                 label="显示网格"
                 checked={localConfig.showGrid}

@@ -177,7 +177,14 @@ try {
       { id: "setup", type: "sequence", commands: "AT\nAT+GMR", intervalMs: 999999 },
       { id: "ready", type: "indicator", channel: "ready", threshold: "invalid" },
       { id: "xy", type: "xy-chart", xChannel: "x", yChannel: "y", pointLimit: 99999 },
-      { id: "yt", type: "yt-chart", channels: ["temp", "speed"], pointLimit: -1, rows: 99 },
+      {
+        id: "yt",
+        type: "yt-chart",
+        channels: ["temp", "speed"],
+        pointLimit: -1,
+        interpolation: "smooth",
+        rows: 99,
+      },
       {
         id: "imu",
         type: "imu-3d",
@@ -253,6 +260,7 @@ try {
   assert.equal(panel.widgets[9].pointLimit, 10);
   assert.deepEqual(panel.widgets[9].channels, ["temp", "speed"]);
   assert.equal(panel.widgets[9].height, 708);
+  assert.equal(panel.widgets[9].interpolation, "smooth");
   assert.equal(panel.widgets[11].pointLimit, 2000);
   assert.equal(panel.widgets[12].direction, "rx");
   assert.deepEqual(
