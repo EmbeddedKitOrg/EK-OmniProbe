@@ -97,33 +97,19 @@ export function ChartParserPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-        <Button size="icon" variant="outline" className="h-8 w-8" onClick={onClose} title="返回通道列表">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8 shrink-0"
+          onClick={onClose}
+          title="返回通道列表"
+        >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">数据解析</div>
           <div className="text-xs text-muted-foreground">按当前串口样本预览解析结果</div>
         </div>
-        {allowDataFilter && (
-          <ChartConfigDialog
-            chartConfig={chartConfig}
-            setChartConfig={setChartConfig}
-            title="串口图表设置"
-            allowDataFilter
-            allowParserConfig={false}
-            initialSection="filter"
-            trigger={
-              <Button
-                size="sm"
-                variant={chartConfig.dataFilter.enabled ? "secondary" : "outline"}
-                className="h-8 gap-1 px-2"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                图表配置
-              </Button>
-            }
-          />
-        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" title="查看输入格式参考">
@@ -172,6 +158,26 @@ export function ChartParserPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        {allowDataFilter && (
+          <ChartConfigDialog
+            chartConfig={chartConfig}
+            setChartConfig={setChartConfig}
+            title="串口图表设置"
+            allowDataFilter
+            allowParserConfig={false}
+            initialSection="filter"
+            trigger={
+              <Button
+                variant={chartConfig.dataFilter.enabled ? "secondary" : "outline"}
+                className="w-full justify-start gap-2"
+              >
+                <Settings2 className="h-4 w-4" />
+                图表配置
+              </Button>
+            }
+          />
+        )}
+
         <div className="space-y-2">
           <Label>解析模式</Label>
           <Select value={parseMode} onValueChange={(value: ParseMode) => setParseMode(value)}>
