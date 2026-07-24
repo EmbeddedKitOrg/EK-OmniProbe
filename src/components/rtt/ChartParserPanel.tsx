@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronLeft } from "lucide-react";
+import { open } from "@tauri-apps/plugin-shell";
+import { AlertCircle, CheckCircle2, ChevronLeft, CircleHelp, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { parseChartData } from "@/lib/parseChartData";
+
+const DATA_FORMAT_DOC_URL =
+  "https://embeddedkitorg.github.io/EK-OmniProbe/SERIAL_TERMINAL_GUIDE.html#data-parsing-formats";
 
 interface ChartParserPanelProps {
   chartConfig: ChartConfig;
@@ -93,10 +98,53 @@ export function ChartParserPanel({
         <Button size="icon" variant="outline" className="h-8 w-8" onClick={onClose} title="返回通道列表">
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">数据解析</div>
           <div className="text-xs text-muted-foreground">按当前串口样本预览解析结果</div>
         </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" title="查看输入格式参考">
+              <CircleHelp className="h-4 w-4" />
+              <span className="sr-only">查看输入格式参考</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="left" align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-3">
+            <div>
+              <div className="text-sm font-semibold">输入格式参考</div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                每行数据会先解析为数值通道；预览里的字段名就是组件需要绑定的通道 key。
+              </p>
+            </div>
+            <div className="space-y-2 text-xs">
+              {[
+                ["JSON", '{"temp":25.3,"voltage":3.3}'],
+                ["KV", "temp=25.3,voltage=3.3"],
+                ["分隔符", "25.3,3.3"],
+                ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
+                ["JustFloat", "little-endian float32 + 00 00 80 7F"],
+              ].map(([label, example]) => (
+                <div key={label}>
+                  <div className="mb-1 font-medium text-muted-foreground">{label}</div>
+                  <code className="block overflow-x-auto rounded-lg bg-muted px-2 py-1.5 font-mono text-[11px]">
+                    {example}
+                  </code>
+                </div>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() =>
+                void open(DATA_FORMAT_DOC_URL).catch((error) => console.error("打开数据格式文档失败:", error))
+              }
+            >
+              查看完整文档
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">

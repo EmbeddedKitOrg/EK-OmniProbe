@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
+import { open } from "@tauri-apps/plugin-shell";
 import {
+  CircleHelp,
   Download,
   GripVertical,
   LayoutDashboard,
@@ -17,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useLogStore } from "@/stores/logStore";
@@ -51,6 +54,47 @@ const EMPTY_CHART_VALUES: Record<string, number> = {};
 const CANVAS_GAP = 12;
 const MIN_WIDGET_WIDTH = 200;
 const MIN_WIDGET_HEIGHT = 96;
+const WIDGET_INPUT_DOC_URL =
+  "https://embeddedkitorg.github.io/EK-OmniProbe/SERIAL_TERMINAL_GUIDE.html#widget-input-formats";
+const WIDGET_INPUT_HELP: Partial<
+  Record<SerialControlWidgetType, { description: string; example: string; binding: string }>
+> = {
+  value: {
+    description: "显示一个数值通道的最新值。",
+    example: '{"temp":25.3}',
+    binding: "接收通道 key → temp",
+  },
+  indicator: {
+    description: "通道值达到阈值时点亮状态灯。",
+    example: '{"ready":1}',
+    binding: "接收通道 key → ready",
+  },
+  gauge: {
+    description: "把通道最新值映射到配置的上下限。",
+    example: '{"battery":78}',
+    binding: "接收通道 key → battery",
+  },
+  "yt-chart": {
+    description: "以接收时间为横轴显示最多 6 个数值通道。",
+    example: '{"ch1":1.2,"ch2":3.4}',
+    binding: "Y 通道 → ch1、ch2",
+  },
+  "fft-chart": {
+    description: "对最多 6 个数值通道显示频谱预览。",
+    example: '{"ch1":1.2,"ch2":3.4}',
+    binding: "Y 通道 → ch1、ch2",
+  },
+  "xy-chart": {
+    description: "分别使用一个 X 通道和一个 Y 通道绘制轨迹。",
+    example: '{"x":0.3,"y":0.8}',
+    binding: "X 通道 → x，Y 通道 → y",
+  },
+  "imu-3d": {
+    description: "欧拉角直驱分别读取 Roll、Pitch、Yaw。",
+    example: '{"roll":10.2,"pitch":-3.1,"yaw":45}',
+    binding: "Roll → roll，Pitch → pitch，Yaw → yaw",
+  },
+};
 
 interface SerialControlPanelProps {
   sendPayload?: (text: string, options?: { hexMode?: boolean }) => Promise<void>;
@@ -1501,6 +1545,16 @@ export function SerialControlPanel({
   };
 
   const selectedWidget = panel.widgets.find((widget) => widget.id === selectedWidgetId);
+  const widgetInputHelp =
+    selectedWidget?.type === "imu-3d" && selectedWidget.sourceMode === "imu6"
+      ? {
+          description: "六轴融合读取三轴加速度和三轴陀螺仪。",
+          example: '{"ax":0.01,"ay":0.02,"az":1,"gx":0.2,"gy":-0.1,"gz":0}',
+          binding: "加速度 → ax/ay/az，陀螺仪 → gx/gy/gz",
+        }
+      : selectedWidget
+        ? WIDGET_INPUT_HELP[selectedWidget.type]
+        : undefined;
   const canvasWidth = Math.max(900, ...panel.widgets.map((widget) => widget.left + widget.width + CANVAS_GAP));
   const canvasHeight = Math.max(560, ...panel.widgets.map((widget) => widget.top + widget.height + CANVAS_GAP));
   const inspectorHost = typeof document === "undefined" ? null : document.getElementById("serial-widget-inspector");
@@ -1513,6 +1567,45 @@ export function SerialControlPanel({
                 <div className="truncate text-sm font-medium">{selectedWidget.label}</div>
                 <div className="text-[11px] text-muted-foreground">{selectedWidget.type}</div>
               </div>
+              {widgetInputHelp && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="查看组件输入格式">
+                      <CircleHelp className="h-4 w-4" />
+                      <span className="sr-only">查看组件输入格式</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="left" align="start" className="w-80 max-w-[calc(100vw-2rem)] space-y-3">
+                    <div>
+                      <div className="text-sm font-semibold">{selectedWidget.label} · 输入参考</div>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{widgetInputHelp.description}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">JSON 单行示例</div>
+                      <code className="block overflow-x-auto rounded-lg bg-muted px-2 py-2 font-mono text-[11px]">
+                        {widgetInputHelp.example}
+                      </code>
+                    </div>
+                    <div className="rounded-lg border border-border/60 px-2 py-2 text-xs">
+                      {widgetInputHelp.binding}
+                    </div>
+                    <p className="text-[11px] leading-5 text-muted-foreground">
+                      先在“数据”页应用解析规则，再把预览产生的通道 key 填入组件属性。
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() =>
+                        void open(WIDGET_INPUT_DOC_URL).catch((error) => console.error("打开组件输入文档失败:", error))
+                      }
+                    >
+                      查看完整文档
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              )}
               <Button
                 size="icon"
                 variant="ghost"
