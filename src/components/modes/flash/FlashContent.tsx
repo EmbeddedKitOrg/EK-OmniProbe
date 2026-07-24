@@ -59,8 +59,8 @@ export function FlashContent() {
   );
 
   return (
-    <div className="h-full p-4 overflow-y-auto">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="flash-content h-full overflow-y-auto p-4">
+      <div className="flash-content-grid grid grid-cols-2 gap-4">
         {/* Chip info */}
         <Card>
           <CardHeader className="py-3">

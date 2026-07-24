@@ -5,7 +5,7 @@ import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode } from "./comp
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
-import { useEffect, useCallback, useMemo, useState } from "react";
+import { useEffect, useCallback, useMemo, useState, type CSSProperties } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
@@ -56,7 +56,7 @@ function MainApp() {
   useSerialEvents();
   useBluetoothEvents();
 
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(() => !window.matchMedia("(max-width: 1100px)").matches);
   const [inspectorWidth, setInspectorWidth] = useState(288);
   const addLog = useLogStore((state) => state.addLog);
   const connected = useProbeStore((s) => s.connected);
@@ -202,6 +202,16 @@ function MainApp() {
     return () => window.removeEventListener("focus-inspector", focusInspector);
   }, []);
 
+  useEffect(() => {
+    const compactLayout = window.matchMedia("(max-width: 1100px)");
+    const collapseInspector = (event: MediaQueryListEvent) => {
+      if (event.matches) setInspectorOpen(false);
+    };
+
+    compactLayout.addEventListener("change", collapseInspector);
+    return () => compactLayout.removeEventListener("change", collapseInspector);
+  }, []);
+
   // Auto-disconnect logic
   useEffect(() => {
     // If auto-disconnect is disabled, not connected, or RTT is running, don't auto-disconnect
@@ -257,8 +267,8 @@ function MainApp() {
         <TopBar inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
 
         <div
-          className="grid min-h-0 overflow-hidden"
-          style={{ gridTemplateColumns: inspectorOpen ? `minmax(0, 1fr) 8px ${inspectorWidth}px` : "minmax(0, 1fr)" }}
+          className={`ide-workspace-grid grid min-h-0 overflow-hidden ${inspectorOpen ? "inspector-open" : ""}`}
+          style={{ "--inspector-width": `${inspectorWidth}px` } as CSSProperties}
         >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
             <div key={mode} className="mode-stage h-full">
@@ -275,7 +285,7 @@ function MainApp() {
               <button
                 type="button"
                 aria-label="调整配置检查器宽度"
-                className="group flex h-full cursor-col-resize items-center justify-center bg-transparent"
+                className="ide-inspector-resizer group flex h-full cursor-col-resize items-center justify-center bg-transparent"
                 onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
                 onPointerMove={(event) => {
                   if (event.currentTarget.hasPointerCapture(event.pointerId)) {

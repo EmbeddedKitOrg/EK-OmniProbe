@@ -16,6 +16,8 @@ import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { useChipStore } from "@/stores/chipStore";
 import { useAppStore } from "@/stores/appStore";
+import { useBluetoothStore } from "@/stores/bluetoothStore";
+import { useSerialStore } from "@/stores/serialStore";
 import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
@@ -35,7 +37,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
-  const connected = useProbeStore((state) => state.connected);
+  const probeConnected = useProbeStore((state) => state.connected);
   const selectedProbe = useProbeStore((state) => state.selectedProbe);
   const rttConnected = useRttStore((state) => state.rttConnected);
   const rttRunning = useRttStore((state) => state.isRunning);
@@ -45,8 +47,12 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
   const firmwarePath = useFlashStore((state) => state.firmwarePath);
   const selectedChip = useChipStore((state) => state.selectedChip);
   const mode = useAppStore((state) => state.mode);
+  const serialConnected = useSerialStore((state) => state.connected);
+  const bluetoothConnected = useBluetoothStore((state) => state.connected);
   const firmwareFileName = firmwarePath?.split(/[\\/]/).pop();
   const { label, icon: ModeIcon } = MODE_META[mode];
+  const connectionLabel = mode === "serial" ? "串口" : mode === "bluetooth" ? "蓝牙" : "探针";
+  const connected = mode === "serial" ? serialConnected : mode === "bluetooth" ? bluetoothConnected : probeConnected;
 
   return (
     <header className="surface-shell no-select flex h-full min-w-0 items-center gap-3 rounded-[14px] px-3">
@@ -123,7 +129,10 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
         )}
         <span className="status-chip flex items-center gap-1.5">
           <span className={connected ? "h-2 w-2 rounded-full bg-green-500" : "h-2 w-2 rounded-full bg-red-500"} />
-          <span className={connected ? "text-green-600" : "text-red-500"}>{connected ? "已连接" : "未连接"}</span>
+          <span className={connected ? "text-green-600" : "text-red-500"}>
+            {connectionLabel}
+            {connected ? "已连接" : "未连接"}
+          </span>
         </span>
       </div>
     </header>

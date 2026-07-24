@@ -212,6 +212,47 @@ textarea:focus {
   border-radius: 14px;
 }
 
+.ide-workspace-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ide-workspace-grid.inspector-open {
+  grid-template-columns: minmax(0, 1fr) 8px var(--inspector-width);
+}
+
+.flash-content {
+  container: flash-content / inline-size;
+}
+
+@container flash-content (max-width: 720px) {
+  .flash-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .ide-workspace-grid.inspector-open {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ide-workspace-grid.inspector-open .ide-inspector-resizer {
+    display: none;
+  }
+
+  .ide-workspace-grid.inspector-open .ide-inspector {
+    position: absolute;
+    z-index: 20;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(var(--inspector-width), calc(100% - 1rem));
+    border-left: 1px solid hsl(var(--border) / 0.7);
+    background: var(--surface-1);
+    box-shadow: -12px 0 28px rgba(57, 75, 119, 0.16);
+  }
+}
+
 .ide-workbench .ide-inspector .surface-card {
   border-width: 0 0 1px;
   border-radius: 0;
