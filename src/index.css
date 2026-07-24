@@ -236,9 +236,29 @@ textarea:focus {
   container: flash-content / inline-size;
 }
 
+.chart-viewer-container {
+  container: chart-viewer / inline-size;
+}
+
+.serial-imu-container {
+  container: serial-imu / inline-size;
+}
+
 @container flash-content (max-width: 720px) {
   .flash-content-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container chart-viewer (min-width: 900px) {
+  .chart-viewer-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+@container serial-imu (min-width: 460px) {
+  .serial-imu-grid {
+    grid-template-columns: minmax(240px, 1fr) 180px;
   }
 }
 

@@ -511,7 +511,7 @@ export function ChartViewer({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-4 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
+    <div className="chart-viewer-container flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-4 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
       <div className="flex shrink-0 flex-wrap items-center gap-2.5 rounded-[24px] border border-border/50 bg-secondary/70 px-3.5 py-2.5">
         <Button
           size="sm"
@@ -677,7 +677,7 @@ export function ChartViewer({
         ))}
       </div>
 
-      <div className="grid min-h-[360px] flex-1 gap-3 min-[1150px]:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="chart-viewer-grid grid min-h-[360px] flex-1 gap-3">
         <div className="flex min-h-[360px] flex-col gap-3">
           <div ref={chartContainerRef} className="min-h-[320px] flex-1">
             {chartDataFormatted.length === 0 ? (
