@@ -236,7 +236,7 @@ export function SerialSidebar() {
         ))}
       </div>
 
-      <div className={cn("min-h-0 flex-1 space-y-0 overflow-y-auto p-4", inspectorTab !== "connection" && "hidden")}>
+      <div className={cn("min-h-0 flex-1 space-y-0 overflow-y-auto p-3", inspectorTab !== "connection" && "hidden")}>
         {/* Data Source Selection */}
         <Card>
           <CardHeader className="py-4">
@@ -821,38 +821,6 @@ export function SerialSidebar() {
           </Card>
         </Collapsible>
 
-        {/* Connect Button */}
-        <Button
-          className={`w-full transition-all ${
-            connected ? "bg-red-500 hover:bg-red-600 text-white" : "bg-primary hover:bg-primary/90"
-          } ${connecting && "animate-pulse"}`}
-          onClick={connected ? handleDisconnect : handleConnect}
-          disabled={
-            connecting ||
-            (!connected && activeSourceType === "local" && !localConfig.port) ||
-            (!connected &&
-              activeSourceType === "udp" &&
-              (!udpConfig.local_host || !udpConfig.remote_host || udpConfig.remote_port < 1))
-          }
-        >
-          {connecting ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              连接中...
-            </>
-          ) : connected ? (
-            activeSourceType === "simulation" ? (
-              "停止模拟"
-            ) : (
-              "断开连接"
-            )
-          ) : activeSourceType === "simulation" ? (
-            "启动模拟"
-          ) : (
-            "连接"
-          )}
-        </Button>
-
         {/* Statistics */}
         {connected && (
           <Card>
@@ -887,10 +855,45 @@ export function SerialSidebar() {
         />
       </div>
 
-      <div className={cn("min-h-0 flex-1 overflow-y-auto p-4", inspectorTab !== "widget" && "hidden")}>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto p-3", inspectorTab !== "widget" && "hidden")}>
         <div className="mb-3 text-xs text-muted-foreground">进入编辑模式并点击画布组件，在这里修改属性。</div>
         <div id="serial-widget-inspector" />
       </div>
+
+      {inspectorTab === "connection" && (
+        <div className="inspector-action-bar shrink-0">
+          <Button
+            className={`w-full transition-all ${
+              connected ? "bg-red-500 hover:bg-red-600 text-white" : "bg-primary hover:bg-primary/90"
+            } ${connecting && "animate-pulse"}`}
+            onClick={connected ? handleDisconnect : handleConnect}
+            disabled={
+              connecting ||
+              (!connected && activeSourceType === "local" && !localConfig.port) ||
+              (!connected &&
+                activeSourceType === "udp" &&
+                (!udpConfig.local_host || !udpConfig.remote_host || udpConfig.remote_port < 1))
+            }
+          >
+            {connecting ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                连接中...
+              </>
+            ) : connected ? (
+              activeSourceType === "simulation" ? (
+                "停止模拟"
+              ) : (
+                "断开连接"
+              )
+            ) : activeSourceType === "simulation" ? (
+              "启动模拟"
+            ) : (
+              "连接"
+            )}
+          </Button>
+        </div>
+      )}
     </aside>
   );
 }
