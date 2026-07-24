@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.8.0-blue" alt="Version 1.8.0" />
+  <img src="https://img.shields.io/badge/version-1.8.1-blue" alt="Version 1.8.1" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -35,7 +35,7 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 1.8.0 的工作方式
+## 1.8.1 的工作方式
 
 当前界面采用统一的 IDE 式布局：
 
@@ -44,6 +44,7 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 - 中央工作区专注当前任务，低频操作统一收进“更多”
 - 右侧配置检查器负责连接和参数设置，可折叠、拖动宽度
 - 底部日志默认折叠，需要排查连接、解析或烧录问题时再展开
+- 工作台会按实际容器宽度调整工具栏、检查器、图表和 IMU 布局，窄窗口下仍可完成主要操作
 
 RTT、串口和 BLE 图表可以分别弹出为独立窗口。串口控制面板也可以提升为独立窗口；切换主工作台不会停止数据接收，暂停、清空、配置和收回操作仅影响对应的数据源。
 
@@ -132,12 +133,14 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 
 ## 串口控制面板与模拟数据
 
-1.8.0 新增串口快捷控制面板，适合把设备调试命令、状态和实时曲线组合成专用操作台：
+1.8.1 继续完善串口快捷控制面板，适合把设备调试命令、状态和实时曲线组合成专用操作台：
 
 - 发送组件：按钮、开关、滑块、参数输入、参数微调、摇杆和命令序列
 - 显示组件：接收数值、状态灯、能量槽、串口日志、YT 波形、FFT、XY 曲线和 IMU 3D 姿态
 - 画布采用完全自由布局，可任意拖动和连续缩放，支持精确坐标、自动保存以及 JSON 导入导出
-- 控制面板可提升为独立窗口；串口连接、发送记录、通道数据和最近日志继续由主窗口统一同步
+- 控制面板可提升为独立窗口；运行模式使用完整画布，编辑模式的组件属性面板可浮动、拖动和收起
+- YT 与 FFT 曲线支持一键自适应；串口日志可自定义年月日、时分秒和毫秒等时间戳格式
+- 所有控制面板组件与数据解析格式均提供输入示例、数据流说明和在线详细文档入口
 - IMU 组件支持欧拉角直驱和六轴互补融合，可执行姿态归零与静止零偏校准
 
 串口模拟数据源可生成正弦、方波、三角波、锯齿波、噪声、固定值、圆形或李萨如 XY 轨迹，以及三轴/六轴 IMU 数据。模拟数据与真实串口共用日志、解析、图表和控制面板链路，便于在没有设备时搭建和验证界面。
@@ -220,7 +223,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`1.8.0`
+- 当前版本：`1.8.1`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
