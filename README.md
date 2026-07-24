@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.7.1-blue" alt="Version 1.7.1" />
+  <img src="https://img.shields.io/badge/version-1.8.0-blue" alt="Version 1.8.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -31,11 +31,11 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 本地串口、TCP、UDP，日志 / 终端双视图，文本 / HEX 收发     |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP/模拟数据，日志、终端、控制面板与文本/HEX 收发 |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 1.7.0 的工作方式
+## 1.8.0 的工作方式
 
 当前界面采用统一的 IDE 式布局：
 
@@ -45,7 +45,7 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 - 右侧配置检查器负责连接和参数设置，可折叠、拖动宽度
 - 底部日志默认折叠，需要排查连接、解析或烧录问题时再展开
 
-RTT、串口和 BLE 图表可以分别弹出为独立窗口。三个窗口能够同时运行；切换主工作台不会停止数据接收，也不会自动收回已经分离的窗口。暂停、清空、配置和收回操作仅影响对应的数据源。
+RTT、串口和 BLE 图表可以分别弹出为独立窗口。串口控制面板也可以提升为独立窗口；切换主工作台不会停止数据接收，暂停、清空、配置和收回操作仅影响对应的数据源。
 
 ## 下载与安装
 
@@ -95,6 +95,8 @@ sudo ./install-udev-rules.sh
 2. 配置连接参数并点击“连接”，然后开始接收。
 3. “日志”适合持续观察和筛选，“终端”适合 CLI / shell 式交互。
 4. 数值流可以直接进入分屏、波形或 FFT；发送栏支持历史、换行和 HEX。
+5. 没有硬件时可选择“模拟数据”，生成通用波形、XY 轨迹或 IMU 数据验证完整流程。
+6. 需要集中操作设备时切换到“控制面板”，把常用命令和数据显示组件自由排布在画布上。
 
 ### 使用 BLE 或经典蓝牙 SPP
 
@@ -124,9 +126,21 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - JSON / KV：按字段生成通道
 - XY 数据：XY 散点图
 - JustFloat / VOFA RawData：串口二进制浮点流
-- Time / FFT：时域和频域切换
+- Time / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
-图表工作台支持字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。
+图表工作台支持数据解析预览、字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。串口分屏还可以折叠原始数据，把更多空间留给波形。
+
+## 串口控制面板与模拟数据
+
+1.8.0 新增串口快捷控制面板，适合把设备调试命令、状态和实时曲线组合成专用操作台：
+
+- 发送组件：按钮、开关、滑块、参数输入、参数微调、摇杆和命令序列
+- 显示组件：接收数值、状态灯、能量槽、串口日志、YT 波形、FFT、XY 曲线和 IMU 3D 姿态
+- 画布采用完全自由布局，可任意拖动和连续缩放，支持精确坐标、自动保存以及 JSON 导入导出
+- 控制面板可提升为独立窗口；串口连接、发送记录、通道数据和最近日志继续由主窗口统一同步
+- IMU 组件支持欧拉角直驱和六轴互补融合，可执行姿态归零与静止零偏校准
+
+串口模拟数据源可生成正弦、方波、三角波、锯齿波、噪声、固定值、圆形或李萨如 XY 轨迹，以及三轴/六轴 IMU 数据。模拟数据与真实串口共用日志、解析、图表和控制面板链路，便于在没有设备时搭建和验证界面。
 
 串口还可以启动本机 AI 数据桥接，把当前图表解析结果以标准批量样本提供给本地客户端。默认只读，写操作需要显式授权。详见 [AI 数据桥接与可视化调参指南](docs/AI_TUNING_GUIDE.md)。
 
@@ -147,7 +161,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 ### 数据与文件
 
 - 固件：ELF、HEX、BIN、AXF、OUT、IHEX
-- 串口数据源：本地串口、TCP、双向 UDP
+- 串口数据源：本地串口、TCP、双向 UDP、模拟数据
 - 文本显示：UTF-8、ASCII、文本 / HEX、ANSI 颜色
 - 图表解析：单值、CSV、JSON、KV、XY、JustFloat
 
@@ -159,7 +173,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 | [RTT 用户手册](docs/RTT_USER_MANUAL.md)       | RTT 接入、连接、通道和常见问题           |
 | [图表与 FFT](docs/RTT_CHART_GUIDE.md)         | 数值格式、波形、FFT、字段和性能参数      |
 | [XY 散点图](docs/RTT_XY_SCATTER_GUIDE.md)     | 绘制真正的 XY 数据和参数曲线             |
-| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)     | 日志 / 终端视图、收发、复制和控制键      |
+| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)     | 数据源、日志、终端、控制面板和波形       |
 | [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md) | BLE、NUS、GATT、Notify / Write 和 SPP    |
 | [设置中心](docs/SETTINGS_GUIDE.md)            | 主题、背景、默认工作台和日志偏好         |
 | [AI 数据桥接](docs/AI_TUNING_GUIDE.md)        | 将串口数值流交给本地 AI 客户端分析和调参 |
@@ -206,7 +220,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`1.7.0`
+- 当前版本：`1.8.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
