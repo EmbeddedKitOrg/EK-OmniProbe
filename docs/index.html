@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="EK-OmniProbe 用户文档：数据格式、串口控制面板、RTT、蓝牙与调试指南。" />
+    <title>EK-OmniProbe 用户文档</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/themes/vue.css" />
+    <style>
+      :root {
+        --theme-color: #2563eb;
+        --base-font-size: 16px;
+        --sidebar-width: 290px;
+      }
+
+      body {
+        color: #1e293b;
+        background: #f8fafc;
+      }
+
+      .sidebar {
+        background: #ffffff;
+        border-right: 1px solid #e2e8f0;
+      }
+
+      .sidebar-nav > ul > li > p {
+        margin-top: 1.4rem;
+        color: #0f172a;
+        font-weight: 700;
+      }
+
+      .markdown-section {
+        max-width: 980px;
+        padding: 42px 48px 80px;
+      }
+
+      .markdown-section h1,
+      .markdown-section h2,
+      .markdown-section h3 {
+        color: #0f172a;
+        letter-spacing: -0.02em;
+      }
+
+      .markdown-section h2 {
+        margin-top: 2.8rem;
+        padding-bottom: 0.55rem;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .markdown-section blockquote {
+        border-left: 4px solid var(--theme-color);
+        border-radius: 0 10px 10px 0;
+        background: #eff6ff;
+        color: #334155;
+      }
+
+      .markdown-section table {
+        display: table;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .markdown-section th {
+        background: #f1f5f9;
+      }
+
+      .markdown-section pre {
+        border-radius: 12px;
+        box-shadow: 0 10px 24px rgb(15 23 42 / 8%);
+      }
+
+      .markdown-section code {
+        border-radius: 5px;
+      }
+
+      .app-name-link {
+        color: #0f172a !important;
+        font-weight: 800 !important;
+      }
+
+      @media (max-width: 768px) {
+        .markdown-section {
+          padding: 28px 20px 64px;
+        }
+
+        .markdown-section table {
+          display: block;
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">正在加载文档…</div>
+    <script>
+      window.$docsify = {
+        name: "EK-OmniProbe",
+        repo: "https://github.com/EmbeddedKitOrg/EK-OmniProbe",
+        homepage: "README.md",
+        loadSidebar: true,
+        subMaxLevel: 2,
+        auto2top: true,
+        relativePath: true,
+        search: {
+          paths: "auto",
+          placeholder: "搜索格式、组件或错误…",
+          noData: "没有找到相关内容",
+          depth: 4,
+        },
+        copyCode: {
+          buttonText: "复制",
+          errorText: "复制失败",
+          successText: "已复制",
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/docsify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify@4.13.1/lib/plugins/search.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2.1.1/dist/docsify-copy-code.min.js"></script>
+  </body>
+</html>

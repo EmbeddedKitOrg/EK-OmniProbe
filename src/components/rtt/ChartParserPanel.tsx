@@ -10,8 +10,7 @@ import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { parseChartData } from "@/lib/parseChartData";
 
-const DATA_FORMAT_DOC_URL =
-  "https://embeddedkitorg.github.io/EK-OmniProbe/SERIAL_TERMINAL_GUIDE.html#data-parsing-formats";
+const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
 
 interface ChartParserPanelProps {
   chartConfig: ChartConfig;
@@ -137,7 +136,9 @@ export function ChartParserPanel({
               variant="outline"
               className="w-full gap-2"
               onClick={() =>
-                void open(DATA_FORMAT_DOC_URL).catch((error) => console.error("打开数据格式文档失败:", error))
+                void open(`${DATA_FORMAT_DOC_URL}?id=${parseMode}`).catch((error) =>
+                  console.error("打开数据格式文档失败:", error)
+                )
               }
             >
               查看完整文档

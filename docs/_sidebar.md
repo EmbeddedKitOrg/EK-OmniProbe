@@ -1,0 +1,21 @@
+- 开始使用
+  - [文档首页](README.md)
+  - [快速入门](QUICK_START.md)
+
+- 数据与控制面板
+  - [输入数据解析格式](DATA_FORMAT_GUIDE.md)
+  - [串口控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)
+  - [串口终端](SERIAL_TERMINAL_GUIDE.md)
+  - [AI 数据桥接](AI_TUNING_GUIDE.md)
+
+- RTT 与图表
+  - [RTT 用户手册](RTT_USER_MANUAL.md)
+  - [RTT 图表与波形](RTT_CHART_GUIDE.md)
+  - [RTT XY 散点图](RTT_XY_SCATTER_GUIDE.md)
+
+- 蓝牙与设置
+  - [蓝牙用户手册](BLUETOOTH_USER_MANUAL.md)
+  - [设置中心](SETTINGS_GUIDE.md)
+
+- [项目主页](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
+- [下载最新版](https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/latest)
