@@ -1,3 +1,5 @@
+import type { WaveformInterpolation } from "./chartTypes";
+
 export type SerialControlWidgetType =
   | "button"
   | "toggle"
@@ -127,6 +129,7 @@ export interface SerialYtChartWidget extends SerialControlWidgetBase {
   type: "yt-chart";
   channels: string[];
   pointLimit: number;
+  interpolation: WaveformInterpolation;
 }
 
 export interface SerialImu3dWidget extends SerialControlWidgetBase {
@@ -251,7 +254,9 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
   if (type === "xy-chart") {
     return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 };
   }
-  if (type === "yt-chart") return { ...base, type, channels: [], pointLimit: 200, width: 780, height: 348 };
+  if (type === "yt-chart") {
+    return { ...base, type, channels: [], pointLimit: 200, interpolation: "linear", width: 780, height: 348 };
+  }
   return {
     ...base,
     type,
@@ -487,6 +492,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
             ? widget.channels.map((value) => stringValue(value)).filter(Boolean)
             : [],
           pointLimit: Math.min(2_000, Math.max(10, Math.round(finiteNumber(widget.pointLimit, 200)))),
+          interpolation: widget.interpolation === "smooth" ? "smooth" : "linear",
         },
       ];
     }

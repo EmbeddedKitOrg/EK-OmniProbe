@@ -155,7 +155,12 @@ function SerialSignalPreview({
           <SignalPlotCanvas
             chartData={chartData.slice(-widget.pointLimit)}
             series={series}
-            chartConfig={{ ...chartConfig, visiblePointLimit: widget.pointLimit }}
+            chartConfig={{
+              ...chartConfig,
+              visiblePointLimit: widget.pointLimit,
+              waveformInterpolation:
+                widget.type === "yt-chart" ? widget.interpolation : chartConfig.waveformInterpolation,
+            }}
             domain={domain}
             className="h-full"
           />
@@ -881,6 +886,28 @@ export function SerialControlPanel({
             }
           />
           <p className="text-[11px] text-muted-foreground">使用波形解析缓存中的最近 10–2000 个点。</p>
+        </div>
+      )}
+
+      {widget.type === "yt-chart" && (
+        <div className="space-y-1.5">
+          <Label>波形连接方式</Label>
+          <Select
+            value={widget.interpolation}
+            onValueChange={(interpolation: "linear" | "smooth") =>
+              updateWidget(widget.id, (current) =>
+                current.type === "yt-chart" ? { ...current, interpolation } : current
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="linear">直线连接</SelectItem>
+              <SelectItem value="smooth">平滑曲线</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
