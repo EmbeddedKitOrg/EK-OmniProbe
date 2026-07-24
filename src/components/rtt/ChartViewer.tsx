@@ -27,8 +27,6 @@ import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
-import { ChartParserPanel } from "./ChartParserPanel";
-import type { ChartSample } from "@/lib/chartAutoConfig";
 
 interface BrushDomain {
   startIndex?: number;
@@ -66,8 +64,6 @@ export interface ChartViewerProps {
   setChartPaused: (paused: boolean) => void;
   clearChartData: () => void;
   setChartConfig: (config: ChartConfig) => void;
-  parserSamples?: ChartSample[];
-  allowJustFloat?: boolean;
 }
 
 export function ChartViewer({
@@ -79,11 +75,8 @@ export function ChartViewer({
   setChartPaused,
   clearChartData,
   setChartConfig,
-  parserSamples,
-  allowJustFloat = false,
 }: ChartViewerProps) {
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
-  const [parserOpen, setParserOpen] = useState(false);
   const signalDomain = chartConfig.signalDomain ?? "time";
   const latestPoint = chartData[chartData.length - 1];
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -511,7 +504,7 @@ export function ChartViewer({
   }
 
   return (
-    <div className="chart-viewer-container flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-4 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto rounded-[32px] border border-border/60 bg-white/80 p-4 shadow-[0_20px_45px_rgba(56,72,108,0.12)] backdrop-blur-xl">
       <div className="flex shrink-0 flex-wrap items-center gap-2.5 rounded-[24px] border border-border/50 bg-secondary/70 px-3.5 py-2.5">
         <Button
           size="sm"
@@ -626,6 +619,77 @@ export function ChartViewer({
           </Popover>
         )}
 
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className="gap-1">
+              <Settings2 className="h-3.5 w-3.5" />
+              通道
+              <span className="rounded-full bg-secondary px-1.5 text-[10px] text-secondary-foreground">
+                {seriesInspectorEntries.length}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[360px] max-w-[calc(100vw-2rem)] rounded-[24px] p-0">
+            <div className="border-b border-border/60 px-4 py-3">
+              <div className="text-sm font-medium text-foreground">数据通道</div>
+              <div className="text-xs text-muted-foreground">查看实时值、修改名称和控制曲线显隐</div>
+            </div>
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto p-3">
+              {seriesInspectorEntries.length === 0 ? (
+                <div className="rounded-[20px] border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+                  解析到数值字段后，这里会显示可用通道。
+                </div>
+              ) : (
+                seriesInspectorEntries.map((series) => (
+                  <div key={series.key} className="rounded-[20px] border border-border/60 bg-white/80 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.color }} />
+                      <Input
+                        value={series.name}
+                        onChange={(event) => {
+                          const nextName = event.target.value || series.key;
+                          if (series.configured) {
+                            updateChannelConfig(series.key, (item) => ({ ...item, name: nextName }));
+                            return;
+                          }
+                          addChannelFromField({ ...series, name: nextName }, { name: nextName, visible: false });
+                        }}
+                        placeholder={series.key}
+                        className="h-8 text-sm"
+                      />
+                      {series.configured ? (
+                        <Switch
+                          checked={series.visible}
+                          onCheckedChange={(visible) =>
+                            updateChannelConfig(series.key, (item) => ({ ...item, visible }))
+                          }
+                        />
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 gap-1 px-2"
+                          onClick={() => addChannelFromField(series)}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          加入
+                        </Button>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-end justify-between gap-3 text-xs text-muted-foreground">
+                      <span className="font-mono">{series.key}</span>
+                      <span className="text-right text-sm font-semibold text-foreground">
+                        {series.latestValue === null ? "—" : formatChartNumber(series.latestValue)}
+                        {series.unit ? <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span> : null}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
           <span className="rounded-full bg-white/80 px-3 py-1">类型: {chartConfig.chartType}</span>
           {chartConfig.chartType === "waveform" && (
@@ -677,7 +741,7 @@ export function ChartViewer({
         ))}
       </div>
 
-      <div className="chart-viewer-grid grid min-h-[360px] flex-1 gap-3">
+      <div className="min-h-[360px] flex-1">
         <div className="flex min-h-[360px] flex-col gap-3">
           <div ref={chartContainerRef} className="min-h-[320px] flex-1">
             {chartDataFormatted.length === 0 ? (
@@ -693,7 +757,7 @@ export function ChartViewer({
               <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
                 <div className="space-y-2 text-center">
                   <p className="text-sm font-medium text-foreground">当前没有可见曲线</p>
-                  <p className="text-xs text-muted-foreground">在右侧字段栏打开显示开关，或把解析字段加入曲线。</p>
+                  <p className="text-xs text-muted-foreground">点击图表工具栏的“通道”，打开显示开关或加入曲线。</p>
                 </div>
               </div>
             ) : chartConfig.chartType === "waveform" ? (
@@ -746,113 +810,6 @@ export function ChartViewer({
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="flex min-h-[320px] flex-col rounded-[24px] border border-border/60 bg-white/78">
-          {parserOpen && parserSamples ? (
-            <ChartParserPanel
-              chartConfig={chartConfig}
-              samples={parserSamples}
-              allowJustFloat={allowJustFloat}
-              setChartConfig={setChartConfig}
-              onClose={() => setParserOpen(false)}
-            />
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-foreground">
-                    {parserSamples === undefined ? "解析字段" : "数据与通道"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">实时值、曲线命名与显示控制</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {parserSamples !== undefined && (
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setParserOpen(true)}>
-                      <Settings2 className="h-3.5 w-3.5" />
-                      数据解析
-                    </Button>
-                  )}
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs text-secondary-foreground">
-                    {seriesInspectorEntries.length} 项
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-3 overflow-y-auto p-3">
-                {seriesInspectorEntries.length === 0 ? (
-                  <div className="rounded-[20px] border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
-                    先解析到结构化字段，这里才会出现实时数据。
-                  </div>
-                ) : (
-                  seriesInspectorEntries.map((series) => (
-                    <div key={series.key} className="rounded-[20px] border border-border/60 bg-white/80 p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.color }} />
-                        <Input
-                          value={series.name}
-                          onChange={(event) => {
-                            const nextName = event.target.value || series.key;
-                            if (series.configured) {
-                              updateChannelConfig(series.key, (item) => ({
-                                ...item,
-                                name: nextName,
-                              }));
-                              return;
-                            }
-                            addChannelFromField({ ...series, name: nextName }, { name: nextName, visible: false });
-                          }}
-                          placeholder={series.key}
-                          className="h-8 text-sm"
-                        />
-                        {series.configured ? (
-                          <Switch
-                            checked={series.visible}
-                            onCheckedChange={(checked) =>
-                              updateChannelConfig(series.key, (item) => ({
-                                ...item,
-                                visible: checked,
-                              }))
-                            }
-                          />
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 gap-1 px-2"
-                            onClick={() => addChannelFromField(series)}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            加入曲线
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="mt-2 flex items-end justify-between gap-3">
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <div>
-                            key: <span className="font-mono">{series.key}</span>
-                          </div>
-                          <div>
-                            状态: {series.configured ? (series.visible ? "显示中" : "已隐藏") : "仅解析，未入图"}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground">最新值</div>
-                          <div className="text-base font-semibold text-foreground">
-                            {series.latestValue === null ? "—" : formatChartNumber(series.latestValue)}
-                            {series.unit ? (
-                              <span className="ml-1 text-xs text-muted-foreground">{series.unit}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>

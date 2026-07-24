@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-shell";
-import { AlertCircle, CheckCircle2, ChevronLeft, CircleHelp, ExternalLink } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, CircleHelp, ExternalLink, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { parseChartData } from "@/lib/parseChartData";
+import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
 
@@ -16,6 +17,7 @@ interface ChartParserPanelProps {
   chartConfig: ChartConfig;
   samples: ChartSample[];
   allowJustFloat?: boolean;
+  allowDataFilter?: boolean;
   setChartConfig: (config: ChartConfig) => void;
   onClose: () => void;
 }
@@ -24,6 +26,7 @@ export function ChartParserPanel({
   chartConfig,
   samples,
   allowJustFloat = false,
+  allowDataFilter = false,
   setChartConfig,
   onClose,
 }: ChartParserPanelProps) {
@@ -101,6 +104,25 @@ export function ChartParserPanel({
           <div className="text-sm font-medium text-foreground">数据解析</div>
           <div className="text-xs text-muted-foreground">按当前串口样本预览解析结果</div>
         </div>
+        {allowDataFilter && (
+          <ChartConfigDialog
+            chartConfig={chartConfig}
+            setChartConfig={setChartConfig}
+            title="串口图表设置"
+            allowDataFilter
+            initialSection="filter"
+            trigger={
+              <Button
+                size="sm"
+                variant={chartConfig.dataFilter.enabled ? "secondary" : "outline"}
+                className="h-8 gap-1 px-2"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                图表配置
+              </Button>
+            }
+          />
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" title="查看输入格式参考">

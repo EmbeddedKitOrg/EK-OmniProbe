@@ -12,7 +12,6 @@ import { useState } from "react";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
-import type { ChartSample } from "@/lib/chartAutoConfig";
 import type { SerialTextViewMode } from "@/lib/serialTypes";
 
 interface SerialPanelProps {
@@ -20,7 +19,7 @@ interface SerialPanelProps {
 }
 
 // Wrapper component for chart that uses serial store
-function SerialChartViewer({ samples }: { samples: ChartSample[] }) {
+function SerialChartViewer() {
   const {
     chartData,
     chartConfig,
@@ -53,8 +52,6 @@ function SerialChartViewer({ samples }: { samples: ChartSample[] }) {
       setChartPaused={setChartPaused}
       clearChartData={clearChartData}
       setChartConfig={setChartConfig}
-      parserSamples={samples}
-      allowJustFloat
     />
   );
 }
@@ -121,12 +118,6 @@ export function SerialPanel({ className }: SerialPanelProps) {
   const showSendBar = textViewMode !== "terminal";
   const isVerticalSplit = splitOrientation === "vertical";
   const [rawDataCollapsed, setRawDataCollapsed] = useState(false);
-  const chartSamples = lines
-    .slice(-100)
-    .filter((line) => line.direction === "rx")
-    .slice(-20)
-    .map(({ text, rawData }) => ({ text, rawData }));
-
   const {
     detached: chartDetached,
     openDetachedWindow,
@@ -209,7 +200,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
             {chartDetached ? (
               <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
             ) : (
-              <SerialChartViewer samples={chartSamples} />
+              <SerialChartViewer />
             )}
           </PanelShell>
         ) : isVerticalSplit && textViewMode === "log" && rawDataCollapsed ? (
@@ -243,7 +234,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
                 {chartDetached ? (
                   <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
                 ) : (
-                  <SerialChartViewer samples={chartSamples} />
+                  <SerialChartViewer />
                 )}
               </PanelShell>
             </div>
@@ -305,7 +296,7 @@ export function SerialPanel({ className }: SerialPanelProps) {
                   {chartDetached ? (
                     <ChartDetachedPlaceholder onFocus={focusDetachedWindow} onRestore={restoreInline} />
                   ) : (
-                    <SerialChartViewer samples={chartSamples} />
+                    <SerialChartViewer />
                   )}
                 </PanelShell>
               </div>
