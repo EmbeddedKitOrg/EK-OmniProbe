@@ -68,13 +68,20 @@ export function BleToolbar() {
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
 
   const handleSmartEnableChart = () => {
-    const samples = lines.filter((line) => line.direction === "rx").slice(-20);
+    const samples = lines
+      .filter(
+        (line) => line.direction === "rx" && (!chartConfig.framePrefix || line.text.startsWith(chartConfig.framePrefix))
+      )
+      .slice(-20);
     if (samples.length === 0) {
       addLog("warn", "没有 BLE 数据可分析，请先接收一些数据");
       return;
     }
 
-    const result = detectDataFormat(samples.map((line) => line.text));
+    const result = detectDataFormat(
+      samples.map((line) => line.text),
+      chartConfig.framePrefix
+    );
     if (result.confidence < 0.5) {
       addLog("warn", `无法识别 BLE 数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
       return;

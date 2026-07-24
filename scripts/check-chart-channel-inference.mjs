@@ -7,6 +7,7 @@ const server = await createServer({ root, logLevel: "silent", server: { middlewa
 
 try {
   const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
+  const { parseChartData, parseWithDelimiter } = await server.ssrLoadModule("/src/lib/parseChartData.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
   const { applyDataFilter, calculateSosFrequencyResponse, designParametricSos, parseMatlabSos, parseMatlabVector } =
@@ -17,6 +18,8 @@ try {
   assert.equal(DEFAULT_CHART_CONFIG.waveformInterpolation, "linear");
   assert.equal(migrateChartConfig({ waveformInterpolation: "smooth" }).waveformInterpolation, "smooth");
   assert.equal(migrateChartConfig({ waveformInterpolation: "invalid" }).waveformInterpolation, "linear");
+  assert.equal(migrateChartConfig({}).framePrefix, "");
+  assert.equal(migrateChartConfig({ framePrefix: "P:" }).framePrefix, "P:");
   assert.deepEqual(parseMatlabVector("b = [0.25 0.5 0.25]"), [0.25, 0.5, 0.25]);
   assert.deepEqual(parseMatlabSos("1 0 0 1 0 0;\n1 2 1 1 -1.5 0.7"), [
     [1, 0, 0, 1, 0, 0],
@@ -164,6 +167,30 @@ try {
       ["field3", 2],
     ]
   );
+
+  const prefixed = populateEmptyChannelsFromSamples(
+    { ...DEFAULT_CHART_CONFIG, parseMode: "delimiter", framePrefix: "P:", delimiter: "," },
+    [{ text: "INFO boot 123" }, { text: "P:10,20" }, { text: "P:11,21" }]
+  );
+  assert.deepEqual(
+    prefixed.channels.map(({ key, sourceIndex }) => [key, sourceIndex]),
+    [
+      ["field1", 0],
+      ["field2", 1],
+    ]
+  );
+
+  const prefixedConfig = {
+    ...DEFAULT_CHART_CONFIG,
+    enabled: true,
+    parseMode: "delimiter",
+    framePrefix: "P:",
+    delimiter: ",",
+    channels: [prefixed.channels[0]],
+  };
+  assert.equal(parseChartData("INFO boot 123", prefixedConfig).ignored, true);
+  assert.equal(parseChartData("P:42,7", prefixedConfig).dataPoint.values.field1, 42);
+  assert.equal(parseWithDelimiter("42Hz", ",", prefixedConfig.channels).success, false);
 
   const configured = { ...DEFAULT_CHART_CONFIG, channels: [delimiter.channels[0]] };
   assert.equal(populateEmptyChannelsFromSamples(configured, [{ text: "1,2,3" }]), configured);

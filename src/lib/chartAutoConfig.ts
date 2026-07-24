@@ -4,7 +4,7 @@
 
 import type { ChartConfig, Channel } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
-import { parseChartData } from "./parseChartData";
+import { extractChartPayload, parseChartData } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
 
 /**
@@ -33,8 +33,13 @@ const KV_DETECT_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][
 /**
  * 智能检测数据格式
  */
-export function detectDataFormat(sampleLines: string[]): DetectionResult {
-  if (sampleLines.length === 0) {
+export function detectDataFormat(sampleLines: string[], framePrefix = ""): DetectionResult {
+  const eligibleLines = sampleLines.flatMap((line) => {
+    const payload = extractChartPayload(line, framePrefix);
+    return payload === null ? [] : [payload];
+  });
+
+  if (eligibleLines.length === 0) {
     return {
       format: "unknown",
       suggestedConfig: {},
@@ -44,32 +49,32 @@ export function detectDataFormat(sampleLines: string[]): DetectionResult {
     };
   }
 
-  const singleValueResult = detectSingleValue(sampleLines);
+  const singleValueResult = detectSingleValue(eligibleLines);
   if (singleValueResult.confidence > 0.8) {
     return singleValueResult;
   }
 
-  const xyWithSeqResult = detectXyWithSeq(sampleLines);
+  const xyWithSeqResult = detectXyWithSeq(eligibleLines);
   if (xyWithSeqResult.confidence > 0.8) {
     return xyWithSeqResult;
   }
 
-  const xyDataResult = detectXyData(sampleLines);
+  const xyDataResult = detectXyData(eligibleLines);
   if (xyDataResult.confidence > 0.8) {
     return xyDataResult;
   }
 
-  const jsonResult = detectJson(sampleLines);
+  const jsonResult = detectJson(eligibleLines);
   if (jsonResult.confidence > 0.8) {
     return jsonResult;
   }
 
-  const kvResult = detectKv(sampleLines);
+  const kvResult = detectKv(eligibleLines);
   if (kvResult.confidence > 0.8) {
     return kvResult;
   }
 
-  const csvResult = detectCsv(sampleLines);
+  const csvResult = detectCsv(eligibleLines);
   if (csvResult.confidence > 0.6) {
     return csvResult;
   }
@@ -507,8 +512,17 @@ export function applyAutoConfig(currentConfig: ChartConfig, detectionResult: Det
 export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: ChartSample[]): ChartConfig {
   if (config.channels.length > 0 || samples.length === 0) return config;
 
+  const eligibleSamples =
+    config.parseMode === "justfloat"
+      ? samples
+      : samples.flatMap((sample) => {
+          const text = extractChartPayload(sample.text, config.framePrefix);
+          return text === null ? [] : [{ ...sample, text }];
+        });
+  if (eligibleSamples.length === 0) return config;
+
   if (config.parseMode === "auto") {
-    const detection = detectDataFormat(samples.map((sample) => sample.text));
+    const detection = detectDataFormat(eligibleSamples.map((sample) => sample.text));
     const channels = detection.suggestedConfig.channels;
     if (detection.confidence < 0.5 || !channels?.length) return config;
 
@@ -523,10 +537,10 @@ export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: C
 
   const channels =
     config.parseMode === "delimiter"
-      ? channelsFromDelimiter(samples, config.delimiter)
+      ? channelsFromDelimiter(eligibleSamples, config.delimiter)
       : config.parseMode === "justfloat"
-        ? channelsFromJustFloat(samples)
-        : channelsFromConfiguredParser(config, samples);
+        ? channelsFromJustFloat(eligibleSamples)
+        : channelsFromConfiguredParser({ ...config, framePrefix: "" }, eligibleSamples);
 
   return channels.length > 0 ? { ...config, channels } : config;
 }

@@ -240,7 +240,7 @@ export function useSerialEvents() {
               if (result.success && result.dataPoint) {
                 batchChartPointsRef.current.push(result.dataPoint);
                 batchParseRef.current.success += 1;
-              } else {
+              } else if (!result.ignored) {
                 batchParseRef.current.fail += 1;
               }
             }

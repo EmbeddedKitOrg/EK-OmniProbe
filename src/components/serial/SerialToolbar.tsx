@@ -202,12 +202,14 @@ export function SerialToolbar() {
       return;
     }
 
-    // Take last 20 lines as sample
-    const sampleSize = Math.min(20, lines.length);
-    const sampleLines = lines.slice(-sampleSize).map((line) => line.text);
+    // 帧头过滤应先于截取，避免低频采样被高频普通日志挤出样本窗口。
+    const sampleLines = lines
+      .map((line) => line.text)
+      .filter((text) => !chartConfig.framePrefix || text.startsWith(chartConfig.framePrefix))
+      .slice(-20);
 
     // Detect data format
-    const result = detectDataFormat(sampleLines);
+    const result = detectDataFormat(sampleLines, chartConfig.framePrefix);
 
     if (result.confidence < 0.5) {
       addLog("warn", `无法识别数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
