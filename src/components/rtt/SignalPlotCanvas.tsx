@@ -284,7 +284,7 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
   }, [chartConfig.dataFilter.showOriginal, chartData, effectiveSampleRate, filterActive, filteredChartData]);
 
   const timeView = useMemo<TimeViewModel | null>(() => {
-    if (normalizedData.length === 0 || visibleSeries.length === 0) return null;
+    if (domain !== "time" || normalizedData.length === 0 || visibleSeries.length === 0) return null;
 
     const latestSec = normalizedData[normalizedData.length - 1].timeSec;
     const totalDurationSec = Math.max(latestSec, 0.001);
@@ -348,10 +348,10 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       yMin: center - range / 2,
       yMax: center + range / 2,
     };
-  }, [chartConfig.visiblePointLimit, normalizedData, timePanSec, timeZoom, visibleSeries, yOffset, yZoom]);
+  }, [chartConfig.visiblePointLimit, domain, normalizedData, timePanSec, timeZoom, visibleSeries, yOffset, yZoom]);
 
   const fftView = useMemo<FftViewModel | null>(() => {
-    if (normalizedData.length < 4 || visibleSeries.length === 0) return null;
+    if (domain !== "fft" || normalizedData.length < 4 || visibleSeries.length === 0) return null;
 
     const windowSize = clamp(chartConfig.fftWindowSize || 1024, 32, 4096);
     const slice = normalizedData.slice(-windowSize);
@@ -421,6 +421,7 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
     };
   }, [
     chartConfig.fftWindowSize,
+    domain,
     effectiveSampleRate,
     fftPanBins,
     fftZoom,

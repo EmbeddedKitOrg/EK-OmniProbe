@@ -299,7 +299,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   },
   addChartDataBatch: (points) =>
     set((state) => {
-      if (state.chartPaused || points.length === 0) return state;
+      if (points.length === 0) return state;
       const merged = state.chartData.concat(points);
       const max = state.chartConfig.maxDataPoints;
       return { chartData: merged.length > max ? merged.slice(-max) : merged };

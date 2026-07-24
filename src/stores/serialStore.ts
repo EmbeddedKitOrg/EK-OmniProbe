@@ -719,9 +719,6 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   addChartData: (data) =>
     set((state) => {
-      if (state.chartPaused) {
-        return state;
-      }
       const newData = [...state.chartData, data];
       const trimmedData = newData.slice(-state.chartConfig.maxDataPoints);
       return { chartData: trimmedData };
@@ -729,7 +726,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   addChartDataBatch: (points) =>
     set((state) => {
-      if (state.chartPaused || points.length === 0) {
+      if (points.length === 0) {
         return state;
       }
       const newData = state.chartData.concat(points);

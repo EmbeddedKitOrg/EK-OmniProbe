@@ -37,6 +37,7 @@ interface ChartConfigDialogProps {
   title?: string;
   allowJustFloat?: boolean;
   allowDataFilter?: boolean;
+  allowParserConfig?: boolean;
   initialSection?: ChartConfigSection;
   samples?: ChartSample[];
   open?: boolean;
@@ -50,6 +51,7 @@ export function ChartConfigDialog({
   title = "图表配置",
   allowJustFloat = false,
   allowDataFilter = false,
+  allowParserConfig = true,
   initialSection = "basic",
   samples = [],
   open: controlledOpen,
@@ -685,25 +687,27 @@ export function ChartConfigDialog({
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="parseMode">解析模式</Label>
-                  <Select
-                    value={localConfig.parseMode}
-                    onValueChange={(value: ParseMode) => setLocalConfig({ ...localConfig, parseMode: value })}
-                  >
-                    <SelectTrigger id="parseMode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="auto">自动</SelectItem>
-                      <SelectItem value="delimiter">分隔符</SelectItem>
-                      <SelectItem value="json">JSON</SelectItem>
-                      <SelectItem value="kv">KV (key=value)</SelectItem>
-                      <SelectItem value="regex">正则</SelectItem>
-                      {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {allowParserConfig && (
+                  <div className="space-y-2">
+                    <Label htmlFor="parseMode">解析模式</Label>
+                    <Select
+                      value={localConfig.parseMode}
+                      onValueChange={(value: ParseMode) => setLocalConfig({ ...localConfig, parseMode: value })}
+                    >
+                      <SelectTrigger id="parseMode">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">自动</SelectItem>
+                        <SelectItem value="delimiter">分隔符</SelectItem>
+                        <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="kv">KV (key=value)</SelectItem>
+                        <SelectItem value="regex">正则</SelectItem>
+                        {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="chartType">图表类型</Label>
@@ -725,7 +729,7 @@ export function ChartConfigDialog({
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>
+              {allowParserConfig && <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>}
 
               {isXyScatter && (
                 <p className="text-xs text-muted-foreground leading-5">
@@ -736,7 +740,8 @@ export function ChartConfigDialog({
           )}
 
           {/* 2. 模式专属字段 */}
-          {activeSection === "basic" &&
+          {allowParserConfig &&
+            activeSection === "basic" &&
             (localConfig.parseMode === "delimiter" || localConfig.parseMode === "regex") && (
               <section className="rounded-[24px] border border-border/60 p-4 space-y-3">
                 <div className="text-sm font-medium">
@@ -793,10 +798,17 @@ export function ChartConfigDialog({
                   <div className="text-sm font-medium">通道</div>
                   <p className="text-xs text-muted-foreground">一行一个通道，统一管理「字段名 / 显示样式 / X 轴」。</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={addChannel}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  添加
-                </Button>
+                <div className="flex gap-2">
+                  {localConfig.channels.length > 0 && (
+                    <Button size="sm" variant="ghost" onClick={() => setLocalConfig({ ...localConfig, channels: [] })}>
+                      重置通道
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={addChannel}>
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    添加
+                  </Button>
+                </div>
               </div>
 
               {channelHint && <p className="text-xs leading-5 text-muted-foreground">{channelHint}</p>}

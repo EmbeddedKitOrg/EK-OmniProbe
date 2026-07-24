@@ -57,7 +57,7 @@ interface RttState {
   // 图表数据
   chartData: ChartDataPoint[]; // 图表数据点
   chartConfig: ChartConfig; // 图表配置
-  chartPaused: boolean; // 图表是否暂停更新
+  chartPaused: boolean; // 图表是否冻结显示（后台仍继续缓存）
 
   // 统计信息
   parseSuccessCount: number; // 解析成功次数
@@ -95,7 +95,7 @@ interface RttState {
   addChartData: (data: ChartDataPoint) => void; // 新增：添加图表数据
   addChartDataBatch: (points: ChartDataPoint[]) => void; // 批量添加图表数据，单次 setState
   clearChartData: () => void; // 新增：清空图表数据
-  setChartPaused: (paused: boolean) => void; // 新增：设置图表暂停状态
+  setChartPaused: (paused: boolean) => void; // 新增：设置图表冻结状态
   incrementParseSuccess: () => void; // 新增：增加解析成功计数
   incrementParseFail: () => void; // 新增：增加解析失败计数
   incrementParseCounts: (success: number, fail: number) => void; // 批量更新解析计数
@@ -128,7 +128,7 @@ export const useRttStore = create<RttState>((set) => ({
   splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
   chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
-  chartPaused: false, // 新增：图表暂停状态
+  chartPaused: false, // 新增：图表冻结状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
   scanMode: "auto",
@@ -212,7 +212,6 @@ export const useRttStore = create<RttState>((set) => ({
 
   addChartData: (data) =>
     set((state) => {
-      if (state.chartPaused) return state;
       const newData = [...state.chartData, data];
       // 限制最大数据点数
       const trimmedData = newData.slice(-state.chartConfig.maxDataPoints);
@@ -221,7 +220,7 @@ export const useRttStore = create<RttState>((set) => ({
 
   addChartDataBatch: (points) =>
     set((state) => {
-      if (state.chartPaused || points.length === 0) return state;
+      if (points.length === 0) return state;
       const newData = state.chartData.concat(points);
       const max = state.chartConfig.maxDataPoints;
       const trimmedData = newData.length > max ? newData.slice(-max) : newData;

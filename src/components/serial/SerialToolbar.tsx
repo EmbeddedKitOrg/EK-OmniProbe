@@ -628,6 +628,7 @@ export function SerialToolbar() {
           title="串口图表配置"
           allowJustFloat
           allowDataFilter
+          allowParserConfig={false}
           samples={lines
             .filter((line) => line.direction === "rx")
             .slice(-20)
