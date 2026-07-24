@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
@@ -6,6 +7,11 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
+  const capabilities = JSON.parse(
+    await readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8")
+  );
+  assert.ok(capabilities.windows.includes("serial-control-panel"), "控制面板独立窗口必须获得 Tauri 权限");
+
   await server.ssrLoadModule("/src/components/serial/SerialSidebar.tsx");
   const {
     joystickPointFromRatio,
