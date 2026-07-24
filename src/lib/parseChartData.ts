@@ -10,6 +10,8 @@ import type { ChartConfig, ChartDataPoint, Channel } from "./chartTypes";
 export interface ParseResult {
   /** 是否成功 */
   success: boolean;
+  /** 是否因文本帧前缀不匹配而有意忽略 */
+  ignored?: boolean;
   /** 解析出的数据点 */
   dataPoint?: ChartDataPoint;
   /** 错误信息 */
@@ -22,6 +24,12 @@ export interface ParseResult {
  * 匹配 key=value 对的全局正则。
  */
 const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+
+/** 返回剥离文本帧前缀后的载荷；不匹配时返回 null。 */
+export function extractChartPayload(text: string, framePrefix: string): string | null {
+  if (!framePrefix) return text;
+  return text.startsWith(framePrefix) ? text.slice(framePrefix.length) : null;
+}
 
 /**
  * 使用正则表达式解析数据
@@ -91,9 +99,9 @@ export function parseWithDelimiter(text: string, delimiter: string, channels: Ch
       if (sourceIndex < 0 || sourceIndex >= parts.length) continue;
 
       const value = parts[sourceIndex].trim();
-      const num = parseFloat(value);
+      const num = Number(value);
 
-      if (!isNaN(num)) {
+      if (value !== "" && Number.isFinite(num)) {
         values[channel.key] = num;
       }
     }
@@ -244,6 +252,15 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
     };
   }
 
+  const payload = config.parseMode === "justfloat" ? text : extractChartPayload(text, config.framePrefix);
+  if (payload === null) {
+    return {
+      success: false,
+      ignored: true,
+      error: "文本帧前缀不匹配",
+    };
+  }
+
   switch (config.parseMode) {
     case "regex":
       if (!config.regexPattern) {
@@ -252,7 +269,7 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
           error: "正则表达式未配置",
         };
       }
-      return parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels);
+      return parseWithRegex(payload, config.regexPattern, config.regexFlags, config.channels);
 
     case "delimiter":
       if (config.channels.length === 0) {
@@ -261,16 +278,16 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
           error: "分隔符模式未配置任何通道",
         };
       }
-      return parseWithDelimiter(text, config.delimiter, config.channels);
+      return parseWithDelimiter(payload, config.delimiter, config.channels);
 
     case "json":
-      return parseWithJson(text, config.channels);
+      return parseWithJson(payload, config.channels);
 
     case "kv":
-      return parseWithKv(text, config.channels);
+      return parseWithKv(payload, config.channels);
 
     case "auto":
-      return parseAuto(text, config);
+      return parseAuto(payload, config);
 
     case "justfloat":
       return {

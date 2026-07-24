@@ -31,11 +31,15 @@ export function ChartParserPanel({
   onClose,
 }: ChartParserPanelProps) {
   const [parseMode, setParseMode] = useState(chartConfig.parseMode);
+  const [framePrefix, setFramePrefix] = useState(chartConfig.framePrefix);
   const [delimiter, setDelimiter] = useState(chartConfig.delimiter);
   const [regexPattern, setRegexPattern] = useState(chartConfig.regexPattern);
   const [regexFlags, setRegexFlags] = useState(chartConfig.regexFlags ?? "");
   const latestSample = samples[samples.length - 1];
-  const [sampleText, setSampleText] = useState(latestSample?.text ?? "");
+  const initialSample = chartConfig.framePrefix
+    ? [...samples].reverse().find((sample) => sample.text.startsWith(chartConfig.framePrefix))
+    : latestSample;
+  const [sampleText, setSampleText] = useState(initialSample?.text ?? "");
 
   const preview = useMemo(() => {
     const sample = { text: sampleText, rawData: latestSample?.rawData };
@@ -43,6 +47,7 @@ export function ChartParserPanel({
       ...chartConfig,
       enabled: true,
       parseMode,
+      framePrefix,
       delimiter,
       regexPattern,
       regexFlags,
@@ -74,7 +79,17 @@ export function ChartParserPanel({
         ? `识别到 ${Object.keys(result.dataPoint?.values ?? {}).length} 个数值通道`
         : (result?.error ?? "暂无可预览的数据"),
     };
-  }, [chartConfig, delimiter, latestSample?.rawData, parseMode, regexFlags, regexPattern, sampleText, samples]);
+  }, [
+    chartConfig,
+    delimiter,
+    framePrefix,
+    latestSample?.rawData,
+    parseMode,
+    regexFlags,
+    regexPattern,
+    sampleText,
+    samples,
+  ]);
 
   const apply = () => {
     const parserChanged = parseMode !== chartConfig.parseMode;
@@ -82,6 +97,7 @@ export function ChartParserPanel({
       ...chartConfig,
       enabled: true,
       parseMode,
+      framePrefix,
       delimiter: parseMode === "auto" ? preview.config.delimiter : delimiter,
       regexPattern,
       regexFlags,
@@ -97,13 +113,7 @@ export function ChartParserPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-8 w-8 shrink-0"
-          onClick={onClose}
-          title="返回通道列表"
-        >
+        <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={onClose} title="返回通道列表">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
@@ -205,6 +215,27 @@ export function ChartParserPanel({
               placeholder=", / \t / ; / 空格"
               className="font-mono"
             />
+          </div>
+        )}
+
+        {parseMode !== "justfloat" && (
+          <div className="space-y-2">
+            <Label htmlFor="parser-frame-prefix">数据帧前缀（可选）</Label>
+            <Input
+              id="parser-frame-prefix"
+              value={framePrefix}
+              onChange={(event) => {
+                const value = event.target.value;
+                setFramePrefix(value);
+                const matchingSample = [...samples].reverse().find((sample) => !value || sample.text.startsWith(value));
+                if (matchingSample) setSampleText(matchingSample.text);
+              }}
+              placeholder="例如 P: 或 @PLOT:"
+              className="font-mono"
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              只解析以此前缀开头的文本；匹配后会剥离前缀，原始日志仍完整显示。
+            </p>
           </div>
         )}
 

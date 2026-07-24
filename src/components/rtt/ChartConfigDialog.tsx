@@ -731,6 +731,22 @@ export function ChartConfigDialog({
 
               {allowParserConfig && <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>}
 
+              {allowParserConfig && localConfig.parseMode !== "justfloat" && (
+                <div className="space-y-2">
+                  <Label htmlFor="framePrefix">数据帧前缀（可选）</Label>
+                  <Input
+                    id="framePrefix"
+                    value={localConfig.framePrefix}
+                    placeholder="例如 P: 或 @PLOT:"
+                    className="font-mono"
+                    onChange={(event) => setLocalConfig({ ...localConfig, framePrefix: event.target.value })}
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    只解析以此前缀开头的文本；匹配后会剥离前缀，原始日志仍完整显示。
+                  </p>
+                </div>
+              )}
+
               {isXyScatter && (
                 <p className="text-xs text-muted-foreground leading-5">
                   XY 散点图需要一条通道把「角色」选成「X」，其余通道作为 Y 值。

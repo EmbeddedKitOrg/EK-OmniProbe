@@ -104,6 +104,8 @@ export interface ChartConfig {
   enabled: boolean;
   /** 解析模式 */
   parseMode: ParseMode;
+  /** 文本数据帧前缀；非空时只解析并剥离匹配此前缀的行 */
+  framePrefix: string;
 
   // 正则模式
   /** 正则表达式 */
@@ -168,6 +170,7 @@ export type SplitOrientation = "vertical" | "horizontal";
 export const DEFAULT_CHART_CONFIG: ChartConfig = {
   enabled: false,
   parseMode: "auto",
+  framePrefix: "",
 
   regexPattern: "",
   regexFlags: "",
@@ -275,6 +278,7 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
   return {
     enabled,
     parseMode,
+    framePrefix: typeof source.framePrefix === "string" ? source.framePrefix : "",
     regexPattern: typeof source.regexPattern === "string" ? source.regexPattern : "",
     regexFlags: typeof source.regexFlags === "string" ? source.regexFlags : "",
     delimiter:
