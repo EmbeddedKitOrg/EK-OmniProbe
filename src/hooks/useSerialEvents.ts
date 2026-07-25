@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useSerialStore, parseSerialData } from "@/stores/serialStore";
+import { useSerialStore } from "@/stores/serialStore";
 import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
 import type { Channel, ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
-import { parseChartData } from "@/lib/parseChartData";
+import { parseChartLines } from "@/lib/parseChartData";
 import { parseJustFloatChunk } from "@/lib/parseJustFloat";
+import { parseSerialData } from "@/lib/dataFraming";
 import { parseLogLevel } from "@/lib/utils";
 import { formatBytes } from "@/lib/formatters";
 import { publishAiSamples } from "@/lib/tauri";
@@ -235,15 +236,10 @@ export function useSerialEvents() {
           // 图表解析：累积到批，flushBatch 时单次 setState
           currentChartConfig = useSerialStore.getState().chartConfig;
           if (currentChartConfig.enabled && currentChartConfig.parseMode !== "justfloat") {
-            for (const line of lines) {
-              const result = parseChartData(line.text, currentChartConfig);
-              if (result.success && result.dataPoint) {
-                batchChartPointsRef.current.push(result.dataPoint);
-                batchParseRef.current.success += 1;
-              } else if (!result.ignored) {
-                batchParseRef.current.fail += 1;
-              }
-            }
+            const parsed = parseChartLines(lines, currentChartConfig);
+            batchChartPointsRef.current.push(...parsed.points);
+            batchParseRef.current.success += parsed.success;
+            batchParseRef.current.fail += parsed.fail;
           }
         }
       }

@@ -7,7 +7,9 @@ const server = await createServer({ root, logLevel: "silent", server: { middlewa
 
 try {
   const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
-  const { parseChartData, parseWithDelimiter } = await server.ssrLoadModule("/src/lib/parseChartData.ts");
+  const { parseChartData, parseChartLines, parseWithDelimiter } =
+    await server.ssrLoadModule("/src/lib/parseChartData.ts");
+  const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
   const { applyDataFilter, calculateSosFrequencyResponse, designParametricSos, parseMatlabSos, parseMatlabVector } =
@@ -191,6 +193,26 @@ try {
   assert.equal(parseChartData("INFO boot 123", prefixedConfig).ignored, true);
   assert.equal(parseChartData("P:42,7", prefixedConfig).dataPoint.values.field1, 42);
   assert.equal(parseWithDelimiter("42Hz", ",", prefixedConfig.channels).success, false);
+
+  const sourceTimestamp = 1_721_814_274_123;
+  const parsedBatch = parseChartLines([{ text: "P:42,7", timestamp: new Date(sourceTimestamp) }], prefixedConfig);
+  assert.equal(parsedBatch.points[0].timestamp, sourceTimestamp);
+  assert.deepEqual({ success: parsedBatch.success, fail: parsedBatch.fail }, { success: 1, fail: 0 });
+
+  const encodedLine = Array.from(new TextEncoder().encode("温度=25\r\n"));
+  const firstChunk = parseSerialData(encodedLine.slice(0, 2), sourceTimestamp, "rx", { text: "", rawData: [] });
+  assert.equal(firstChunk.lines.length, 0);
+  const secondChunk = parseSerialData(encodedLine.slice(2), sourceTimestamp, "rx", firstChunk.pending);
+  assert.equal(secondChunk.lines[0].text, "温度=25");
+  assert.equal(secondChunk.lines[0].timestamp.getTime(), sourceTimestamp);
+
+  const rttPending = new Map();
+  assert.equal(parseRttData(encodedLine.slice(0, 2), 1, sourceTimestamp, rttPending).length, 0);
+  const rttLines = parseRttData(encodedLine.slice(2), 1, sourceTimestamp, rttPending);
+  assert.deepEqual(
+    { channel: rttLines[0].channel, text: rttLines[0].text, timestamp: rttLines[0].timestamp.getTime() },
+    { channel: 1, text: "温度=25", timestamp: sourceTimestamp }
+  );
 
   const configured = { ...DEFAULT_CHART_CONFIG, channels: [delimiter.channels[0]] };
   assert.equal(populateEmptyChannelsFromSamples(configured, [{ text: "1,2,3" }]), configured);

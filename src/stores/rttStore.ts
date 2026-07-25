@@ -4,7 +4,6 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { parseLogLevel } from "@/lib/utils";
 import {
   loadFromStorage,
   saveToStorage,
@@ -266,55 +265,3 @@ export const useRttStore = create<RttState>((set) => ({
       lineIdCounter: 0,
     }),
 }));
-
-// 辅助函数：将字节数据转换为文本行
-export function parseRttData(
-  data: number[],
-  channel: number,
-  timestamp: number,
-  pendingBuffer: Map<number, { text: string; rawData: number[] }>
-): Omit<RttLine, "id">[] {
-  const lines: Omit<RttLine, "id">[] = [];
-  const text = new TextDecoder().decode(new Uint8Array(data));
-  const date = new Date(timestamp);
-
-  // 获取该通道的未完成行
-  const pending = pendingBuffer.get(channel) || { text: "", rawData: [] };
-  const fullText = pending.text + text;
-  const fullRawData = [...pending.rawData, ...data];
-
-  // 按换行符分割
-  const parts = fullText.split(/\r?\n/);
-
-  // 最后一部分可能是不完整的行
-  const lastPart = parts.pop() || "";
-
-  // 计算最后一部分的字节长度
-  const lastPartBytes = new TextEncoder().encode(lastPart);
-  const lastRawData = fullRawData.slice(-lastPartBytes.length);
-  pendingBuffer.set(channel, { text: lastPart, rawData: lastRawData });
-
-  // 处理完整的行
-  let currentOffset = 0;
-  for (const part of parts) {
-    if (part.trim()) {
-      // 计算这一行的字节数据
-      const lineBytes = new TextEncoder().encode(part);
-      const lineRawData = fullRawData.slice(currentOffset, currentOffset + lineBytes.length);
-
-      lines.push({
-        channel,
-        timestamp: date,
-        text: part,
-        level: parseLogLevel(part),
-        rawData: lineRawData,
-      });
-
-      currentOffset += lineBytes.length + 1; // +1 for newline
-    } else {
-      currentOffset += 1; // empty line, just skip newline
-    }
-  }
-
-  return lines;
-}
