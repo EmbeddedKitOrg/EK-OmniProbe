@@ -14,8 +14,14 @@ try {
   const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
-  const { applyDataFilter, calculateSosFrequencyResponse, designParametricSos, parseMatlabSos, parseMatlabVector } =
-    await server.ssrLoadModule("/src/lib/chartFilter.ts");
+  const {
+    applyDataFilter,
+    calculateSosFrequencyResponse,
+    designParametricSos,
+    parseMatlabSos,
+    parseMatlabVector,
+    resolveChartProcessing,
+  } = await server.ssrLoadModule("/src/lib/chartFilter.ts");
   const { traceSignalPath } = await server.ssrLoadModule("/src/components/rtt/SignalPlotCanvas.tsx");
   const { resolveChartDisplayData } = await server.ssrLoadModule("/src/components/rtt/ChartViewer.tsx");
 
@@ -52,6 +58,20 @@ try {
     samples.map((point) => point.values.ch1),
     [2, 4, 6]
   );
+  const processing = resolveChartProcessing(samples, ["ch1"], {
+    ...DEFAULT_CHART_CONFIG.dataFilter,
+    enabled: true,
+    kind: "fir",
+    firCoefficients: [0.5, 0.5],
+    showOriginal: true,
+  });
+  assert.equal(processing.filterActive, true);
+  assert.equal(processing.comparisonData, samples);
+  assert.deepEqual(
+    processing.processedData.map((point) => point.values.ch1),
+    [1, 3, 5]
+  );
+  assert.equal(resolveChartProcessing(samples, ["ch1"], DEFAULT_CHART_CONFIG.dataFilter).processedData, samples);
 
   const sosResult = applyDataFilter(samples, ["ch1"], {
     ...DEFAULT_CHART_CONFIG.dataFilter,

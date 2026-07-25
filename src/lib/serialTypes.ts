@@ -50,7 +50,7 @@ export interface UdpSerialConfig {
   remote_port: number;
 }
 
-export type SimulationPreset = "waveform" | "xy" | "imu3" | "imu6";
+export type SimulationPreset = "waveform" | "filter-demo" | "xy" | "imu3" | "imu6";
 export type SimulationWaveform = "sine" | "square" | "triangle" | "sawtooth" | "noise" | "constant";
 export type SimulationXyPattern = "circle" | "lissajous";
 

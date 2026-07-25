@@ -133,6 +133,10 @@ try {
     sampleRateHz: 200,
     channelCount: 1,
   });
+  const filterDemoConfig = { ...simulationConfig, preset: "filter-demo", sampleRateHz: 10 };
+  assert.deepEqual(createSimulationSample(filterDemoConfig, 0), { signal: 0 });
+  assert.ok(Math.abs(createSimulationSample(filterDemoConfig, 0.05).signal - 1) < 1e-6);
+  assert.equal(normalizeSimulationConfig(filterDemoConfig).sampleRateHz, 200);
 
   assert.equal(renderSerialControlCommand("PWM={value};COPY={value}", 128), "PWM=128;COPY=128");
   assert.equal(renderSerialJoystickCommand("X={x},Y={y}", -20, 30), "X=-20,Y=30");

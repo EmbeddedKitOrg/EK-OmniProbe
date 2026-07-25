@@ -110,7 +110,7 @@ export function calculateSosFrequencyResponse(
 }
 
 /**
- * 从原始图表缓冲区派生滤波结果。输入点不会被修改，因此日志、导出和其他消费者仍使用原始数据。
+ * 从原始图表缓冲区派生滤波结果。输入点不会被修改。
  */
 export function applyDataFilter(
   points: ChartDataPoint[],
@@ -132,6 +132,16 @@ export function applyDataFilter(
     }
     return nextValues ? { ...point, values: nextValues } : point;
   });
+}
+
+/** 为图表、FFT 和后续分析模块统一生成原始/处理后数据。 */
+export function resolveChartProcessing(points: ChartDataPoint[], channelKeys: string[], config: DataFilterConfig) {
+  const filterActive = points.length > 0 && channelKeys.length > 0 && isDataFilterReady(config);
+  return {
+    processedData: filterActive ? applyDataFilter(points, channelKeys, config) : points,
+    comparisonData: filterActive && config.showOriginal ? points : undefined,
+    filterActive,
+  };
 }
 
 function createProcessor(config: DataFilterConfig): (sample: number) => number {

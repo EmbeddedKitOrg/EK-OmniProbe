@@ -205,7 +205,9 @@ export function SerialSidebar() {
         : activeSourceType === "udp"
           ? `${udpConfig.local_host}:${udpConfig.local_port} → ${udpConfig.remote_host}:${udpConfig.remote_port}`
           : "本机生成 JSON 测试数据";
-  const simulationPreview = JSON.stringify(createSimulationSample(simulationConfig, 0.5, () => 0.5));
+  const simulationPreview = JSON.stringify(
+    createSimulationSample(simulationConfig, simulationConfig.preset === "filter-demo" ? 0.05 : 0.5, () => 0.5)
+  );
   const chartSamples = lines
     .slice(-100)
     .filter((line) => line.direction === "rx")
@@ -604,7 +606,12 @@ export function SerialSidebar() {
                 <label className="text-xs text-muted-foreground">信号预设</label>
                 <Select
                   value={simulationConfig.preset}
-                  onValueChange={(preset) => setSimulationConfig({ preset: preset as SimulationPreset })}
+                  onValueChange={(preset) =>
+                    setSimulationConfig({
+                      preset: preset as SimulationPreset,
+                      ...(preset === "filter-demo" ? { sampleRateHz: 200 } : {}),
+                    })
+                  }
                   disabled={connected}
                 >
                   <SelectTrigger>
@@ -612,6 +619,7 @@ export function SerialSidebar() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="waveform">通用波形</SelectItem>
+                    <SelectItem value="filter-demo">滤波演示</SelectItem>
                     <SelectItem value="xy">XY 轨迹</SelectItem>
                     <SelectItem value="imu3">IMU 三轴姿态</SelectItem>
                     <SelectItem value="imu6">IMU 六轴</SelectItem>
@@ -674,82 +682,94 @@ export function SerialSidebar() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground">采样率（Hz）</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={simulationConfig.sampleRateHz}
-                    onChange={(event) => setSimulationConfig({ sampleRateHz: Number(event.target.value) })}
-                    disabled={connected}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">
-                    {simulationConfig.preset === "imu3" || simulationConfig.preset === "imu6"
-                      ? "运动频率（Hz）"
-                      : "信号频率（Hz）"}
-                  </label>
-                  <Input
-                    type="number"
-                    min={0.01}
-                    max={10}
-                    step={0.01}
-                    value={simulationConfig.frequencyHz}
-                    onChange={(event) => setSimulationConfig({ frequencyHz: Number(event.target.value) })}
-                    disabled={connected}
-                  />
-                </div>
-              </div>
-
-              {simulationConfig.preset !== "imu3" && simulationConfig.preset !== "imu6" && (
+              {simulationConfig.preset !== "filter-demo" && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-muted-foreground">幅值</label>
+                    <label className="text-xs text-muted-foreground">采样率（Hz）</label>
                     <Input
                       type="number"
-                      min={0}
-                      step={0.1}
-                      value={simulationConfig.amplitude}
-                      onChange={(event) => setSimulationConfig({ amplitude: Number(event.target.value) })}
+                      min={1}
+                      max={200}
+                      value={simulationConfig.sampleRateHz}
+                      onChange={(event) => setSimulationConfig({ sampleRateHz: Number(event.target.value) })}
                       disabled={connected}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-muted-foreground">偏移</label>
+                    <label className="text-xs text-muted-foreground">
+                      {simulationConfig.preset === "imu3" || simulationConfig.preset === "imu6"
+                        ? "运动频率（Hz）"
+                        : "信号频率（Hz）"}
+                    </label>
                     <Input
                       type="number"
-                      step={0.1}
-                      value={simulationConfig.offset}
-                      onChange={(event) => setSimulationConfig({ offset: Number(event.target.value) })}
+                      min={0.01}
+                      max={10}
+                      step={0.01}
+                      value={simulationConfig.frequencyHz}
+                      onChange={(event) => setSimulationConfig({ frequencyHz: Number(event.target.value) })}
                       disabled={connected}
                     />
                   </div>
                 </div>
               )}
 
-              <div>
-                <label className="text-xs text-muted-foreground">噪声强度</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={simulationConfig.noise}
-                  onChange={(event) => setSimulationConfig({ noise: Number(event.target.value) })}
-                  disabled={connected}
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {simulationConfig.preset === "imu6"
-                    ? "输出字段：ax、ay、az（g）和 gx、gy、gz（°/s）"
-                    : simulationConfig.preset === "imu3"
-                      ? "输出字段：roll、pitch、yaw（°）"
-                      : simulationConfig.preset === "xy"
-                        ? "输出字段：x、y"
-                        : `输出字段：ch1–ch${simulationConfig.channelCount}`}
+              {simulationConfig.preset !== "filter-demo" &&
+                simulationConfig.preset !== "imu3" &&
+                simulationConfig.preset !== "imu6" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">幅值</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={simulationConfig.amplitude}
+                        onChange={(event) => setSimulationConfig({ amplitude: Number(event.target.value) })}
+                        disabled={connected}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">偏移</label>
+                      <Input
+                        type="number"
+                        step={0.1}
+                        value={simulationConfig.offset}
+                        onChange={(event) => setSimulationConfig({ offset: Number(event.target.value) })}
+                        disabled={connected}
+                      />
+                    </div>
+                  </div>
+                )}
+
+              {simulationConfig.preset !== "filter-demo" && (
+                <div>
+                  <label className="text-xs text-muted-foreground">噪声强度</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={simulationConfig.noise}
+                    onChange={(event) => setSimulationConfig({ noise: Number(event.target.value) })}
+                    disabled={connected}
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {simulationConfig.preset === "imu6"
+                      ? "输出字段：ax、ay、az（g）和 gx、gy、gz（°/s）"
+                      : simulationConfig.preset === "imu3"
+                        ? "输出字段：roll、pitch、yaw（°）"
+                        : simulationConfig.preset === "xy"
+                          ? "输出字段：x、y"
+                          : `输出字段：ch1–ch${simulationConfig.channelCount}`}
+                  </p>
+                </div>
+              )}
+
+              {simulationConfig.preset === "filter-demo" && (
+                <p className="text-[11px] text-muted-foreground">
+                  固定 200 Hz 采样，5 Hz 主信号 + 40 Hz 干扰，输出字段 signal。
                 </p>
-              </div>
+              )}
 
               <div className="rounded-md bg-muted/60 p-2">
                 <p className="mb-1 text-[11px] text-muted-foreground">输出示例</p>
