@@ -7,7 +7,7 @@ const server = await createServer({ root, logLevel: "silent", server: { middlewa
 
 try {
   const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
-  const { parseChartData, parseChartLines, parseWithDelimiter } =
+  const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, registerChartParser } =
     await server.ssrLoadModule("/src/lib/parseChartData.ts");
   const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
@@ -213,6 +213,32 @@ try {
     { channel: rttLines[0].channel, text: rttLines[0].text, timestamp: rttLines[0].timestamp.getTime() },
     { channel: 1, text: "温度=25", timestamp: sourceTimestamp }
   );
+
+  const plugin = {
+    id: "plugin:double",
+    label: "双倍数值",
+    parse: (text, _config, timestamp) => ({
+      success: true,
+      method: "plugin:double",
+      dataPoint: { timestamp, values: { doubled: Number(text) * 2 } },
+    }),
+  };
+  const unregisterPlugin = registerChartParser(plugin);
+  assert.equal(
+    listChartParsers().some(({ id }) => id === plugin.id),
+    true
+  );
+  const pluginConfig = migrateChartConfig({ ...prefixedConfig, framePrefix: "", parseMode: plugin.id });
+  assert.equal(pluginConfig.parseMode, plugin.id);
+  assert.deepEqual(parseChartData("21", pluginConfig, sourceTimestamp).dataPoint, {
+    timestamp: sourceTimestamp,
+    values: { doubled: 42 },
+  });
+  assert.throws(() => registerChartParser(plugin), /已注册/);
+  assert.throws(() => registerChartParser({ ...plugin, id: "invalid" }), /plugin:/);
+  assert.equal(migrateChartConfig({ parseMode: "plugin:../invalid" }).parseMode, "auto");
+  unregisterPlugin();
+  assert.match(parseChartData("21", pluginConfig, sourceTimestamp).error, /未注册/);
 
   const configured = { ...DEFAULT_CHART_CONFIG, channels: [delimiter.channels[0]] };
   assert.equal(populateEmptyChannelsFromSamples(configured, [{ text: "1,2,3" }]), configured);

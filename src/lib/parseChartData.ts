@@ -2,7 +2,8 @@
  * RTT 图表数据解析工具
  */
 
-import type { ChartConfig, ChartDataPoint, Channel } from "./chartTypes";
+import type { ChartConfig, ChartDataPoint, Channel, ParseMode, PluginParseMode } from "./chartTypes";
+import { isPluginParseMode } from "./chartTypes";
 
 /**
  * 解析结果
@@ -17,7 +18,7 @@ export interface ParseResult {
   /** 错误信息 */
   error?: string;
   /** 使用的解析方法 */
-  method?: "regex" | "delimiter" | "json" | "kv";
+  method?: string;
 }
 
 export interface ChartInputLine {
@@ -26,6 +27,12 @@ export interface ChartInputLine {
 }
 
 export type ChartLineParser = (text: string, config: ChartConfig, timestamp: number) => ParseResult;
+
+export interface ChartParserPlugin {
+  id: Exclude<ParseMode, "auto" | "justfloat">;
+  label: string;
+  parse: ChartLineParser;
+}
 
 export interface ChartParseBatch {
   points: ChartDataPoint[];
@@ -239,6 +246,64 @@ export function parseWithKv(text: string, channels?: Channel[], timestamp = Date
   };
 }
 
+const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
+  [
+    "delimiter",
+    {
+      id: "delimiter",
+      label: "分隔符",
+      parse: (text, config, timestamp) =>
+        config.channels.length > 0
+          ? parseWithDelimiter(text, config.delimiter, config.channels, timestamp)
+          : { success: false, error: "分隔符模式未配置任何通道" },
+    },
+  ],
+  [
+    "json",
+    { id: "json", label: "JSON", parse: (text, config, timestamp) => parseWithJson(text, config.channels, timestamp) },
+  ],
+  [
+    "kv",
+    {
+      id: "kv",
+      label: "KV (key=value)",
+      parse: (text, config, timestamp) => parseWithKv(text, config.channels, timestamp),
+    },
+  ],
+  [
+    "regex",
+    {
+      id: "regex",
+      label: "正则表达式",
+      parse: (text, config, timestamp) =>
+        config.regexPattern
+          ? parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels, timestamp)
+          : { success: false, error: "正则表达式未配置" },
+    },
+  ],
+]);
+
+/** 注册文本解析插件；返回的函数仅卸载本次注册，便于测试和插件生命周期清理。 */
+export function registerChartParser(plugin: ChartParserPlugin & { id: PluginParseMode }): () => void {
+  if (!isPluginParseMode(plugin.id)) {
+    throw new Error("解析插件 ID 必须使用 plugin: 前缀，且只能包含字母、数字、点、下划线和连字符");
+  }
+  const label = plugin.label.trim();
+  if (!label) throw new Error("解析插件名称不能为空");
+  if (chartParsers.has(plugin.id)) throw new Error(`解析插件已注册: ${plugin.id}`);
+
+  const registered = { ...plugin, label };
+  chartParsers.set(plugin.id, registered);
+  return () => {
+    if (chartParsers.get(plugin.id) === registered) chartParsers.delete(plugin.id);
+  };
+}
+
+// ponytail: 注册表按应用启动时加载；需要运行时安装/卸载时再接入响应式插件状态。
+export function listChartParsers(): ChartParserPlugin[] {
+  return Array.from(chartParsers.values());
+}
+
 /**
  * 自动解析（按 JSON → 正则 → KV → 分隔符 顺序尝试）
  */
@@ -285,45 +350,18 @@ export function parseChartData(text: string, config: ChartConfig, timestamp = Da
     };
   }
 
-  switch (config.parseMode) {
-    case "regex":
-      if (!config.regexPattern) {
-        return {
-          success: false,
-          error: "正则表达式未配置",
-        };
-      }
-      return parseWithRegex(payload, config.regexPattern, config.regexFlags, config.channels, timestamp);
+  if (config.parseMode === "auto") return parseAuto(payload, config, timestamp);
+  if (config.parseMode === "justfloat") {
+    return { success: false, error: "JustFloat 需要从串口原始字节流解析" };
+  }
 
-    case "delimiter":
-      if (config.channels.length === 0) {
-        return {
-          success: false,
-          error: "分隔符模式未配置任何通道",
-        };
-      }
-      return parseWithDelimiter(payload, config.delimiter, config.channels, timestamp);
+  const parser = chartParsers.get(config.parseMode);
+  if (!parser) return { success: false, error: `解析器未注册: ${config.parseMode}` };
 
-    case "json":
-      return parseWithJson(payload, config.channels, timestamp);
-
-    case "kv":
-      return parseWithKv(payload, config.channels, timestamp);
-
-    case "auto":
-      return parseAuto(payload, config, timestamp);
-
-    case "justfloat":
-      return {
-        success: false,
-        error: "JustFloat 需要从串口原始字节流解析",
-      };
-
-    default:
-      return {
-        success: false,
-        error: "未知的解析模式",
-      };
+  try {
+    return parser.parse(payload, config, timestamp);
+  } catch (error) {
+    return { success: false, error: `解析器 ${parser.label} 执行失败: ${error}` };
   }
 }
 

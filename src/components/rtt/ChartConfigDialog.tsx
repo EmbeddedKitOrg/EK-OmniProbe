@@ -10,6 +10,7 @@ import type {
   WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
+import { listChartParsers } from "@/lib/parseChartData";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import {
   calculateSosFrequencyResponse,
@@ -699,10 +700,11 @@ export function ChartConfigDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="auto">自动</SelectItem>
-                        <SelectItem value="delimiter">分隔符</SelectItem>
-                        <SelectItem value="json">JSON</SelectItem>
-                        <SelectItem value="kv">KV (key=value)</SelectItem>
-                        <SelectItem value="regex">正则</SelectItem>
+                        {listChartParsers().map((parser) => (
+                          <SelectItem key={parser.id} value={parser.id}>
+                            {parser.label}
+                          </SelectItem>
+                        ))}
                         {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
                       </SelectContent>
                     </Select>

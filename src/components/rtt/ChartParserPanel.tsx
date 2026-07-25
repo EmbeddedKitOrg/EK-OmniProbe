@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
-import { parseChartData } from "@/lib/parseChartData";
+import { listChartParsers, parseChartData } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
@@ -196,10 +196,11 @@ export function ChartParserPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">自动识别</SelectItem>
-              <SelectItem value="delimiter">分隔符</SelectItem>
-              <SelectItem value="json">JSON</SelectItem>
-              <SelectItem value="kv">KV (key=value)</SelectItem>
-              <SelectItem value="regex">正则表达式</SelectItem>
+              {listChartParsers().map((parser) => (
+                <SelectItem key={parser.id} value={parser.id}>
+                  {parser.label}
+                </SelectItem>
+              ))}
               {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
             </SelectContent>
           </Select>

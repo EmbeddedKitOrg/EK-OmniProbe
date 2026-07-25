@@ -35,10 +35,14 @@ export interface Channel {
  */
 export type ChartSeries = Channel;
 
-/**
- * 解析模式
- */
-export type ParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "auto";
+/** 解析模式。第三方文本解析器使用 plugin: 前缀，避免与内置模式冲突。 */
+export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "auto";
+export type PluginParseMode = `plugin:${string}`;
+export type ParseMode = BuiltInParseMode | PluginParseMode;
+
+export function isPluginParseMode(value: unknown): value is PluginParseMode {
+  return typeof value === "string" && /^plugin:[a-z0-9][a-z0-9._-]{0,63}$/i.test(value);
+}
 
 /**
  * 图表类型
@@ -475,7 +479,8 @@ function isParseMode(value: unknown): value is ParseMode {
     value === "json" ||
     value === "kv" ||
     value === "justfloat" ||
-    value === "auto"
+    value === "auto" ||
+    isPluginParseMode(value)
   );
 }
 
