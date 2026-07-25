@@ -47,6 +47,7 @@ import {
   renderSerialControlCommand,
   renderSerialJoystickCommand,
   saveSerialControlPanel,
+  SERIAL_CONTROL_WIDGET_GROUPS,
   type SerialControlPanelConfig,
   type SerialControlWidget,
   type SerialControlWidgetType,
@@ -200,39 +201,6 @@ interface SerialControlPanelProps {
   sourceDescription?: string;
   onOpenSourceSettings?: () => void;
 }
-
-const PALETTE_GROUPS: Array<{ title: string; items: Array<[SerialControlWidgetType, string]> }> = [
-  {
-    title: "发送控制",
-    items: [
-      ["button", "发送按钮"],
-      ["toggle", "开关"],
-      ["slider", "滑块"],
-      ["input", "参数输入"],
-      ["stepper", "参数微调"],
-      ["joystick", "摇杆"],
-      ["sequence", "命令序列"],
-    ],
-  },
-  {
-    title: "数据显示",
-    items: [
-      ["value", "接收数值"],
-      ["indicator", "状态灯"],
-      ["gauge", "能量槽"],
-      ["serial-log", "串口日志"],
-    ],
-  },
-  {
-    title: "可视化",
-    items: [
-      ["yt-chart", "YT 实时波形"],
-      ["fft-chart", "FFT 频谱"],
-      ["xy-chart", "XY 曲线"],
-      ["imu-3d", "IMU 3D"],
-    ],
-  },
-];
 
 function SerialSignalPreview({
   widget,
@@ -1980,13 +1948,13 @@ export function SerialControlPanel({
             <div className="text-sm font-medium">组件库</div>
             <div className="mt-1 text-[11px] text-muted-foreground">拖入画布，或点击直接添加。</div>
             <div className="mt-4 space-y-4">
-              {PALETTE_GROUPS.map((group) => (
+              {SERIAL_CONTROL_WIDGET_GROUPS.map((group) => (
                 <div key={group.title}>
                   <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {group.title}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {group.items.map(([type, label]) => (
+                    {group.items.map(({ type, label }) => (
                       <button
                         key={type}
                         type="button"

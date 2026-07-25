@@ -1,21 +1,24 @@
 import type { WaveformInterpolation } from "./chartTypes";
 
-export type SerialControlWidgetType =
-  | "button"
-  | "toggle"
-  | "slider"
-  | "input"
-  | "stepper"
-  | "joystick"
-  | "sequence"
-  | "gauge"
-  | "value"
-  | "indicator"
-  | "serial-log"
-  | "fft-chart"
-  | "xy-chart"
-  | "yt-chart"
-  | "imu-3d";
+export const SERIAL_CONTROL_WIDGET_TYPES = [
+  "button",
+  "toggle",
+  "slider",
+  "input",
+  "stepper",
+  "joystick",
+  "sequence",
+  "value",
+  "indicator",
+  "gauge",
+  "serial-log",
+  "yt-chart",
+  "fft-chart",
+  "xy-chart",
+  "imu-3d",
+] as const;
+
+export type SerialControlWidgetType = (typeof SERIAL_CONTROL_WIDGET_TYPES)[number];
 export type SerialControlFormat = "text" | "hex";
 
 interface SerialControlWidgetBase {
@@ -197,52 +200,48 @@ export function clampFloatingPanelPosition(
   };
 }
 const LEGACY_ROW_HEIGHT = 48;
-const LABELS: Record<SerialControlWidgetType, string> = {
-  button: "发送按钮",
-  toggle: "开关",
-  slider: "滑块",
-  input: "参数输入",
-  stepper: "参数微调",
-  joystick: "摇杆",
-  sequence: "命令序列",
-  gauge: "能量槽",
-  value: "接收数值",
-  indicator: "状态灯",
-  "serial-log": "串口日志",
-  "fft-chart": "FFT 频谱",
-  "xy-chart": "XY 二维曲线",
-  "yt-chart": "YT 一维曲线",
-  "imu-3d": "IMU 3D 姿态",
-};
 
-function widgetId() {
-  return globalThis.crypto?.randomUUID?.() ?? `widget-${Date.now()}`;
+export interface SerialControlWidgetDefinition {
+  type: SerialControlWidgetType;
+  label: string;
+  paletteLabel: string;
+  group: "发送控制" | "数据显示" | "可视化";
 }
 
-export function createSerialControlWidget(type: SerialControlWidgetType): SerialControlWidget {
-  const base = {
-    id: widgetId(),
-    type,
-    label: LABELS[type],
-    left: 0,
-    top: 0,
-    width: 380,
-    height: 168,
-    format: "text" as const,
-  };
-  if (type === "button") return { ...base, type, command: "PING" };
-  if (type === "toggle") return { ...base, type, onCommand: "LED=1", offCommand: "LED=0", value: false };
-  if (type === "slider") {
-    return { ...base, type, template: "PWM={value}", min: 0, max: 255, step: 1, value: 0, sendMode: "release" };
-  }
-  if (type === "input") return { ...base, type, template: "{value}", value: "" };
-  if (type === "stepper") {
-    return { ...base, type, template: "PARAM={value}", min: 0, max: 100, step: 1, value: 0 };
-  }
-  if (type === "joystick") {
-    return {
-      ...base,
-      type,
+interface InternalWidgetDefinition {
+  type: SerialControlWidgetType;
+  label: string;
+  paletteLabel?: string;
+  group: SerialControlWidgetDefinition["group"];
+  defaults: () => Record<string, unknown>;
+}
+
+const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
+  { type: "button", label: "发送按钮", group: "发送控制", defaults: () => ({ command: "PING" }) },
+  {
+    type: "toggle",
+    label: "开关",
+    group: "发送控制",
+    defaults: () => ({ onCommand: "LED=1", offCommand: "LED=0", value: false }),
+  },
+  {
+    type: "slider",
+    label: "滑块",
+    group: "发送控制",
+    defaults: () => ({ template: "PWM={value}", min: 0, max: 255, step: 1, value: 0, sendMode: "release" }),
+  },
+  { type: "input", label: "参数输入", group: "发送控制", defaults: () => ({ template: "{value}", value: "" }) },
+  {
+    type: "stepper",
+    label: "参数微调",
+    group: "发送控制",
+    defaults: () => ({ template: "PARAM={value}", min: 0, max: 100, step: 1, value: 0 }),
+  },
+  {
+    type: "joystick",
+    label: "摇杆",
+    group: "发送控制",
+    defaults: () => ({
       template: "X={x},Y={y}",
       xMin: -100,
       xMax: 100,
@@ -253,48 +252,117 @@ export function createSerialControlWidget(type: SerialControlWidgetType): Serial
       y: 0,
       sendMode: "continuous",
       recenter: true,
-    };
-  }
-  if (type === "sequence") return { ...base, type, commands: "AT\nAT+GMR", intervalMs: 100 };
-  if (type === "gauge") {
-    return { ...base, type, channel: "", min: 0, max: 100, unit: "%", direction: "horizontal" };
-  }
-  if (type === "value") return { ...base, type, channel: "", unit: "" };
-  if (type === "indicator") return { ...base, type, channel: "", threshold: 0.5 };
-  if (type === "serial-log") return { ...base, type, direction: "all", width: 780, height: 348 };
-  if (type === "fft-chart") return { ...base, type, channels: [], pointLimit: 1024, width: 780, height: 348 };
-  if (type === "xy-chart") {
-    return { ...base, type, xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 };
-  }
-  if (type === "yt-chart") {
-    return { ...base, type, channels: [], pointLimit: 200, interpolation: "linear", width: 780, height: 348 };
-  }
-  return {
-    ...base,
+    }),
+  },
+  {
+    type: "sequence",
+    label: "命令序列",
+    group: "发送控制",
+    defaults: () => ({ commands: "AT\nAT+GMR", intervalMs: 100 }),
+  },
+  { type: "value", label: "接收数值", group: "数据显示", defaults: () => ({ channel: "", unit: "" }) },
+  { type: "indicator", label: "状态灯", group: "数据显示", defaults: () => ({ channel: "", threshold: 0.5 }) },
+  {
+    type: "gauge",
+    label: "能量槽",
+    group: "数据显示",
+    defaults: () => ({ channel: "", min: 0, max: 100, unit: "%", direction: "horizontal" }),
+  },
+  {
+    type: "serial-log",
+    label: "串口日志",
+    group: "数据显示",
+    defaults: () => ({ direction: "all", width: 780, height: 348 }),
+  },
+  {
+    type: "yt-chart",
+    label: "YT 一维曲线",
+    paletteLabel: "YT 实时波形",
+    group: "可视化",
+    defaults: () => ({ channels: [], pointLimit: 200, interpolation: "linear", width: 780, height: 348 }),
+  },
+  {
+    type: "fft-chart",
+    label: "FFT 频谱",
+    group: "可视化",
+    defaults: () => ({ channels: [], pointLimit: 1024, width: 780, height: 348 }),
+  },
+  {
+    type: "xy-chart",
+    label: "XY 二维曲线",
+    paletteLabel: "XY 曲线",
+    group: "可视化",
+    defaults: () => ({ xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 }),
+  },
+  {
+    type: "imu-3d",
+    label: "IMU 3D 姿态",
+    paletteLabel: "IMU 3D",
+    group: "可视化",
+    defaults: () => ({
+      sourceMode: "euler",
+      rollChannel: "roll",
+      pitchChannel: "pitch",
+      yawChannel: "yaw",
+      angleUnit: "deg",
+      accelXChannel: "ax",
+      accelYChannel: "ay",
+      accelZChannel: "az",
+      gyroXChannel: "gx",
+      gyroYChannel: "gy",
+      gyroZChannel: "gz",
+      gyroUnit: "dps",
+      sampleRateHz: 100,
+      filterAlpha: 0.98,
+      gyroBiasX: 0,
+      gyroBiasY: 0,
+      gyroBiasZ: 0,
+      rollOffset: 0,
+      pitchOffset: 0,
+      yawOffset: 0,
+      width: 780,
+      height: 348,
+    }),
+  },
+];
+
+const WIDGET_BY_TYPE = Object.fromEntries(
+  WIDGET_DEFINITIONS.map((definition) => [definition.type, definition])
+) as Record<SerialControlWidgetType, InternalWidgetDefinition>;
+
+export const SERIAL_CONTROL_WIDGET_DEFINITIONS: readonly SerialControlWidgetDefinition[] = WIDGET_DEFINITIONS.map(
+  ({ type, label, paletteLabel, group }) => ({ type, label, paletteLabel: paletteLabel ?? label, group })
+);
+
+export const SERIAL_CONTROL_WIDGET_GROUPS = (["发送控制", "数据显示", "可视化"] as const).map((title) => ({
+  title,
+  items: SERIAL_CONTROL_WIDGET_DEFINITIONS.filter(({ group }) => group === title).map(({ type, paletteLabel }) => ({
     type,
-    sourceMode: "euler",
-    rollChannel: "roll",
-    pitchChannel: "pitch",
-    yawChannel: "yaw",
-    angleUnit: "deg",
-    accelXChannel: "ax",
-    accelYChannel: "ay",
-    accelZChannel: "az",
-    gyroXChannel: "gx",
-    gyroYChannel: "gy",
-    gyroZChannel: "gz",
-    gyroUnit: "dps",
-    sampleRateHz: 100,
-    filterAlpha: 0.98,
-    gyroBiasX: 0,
-    gyroBiasY: 0,
-    gyroBiasZ: 0,
-    rollOffset: 0,
-    pitchOffset: 0,
-    yawOffset: 0,
-    width: 780,
-    height: 348,
+    label: paletteLabel,
+  })),
+}));
+
+export function isSerialControlWidgetType(value: unknown): value is SerialControlWidgetType {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(WIDGET_BY_TYPE, value);
+}
+
+function widgetId() {
+  return globalThis.crypto?.randomUUID?.() ?? `widget-${Date.now()}`;
+}
+
+export function createSerialControlWidget(type: SerialControlWidgetType): SerialControlWidget {
+  const definition = WIDGET_BY_TYPE[type];
+  const base = {
+    id: widgetId(),
+    type,
+    label: definition.label,
+    left: 0,
+    top: 0,
+    width: 380,
+    height: 168,
+    format: "text" as const,
   };
+  return { ...base, ...definition.defaults(), type } as SerialControlWidget;
 }
 
 function finiteNumber(value: unknown, fallback: number) {
@@ -321,24 +389,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     if (!rawWidget || typeof rawWidget !== "object") return [];
     const widget = rawWidget as Record<string, unknown>;
     const type = widget.type;
-    if (
-      type !== "button" &&
-      type !== "toggle" &&
-      type !== "slider" &&
-      type !== "input" &&
-      type !== "stepper" &&
-      type !== "joystick" &&
-      type !== "sequence" &&
-      type !== "gauge" &&
-      type !== "value" &&
-      type !== "indicator" &&
-      type !== "serial-log" &&
-      type !== "fft-chart" &&
-      type !== "xy-chart" &&
-      type !== "yt-chart" &&
-      type !== "imu-3d"
-    )
-      return [];
+    if (!isSerialControlWidgetType(type)) return [];
 
     const candidateId = stringValue(widget.id, `${type}-${index + 1}`) || `${type}-${index + 1}`;
     const id = usedIds.has(candidateId) ? `${candidateId}-${index + 1}` : candidateId;
@@ -370,7 +421,7 @@ export function parseSerialControlPanel(raw: unknown): SerialControlPanelConfig 
     const base = {
       id,
       type,
-      label: stringValue(widget.label, LABELS[type]) || LABELS[type],
+      label: stringValue(widget.label, WIDGET_BY_TYPE[type].label) || WIDGET_BY_TYPE[type].label,
       left,
       top,
       width,

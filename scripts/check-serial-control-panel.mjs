@@ -15,6 +15,11 @@ try {
     renderSerialJoystickCommand,
     resolveSerialImuAngles,
     clampFloatingPanelPosition,
+    createSerialControlWidget,
+    isSerialControlWidgetType,
+    SERIAL_CONTROL_WIDGET_TYPES,
+    SERIAL_CONTROL_WIDGET_DEFINITIONS,
+    SERIAL_CONTROL_WIDGET_GROUPS,
   } = await server.ssrLoadModule("/src/lib/serialControlPanel.ts");
   const { buildSerialControlChartData } = await server.ssrLoadModule(
     "/src/components/serial/SerialControlMiniChart.tsx"
@@ -35,6 +40,42 @@ try {
     clampFloatingPanelPosition({ x: -999, y: 999 }, { width: 1000, height: 800 }, { width: 320, height: 600 }),
     { x: -656, y: 176 }
   );
+  const widgetTypes = SERIAL_CONTROL_WIDGET_DEFINITIONS.map(({ type }) => type);
+  assert.equal(widgetTypes.length, 15);
+  assert.equal(new Set(widgetTypes).size, widgetTypes.length);
+  assert.deepEqual(widgetTypes, SERIAL_CONTROL_WIDGET_TYPES);
+  assert.deepEqual(
+    SERIAL_CONTROL_WIDGET_GROUPS.flatMap(({ items }) => items.map(({ type }) => type)),
+    widgetTypes
+  );
+  assert.equal(
+    SERIAL_CONTROL_WIDGET_DEFINITIONS.every(({ type, label }) => {
+      const widget = createSerialControlWidget(type);
+      return widget.type === type && widget.label === label;
+    }),
+    true
+  );
+  assert.equal(isSerialControlWidgetType("imu-3d"), true);
+  assert.equal(isSerialControlWidgetType("unknown"), false);
+  const importedDefaults = parseSerialControlPanel({
+    version: 4,
+    widgets: widgetTypes.map((type) => ({ type })),
+  }).widgets;
+  widgetTypes.forEach((type, index) => {
+    const {
+      id: _createdId,
+      width: _createdWidth,
+      height: _createdHeight,
+      ...created
+    } = createSerialControlWidget(type);
+    const { id: _importedId, width: _importedWidth, height: _importedHeight, ...imported } = importedDefaults[index];
+    assert.deepEqual(created, imported);
+  });
+  assert.deepEqual((({ width, height }) => ({ width, height }))(createSerialControlWidget("serial-log")), {
+    width: 780,
+    height: 348,
+  });
+  assert.notEqual(createSerialControlWidget("yt-chart").channels, createSerialControlWidget("yt-chart").channels);
 
   const simulationConfig = {
     preset: "imu6",
