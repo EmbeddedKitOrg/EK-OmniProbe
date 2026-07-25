@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.9.0-blue" alt="Version 1.9.0" />
+  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="Version 2.0.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,12 +37,13 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 1.9.0 更新重点
+## 2.0.0 更新重点
 
-- 控制面板成为独立工作台，可在串口与 RTT 数据源之间切换，并直接复用现有连接和解析配置
-- 串口时域波形支持 MATLAB FIR、IIR SOS/ScaleValues、中值滤波和图形化低通、高通、带通级联
-- RTT、串口和 BLE 图表精简为统一工具栏，通道、性能、显示与滤波配置集中管理
-- 文本数据解析支持可选数据帧前缀，混合输出日志和采样值时只让匹配行进入图表和控制面板
+- 串口、RTT 和 BLE 的采集保持独立，文本分帧、数值解析、滤波处理与图表展示收敛为统一数据链路
+- 三种来源统一使用有状态文本分帧，支持空闲残帧刷出和停止、断开时重置，避免无换行数据丢失或重连串帧
+- BLE 保留每个 Notify 数据块的接收时间，RTT 移除无效批处理，减少延迟并让采样时间更准确
+- 图表工作台新增底部状态栏和 X 轴缩放条，解析配置应用后会同步更新通道并清理不兼容的旧图表数据
+- README 使用 Mermaid 展示从采集、解析、处理到图像与分析展示的完整数据流
 
 当前界面采用统一的 IDE 式布局：
 
@@ -283,7 +284,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`1.9.0`
+- 当前版本：`2.0.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
