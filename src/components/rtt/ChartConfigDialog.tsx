@@ -346,8 +346,10 @@ export function ChartConfigDialog({
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-[18px] border border-border/60 px-3 py-2.5">
         <div>
-          <Label>启用滤波预览</Label>
-          <p className="mt-1 text-xs text-muted-foreground">仅影响波形预览，原始日志、导出和 AI 数据保持不变。</p>
+          <Label>启用数据滤波</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            应用于波形、FFT 和图表统计；原始日志、CSV 导出和 AI 数据保持不变。
+          </p>
         </div>
         <Switch checked={localConfig.dataFilter.enabled} onCheckedChange={(enabled) => updateDataFilter({ enabled })} />
       </div>

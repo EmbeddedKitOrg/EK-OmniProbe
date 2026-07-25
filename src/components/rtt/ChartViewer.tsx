@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
+import { resolveChartProcessing } from "@/lib/chartFilter";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
 interface BrushDomain {
@@ -86,14 +87,23 @@ export function ChartViewer({
   const frozenChartDataRef = useRef(chartData);
   const { displayedData, nextFrozenData } = resolveChartDisplayData(chartData, chartPaused, frozenChartDataRef.current);
   frozenChartDataRef.current = nextFrozenData;
-  const latestPoint = displayedData[displayedData.length - 1];
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const addLog = useLogStore((s) => s.addLog);
+  const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
+  const xChannelKey = xChannel?.key;
+  const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
+  const visibleKeys = useMemo(() => visibleSeries.map(({ key }) => key), [visibleSeries]);
+  const processing = useMemo(
+    () => resolveChartProcessing(displayedData, visibleKeys, chartConfig.dataFilter),
+    [chartConfig.dataFilter, displayedData, visibleKeys]
+  );
+  const analysisData = processing.processedData;
+  const latestPoint = analysisData[analysisData.length - 1];
 
   const chartDataFormatted = useMemo(() => {
-    if (chartConfig.chartType === "waveform" || displayedData.length === 0) return [];
-    const firstTimestamp = displayedData[0].timestamp;
-    const formatted = displayedData.map((point, index) => ({
+    if (chartConfig.chartType === "waveform" || analysisData.length === 0) return [];
+    const firstTimestamp = analysisData[0].timestamp;
+    const formatted = analysisData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
       time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
@@ -103,18 +113,13 @@ export function ChartViewer({
       formatted,
       chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : formatted.length
     );
-  }, [chartConfig.chartType, chartConfig.visiblePointLimit, displayedData]);
-
-  const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
-  const xChannelKey = xChannel?.key;
-
-  const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
+  }, [analysisData, chartConfig.chartType, chartConfig.visiblePointLimit]);
 
   const yAxisDomain = useMemo(() => {
-    if (chartConfig.chartType === "waveform" || displayedData.length === 0) return [0, 100];
+    if (chartConfig.chartType === "waveform" || analysisData.length === 0) return [0, 100];
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
-    displayedData.forEach((point) => {
+    analysisData.forEach((point) => {
       Object.entries(point.values).forEach(([key, value]) => {
         if (chartConfig.chartType === "xy-scatter" && key === xChannelKey) return;
         if (typeof value === "number" && Number.isFinite(value)) {
@@ -130,14 +135,14 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, displayedData, xChannelKey]);
+  }, [analysisData, chartConfig.chartType, xChannelKey]);
 
   const xAxisDomain = useMemo(() => {
     if (chartConfig.chartType !== "xy-scatter" || !xChannelKey) return undefined;
-    if (displayedData.length === 0) return [0, 100];
+    if (analysisData.length === 0) return [0, 100];
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
-    displayedData.forEach((point) => {
+    analysisData.forEach((point) => {
       const value = point.values[xChannelKey];
       if (typeof value === "number" && Number.isFinite(value)) {
         min = Math.min(min, value);
@@ -151,13 +156,13 @@ export function ChartViewer({
     }
     const margin = (max - min) * 0.1;
     return [min - margin, max + margin];
-  }, [chartConfig.chartType, displayedData, xChannelKey]);
+  }, [analysisData, chartConfig.chartType, xChannelKey]);
 
   const statistics = useMemo(() => {
-    if (displayedData.length === 0) return null;
+    if (analysisData.length === 0) return null;
     const stats: Record<string, { min: number; max: number; avg: number; latest: number }> = {};
     visibleSeries.forEach((series) => {
-      const values = displayedData
+      const values = analysisData
         .map((point) => point.values[series.key])
         .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
       if (values.length > 0) {
@@ -170,7 +175,7 @@ export function ChartViewer({
       }
     });
     return stats;
-  }, [displayedData, visibleSeries]);
+  }, [analysisData, visibleSeries]);
 
   // 瞬时估算值本身有抖动，直接展示在徽标上会让文字宽度跟着跳动、挤动工具栏布局，
   // 这里改用共享的 EMA 平滑 hook（与波形图横轴使用同一份平滑结果）。
@@ -680,7 +685,9 @@ export function ChartViewer({
           </div>
         ) : chartConfig.chartType === "waveform" ? (
           <SignalPlotCanvas
-            chartData={displayedData}
+            chartData={analysisData}
+            rawChartData={processing.comparisonData}
+            filterActive={processing.filterActive}
             series={visibleSeries}
             chartConfig={chartConfig}
             domain={signalDomain}

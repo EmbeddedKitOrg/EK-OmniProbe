@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
+import { resolveChartProcessing } from "@/lib/chartFilter";
 import type { ChartConfig, ChartDataPoint, ChartSeries } from "@/lib/chartTypes";
 import {
   SERIAL_CONTROL_WIDGET_GROUPS,
@@ -312,6 +313,11 @@ function SerialSignalPreview({
       }
     );
   });
+  const processing = resolveChartProcessing(
+    chartData.slice(-widget.pointLimit),
+    series.map(({ key }) => key),
+    chartConfig.dataFilter
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -338,7 +344,9 @@ function SerialSignalPreview({
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background/70">
         {series.length > 0 ? (
           <SignalPlotCanvas
-            chartData={chartData.slice(-widget.pointLimit)}
+            chartData={processing.processedData}
+            rawChartData={processing.comparisonData}
+            filterActive={processing.filterActive}
             series={series}
             chartConfig={{
               ...chartConfig,

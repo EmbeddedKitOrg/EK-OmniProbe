@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
-import type { ChartConfig, ChartDataPoint, ChartSeries, SignalDomain, WaveformInterpolation } from "@/lib/chartTypes";
+import {
+  PRESET_COLORS,
+  type ChartConfig,
+  type ChartDataPoint,
+  type ChartSeries,
+  type SignalDomain,
+  type WaveformInterpolation,
+} from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
-import { applyDataFilter, isDataFilterReady } from "@/lib/chartFilter";
 import { Button } from "@/components/ui/button";
 import { ScanLine } from "lucide-react";
 
 interface SignalPlotCanvasProps {
   chartData: ChartDataPoint[];
+  rawChartData?: ChartDataPoint[];
+  filterActive?: boolean;
   series: ChartSeries[];
   chartConfig: ChartConfig;
   domain: SignalDomain;
@@ -55,6 +63,11 @@ interface FftViewModel {
 }
 
 const MARGIN = { top: 20, right: 20, bottom: 28, left: 60 };
+
+const getRawSeriesColor = (color: string) => {
+  const index = PRESET_COLORS.indexOf(color);
+  return index < 0 ? "#f97316" : PRESET_COLORS[(index + PRESET_COLORS.length / 2) % PRESET_COLORS.length];
+};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -229,7 +242,15 @@ function computeSpectrum(values: number[], sampleRateHz: number) {
   return result;
 }
 
-export function SignalPlotCanvas({ chartData, series, chartConfig, domain, className }: SignalPlotCanvasProps) {
+export function SignalPlotCanvas({
+  chartData,
+  rawChartData,
+  filterActive = false,
+  series,
+  chartConfig,
+  domain,
+  className,
+}: SignalPlotCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -257,31 +278,25 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
   });
 
   const visibleSeries = useMemo(() => series.filter((item) => item.visible), [series]);
-  const visibleKeys = useMemo(() => visibleSeries.map((item) => item.key), [visibleSeries]);
-  const filterActive = domain === "time" && isDataFilterReady(chartConfig.dataFilter);
-  const filteredChartData = useMemo(
-    () => (filterActive ? applyDataFilter(chartData, visibleKeys, chartConfig.dataFilter) : chartData),
-    [chartConfig.dataFilter, chartData, filterActive, visibleKeys]
-  );
 
   // 串口/RTT 数据到达间隔本身有抖动，若每帧都直接采用瞬时估算值，波形横轴（index / 采样率）
   // 会跟着来回轻微缩放，看起来像“画面一直在抖”。用共享的 EMA 平滑 hook 处理。
   const effectiveSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz, 200);
 
   const normalizedData = useMemo<NormalizedPoint[]>(() => {
-    if (filteredChartData.length === 0) return [];
+    if (chartData.length === 0) return [];
     const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate) ? effectiveSampleRate : 1;
 
-    return filteredChartData.map((point, index) => ({
+    return chartData.map((point, index) => ({
       index,
       timestamp: point.timestamp,
       // Waveform should use uniformly spaced samples instead of host receive timestamps.
       // Serial/RTT data often arrives in batches, which makes Date.now()-based X positions fold back.
       timeSec: index / sampleRate,
       values: point.values,
-      rawValues: filterActive && chartConfig.dataFilter.showOriginal ? chartData[index]?.values : undefined,
+      rawValues: rawChartData?.[index]?.values,
     }));
-  }, [chartConfig.dataFilter.showOriginal, chartData, effectiveSampleRate, filterActive, filteredChartData]);
+  }, [chartData, effectiveSampleRate, rawChartData]);
 
   const timeView = useMemo<TimeViewModel | null>(() => {
     if (domain !== "time" || normalizedData.length === 0 || visibleSeries.length === 0) return null;
@@ -613,8 +628,8 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
       {chartConfig.showLegend && (
         <div className="pointer-events-none absolute left-4 right-28 top-4 flex flex-wrap gap-2">
           {visibleSeries.map((item) => {
-            const latestValue = filteredChartData[filteredChartData.length - 1]?.values[item.key];
-            const latestRawValue = filterActive ? chartData[chartData.length - 1]?.values[item.key] : undefined;
+            const latestValue = chartData[chartData.length - 1]?.values[item.key];
+            const latestRawValue = rawChartData?.[rawChartData.length - 1]?.values[item.key];
             return (
               <div
                 key={item.key}
@@ -623,13 +638,17 @@ export function SignalPlotCanvas({ chartData, series, chartConfig, domain, class
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="font-medium text-foreground">{item.name}</span>
                 {Number.isFinite(latestValue) && (
-                  <span className="ml-2 text-muted-foreground">
-                    {filterActive ? "滤 " : ""}
-                    {formatChartNumber(latestValue as number)}
-                    {filterActive && chartConfig.dataFilter.showOriginal && Number.isFinite(latestRawValue)
-                      ? ` · 原 ${formatChartNumber(latestRawValue as number)}`
-                      : ""}
-                    {item.unit ? ` ${item.unit}` : ""}
+                  <span className="ml-2">
+                    <span style={{ color: item.color }}>
+                      {filterActive ? "滤 " : ""}
+                      {formatChartNumber(latestValue as number)}
+                    </span>
+                    {rawChartData && Number.isFinite(latestRawValue) && (
+                      <span style={{ color: getRawSeriesColor(item.color) }}>
+                        {` · 原 ${formatChartNumber(latestRawValue as number)}`}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">{item.unit ? ` ${item.unit}` : ""}</span>
                   </span>
                 )}
               </div>
@@ -721,12 +740,12 @@ function drawTimeChart(
 
   const drawSeries = (useRawValues: boolean) => {
     context.save();
-    context.globalAlpha = useRawValues ? 0.35 : 1;
-    context.lineWidth = useRawValues ? 1.25 : 2;
+    context.globalAlpha = useRawValues ? 0.8 : 1;
+    context.lineWidth = useRawValues ? 1.5 : 2;
     context.setLineDash(useRawValues ? [5, 4] : []);
     for (const item of visibleSeries) {
       context.beginPath();
-      context.strokeStyle = item.color;
+      context.strokeStyle = useRawValues ? getRawSeriesColor(item.color) : item.color;
       const pathPoints: SignalPathPoint[] = [];
       const flushPath = () => {
         traceSignalPath(context, pathPoints, interpolation);

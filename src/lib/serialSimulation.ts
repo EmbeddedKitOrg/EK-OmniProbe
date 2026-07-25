@@ -9,7 +9,7 @@ const clamp = (value: number, min: number, max: number, fallback: number) =>
 export function normalizeSimulationConfig(config: SimulationSerialConfig): SimulationSerialConfig {
   return {
     ...config,
-    sampleRateHz: Math.round(clamp(config.sampleRateHz, 1, 200, 50)),
+    sampleRateHz: config.preset === "filter-demo" ? 200 : Math.round(clamp(config.sampleRateHz, 1, 200, 50)),
     frequencyHz: clamp(config.frequencyHz, 0.01, 10, 0.25),
     amplitude: clamp(config.amplitude, 0, 10000, 1),
     offset: clamp(config.offset, -10000, 10000, 0),
@@ -37,6 +37,12 @@ export function createSimulationSample(
 ): Record<string, number> {
   const normalized = normalizeSimulationConfig(config);
   const phase = elapsedSeconds * normalized.frequencyHz * 2 * Math.PI;
+
+  if (normalized.preset === "filter-demo") {
+    return {
+      signal: round(Math.sin(2 * Math.PI * 5 * elapsedSeconds) + 0.35 * Math.sin(2 * Math.PI * 40 * elapsedSeconds)),
+    };
+  }
 
   if (normalized.preset === "imu3") {
     return {

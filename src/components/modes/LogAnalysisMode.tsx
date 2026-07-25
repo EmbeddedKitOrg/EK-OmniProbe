@@ -61,6 +61,19 @@ export function LogAnalysisMode() {
     () => selectedPrefixSummary?.samples ?? lines.slice(0, 200).map((line) => ({ text: line.text })),
     [lines, selectedPrefixSummary]
   );
+  const parsingConfig = useMemo(
+    () => chartConfig,
+    [
+      chartConfig.channels,
+      chartConfig.delimiter,
+      chartConfig.enabled,
+      chartConfig.framePrefix,
+      chartConfig.maxDataPoints,
+      chartConfig.parseMode,
+      chartConfig.regexFlags,
+      chartConfig.regexPattern,
+    ]
+  );
   const viewerData = useMemo(
     () => ({
       autoScroll: false,
@@ -194,13 +207,13 @@ export function LogAnalysisMode() {
     setChartProgress(0);
     setParseSuccessCount(0);
     setParseFailCount(0);
-    setChartConfig(migrateChartConfig({ ...inferredConfig, enabled: true }));
+    setChartConfig(migrateChartConfig({ ...inferredConfig, enabled: true, sampleRateHz: config.sampleRateHz }));
     setViewMode("split");
   };
 
   useEffect(() => {
     const runId = ++chartRunRef.current;
-    if (!chartConfig.enabled || lines.length === 0) {
+    if (!parsingConfig.enabled || lines.length === 0) {
       setChartData([]);
       setChartParsing(false);
       setChartProgress(0);
@@ -210,13 +223,13 @@ export function LogAnalysisMode() {
     }
 
     const parse = async () => {
-      const ingestion = new ChartIngestionBuffer(chartConfig.maxDataPoints);
+      const ingestion = new ChartIngestionBuffer(parsingConfig.maxDataPoints);
       setChartParsing(true);
       setChartProgress(0);
 
       for (let offset = 0; offset < lines.length; offset += CHART_PARSE_BATCH_SIZE) {
         if (runId !== chartRunRef.current) return;
-        ingestion.ingestLines(lines.slice(offset, offset + CHART_PARSE_BATCH_SIZE), chartConfig);
+        ingestion.ingestLines(lines.slice(offset, offset + CHART_PARSE_BATCH_SIZE), parsingConfig);
         setChartProgress(Math.min(100, Math.round(((offset + CHART_PARSE_BATCH_SIZE) / lines.length) * 100)));
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       }
@@ -235,7 +248,7 @@ export function LogAnalysisMode() {
     return () => {
       if (chartRunRef.current === runId) chartRunRef.current += 1;
     };
-  }, [chartConfig, lines]);
+  }, [lines, parsingConfig]);
 
   const selectAnalysisPrefix = (prefix: string) => {
     const summary = prefixSummaries.find((item) => item.prefix === prefix);

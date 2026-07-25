@@ -142,7 +142,7 @@ export interface ChartConfig {
   signalDomain: SignalDomain;
   /** 时域波形连接方式 */
   waveformInterpolation: WaveformInterpolation;
-  /** 串口波形的滤波预览 */
+  /** 图表、FFT 和统计共享的数据滤波配置 */
   dataFilter: DataFilterConfig;
 
   // 显示配置
