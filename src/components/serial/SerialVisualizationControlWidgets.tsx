@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
-import { resolveChartProcessing } from "@/lib/chartFilter";
 import type { ChartConfig, ChartDataPoint, ChartSeries } from "@/lib/chartTypes";
 import {
   SERIAL_CONTROL_WIDGET_GROUPS,
@@ -286,6 +285,8 @@ function SerialSignalPreview({
   showWorkspaceActions,
   source,
   chartData,
+  rawChartData,
+  filterActive,
   chartConfig,
   onOpenChart,
 }: {
@@ -293,6 +294,8 @@ function SerialSignalPreview({
   showWorkspaceActions: boolean;
   source: ControlPanelSource;
   chartData: ChartDataPoint[];
+  rawChartData?: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   onOpenChart: () => void;
 }) {
@@ -313,11 +316,8 @@ function SerialSignalPreview({
       }
     );
   });
-  const processing = resolveChartProcessing(
-    chartData.slice(-widget.pointLimit),
-    series.map(({ key }) => key),
-    chartConfig.dataFilter
-  );
+  const visibleChartData = chartData.slice(-widget.pointLimit);
+  const visibleRawChartData = rawChartData?.slice(-widget.pointLimit);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -344,9 +344,9 @@ function SerialSignalPreview({
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background/70">
         {series.length > 0 ? (
           <SignalPlotCanvas
-            chartData={processing.processedData}
-            rawChartData={processing.comparisonData}
-            filterActive={processing.filterActive}
+            chartData={visibleChartData}
+            rawChartData={visibleRawChartData}
+            filterActive={filterActive}
             series={series}
             chartConfig={{
               ...chartConfig,
@@ -372,6 +372,8 @@ export function SerialVisualizationWidgetControl({
   showWorkspaceActions,
   source,
   chartData,
+  rawChartData,
+  filterActive,
   chartConfig,
   latestValues,
   onOpenChart,
@@ -381,6 +383,8 @@ export function SerialVisualizationWidgetControl({
   showWorkspaceActions: boolean;
   source: ControlPanelSource;
   chartData: ChartDataPoint[];
+  rawChartData?: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   latestValues: Record<string, number>;
   onOpenChart: () => void;
@@ -393,6 +397,8 @@ export function SerialVisualizationWidgetControl({
         showWorkspaceActions={showWorkspaceActions}
         source={source}
         chartData={chartData}
+        rawChartData={rawChartData}
+        filterActive={filterActive}
         chartConfig={chartConfig}
         onOpenChart={onOpenChart}
       />
