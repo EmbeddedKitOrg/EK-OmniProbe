@@ -20,6 +20,24 @@ export interface SerialReceiveResult {
   detectedChannels?: Channel[];
 }
 
+export function mergeSerialReceiveResults(results: SerialReceiveResult[]): SerialReceiveResult {
+  const lines: Omit<SerialLine, "id">[] = [];
+  const chartBuffer = new ChartIngestionBuffer();
+  let terminalText = "";
+  let bytesReceived = 0;
+  let detectedChannels: Channel[] | undefined;
+
+  for (const result of results) {
+    terminalText += result.terminalText;
+    lines.push(...result.lines);
+    chartBuffer.ingestBatch(result.chartBatch);
+    bytesReceived += result.bytesReceived;
+    detectedChannels ??= result.detectedChannels;
+  }
+
+  return { terminalText, lines, chartBatch: chartBuffer.drain(), bytesReceived, detectedChannels };
+}
+
 const emptyPending = (): PendingTextData => ({ text: "", rawData: [] });
 
 function createJustFloatChannels(count: number): Channel[] {

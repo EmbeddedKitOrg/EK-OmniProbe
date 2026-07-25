@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSerialStore } from "@/stores/serialStore";
-import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
-import { ChartIngestionBuffer } from "@/lib/chartIngestion";
-import { SerialReceivePipeline, type SerialReceiveResult } from "@/lib/serialReceivePipeline";
+import type { SerialDataEvent, SerialStatusEvent } from "@/lib/serialTypes";
+import {
+  mergeSerialReceiveResults,
+  SerialReceivePipeline,
+  type SerialReceiveResult,
+} from "@/lib/serialReceivePipeline";
 import { formatBytes } from "@/lib/formatters";
 import { publishAiSamples } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
@@ -17,70 +20,33 @@ const SAFETY_IDLE_MS = 200;
  * Automatically subscribes to serial data and status events on mount
  */
 export function useSerialEvents() {
-  const {
-    addLines,
-    updateStats,
-    setRunning,
-    setConnected,
-    setError,
-    appendTerminalChunk,
-    addChartDataBatch,
-    incrementParseCounts,
-  } = useSerialStore(
+  const { commitSerialReceiveBatch, setRunning, setConnected, setError } = useSerialStore(
     useShallow((state) => ({
-      addLines: state.addLines,
-      updateStats: state.updateStats,
+      commitSerialReceiveBatch: state.commitSerialReceiveBatch,
       setRunning: state.setRunning,
       setConnected: state.setConnected,
       setError: state.setError,
-      appendTerminalChunk: state.appendTerminalChunk,
-      addChartDataBatch: state.addChartDataBatch,
-      incrementParseCounts: state.incrementParseCounts,
     }))
   );
 
   const receivePipelineRef = useRef(new SerialReceivePipeline());
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
-  const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
-  const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
-  const batchTerminalTextRef = useRef<string>("");
-  const chartIngestionRef = useRef(new ChartIngestionBuffer());
+  const batchResultsRef = useRef<SerialReceiveResult[]>([]);
   const updateTimerRef = useRef<number | null>(null);
   const idleFlushTimerRef = useRef<number | null>(null);
   const bridgeErrorReportedRef = useRef(false);
 
   useEffect(() => {
-    const queueResult = (result: SerialReceiveResult) => {
-      if (result.terminalText) batchTerminalTextRef.current += result.terminalText;
-      if (result.lines.length > 0) batchLinesRef.current.push(...result.lines);
-      chartIngestionRef.current.ingestBatch(result.chartBatch);
-      batchStatsRef.current.bytes_received += result.bytesReceived;
-
-      if (result.detectedChannels) {
-        const current = useSerialStore.getState().chartConfig;
-        if (current.parseMode === "justfloat" && current.channels.length === 0) {
-          useSerialStore.getState().setChartConfig({ ...current, channels: result.detectedChannels });
-        }
-      }
-    };
-
     // 批量更新函数 - 在每帧最多触发一次 setState
     const flushBatch = () => {
-      if (batchTerminalTextRef.current.length > 0) {
-        appendTerminalChunk(batchTerminalTextRef.current);
-        batchTerminalTextRef.current = "";
-      }
+      const batch = mergeSerialReceiveResults(batchResultsRef.current);
+      batchResultsRef.current = [];
+      commitSerialReceiveBatch(batch);
 
-      if (batchLinesRef.current.length > 0) {
-        addLines(batchLinesRef.current);
-        batchLinesRef.current = [];
-      }
-
-      const chartBatch = chartIngestionRef.current.drain();
+      const chartBatch = batch.chartBatch;
       if (chartBatch.points.length > 0) {
         const points = chartBatch.points;
-        addChartDataBatch(points);
         const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
         if (aiBridgeStatus.running) {
           const channels =
@@ -107,19 +73,6 @@ export function useSerialEvents() {
         }
       }
 
-      if (chartBatch.success > 0 || chartBatch.fail > 0) {
-        incrementParseCounts(chartBatch.success, chartBatch.fail);
-      }
-
-      if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
-        const currentStats = useSerialStore.getState().stats;
-        updateStats({
-          bytes_received: currentStats.bytes_received + batchStatsRef.current.bytes_received,
-          bytes_sent: currentStats.bytes_sent + batchStatsRef.current.bytes_sent,
-        });
-        batchStatsRef.current = { bytes_received: 0, bytes_sent: 0 };
-      }
-
       updateTimerRef.current = null;
     };
 
@@ -139,7 +92,7 @@ export function useSerialEvents() {
         chartConfig: state.chartConfig,
       });
       if (result.lines.length === 0) return;
-      queueResult(result);
+      batchResultsRef.current.push(result);
       scheduleBatchUpdate();
     };
 
@@ -157,7 +110,7 @@ export function useSerialEvents() {
     // Listen for serial data events
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
       const state = useSerialStore.getState();
-      queueResult(
+      batchResultsRef.current.push(
         receivePipelineRef.current.ingest(event.payload, {
           framing: state.rxFraming,
           chartConfig: state.chartConfig,
@@ -201,16 +154,7 @@ export function useSerialEvents() {
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };
-  }, [
-    addLines,
-    updateStats,
-    setRunning,
-    setConnected,
-    setError,
-    appendTerminalChunk,
-    addChartDataBatch,
-    incrementParseCounts,
-  ]);
+  }, [commitSerialReceiveBatch, setRunning, setConnected, setError]);
 }
 
 /**

@@ -17,9 +17,12 @@ function encodeJustFloat(values) {
 }
 
 try {
-  const { SerialReceivePipeline } = await server.ssrLoadModule("/src/lib/serialReceivePipeline.ts");
+  const { mergeSerialReceiveResults, SerialReceivePipeline } = await server.ssrLoadModule(
+    "/src/lib/serialReceivePipeline.ts"
+  );
   const { DEFAULT_CHART_CONFIG } = await server.ssrLoadModule("/src/lib/chartTypes.ts");
   const { DEFAULT_RX_FRAMING } = await server.ssrLoadModule("/src/lib/serialTypes.ts");
+  const { useSerialStore } = await server.ssrLoadModule("/src/stores/serialStore.ts");
   const jsonConfig = {
     framing: DEFAULT_RX_FRAMING,
     chartConfig: { ...DEFAULT_CHART_CONFIG, enabled: true, parseMode: "json", channels: [] },
@@ -36,6 +39,34 @@ try {
   assert.equal(second.lines[0].timestamp.getTime(), 1005);
   assert.deepEqual(second.chartBatch.points[0], { timestamp: 1005, values: { signal: 1.25 } });
   assert.equal(first.bytesReceived + second.bytesReceived, jsonBytes.length);
+  const merged = mergeSerialReceiveResults([first, second]);
+  assert.equal(merged.terminalText, '{"signal":1.25}\n');
+  assert.equal(merged.lines.length, 1);
+  assert.deepEqual(merged.chartBatch, second.chartBatch);
+  assert.equal(merged.bytesReceived, jsonBytes.length);
+
+  useSerialStore.setState({
+    lines: [],
+    lineIdCounter: 0,
+    stats: { bytes_received: 0, bytes_sent: 7 },
+    terminalLines: [],
+    terminalActiveLine: "",
+    terminalActiveUnits: [],
+    terminalCursorColumn: 0,
+    terminalPendingEscape: "",
+    terminalLineCounter: 0,
+    chartData: [],
+    chartConfig: jsonConfig.chartConfig,
+    parseSuccessCount: 0,
+    parseFailCount: 0,
+  });
+  useSerialStore.getState().commitSerialReceiveBatch(merged);
+  const committed = useSerialStore.getState();
+  assert.equal(committed.lines[0].id, 1);
+  assert.equal(committed.terminalLines[0].text, '{"signal":1.25}');
+  assert.deepEqual(committed.chartData, merged.chartBatch.points);
+  assert.equal(committed.parseSuccessCount, 1);
+  assert.deepEqual(committed.stats, { bytes_received: jsonBytes.length, bytes_sent: 7 });
 
   pipeline.reset();
   const utf8Bytes = encoder.encode("温度:25");
@@ -86,6 +117,11 @@ try {
     timestamp: 4005,
     values: { ch1: 1.5, ch2: -2.25 },
   });
+  const mergedJustFloat = mergeSerialReceiveResults([justFloatFirst, justFloatSecond]);
+  assert.equal(mergedJustFloat.detectedChannels.length, 2);
+  useSerialStore.setState({ chartConfig: justFloatConfig.chartConfig, chartData: [] });
+  useSerialStore.getState().commitSerialReceiveBatch(mergedJustFloat);
+  assert.equal(useSerialStore.getState().chartConfig.channels.length, 2);
 
   pipeline.reset();
   assert.equal(pipeline.flushPending(jsonConfig).lines.length, 0);

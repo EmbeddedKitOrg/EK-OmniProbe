@@ -22,6 +22,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { appendChartData } from "@/lib/chartIngestion";
+import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
   loadBooleanFromStorage,
@@ -209,6 +210,7 @@ interface SerialState {
   addLines: (lines: Omit<SerialLine, "id">[]) => void;
   clearLines: () => void;
   updateStats: (stats: SerialStats) => void;
+  commitSerialReceiveBatch: (batch: SerialReceiveResult) => void;
 
   setAutoScroll: (enabled: boolean) => void;
   setShowTimestamp: (show: boolean) => void;
@@ -466,6 +468,18 @@ function processTerminalChunk(
   };
 }
 
+function appendSerialLines(
+  state: Pick<SerialState, "lines" | "maxLines" | "lineIdCounter">,
+  newLines: Omit<SerialLine, "id">[]
+) {
+  let lineIdCounter = state.lineIdCounter;
+  const linesWithId: SerialLine[] = newLines.map((line) => ({ ...line, id: ++lineIdCounter }));
+  return {
+    lines: state.lines.concat(linesWithId).slice(-state.maxLines),
+    lineIdCounter,
+  };
+}
+
 export const useSerialStore = create<SerialState>((set, get) => ({
   // Initial state
   connected: false,
@@ -607,24 +621,9 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     return state.localConfig;
   },
 
-  addLine: (line) =>
-    set((state) => {
-      const id = state.lineIdCounter + 1;
-      const newLine: SerialLine = { ...line, id };
-      const lines = [...state.lines, newLine].slice(-state.maxLines);
-      return { lines, lineIdCounter: id };
-    }),
+  addLine: (line) => set((state) => appendSerialLines(state, [line])),
 
-  addLines: (newLines) =>
-    set((state) => {
-      let idCounter = state.lineIdCounter;
-      const linesWithId: SerialLine[] = newLines.map((line) => ({
-        ...line,
-        id: ++idCounter,
-      }));
-      const lines = [...state.lines, ...linesWithId].slice(-state.maxLines);
-      return { lines, lineIdCounter: idCounter };
-    }),
+  addLines: (newLines) => set((state) => appendSerialLines(state, newLines)),
 
   clearLines: () =>
     set({
@@ -640,6 +639,48 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     }),
 
   updateStats: (stats) => set({ stats }),
+
+  commitSerialReceiveBatch: (batch) =>
+    set((state) => {
+      const { chartBatch } = batch;
+      const detectedChannels =
+        state.chartConfig.parseMode === "justfloat" && state.chartConfig.channels.length === 0
+          ? batch.detectedChannels
+          : undefined;
+      if (
+        !batch.terminalText &&
+        batch.lines.length === 0 &&
+        chartBatch.points.length === 0 &&
+        chartBatch.success === 0 &&
+        chartBatch.fail === 0 &&
+        batch.bytesReceived === 0 &&
+        !detectedChannels
+      ) {
+        return state;
+      }
+
+      const next: Partial<SerialState> = {};
+      if (batch.terminalText) Object.assign(next, processTerminalChunk(batch.terminalText, state));
+      if (batch.lines.length > 0) Object.assign(next, appendSerialLines(state, batch.lines));
+
+      let chartConfig = state.chartConfig;
+      if (detectedChannels) {
+        chartConfig = migrateChartConfig({ ...chartConfig, channels: detectedChannels });
+        saveToStorage(SERIAL_CHART_CONFIG_KEY, chartConfig);
+        next.chartConfig = chartConfig;
+      }
+      if (chartBatch.points.length > 0) {
+        next.chartData = appendChartData(state.chartData, chartBatch.points, chartConfig.maxDataPoints);
+      }
+      if (chartBatch.success > 0 || chartBatch.fail > 0) {
+        next.parseSuccessCount = state.parseSuccessCount + chartBatch.success;
+        next.parseFailCount = state.parseFailCount + chartBatch.fail;
+      }
+      if (batch.bytesReceived > 0) {
+        next.stats = { ...state.stats, bytes_received: state.stats.bytes_received + batch.bytesReceived };
+      }
+      return next;
+    }),
 
   setAutoScroll: (autoScroll) => set({ autoScroll }),
   setShowTimestamp: (showTimestamp) =>
