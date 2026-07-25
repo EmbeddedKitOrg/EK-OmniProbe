@@ -1,7 +1,15 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ModeSwitch } from "./components/layout/ModeSwitch";
-import { FlashMode, RttMode, SerialMode, BluetoothMode, DebugMode, ControlPanelMode } from "./components/modes";
+import {
+  FlashMode,
+  RttMode,
+  SerialMode,
+  LogAnalysisMode,
+  BluetoothMode,
+  DebugMode,
+  ControlPanelMode,
+} from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
@@ -91,7 +99,7 @@ function MainApp() {
   }, [addLog]);
 
   // 全局快捷键
-  // Ctrl+1/2/3: 切换 Flash / RTT / Serial 模式
+  // Ctrl+1..6: 切换常用工作台
   // Ctrl+L:    清空当前模式数据
   // Ctrl+F:    聚焦当前模式搜索框
   // Space:     在 RTT 模式下切换图表暂停
@@ -131,6 +139,13 @@ function MainApp() {
         if (isInInput) return;
         e.preventDefault();
         if (!flashing) setMode("debug");
+        return;
+      }
+
+      if (e.ctrlKey && e.key === "6") {
+        if (isInInput) return;
+        e.preventDefault();
+        if (!flashing) setMode("log-analysis");
         return;
       }
 
@@ -257,7 +272,7 @@ function MainApp() {
         <TopBar inspectorOpen={inspectorOpen} onToggleInspector={() => setInspectorOpen((open) => !open)} />
 
         <div
-          className={`ide-workspace-grid grid min-h-0 overflow-hidden ${inspectorOpen && mode !== "control-panel" ? "inspector-open" : ""}`}
+          className={`ide-workspace-grid grid min-h-0 overflow-hidden ${inspectorOpen && mode !== "control-panel" && mode !== "log-analysis" ? "inspector-open" : ""}`}
           style={{ "--inspector-width": `${inspectorWidth}px` } as CSSProperties}
         >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
@@ -265,13 +280,14 @@ function MainApp() {
               {mode === "flash" && <FlashMode />}
               {mode === "rtt" && <RttMode />}
               {mode === "serial" && <SerialMode />}
+              {mode === "log-analysis" && <LogAnalysisMode />}
               {mode === "bluetooth" && <BluetoothMode />}
               {mode === "control-panel" && <ControlPanelMode />}
               {mode === "debug" && <DebugMode />}
             </div>
           </div>
 
-          {inspectorOpen && mode !== "control-panel" && (
+          {inspectorOpen && mode !== "control-panel" && mode !== "log-analysis" && (
             <>
               <button
                 type="button"
