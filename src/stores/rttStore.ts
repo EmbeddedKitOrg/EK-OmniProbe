@@ -130,7 +130,7 @@ export const useRttStore = create<RttState>((set) => ({
   splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
   processedChartData: [],
-  chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
+  chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), false),
   chartPaused: false, // 新增：图表冻结状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
@@ -205,7 +205,7 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    const normalizedConfig = migrateChartConfig(chartConfig);
+    const normalizedConfig = migrateChartConfig(chartConfig, false);
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
     set((state) => {
       const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);

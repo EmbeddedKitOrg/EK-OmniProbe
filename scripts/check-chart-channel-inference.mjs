@@ -32,6 +32,8 @@ try {
   assert.equal(migrateChartConfig({ waveformInterpolation: "invalid" }).waveformInterpolation, "linear");
   assert.equal(migrateChartConfig({}).framePrefix, "");
   assert.equal(migrateChartConfig({ framePrefix: "P:" }).framePrefix, "P:");
+  assert.equal(migrateChartConfig({ parseMode: "justfloat" }).parseMode, "justfloat");
+  assert.equal(migrateChartConfig({ parseMode: "justfloat" }, false).parseMode, "auto");
   assert.deepEqual(parseMatlabVector("b = [0.25 0.5 0.25]"), [0.25, 0.5, 0.25]);
   assert.deepEqual(parseMatlabSos("1 0 0 1 0 0;\n1 2 1 1 -1.5 0.7"), [
     [1, 0, 0, 1, 0, 0],
