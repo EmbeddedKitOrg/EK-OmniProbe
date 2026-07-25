@@ -13,10 +13,10 @@ const PORT_KEY = "serial_ai_bridge_port";
 const SKILL_URL = "https://github.com/EmbeddedKitOrg/EK-OmniProbe/tree/main/skills/ek-omniprobe-ai";
 
 export function AiBridgeControl() {
-  const { status, chartEnabled, setStatus } = useSerialStore(
+  const { status, parsingEnabled, setStatus } = useSerialStore(
     useShallow((state) => ({
       status: state.aiBridgeStatus,
-      chartEnabled: state.chartConfig.enabled,
+      parsingEnabled: state.chartConfig.enabled,
       setStatus: state.setAiBridgeStatus,
     }))
   );
@@ -46,7 +46,7 @@ export function AiBridgeControl() {
       localStorage.setItem(PORT_KEY, String(value));
       setStatus(await startAiBridge(value, false));
       addLog("success", `AI 数据桥接已监听 127.0.0.1:${value}`);
-      if (!chartEnabled) addLog("warn", "请启用串口图表解析，AI 才能收到标准样本");
+      if (!parsingEnabled) addLog("warn", "请启用串口数据解析，AI 才能收到标准样本");
     } catch (error) {
       addLog("error", `AI 数据桥接启动失败: ${error}`);
     } finally {

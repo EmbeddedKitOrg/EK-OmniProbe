@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useRttStore } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
-import { ChartIngestionBuffer } from "@/lib/chartIngestion";
+import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
 import { parseRttData } from "@/lib/dataFraming";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
@@ -27,7 +27,7 @@ export function useRttEvents() {
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
   const batchBytesRef = useRef(0);
-  const chartIngestionRef = useRef(new ChartIngestionBuffer());
+  const telemetryIngestionRef = useRef(new TelemetryIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -38,9 +38,10 @@ export function useRttEvents() {
         batchLinesRef.current = [];
       }
 
-      const chartBatch = chartIngestionRef.current.drain();
-      if (chartBatch.points.length > 0) addChartDataBatch(chartBatch.points);
-      if (chartBatch.success > 0 || chartBatch.fail > 0) incrementParseCounts(chartBatch.success, chartBatch.fail);
+      const telemetryBatch = telemetryIngestionRef.current.drain();
+      if (telemetryBatch.points.length > 0) addChartDataBatch(telemetryBatch.points);
+      if (telemetryBatch.success > 0 || telemetryBatch.fail > 0)
+        incrementParseCounts(telemetryBatch.success, telemetryBatch.fail);
 
       if (batchBytesRef.current > 0) {
         addBytes(batchBytesRef.current);
@@ -76,7 +77,7 @@ export function useRttEvents() {
         // 图表解析：累积到批，flushBatch 时单次 setState
         const currentChartConfig = useRttStore.getState().chartConfig;
         if (currentChartConfig.enabled) {
-          chartIngestionRef.current.ingestLines(lines, currentChartConfig);
+          telemetryIngestionRef.current.ingestLines(lines, currentChartConfig);
         }
 
         scheduleBatchUpdate();

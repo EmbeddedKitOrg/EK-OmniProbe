@@ -44,9 +44,9 @@ export function useSerialEvents() {
       batchResultsRef.current = [];
       commitSerialReceiveBatch(batch);
 
-      const chartBatch = batch.chartBatch;
-      if (chartBatch.points.length > 0) {
-        const points = chartBatch.points;
+      const telemetryBatch = batch.telemetryBatch;
+      if (telemetryBatch.points.length > 0) {
+        const points = telemetryBatch.points;
         const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
         if (aiBridgeStatus.running) {
           const channels =

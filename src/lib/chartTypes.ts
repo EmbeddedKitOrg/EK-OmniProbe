@@ -2,15 +2,12 @@
  * RTT 图表相关类型定义
  */
 
+import type { TelemetryChannelDescriptor, TelemetrySample } from "./telemetry";
+
 /**
  * 图表数据点
  */
-export interface ChartDataPoint {
-  /** 时间戳（毫秒） */
-  timestamp: number;
-  /** 键值对，如 {temp: 25.5, humi: 60.2} */
-  values: Record<string, number>;
-}
+export type ChartDataPoint = TelemetrySample;
 
 /**
  * 通道：解析字段 + 显示样式 合一
@@ -19,11 +16,7 @@ export interface ChartDataPoint {
  * - sourceIndex 在 delimiter / justfloat 模式下表示读取第几列或第几个 float
  * - role 决定该通道是 Y 轴数据还是 X 轴（仅 xy-scatter 模式有意义），最多一个 "x"
  */
-export interface Channel {
-  key: string;
-  sourceIndex?: number;
-  name: string;
-  unit?: string;
+export interface Channel extends TelemetryChannelDescriptor {
   color: string;
   visible: boolean;
   role?: "x" | "y";
@@ -100,11 +93,8 @@ export const DEFAULT_DATA_FILTER_CONFIG: DataFilterConfig = {
   showOriginal: true,
 };
 
-/**
- * 图表配置
- */
-export interface ChartConfig {
-  /** 是否启用图表功能 */
+/** 结构化数据解析配置。启用后不依赖当前展示视图持续解析。 */
+export interface DataParseConfig {
   enabled: boolean;
   /** 解析模式 */
   parseMode: ParseMode;
@@ -121,14 +111,16 @@ export interface ChartConfig {
   /** 分隔符，如 ",", "\t", " " */
   delimiter: string;
 
-  /** 通道（合并旧版 fields + series + jsonKeys + kvKeys + xAxisField） */
-  channels: Channel[];
+}
 
-  // 图表配置
+export interface DataProcessingConfig {
+  /** 图表、FFT、统计和控制面板共享的数据滤波配置 */
+  dataFilter: DataFilterConfig;
+}
+
+export interface ChartViewConfig {
   /** 图表类型 */
   chartType: ChartType;
-  /** 最大数据点数 */
-  maxDataPoints: number;
   /** 渲染时最多显示多少个点，0 表示自动 */
   visiblePointLimit: number;
   /** 更新间隔（毫秒） */
@@ -136,16 +128,11 @@ export interface ChartConfig {
 
   /** FFT 窗口大小 */
   fftWindowSize: number;
-  /** 采样率（Hz，0 表示自动估算） */
-  sampleRateHz: number;
   /** 波形示波器的默认显示域 */
   signalDomain: SignalDomain;
   /** 时域波形连接方式 */
   waveformInterpolation: WaveformInterpolation;
-  /** 图表、FFT 和统计共享的数据滤波配置 */
-  dataFilter: DataFilterConfig;
 
-  // 显示配置
   /** 是否显示网格 */
   showGrid: boolean;
   /** 是否显示图例 */
@@ -155,6 +142,18 @@ export interface ChartConfig {
   /** 是否启用动画 */
   animationEnabled: boolean;
 }
+
+export interface TelemetryConfig extends DataParseConfig, DataProcessingConfig {
+  /** 解析字段与内部通道描述；展示样式由 Channel 的扩展字段提供。 */
+  channels: Channel[];
+  /** 内存中保留的最大原始采样数。 */
+  maxDataPoints: number;
+  /** 采样率（Hz，0 表示自动估算）。 */
+  sampleRateHz: number;
+}
+
+/** 兼容现有持久化结构的完整图表配置。 */
+export interface ChartConfig extends TelemetryConfig, ChartViewConfig {}
 
 /**
  * 视图模式

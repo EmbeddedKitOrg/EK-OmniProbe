@@ -2,7 +2,8 @@
  * RTT 图表数据解析工具
  */
 
-import type { ChartConfig, ChartDataPoint, Channel, ParseMode, PluginParseMode } from "./chartTypes";
+import type { ChartDataPoint, Channel, ParseMode, PluginParseMode, TelemetryConfig } from "./chartTypes";
+import type { TelemetryBatch } from "./telemetry";
 import { isPluginParseMode } from "./chartTypes";
 
 /**
@@ -26,7 +27,7 @@ export interface ChartInputLine {
   timestamp: Date | number;
 }
 
-export type ChartLineParser = (text: string, config: ChartConfig, timestamp: number) => ParseResult;
+export type ChartLineParser = (text: string, config: TelemetryConfig, timestamp: number) => ParseResult;
 
 export interface ChartParserPlugin {
   id: Exclude<ParseMode, "auto" | "justfloat">;
@@ -34,11 +35,7 @@ export interface ChartParserPlugin {
   parse: ChartLineParser;
 }
 
-export interface ChartParseBatch {
-  points: ChartDataPoint[];
-  success: number;
-  fail: number;
-}
+export type ChartParseBatch = TelemetryBatch;
 
 /** 匹配 key=value / key:value 对的全局正则。 */
 const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(-?(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?))/g;
@@ -315,7 +312,7 @@ export function listChartParsers(): ChartParserPlugin[] {
 /**
  * 自动解析（按 JSON → 正则 → KV → 分隔符 顺序尝试）
  */
-export function parseAuto(text: string, config: ChartConfig, timestamp = Date.now()): ParseResult {
+export function parseAuto(text: string, config: TelemetryConfig, timestamp = Date.now()): ParseResult {
   const jsonResult = parseWithJson(text, config.channels, timestamp);
   if (jsonResult.success) return jsonResult;
 
@@ -341,11 +338,11 @@ export function parseAuto(text: string, config: ChartConfig, timestamp = Date.no
 /**
  * 主解析函数
  */
-export function parseChartData(text: string, config: ChartConfig, timestamp = Date.now()): ParseResult {
+export function parseChartData(text: string, config: TelemetryConfig, timestamp = Date.now()): ParseResult {
   if (!config.enabled) {
     return {
       success: false,
-      error: "图表功能未启用",
+      error: "结构化数据解析未启用",
     };
   }
 
@@ -379,7 +376,7 @@ export function parseChartData(text: string, config: ChartConfig, timestamp = Da
  */
 export function parseChartLines(
   lines: ChartInputLine[],
-  config: ChartConfig,
+  config: TelemetryConfig,
   parser: ChartLineParser = parseChartData
 ): ChartParseBatch {
   const batch: ChartParseBatch = { points: [], success: 0, fail: 0 };

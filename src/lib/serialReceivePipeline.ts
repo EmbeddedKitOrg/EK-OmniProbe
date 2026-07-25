@@ -1,28 +1,28 @@
-import { ChartIngestionBuffer } from "./chartIngestion";
-import type { ChartConfig, Channel } from "./chartTypes";
+import { TelemetryIngestionBuffer } from "./chartIngestion";
+import type { Channel, TelemetryConfig } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
 import { parseSerialData, type PendingTextData } from "./dataFraming";
 import { parseJustFloatChunk } from "./parseJustFloat";
-import type { ChartParseBatch } from "./parseChartData";
+import type { TelemetryBatch } from "./telemetry";
 import type { RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
 import { parseLogLevel } from "./utils";
 
 export interface SerialReceivePipelineConfig {
   framing: RxFramingSettings;
-  chartConfig: ChartConfig;
+  chartConfig: TelemetryConfig;
 }
 
 export interface SerialReceiveResult {
   terminalText: string;
   lines: Omit<SerialLine, "id">[];
-  chartBatch: ChartParseBatch;
+  telemetryBatch: TelemetryBatch;
   bytesReceived: number;
   detectedChannels?: Channel[];
 }
 
 export function mergeSerialReceiveResults(results: SerialReceiveResult[]): SerialReceiveResult {
   const lines: Omit<SerialLine, "id">[] = [];
-  const chartBuffer = new ChartIngestionBuffer();
+  const telemetryBuffer = new TelemetryIngestionBuffer();
   let terminalText = "";
   let bytesReceived = 0;
   let detectedChannels: Channel[] | undefined;
@@ -30,12 +30,12 @@ export function mergeSerialReceiveResults(results: SerialReceiveResult[]): Seria
   for (const result of results) {
     terminalText += result.terminalText;
     lines.push(...result.lines);
-    chartBuffer.ingestBatch(result.chartBatch);
+    telemetryBuffer.ingestBatch(result.telemetryBatch);
     bytesReceived += result.bytesReceived;
     detectedChannels ??= result.detectedChannels;
   }
 
-  return { terminalText, lines, chartBatch: chartBuffer.drain(), bytesReceived, detectedChannels };
+  return { terminalText, lines, telemetryBatch: telemetryBuffer.drain(), bytesReceived, detectedChannels };
 }
 
 const emptyPending = (): PendingTextData => ({ text: "", rawData: [] });
@@ -51,7 +51,7 @@ function createJustFloatChannels(count: number): Channel[] {
   }));
 }
 
-function toJustFloatPoint(values: number[], config: ChartConfig, timestamp: number) {
+function toJustFloatPoint(values: number[], config: TelemetryConfig, timestamp: number) {
   const mappedValues: Record<string, number> = {};
   config.channels.forEach((channel, index) => {
     const sourceIndex = channel.sourceIndex ?? index;
@@ -70,7 +70,7 @@ export class SerialReceivePipeline {
 
   ingest(event: SerialDataEvent, config: SerialReceivePipelineConfig): SerialReceiveResult {
     const lines: Omit<SerialLine, "id">[] = [];
-    const chartBuffer = new ChartIngestionBuffer();
+    const telemetryBuffer = new TelemetryIngestionBuffer();
     let terminalText = "";
     let bytesReceived = 0;
     let detectedChannels: Channel[] | undefined;
@@ -96,7 +96,7 @@ export class SerialReceivePipeline {
           fail += 1;
           return [];
         });
-        chartBuffer.ingestBatch({ points, success: points.length, fail });
+        telemetryBuffer.ingestBatch({ points, success: points.length, fail });
       } else {
         this.justFloatPending = [];
       }
@@ -107,14 +107,14 @@ export class SerialReceivePipeline {
       lines.push(...framed.lines);
 
       if (framed.lines.length > 0 && chartConfig.enabled && chartConfig.parseMode !== "justfloat") {
-        chartBuffer.ingestLines(framed.lines, chartConfig);
+        telemetryBuffer.ingestLines(framed.lines, chartConfig);
       }
     }
 
     return {
       terminalText,
       lines,
-      chartBatch: chartBuffer.drain(),
+      telemetryBatch: telemetryBuffer.drain(),
       bytesReceived,
       detectedChannels,
     };
@@ -123,7 +123,7 @@ export class SerialReceivePipeline {
   flushPending(config: SerialReceivePipelineConfig, timestamp = Date.now()): SerialReceiveResult {
     const pending = this.pending;
     if (pending.rawData.length === 0 && pending.text.length === 0) {
-      return { terminalText: "", lines: [], chartBatch: { points: [], success: 0, fail: 0 }, bytesReceived: 0 };
+      return { terminalText: "", lines: [], telemetryBatch: { points: [], success: 0, fail: 0 }, bytesReceived: 0 };
     }
 
     const line: Omit<SerialLine, "id"> = {
@@ -135,15 +135,15 @@ export class SerialReceivePipeline {
     };
     this.pending = emptyPending();
 
-    const chartBuffer = new ChartIngestionBuffer();
+    const telemetryBuffer = new TelemetryIngestionBuffer();
     if (config.chartConfig.enabled && config.chartConfig.parseMode !== "justfloat") {
-      chartBuffer.ingestLines([line], config.chartConfig);
+      telemetryBuffer.ingestLines([line], config.chartConfig);
     }
 
     return {
       terminalText: "",
       lines: [line],
-      chartBatch: chartBuffer.drain(),
+      telemetryBatch: telemetryBuffer.drain(),
       bytesReceived: 0,
     };
   }

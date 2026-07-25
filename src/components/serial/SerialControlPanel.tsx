@@ -34,7 +34,6 @@ import { useLogStore } from "@/stores/logStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useShallow } from "zustand/react/shallow";
 import { sendSerialPayload } from "@/lib/serialSend";
-import { resolveChartProcessing } from "@/lib/chartFilter";
 import {
   createSerialControlWidget,
   clampFloatingPanelPosition,
@@ -79,6 +78,7 @@ const WIDGET_INPUT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/SE
 
 export interface ControlPanelData extends SerialViewerData {
   chartData: ChartDataPoint[];
+  processedChartData: ChartDataPoint[];
   chartConfig: ChartConfig;
   sendSettings: {
     encoding: string;
@@ -135,22 +135,18 @@ export function SerialControlPanel({
       searchQuery: state.searchQuery,
       sendSettings: state.sendSettings,
       chartData: state.chartData,
+      processedChartData: state.processedChartData,
       chartConfig: state.chartConfig,
     }))
   );
   const setSerialViewMode = useSerialStore((state) => state.setViewMode);
   const sourceData = data ?? serialData;
-  const { connected, sendSettings, chartData, chartConfig } = sourceData;
-  const rawLatestValues = chartData[chartData.length - 1]?.values ?? EMPTY_CHART_VALUES;
-  const processingChannelKeys = useMemo(
-    () => Array.from(new Set([...chartConfig.channels.map(({ key }) => key), ...Object.keys(rawLatestValues)])),
-    [chartConfig.channels, rawLatestValues]
+  const { connected, sendSettings, chartData: rawChartData, processedChartData, chartConfig } = sourceData;
+  const filterActive = processedChartData !== rawChartData;
+  const displayData = useMemo(
+    () => ({ ...sourceData, chartData: processedChartData }),
+    [processedChartData, sourceData]
   );
-  const processing = useMemo(
-    () => resolveChartProcessing(chartData, processingChannelKeys, chartConfig.dataFilter),
-    [chartConfig.dataFilter, chartData, processingChannelKeys]
-  );
-  const processedChartData = processing.processedData;
   const latestValues = processedChartData[processedChartData.length - 1]?.values ?? EMPTY_CHART_VALUES;
   const chartChannels = chartConfig.channels;
   const sendEnabled = connected && canSend;
@@ -478,7 +474,7 @@ export function SerialControlPanel({
     }
 
     if (isSerialDisplayWidget(widget)) {
-      return <SerialDisplayWidgetControl widget={widget} latestValues={latestValues} data={sourceData} />;
+      return <SerialDisplayWidgetControl widget={widget} latestValues={latestValues} data={displayData} />;
     }
 
     if (isSerialVisualizationWidget(widget)) {
@@ -488,8 +484,8 @@ export function SerialControlPanel({
           showWorkspaceActions={showWorkspaceActions}
           source={source}
           chartData={processedChartData}
-          rawChartData={processing.comparisonData}
-          filterActive={processing.filterActive}
+          rawChartData={filterActive && chartConfig.dataFilter.showOriginal ? rawChartData : undefined}
+          filterActive={filterActive}
           chartConfig={chartConfig}
           latestValues={latestValues}
           onOpenChart={onOpenChart ?? (() => setSerialViewMode("chart"))}

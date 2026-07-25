@@ -33,16 +33,16 @@ try {
   const first = pipeline.ingest({ direction: "rx", chunks: [chunk(jsonBytes.slice(0, 7), 1000)] }, jsonConfig);
   const second = pipeline.ingest({ direction: "rx", chunks: [chunk(jsonBytes.slice(7), 1005)] }, jsonConfig);
   assert.equal(first.lines.length, 0);
-  assert.equal(first.chartBatch.points.length, 0);
+  assert.equal(first.telemetryBatch.points.length, 0);
   assert.equal(first.terminalText + second.terminalText, '{"signal":1.25}\n');
   assert.equal(second.lines[0].text, '{"signal":1.25}');
   assert.equal(second.lines[0].timestamp.getTime(), 1005);
-  assert.deepEqual(second.chartBatch.points[0], { timestamp: 1005, values: { signal: 1.25 } });
+  assert.deepEqual(second.telemetryBatch.points[0], { timestamp: 1005, values: { signal: 1.25 } });
   assert.equal(first.bytesReceived + second.bytesReceived, jsonBytes.length);
   const merged = mergeSerialReceiveResults([first, second]);
   assert.equal(merged.terminalText, '{"signal":1.25}\n');
   assert.equal(merged.lines.length, 1);
-  assert.deepEqual(merged.chartBatch, second.chartBatch);
+  assert.deepEqual(merged.telemetryBatch, second.telemetryBatch);
   assert.equal(merged.bytesReceived, jsonBytes.length);
 
   useSerialStore.setState({
@@ -56,6 +56,7 @@ try {
     terminalPendingEscape: "",
     terminalLineCounter: 0,
     chartData: [],
+    processedChartData: [],
     chartConfig: jsonConfig.chartConfig,
     parseSuccessCount: 0,
     parseFailCount: 0,
@@ -64,7 +65,8 @@ try {
   const committed = useSerialStore.getState();
   assert.equal(committed.lines[0].id, 1);
   assert.equal(committed.terminalLines[0].text, '{"signal":1.25}');
-  assert.deepEqual(committed.chartData, merged.chartBatch.points);
+  assert.deepEqual(committed.chartData, merged.telemetryBatch.points);
+  assert.equal(committed.processedChartData, committed.chartData);
   assert.equal(committed.parseSuccessCount, 1);
   assert.deepEqual(committed.stats, { bytes_received: jsonBytes.length, bytes_sent: 7 });
 
@@ -83,13 +85,13 @@ try {
   assert.equal(utf8First.terminalText + utf8Second.terminalText, "温度:25");
   assert.equal(idle.lines[0].text, "温度:25");
   assert.equal(idle.lines[0].timestamp.getTime(), 2200);
-  assert.equal(idle.chartBatch.fail, 1);
+  assert.equal(idle.telemetryBatch.fail, 1);
 
   pipeline.reset();
   const idleJson = encoder.encode('{"signal":2.5}');
   pipeline.ingest({ direction: "rx", chunks: [chunk(idleJson, 3000)] }, jsonConfig);
   const idleJsonResult = pipeline.flushPending(jsonConfig, 3200);
-  assert.deepEqual(idleJsonResult.chartBatch.points[0], { timestamp: 3200, values: { signal: 2.5 } });
+  assert.deepEqual(idleJsonResult.telemetryBatch.points[0], { timestamp: 3200, values: { signal: 2.5 } });
 
   pipeline.reset();
   const justFloatBytes = encodeJustFloat([1.5, -2.25]);
@@ -105,7 +107,7 @@ try {
     { direction: "rx", chunks: [chunk(justFloatBytes.slice(5), 4005)] },
     justFloatConfig
   );
-  assert.equal(justFloatFirst.chartBatch.points.length, 0);
+  assert.equal(justFloatFirst.telemetryBatch.points.length, 0);
   assert.deepEqual(
     justFloatSecond.detectedChannels.map(({ key, sourceIndex }) => ({ key, sourceIndex })),
     [
@@ -113,7 +115,7 @@ try {
       { key: "ch2", sourceIndex: 1 },
     ]
   );
-  assert.deepEqual(justFloatSecond.chartBatch.points[0], {
+  assert.deepEqual(justFloatSecond.telemetryBatch.points[0], {
     timestamp: 4005,
     values: { ch1: 1.5, ch2: -2.25 },
   });

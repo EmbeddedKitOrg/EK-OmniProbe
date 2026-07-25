@@ -10,6 +10,7 @@ import { useShallow } from "zustand/react/shallow";
 export function RttChartViewer() {
   const {
     chartData,
+    processedChartData,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -20,6 +21,7 @@ export function RttChartViewer() {
   } = useRttStore(
     useShallow((state) => ({
       chartData: state.chartData,
+      processedChartData: state.processedChartData,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -33,6 +35,7 @@ export function RttChartViewer() {
   return (
     <ChartViewer
       chartData={chartData}
+      processedData={processedChartData}
       chartConfig={chartConfig}
       chartPaused={chartPaused}
       parseSuccessCount={parseSuccessCount}

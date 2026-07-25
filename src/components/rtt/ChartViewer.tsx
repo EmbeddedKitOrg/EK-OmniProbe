@@ -62,6 +62,7 @@ export function resolveChartDisplayData(
 
 export interface ChartViewerProps {
   chartData: ChartDataPoint[];
+  processedData?: ChartDataPoint[];
   chartConfig: ChartConfig;
   chartPaused: boolean;
   parseSuccessCount: number;
@@ -73,6 +74,7 @@ export interface ChartViewerProps {
 
 export function ChartViewer({
   chartData,
+  processedData,
   chartConfig,
   chartPaused,
   parseSuccessCount,
@@ -87,6 +89,13 @@ export function ChartViewer({
   const frozenChartDataRef = useRef(chartData);
   const { displayedData, nextFrozenData } = resolveChartDisplayData(chartData, chartPaused, frozenChartDataRef.current);
   frozenChartDataRef.current = nextFrozenData;
+  const frozenProcessedDataRef = useRef(processedData ?? chartData);
+  const processedDisplay = resolveChartDisplayData(
+    processedData ?? chartData,
+    chartPaused,
+    frozenProcessedDataRef.current
+  );
+  frozenProcessedDataRef.current = processedDisplay.nextFrozenData;
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const addLog = useLogStore((s) => s.addLog);
   const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
@@ -94,8 +103,16 @@ export function ChartViewer({
   const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
   const visibleKeys = useMemo(() => visibleSeries.map(({ key }) => key), [visibleSeries]);
   const processing = useMemo(
-    () => resolveChartProcessing(displayedData, visibleKeys, chartConfig.dataFilter),
-    [chartConfig.dataFilter, displayedData, visibleKeys]
+    () =>
+      processedData
+        ? {
+            processedData: processedDisplay.displayedData,
+            comparisonData:
+              processedData !== chartData && chartConfig.dataFilter.showOriginal ? displayedData : undefined,
+            filterActive: processedData !== chartData,
+          }
+        : resolveChartProcessing(displayedData, visibleKeys, chartConfig.dataFilter),
+    [chartConfig.dataFilter, chartData, displayedData, processedData, processedDisplay.displayedData, visibleKeys]
   );
   const analysisData = processing.processedData;
   const latestPoint = analysisData[analysisData.length - 1];
@@ -268,6 +285,7 @@ export function ChartViewer({
 
   const handleClearData = () => {
     frozenChartDataRef.current = [];
+    frozenProcessedDataRef.current = [];
     clearChartData();
   };
 
@@ -466,7 +484,7 @@ export function ChartViewer({
     return (
       <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
         <div className="space-y-2 text-center">
-          <p className="text-base font-medium text-foreground">图表功能未启用</p>
+          <p className="text-base font-medium text-foreground">结构化数据解析未启用</p>
           <p className="text-xs text-muted-foreground">请先在数据解析中识别数值通道并应用配置</p>
         </div>
       </div>

@@ -693,7 +693,7 @@ export function ChartConfigDialog({
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium">基础</div>
-                  <p className="text-xs text-muted-foreground">关掉开关后，图表面板不会再消费数据。</p>
+                  <p className="text-xs text-muted-foreground">关闭后停止结构化数据解析；原始日志仍继续接收。</p>
                 </div>
                 <Switch
                   checked={localConfig.enabled}

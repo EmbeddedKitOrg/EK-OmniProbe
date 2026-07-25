@@ -11,7 +11,7 @@ import type { SerialLine } from "@/lib/serialTypes";
 import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
-import { ChartIngestionBuffer } from "@/lib/chartIngestion";
+import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
 import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
 import { createSimulationSample, normalizeSimulationConfig } from "@/lib/serialSimulation";
 import { formatBytes } from "@/lib/formatters";
@@ -223,7 +223,7 @@ export function LogAnalysisMode() {
     }
 
     const parse = async () => {
-      const ingestion = new ChartIngestionBuffer(parsingConfig.maxDataPoints);
+      const ingestion = new TelemetryIngestionBuffer(parsingConfig.maxDataPoints);
       setChartParsing(true);
       setChartProgress(0);
 
