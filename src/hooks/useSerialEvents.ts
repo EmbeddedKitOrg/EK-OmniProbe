@@ -4,7 +4,7 @@ import { useSerialStore } from "@/stores/serialStore";
 import type { SerialDataEvent, SerialStatusEvent, SerialLine } from "@/lib/serialTypes";
 import type { Channel, ChartConfig, ChartDataPoint } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
-import { parseChartLines } from "@/lib/parseChartData";
+import { ChartIngestionBuffer } from "@/lib/chartIngestion";
 import { parseJustFloatChunk } from "@/lib/parseJustFloat";
 import { parseSerialData } from "@/lib/dataFraming";
 import { parseLogLevel } from "@/lib/utils";
@@ -76,8 +76,7 @@ export function useSerialEvents() {
   const batchLinesRef = useRef<Omit<SerialLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
   const batchTerminalTextRef = useRef<string>("");
-  const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
-  const batchParseRef = useRef({ success: 0, fail: 0 });
+  const chartIngestionRef = useRef(new ChartIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
   const idleFlushTimerRef = useRef<number | null>(null);
   const bridgeErrorReportedRef = useRef(false);
@@ -95,8 +94,9 @@ export function useSerialEvents() {
         batchLinesRef.current = [];
       }
 
-      if (batchChartPointsRef.current.length > 0) {
-        const points = batchChartPointsRef.current;
+      const chartBatch = chartIngestionRef.current.drain();
+      if (chartBatch.points.length > 0) {
+        const points = chartBatch.points;
         addChartDataBatch(points);
         const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
         if (aiBridgeStatus.running) {
@@ -122,12 +122,10 @@ export function useSerialEvents() {
               });
           }
         }
-        batchChartPointsRef.current = [];
       }
 
-      if (batchParseRef.current.success > 0 || batchParseRef.current.fail > 0) {
-        incrementParseCounts(batchParseRef.current.success, batchParseRef.current.fail);
-        batchParseRef.current = { success: 0, fail: 0 };
+      if (chartBatch.success > 0 || chartBatch.fail > 0) {
+        incrementParseCounts(chartBatch.success, chartBatch.fail);
       }
 
       if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
@@ -195,7 +193,8 @@ export function useSerialEvents() {
         if (currentChartConfig.enabled && currentChartConfig.parseMode === "justfloat" && direction === "rx") {
           const result = parseJustFloatChunk(data, justFloatPendingRef.current);
           justFloatPendingRef.current = result.pending;
-          batchParseRef.current.fail += result.invalidFrames;
+          const points: ChartDataPoint[] = [];
+          let fail = result.invalidFrames;
 
           const channelCount = result.frames[0]?.length ?? 0;
           if (channelCount > 0 && currentChartConfig.channels.length === 0) {
@@ -209,12 +208,12 @@ export function useSerialEvents() {
           for (const frame of result.frames) {
             const point = toJustFloatPoint(frame, currentChartConfig, timestamp);
             if (Object.keys(point.values).length > 0) {
-              batchChartPointsRef.current.push(point);
-              batchParseRef.current.success += 1;
+              points.push(point);
             } else {
-              batchParseRef.current.fail += 1;
+              fail += 1;
             }
           }
+          chartIngestionRef.current.ingestBatch({ points, success: points.length, fail });
         } else if (!currentChartConfig.enabled || currentChartConfig.parseMode !== "justfloat") {
           justFloatPendingRef.current = [];
         }
@@ -236,10 +235,7 @@ export function useSerialEvents() {
           // 图表解析：累积到批，flushBatch 时单次 setState
           currentChartConfig = useSerialStore.getState().chartConfig;
           if (currentChartConfig.enabled && currentChartConfig.parseMode !== "justfloat") {
-            const parsed = parseChartLines(lines, currentChartConfig);
-            batchChartPointsRef.current.push(...parsed.points);
-            batchParseRef.current.success += parsed.success;
-            batchParseRef.current.fail += parsed.fail;
+            chartIngestionRef.current.ingestLines(lines, currentChartConfig);
           }
         }
       }

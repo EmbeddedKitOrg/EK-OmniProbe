@@ -10,6 +10,7 @@ try {
     await server.ssrLoadModule("/src/lib/chartAnalysis.ts");
   const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, parseWithKv, registerChartParser } =
     await server.ssrLoadModule("/src/lib/parseChartData.ts");
+  const { ChartIngestionBuffer, appendChartData } = await server.ssrLoadModule("/src/lib/chartIngestion.ts");
   const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
@@ -231,6 +232,30 @@ try {
   const parsedBatch = parseChartLines([{ text: "P:42,7", timestamp: new Date(sourceTimestamp) }], prefixedConfig);
   assert.equal(parsedBatch.points[0].timestamp, sourceTimestamp);
   assert.deepEqual({ success: parsedBatch.success, fail: parsedBatch.fail }, { success: 1, fail: 0 });
+
+  const ingestion = new ChartIngestionBuffer(2);
+  ingestion.ingestLines(
+    [
+      { text: "P:1,0", timestamp: 1 },
+      { text: "invalid", timestamp: 2 },
+      { text: "P:bad,0", timestamp: 2 },
+      { text: "P:3,0", timestamp: 3 },
+      { text: "P:4,0", timestamp: 4 },
+    ],
+    prefixedConfig
+  );
+  assert.deepEqual(ingestion.drain(), {
+    points: [
+      { timestamp: 3, values: { field1: 3 } },
+      { timestamp: 4, values: { field1: 4 } },
+    ],
+    success: 3,
+    fail: 1,
+  });
+  assert.deepEqual(ingestion.drain(), { points: [], success: 0, fail: 0 });
+  assert.deepEqual(appendChartData([{ timestamp: 1, values: {} }], [{ timestamp: 2, values: {} }], 1), [
+    { timestamp: 2, values: {} },
+  ]);
 
   const encodedLine = Array.from(new TextEncoder().encode("温度=25\r\n"));
   const firstChunk = parseSerialData(encodedLine.slice(0, 2), sourceTimestamp, "rx", { text: "", rawData: [] });
