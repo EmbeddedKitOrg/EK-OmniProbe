@@ -7,6 +7,10 @@ const server = await createServer({ root, logLevel: "silent", server: { middlewa
 
 try {
   const { detectLogFramePrefix, streamLogLines } = await server.ssrLoadModule("/src/lib/logImport.ts");
+  const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAnalysis.ts");
+  const { DEFAULT_CHART_CONFIG } = await server.ssrLoadModule("/src/lib/chartTypes.ts");
+  const { parseChartData } = await server.ssrLoadModule("/src/lib/parseChartData.ts");
+  const { createSimulationSample } = await server.ssrLoadModule("/src/lib/serialSimulation.ts");
   await server.ssrLoadModule("/src/components/modes/LogAnalysisMode.tsx");
   const log = new Blob([
     "\uFEFF[20260724_13:18:19:567]P:1,2\r\n",
@@ -19,6 +23,35 @@ try {
   assert.equal(detectLogFramePrefix("P:1,2"), "P:");
   assert.equal(detectLogFramePrefix("@PLOT:1,2"), "@PLOT:");
   assert.equal(detectLogFramePrefix("ordinary log text"), null);
+
+  const simulationConfig = {
+    preset: "waveform",
+    sampleRateHz: 50,
+    frequencyHz: 0.25,
+    amplitude: 1,
+    offset: 0,
+    noise: 0,
+    channelCount: 2,
+    waveform: "sine",
+    xyPattern: "circle",
+  };
+  const simulationSamples = Array.from({ length: 20 }, (_, index) => ({
+    text: `SIM:${JSON.stringify(createSimulationSample(simulationConfig, index / simulationConfig.sampleRateHz))}`,
+  }));
+  const simulationChartConfig = populateEmptyChannelsFromSamples(
+    { ...DEFAULT_CHART_CONFIG, parseMode: "auto", framePrefix: "SIM:", channels: [] },
+    simulationSamples
+  );
+  assert.equal(detectLogFramePrefix(simulationSamples[0].text), "SIM:");
+  assert.equal(simulationChartConfig.parseMode, "json");
+  assert.deepEqual(
+    simulationChartConfig.channels.map(({ key }) => key),
+    ["ch1", "ch2"]
+  );
+  assert.deepEqual(parseChartData(simulationSamples[0].text, { ...simulationChartConfig, enabled: true }).dataPoint?.values, {
+    ch1: 0,
+    ch2: 1,
+  });
 
   for await (const batch of streamLogLines(log, { batchSize: 2, fallbackTimestamp })) {
     batches.push(batch);

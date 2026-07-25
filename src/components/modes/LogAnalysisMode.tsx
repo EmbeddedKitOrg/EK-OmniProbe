@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, Columns2, FileText, FileUp, Loader2, Search, Trash2 } from "lucide-react";
+import { BarChart3, Columns2, FileText, FileUp, Loader2, Search, Trash2, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,12 +13,16 @@ import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
 import { ChartIngestionBuffer } from "@/lib/chartIngestion";
 import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
+import { createSimulationSample, normalizeSimulationConfig } from "@/lib/serialSimulation";
 import { formatBytes } from "@/lib/formatters";
 import { parseLogLevel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useSerialStore } from "@/stores/serialStore";
 
 const CHART_PARSE_BATCH_SIZE = 5_000;
 const PREFIX_SAMPLE_LIMIT = 20;
+const SIMULATION_SAMPLE_COUNT = 1_000;
+const SIMULATION_PREFIX = "SIM:";
 
 interface LogPrefixSummary {
   prefix: string;
@@ -47,6 +51,7 @@ export function LogAnalysisMode() {
   const [chartProgress, setChartProgress] = useState(0);
   const [parseSuccessCount, setParseSuccessCount] = useState(0);
   const [parseFailCount, setParseFailCount] = useState(0);
+  const simulationConfig = useSerialStore((state) => state.simulationConfig);
 
   const selectedPrefixSummary = useMemo(
     () => prefixSummaries.find(({ prefix }) => prefix === chartConfig.framePrefix),
@@ -142,6 +147,57 @@ export function LogAnalysisMode() {
     }
   };
 
+  const loadSimulation = () => {
+    importRunRef.current += 1;
+    chartRunRef.current += 1;
+    const config = normalizeSimulationConfig(simulationConfig);
+    const intervalMs = 1_000 / config.sampleRateHz;
+    const startedAt = Date.now() - (SIMULATION_SAMPLE_COUNT - 1) * intervalMs;
+    const simulatedLines = Array.from({ length: SIMULATION_SAMPLE_COUNT }, (_, index) => {
+      const text = `${SIMULATION_PREFIX}${JSON.stringify(createSimulationSample(config, index / config.sampleRateHz))}`;
+      return {
+        id: index + 1,
+        timestamp: new Date(startedAt + index * intervalMs),
+        text,
+        level: parseLogLevel(text),
+        direction: "rx" as const,
+      };
+    });
+    const summary: LogPrefixSummary = {
+      prefix: SIMULATION_PREFIX,
+      count: simulatedLines.length,
+      samples: simulatedLines.slice(0, PREFIX_SAMPLE_LIMIT).map(({ text }) => ({ text })),
+    };
+    const inferredConfig = populateEmptyChannelsFromSamples(
+      {
+        ...chartConfig,
+        enabled: false,
+        parseMode: "auto",
+        framePrefix: SIMULATION_PREFIX,
+        regexPattern: "",
+        regexFlags: "",
+        channels: [],
+      },
+      summary.samples
+    );
+
+    setFileName(`模拟数据-${config.preset}.log`);
+    setFileSize(new Blob(simulatedLines.map(({ text }) => `${text}\n`)).size);
+    setLines(simulatedLines);
+    setImportedCount(simulatedLines.length);
+    setInferredTimestampCount(0);
+    setImporting(false);
+    setImportError("");
+    setSearchQuery("");
+    setPrefixSummaries([summary]);
+    setChartData([]);
+    setChartProgress(0);
+    setParseSuccessCount(0);
+    setParseFailCount(0);
+    setChartConfig(migrateChartConfig({ ...inferredConfig, enabled: true }));
+    setViewMode("split");
+  };
+
   useEffect(() => {
     const runId = ++chartRunRef.current;
     if (!chartConfig.enabled || lines.length === 0) {
@@ -230,6 +286,11 @@ export function LogAnalysisMode() {
         <Button size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={importing}>
           {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
           {fileName ? "重新导入" : "导入日志"}
+        </Button>
+
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={loadSimulation} disabled={importing}>
+          <Waves className="h-4 w-4" />
+          模拟数据
         </Button>
 
         <Select
