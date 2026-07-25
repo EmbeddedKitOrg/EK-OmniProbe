@@ -11,7 +11,7 @@ import type {
 } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import { listChartParsers } from "@/lib/parseChartData";
-import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
+import { populateEmptyChannelsFromSamples, previewChartParser, type ChartSample } from "@/lib/chartAutoConfig";
 import {
   calculateSosFrequencyResponse,
   designParametricSos,
@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Eye, EyeOff, GripVertical, Plus, Settings, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Eye, EyeOff, GripVertical, Plus, Settings, Trash2 } from "lucide-react";
 
 type ChartConfigSection = "basic" | "channels" | "performance" | "display" | "filter";
 
@@ -66,6 +66,7 @@ export function ChartConfigDialog({
   const [scaleText, setScaleText] = useState("1");
   const [filterError, setFilterError] = useState("");
   const [channelHint, setChannelHint] = useState("");
+  const [sampleText, setSampleText] = useState("");
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const wasOpen = useRef(false);
   const draggedStageId = useRef<string | null>(null);
@@ -86,6 +87,10 @@ export function ChartConfigDialog({
       setScaleText(formatMatlabVector(nextConfig.dataFilter.scaleValues));
       setSelectedStageId(nextConfig.dataFilter.parametricStages[0]?.id ?? null);
       setFilterError("");
+      const sample = nextConfig.framePrefix
+        ? [...samples].reverse().find(({ text }) => text.startsWith(nextConfig.framePrefix))
+        : samples[samples.length - 1];
+      setSampleText(sample?.text ?? "");
       setChannelHint(
         chartConfig.channels.length > 0
           ? ""
@@ -157,6 +162,9 @@ export function ChartConfigDialog({
         }
       }
     }
+    if (localConfig.parseMode === "regex" && nextConfig.channels.length === 0 && regexPreview?.success) {
+      nextConfig = { ...nextConfig, channels: regexPreview.config.channels };
+    }
     setChartConfig(nextConfig);
     setOpen(false);
   };
@@ -165,6 +173,10 @@ export function ChartConfigDialog({
     localConfig.parseMode === "delimiter" || localConfig.parseMode === "justfloat" || localConfig.parseMode === "auto";
   const sourceIndexLabel = localConfig.parseMode === "justfloat" ? "浮点序号" : "列号";
   const isXyScatter = localConfig.chartType === "xy-scatter";
+  const regexPreview = useMemo(
+    () => (localConfig.parseMode === "regex" ? previewChartParser(localConfig, samples, sampleText) : undefined),
+    [localConfig, sampleText, samples]
+  );
 
   const updateDataFilter = (patch: Partial<ChartConfig["dataFilter"]>) => {
     setFilterError("");
@@ -317,7 +329,7 @@ export function ChartConfigDialog({
       case "json":
         return "整行作为 JSON 解析，按通道 key 取数值字段。通道留空时自动提取全部数值字段。";
       case "kv":
-        return "自动提取行内所有 key=value 数值对。通道留空时全部保留，否则只保留命中的 key。";
+        return "自动提取行内所有 key=value 或 key:value 数值对。通道留空时全部保留，否则只保留命中的 key。";
       case "justfloat":
         return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
       case "auto":
@@ -741,7 +753,14 @@ export function ChartConfigDialog({
                     value={localConfig.framePrefix}
                     placeholder="例如 P: 或 @PLOT:"
                     className="font-mono"
-                    onChange={(event) => setLocalConfig({ ...localConfig, framePrefix: event.target.value })}
+                    onChange={(event) => {
+                      const framePrefix = event.target.value;
+                      setLocalConfig({ ...localConfig, framePrefix });
+                      const sample = [...samples]
+                        .reverse()
+                        .find(({ text }) => !framePrefix || text.startsWith(framePrefix));
+                      if (sample) setSampleText(sample.text);
+                    }}
                   />
                   <p className="text-xs leading-5 text-muted-foreground">
                     只解析以此前缀开头的文本；匹配后会剥离前缀，原始日志仍完整显示。
@@ -783,25 +802,66 @@ export function ChartConfigDialog({
                 )}
 
                 {localConfig.parseMode === "regex" && (
-                  <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+                  <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+                      <div className="space-y-2">
+                        <Label htmlFor="regexPattern">正则表达式</Label>
+                        <Input
+                          id="regexPattern"
+                          value={localConfig.regexPattern}
+                          placeholder="temp:(?<temp>\d+\.\d+)"
+                          className="font-mono"
+                          onChange={(event) => setLocalConfig({ ...localConfig, regexPattern: event.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="regexFlags">标志</Label>
+                        <Input
+                          id="regexFlags"
+                          value={localConfig.regexFlags || ""}
+                          placeholder="g / gi"
+                          onChange={(event) => setLocalConfig({ ...localConfig, regexFlags: event.target.value })}
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="regexPattern">正则表达式</Label>
-                      <Input
-                        id="regexPattern"
-                        value={localConfig.regexPattern}
-                        placeholder="temp:(?<temp>\d+\.\d+)"
-                        className="font-mono"
-                        onChange={(event) => setLocalConfig({ ...localConfig, regexPattern: event.target.value })}
+                      <Label htmlFor="regexSample">数据样本</Label>
+                      <textarea
+                        id="regexSample"
+                        value={sampleText}
+                        onChange={(event) => setSampleText(event.target.value)}
+                        rows={3}
+                        className="w-full resize-y rounded-[14px] border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+                        placeholder="输入一条日志，立即检查命名捕获组能否提取数值"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="regexFlags">标志</Label>
-                      <Input
-                        id="regexFlags"
-                        value={localConfig.regexFlags || ""}
-                        placeholder="g / gi"
-                        onChange={(event) => setLocalConfig({ ...localConfig, regexFlags: event.target.value })}
-                      />
+
+                    <div
+                      className={`rounded-[16px] border p-3 ${
+                        regexPreview?.success
+                          ? "border-green-500/25 bg-green-500/10"
+                          : "border-amber-500/25 bg-amber-500/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {regexPreview?.success ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-amber-600" />
+                        )}
+                        {regexPreview?.message ?? "请输入一条数据样本"}
+                      </div>
+                      {regexPreview && Object.keys(regexPreview.values).length > 0 && (
+                        <div className="mt-2 grid gap-1 font-mono text-xs text-muted-foreground sm:grid-cols-2">
+                          {Object.entries(regexPreview.values).map(([key, value]) => (
+                            <div key={key} className="flex justify-between gap-3">
+                              <span>{key}</span>
+                              <span>{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

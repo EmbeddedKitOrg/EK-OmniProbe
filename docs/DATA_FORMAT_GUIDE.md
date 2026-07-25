@@ -18,7 +18,7 @@
 | 设备输出                        | 选择的解析模式 | 自动通道 key                             |
 | ------------------------------- | -------------- | ---------------------------------------- |
 | <code>{"temp":25.3}</code>      | JSON           | JSON 字段名，如 <code>temp</code>        |
-| <code>temp=25.3,rpm=1200</code> | KV             | 等号左边的 key                           |
+| <code>temp=25.3,rpm:1200</code> | KV             | 等号或冒号左边的 key                     |
 | <code>25.3,1200</code>          | 分隔符         | <code>field1</code>、<code>field2</code> |
 | <code>T:25.3 RPM:1200</code>    | 正则           | 命名捕获组名称                           |
 | 二进制 float32 + 帧尾           | JustFloat      | <code>ch1</code>、<code>ch2</code>       |
@@ -168,18 +168,20 @@ JSON 对象的顶层数值字段会成为通道。上面的样本生成 <code>te
 
 <a id="kv"></a>
 
-## KV（key=value）
+## KV（key=value / key:value）
 
 ### 最小有效输入
 
 ```text
 temp=25.3
+temp:25.3
 ```
 
 多个字段可以用空格、逗号或其他普通文本隔开：
 
 ```text
 temp=25.3,voltage=3.30 rpm=1200
+temp:25.3,voltage:3.30 rpm:1200
 ```
 
 ### 设备输出示例
@@ -192,24 +194,24 @@ printf("temp=%.2f,voltage=%.2f rpm=%lu\n",
 ### key 和数值规则
 
 - key 必须匹配 <code>[A-Za-z\_][A-Za-z0-9_]\*</code>。
-- 支持整数、负数、小数和科学计数法，例如 <code>-2</code>、<code>0.125</code>、<code>1.2e-3</code>。
-- 等号两边允许空格。
+- 支持整数、负数、小数、科学计数法和十六进制，例如 <code>-2</code>、<code>0.125</code>、<code>1.2e-3</code>、<code>0x8E</code>。
+- 等号或冒号两边允许空格，同一行可以混用。
 - 同一行重复同名 key 时，后出现的值覆盖前面的值。
 
 ### 默认数据流和通道 key
 
-等号左边直接成为通道 key。上面的样本生成 <code>temp</code>、<code>voltage</code>、<code>rpm</code>。已有通道配置时，只保留匹配的 key。
+等号或冒号左边直接成为通道 key。上面的样本生成 <code>temp</code>、<code>voltage</code>、<code>rpm</code>。已有通道配置时，只保留匹配的 key。
 
 ### 错误样本
 
 ```text
 温度=25.3       key 不是 ASCII 标识符
 1temp=25.3      key 不能以数字开头
-temp:25.3       缺少等号
+temp::25.3      分隔符重复
 temp=high       值不是数值
 ```
 
-KV 解析会扫描整行，因此 <code>INFO temp=25.3 C</code> 仍能提取 <code>temp</code>。如果日志里碰巧存在不想采集的 <code>key=number</code>，请手动限制通道或改用正则。
+KV 解析会扫描整行，因此 <code>INFO temp=25.3 C</code> 仍能提取 <code>temp</code>。如果日志里碰巧存在不想采集的 <code>key=number</code> 或 <code>key:number</code>，请手动限制通道或改用正则。
 
 <a id="delimiter"></a>
 
