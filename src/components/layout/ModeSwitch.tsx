@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Bluetooth, Bug, FileSearch, LayoutDashboard, Plug2, Terminal, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAppStore, type AppMode } from "@/stores/appStore";
+import { useAppStore } from "@/stores/appStore";
+import type { AppMode } from "@/lib/workspaces";
+import { WORKSPACE_REGISTRY } from "@/components/modes/workspaceRegistry";
 import { useRttStore } from "@/stores/rttStore";
 import { useFlashStore } from "@/stores/flashStore";
 import { useDebugStore } from "@/stores/debugStore";
@@ -20,16 +21,6 @@ interface ModeSwitchProps {
   className?: string;
   orientation?: "horizontal" | "vertical";
 }
-
-const MODES = [
-  { id: "flash", label: "烧录", icon: Zap },
-  { id: "rtt", label: "RTT", icon: Terminal },
-  { id: "serial", label: "串口", icon: Plug2 },
-  { id: "log-analysis", label: "日志", icon: FileSearch },
-  { id: "bluetooth", label: "蓝牙", icon: Bluetooth },
-  { id: "control-panel", label: "面板", icon: LayoutDashboard },
-  { id: "debug", label: "调试", icon: Bug },
-] as const;
 
 export function ModeSwitch({ className, orientation = "horizontal" }: ModeSwitchProps) {
   const mode = useAppStore((state) => state.mode);
@@ -80,7 +71,7 @@ export function ModeSwitch({ className, orientation = "horizontal" }: ModeSwitch
           className
         )}
       >
-        {MODES.map(({ id, label, icon: Icon }) => (
+        {WORKSPACE_REGISTRY.map(({ id, shortLabel, navigationIcon: Icon }) => (
           <Button
             key={id}
             variant={mode === id ? "default" : "ghost"}
@@ -93,7 +84,9 @@ export function ModeSwitch({ className, orientation = "horizontal" }: ModeSwitch
             )}
           >
             <Icon className={vertical ? "h-4 w-4" : "h-3.5 w-3.5"} />
-            <span className={vertical ? "text-[10px] font-medium leading-none" : "text-xs font-medium"}>{label}</span>
+            <span className={vertical ? "text-[10px] font-medium leading-none" : "text-xs font-medium"}>
+              {shortLabel}
+            </span>
           </Button>
         ))}
       </div>

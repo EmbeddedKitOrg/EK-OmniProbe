@@ -1,7 +1,7 @@
 import { create } from "zustand";
+import { isAppMode, type AppMode } from "@/lib/workspaces";
 
-// Application mode type
-export type AppMode = "flash" | "rtt" | "serial" | "log-analysis" | "bluetooth" | "control-panel" | "debug";
+export type { AppMode } from "@/lib/workspaces";
 
 // App mode persistence key
 const APP_MODE_KEY = "app_mode";
@@ -9,17 +9,7 @@ const APP_MODE_KEY = "app_mode";
 function loadAppMode(): AppMode {
   try {
     const saved = localStorage.getItem(APP_MODE_KEY);
-    if (
-      saved === "flash" ||
-      saved === "rtt" ||
-      saved === "serial" ||
-      saved === "log-analysis" ||
-      saved === "bluetooth" ||
-      saved === "control-panel" ||
-      saved === "debug"
-    ) {
-      return saved;
-    }
+    if (isAppMode(saved)) return saved;
   } catch {
     // 静默处理，使用默认值
   }

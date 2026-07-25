@@ -23,7 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import { THEME_SCHEMES } from "@/lib/themeSchemes";
 import { useThemeStore } from "@/stores/themeStore";
-import { useAppStore, type AppMode } from "@/stores/appStore";
+import { useAppStore } from "@/stores/appStore";
+import { WORKSPACES, type AppMode } from "@/lib/workspaces";
 import { useRttStore } from "@/stores/rttStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useUiPreferencesStore, type BackgroundMode } from "@/stores/uiPreferencesStore";
@@ -33,15 +34,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AuthorAboutDialog } from "./AuthorAboutDialog";
 
-const workspaceOptions: Array<{ value: AppMode; label: string }> = [
-  { value: "flash", label: "烧录工作台" },
-  { value: "rtt", label: "RTT 工作台" },
-  { value: "serial", label: "串口工作台" },
-  { value: "log-analysis", label: "日志分析工作台" },
-  { value: "bluetooth", label: "蓝牙工作台" },
-  { value: "control-panel", label: "控制面板" },
-  { value: "debug", label: "调试工作台" },
-];
+const workspaceOptions: Array<{ value: AppMode; label: string }> = WORKSPACES.map(({ id, settingsLabel }) => ({
+  value: id,
+  label: settingsLabel,
+}));
 
 const viewModeOptions: Array<{ value: ViewMode; label: string }> = [
   { value: "text", label: "仅文本" },

@@ -1,15 +1,7 @@
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ModeSwitch } from "./components/layout/ModeSwitch";
-import {
-  FlashMode,
-  RttMode,
-  SerialMode,
-  LogAnalysisMode,
-  BluetoothMode,
-  DebugMode,
-  ControlPanelMode,
-} from "./components/modes";
+import { WORKSPACE_BY_MODE } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
@@ -64,6 +56,7 @@ function MainApp() {
   const rttRunning = useRttStore((s) => s.isRunning);
   const flashing = useFlashStore((s) => s.flashing);
   const mode = useAppStore((s) => s.mode);
+  const WorkspaceView = WORKSPACE_BY_MODE[mode].view;
   const setMode = useAppStore((s) => s.setMode);
   const schemeId = useThemeStore((s) => s.schemeId);
   const backgroundMode = useUiPreferencesStore((s) => s.backgroundMode);
@@ -277,13 +270,7 @@ function MainApp() {
         >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
             <div key={mode} className="mode-stage h-full">
-              {mode === "flash" && <FlashMode />}
-              {mode === "rtt" && <RttMode />}
-              {mode === "serial" && <SerialMode />}
-              {mode === "log-analysis" && <LogAnalysisMode />}
-              {mode === "bluetooth" && <BluetoothMode />}
-              {mode === "control-panel" && <ControlPanelMode />}
-              {mode === "debug" && <DebugMode />}
+              <WorkspaceView />
             </div>
           </div>
 

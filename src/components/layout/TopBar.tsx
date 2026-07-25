@@ -1,17 +1,4 @@
-import {
-  Activity,
-  Bluetooth,
-  Bug,
-  Cpu,
-  FileCode,
-  FileSearch,
-  LayoutDashboard,
-  Loader2,
-  PanelRightClose,
-  PanelRightOpen,
-  Radar,
-  Wifi,
-} from "lucide-react";
+import { Activity, Cpu, FileCode, Loader2, PanelRightClose, PanelRightOpen, Radar } from "lucide-react";
 import { UpdateChecker } from "../UpdateChecker";
 import { useProbeStore } from "@/stores/probeStore";
 import { useRttStore } from "@/stores/rttStore";
@@ -25,16 +12,7 @@ import { TooltipWrapper } from "@/components/ui/tooltip-button";
 import { formatBytes } from "@/lib/formatters";
 import { SettingsCenterDialog } from "./SettingsCenterDialog";
 import { Button } from "@/components/ui/button";
-
-const MODE_META = {
-  flash: { label: "烧录工作台", icon: Cpu },
-  rtt: { label: "RTT 调试工作台", icon: Radar },
-  serial: { label: "串口工作台", icon: Wifi },
-  "log-analysis": { label: "日志分析工作台", icon: FileSearch },
-  bluetooth: { label: "蓝牙工作台", icon: Bluetooth },
-  "control-panel": { label: "控制面板", icon: LayoutDashboard },
-  debug: { label: "调试工作台", icon: Bug },
-} as const;
+import { WORKSPACE_BY_MODE } from "@/components/modes/workspaceRegistry";
 
 interface TopBarProps {
   inspectorOpen: boolean;
@@ -56,7 +34,7 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
   const bluetoothConnected = useBluetoothStore((state) => state.connected);
   const controlPanelSource = useControlPanelStore((state) => state.source);
   const firmwareFileName = firmwarePath?.split(/[\\/]/).pop();
-  const { label, icon: ModeIcon } = MODE_META[mode];
+  const { label, headerIcon: ModeIcon } = WORKSPACE_BY_MODE[mode];
   const connectionLabel =
     mode === "serial"
       ? "串口"
