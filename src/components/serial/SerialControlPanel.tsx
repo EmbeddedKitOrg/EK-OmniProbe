@@ -13,7 +13,6 @@ import {
   GripVertical,
   LayoutDashboard,
   Maximize2,
-  Minus,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -21,7 +20,6 @@ import {
   Pencil,
   Play,
   Plus,
-  Send,
   Settings2,
   Trash2,
   Upload,
@@ -32,7 +30,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useLogStore } from "@/stores/logStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useShallow } from "zustand/react/shallow";
@@ -41,17 +38,13 @@ import {
   createSerialControlWidget,
   clampFloatingPanelPosition,
   loadSerialControlPanel,
-  joystickPointFromRatio,
   parseSerialCommandSequence,
   parseSerialControlPanel,
-  renderSerialControlCommand,
-  renderSerialJoystickCommand,
   saveSerialControlPanel,
   SERIAL_CONTROL_WIDGET_GROUPS,
   type SerialControlPanelConfig,
   type SerialControlWidget,
   type SerialControlWidgetType,
-  type SerialJoystickWidget,
 } from "@/lib/serialControlPanel";
 import { cn } from "@/lib/utils";
 import { exportJson } from "@/lib/exporters";
@@ -62,8 +55,14 @@ import { SignalPlotCanvas } from "@/components/rtt/SignalPlotCanvas";
 import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import type { ChartConfig, ChartDataPoint, ChartSeries } from "@/lib/chartTypes";
 import type { ControlPanelSource } from "@/stores/controlPanelStore";
+import {
+  isSerialSendWidget,
+  SerialSendWidgetControl,
+  SerialSendWidgetEditor,
+  type SerialSendRuntimeValue,
+} from "./SerialSendControlWidgets";
 
-type RuntimeValue = string | number | boolean | { x: number; y: number };
+type RuntimeValue = SerialSendRuntimeValue;
 const EMPTY_CHART_VALUES: Record<string, number> = {};
 const CANVAS_GAP = 12;
 const MIN_WIDGET_WIDTH = 200;
@@ -338,7 +337,6 @@ export function SerialControlPanel({
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [inspectorPosition, setInspectorPosition] = useState({ x: 0, y: 0 });
   const [runningSequenceId, setRunningSequenceId] = useState<string | null>(null);
-  const lastContinuousSendRef = useRef<Record<string, number>>({});
   const runningSequenceRef = useRef<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
@@ -545,21 +543,6 @@ export function SerialControlPanel({
     }
   };
 
-  const sendSliderValue = (widget: Extract<SerialControlWidget, { type: "slider" }>, value: number) =>
-    sendCommand(widget, renderSerialControlCommand(widget.template, value));
-
-  const sendJoystickPoint = (widget: SerialJoystickWidget, point: { x: number; y: number }) =>
-    sendCommand(widget, renderSerialJoystickCommand(widget.template, point.x, point.y));
-
-  const commitStepperValue = (widget: Extract<SerialControlWidget, { type: "stepper" }>, rawValue: number) => {
-    const value = Number(
-      Math.min(widget.max, Math.max(widget.min, Number.isFinite(rawValue) ? rawValue : widget.value)).toFixed(10)
-    );
-    setRuntimeValues((current) => ({ ...current, [widget.id]: value }));
-    updateWidget(widget.id, (current) => (current.type === "stepper" ? { ...current, value } : current));
-    void sendCommand(widget, renderSerialControlCommand(widget.template, value));
-  };
-
   const runSequence = async (widget: Extract<SerialControlWidget, { type: "sequence" }>) => {
     if (runningSequenceRef.current) return;
     const commands = parseSerialCommandSequence(widget.commands);
@@ -582,39 +565,6 @@ export function SerialControlPanel({
       runningSequenceRef.current = null;
       setRunningSequenceId(null);
     }
-  };
-
-  const commitSliderValue = (widget: Extract<SerialControlWidget, { type: "slider" }>, value: number) => {
-    updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, value } : current));
-    void sendSliderValue(widget, value);
-  };
-
-  const joystickPointFromEvent = (widget: SerialJoystickWidget, event: ReactPointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return joystickPointFromRatio(
-      widget,
-      (event.clientX - rect.left) / rect.width,
-      (event.clientY - rect.top) / rect.height
-    );
-  };
-
-  const moveJoystick = (widget: SerialJoystickWidget, point: { x: number; y: number }) => {
-    setRuntimeValues((current) => ({ ...current, [widget.id]: point }));
-    if (widget.sendMode !== "continuous") return;
-    const now = Date.now();
-    if (now - (lastContinuousSendRef.current[widget.id] ?? 0) < 100) return;
-    lastContinuousSendRef.current[widget.id] = now;
-    void sendJoystickPoint(widget, point);
-  };
-
-  const finishJoystick = async (widget: SerialJoystickWidget, point: { x: number; y: number }) => {
-    await sendJoystickPoint(widget, point);
-    const next = widget.recenter ? joystickPointFromRatio(widget, 0.5, 0.5) : point;
-    setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
-    updateWidget(widget.id, (current) =>
-      current.type === "joystick" ? { ...current, x: next.x, y: next.y } : current
-    );
-    if (widget.recenter) await sendJoystickPoint(widget, next);
   };
 
   const exportPanel = async () => {
@@ -664,48 +614,10 @@ export function SerialControlPanel({
             onChange={(event) => updateWidget(widget.id, (current) => ({ ...current, label: event.target.value }))}
           />
         </div>
-        {widget.type !== "gauge" &&
-          widget.type !== "value" &&
-          widget.type !== "indicator" &&
-          widget.type !== "serial-log" &&
-          widget.type !== "fft-chart" &&
-          widget.type !== "xy-chart" &&
-          widget.type !== "yt-chart" &&
-          widget.type !== "imu-3d" && (
-            <div className="space-y-1.5">
-              <Label>发送格式</Label>
-              <Select
-                value={widget.format}
-                onValueChange={(format: "text" | "hex") =>
-                  updateWidget(widget.id, (current) => ({ ...current, format }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">文本</SelectItem>
-                  <SelectItem value="hex">HEX</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
       </div>
 
-      {widget.type === "button" && (
-        <div className="space-y-1.5">
-          <Label htmlFor={`${widget.id}-command`}>点击时发送</Label>
-          <Input
-            id={`${widget.id}-command`}
-            value={widget.command}
-            onChange={(event) =>
-              updateWidget(widget.id, (current) =>
-                current.type === "button" ? { ...current, command: event.target.value } : current
-              )
-            }
-            className="font-mono"
-          />
-        </div>
+      {isSerialSendWidget(widget) && (
+        <SerialSendWidgetEditor widget={widget} onChange={(next) => updateWidget(widget.id, () => next)} />
       )}
 
       {(widget.type === "fft-chart" || widget.type === "yt-chart") && (
@@ -767,220 +679,6 @@ export function SerialControlPanel({
               {widget.type === "fft-chart" ? "留空时跟随图形工作台中已启用的通道。" : "添加一个或多个 Y 通道。"}
             </p>
           )}
-        </div>
-      )}
-
-      {widget.type === "sequence" && (
-        <div className="grid gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${widget.id}-commands`}>命令列表</Label>
-            <textarea
-              id={`${widget.id}-commands`}
-              value={widget.commands}
-              rows={5}
-              onChange={(event) =>
-                updateWidget(widget.id, (current) =>
-                  current.type === "sequence" ? { ...current, commands: event.target.value } : current
-                )
-              }
-              className="w-full resize-y rounded-[14px] border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
-              placeholder={"AT\nAT+GMR"}
-            />
-            <p className="text-[11px] text-muted-foreground">每行一条命令，空行自动忽略。</p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${widget.id}-interval`}>命令间隔 (ms)</Label>
-            <Input
-              id={`${widget.id}-interval`}
-              type="number"
-              min={0}
-              max={60000}
-              value={widget.intervalMs}
-              onChange={(event) =>
-                updateWidget(widget.id, (current) =>
-                  current.type === "sequence" ? { ...current, intervalMs: Number(event.target.value) } : current
-                )
-              }
-            />
-          </div>
-        </div>
-      )}
-
-      {widget.type === "toggle" && (
-        <div className="grid gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${widget.id}-on`}>开启时发送</Label>
-            <Input
-              id={`${widget.id}-on`}
-              value={widget.onCommand}
-              onChange={(event) =>
-                updateWidget(widget.id, (current) =>
-                  current.type === "toggle" ? { ...current, onCommand: event.target.value } : current
-                )
-              }
-              className="font-mono"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${widget.id}-off`}>关闭时发送</Label>
-            <Input
-              id={`${widget.id}-off`}
-              value={widget.offCommand}
-              onChange={(event) =>
-                updateWidget(widget.id, (current) =>
-                  current.type === "toggle" ? { ...current, offCommand: event.target.value } : current
-                )
-              }
-              className="font-mono"
-            />
-          </div>
-        </div>
-      )}
-
-      {(widget.type === "slider" ||
-        widget.type === "input" ||
-        widget.type === "stepper" ||
-        widget.type === "joystick") && (
-        <div className="space-y-1.5">
-          <Label htmlFor={`${widget.id}-template`}>发送模板</Label>
-          <Input
-            id={`${widget.id}-template`}
-            value={widget.template}
-            onChange={(event) =>
-              updateWidget(widget.id, (current) =>
-                current.type === "slider" ||
-                current.type === "input" ||
-                current.type === "stepper" ||
-                current.type === "joystick"
-                  ? { ...current, template: event.target.value }
-                  : current
-              )
-            }
-            placeholder={
-              widget.type === "joystick" ? "X={x},Y={y}" : widget.type === "stepper" ? "PARAM={value}" : "PWM={value}"
-            }
-            className="font-mono"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            {widget.type === "joystick" ? (
-              <>
-                使用 {"{x}"} 和 {"{y}"} 表示摇杆坐标。
-              </>
-            ) : (
-              <>使用 {"{value}"} 表示当前控件值。</>
-            )}
-          </p>
-        </div>
-      )}
-
-      {(widget.type === "slider" || widget.type === "stepper") && (
-        <div className="grid gap-3">
-          {(["min", "max", "step"] as const).map((key) => (
-            <div key={key} className="space-y-1.5">
-              <Label htmlFor={`${widget.id}-${key}`}>
-                {key === "min" ? "最小值" : key === "max" ? "最大值" : "步长"}
-              </Label>
-              <Input
-                id={`${widget.id}-${key}`}
-                type="number"
-                value={widget[key]}
-                onChange={(event) =>
-                  updateWidget(widget.id, (current) =>
-                    current.type === "slider" || current.type === "stepper"
-                      ? { ...current, [key]: Number(event.target.value) }
-                      : current
-                  )
-                }
-              />
-            </div>
-          ))}
-          {widget.type === "slider" && (
-            <div className="space-y-1.5">
-              <Label>发送方式</Label>
-              <Select
-                value={widget.sendMode}
-                onValueChange={(sendMode: "release" | "continuous") =>
-                  updateWidget(widget.id, (current) => (current.type === "slider" ? { ...current, sendMode } : current))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="release">松手发送</SelectItem>
-                  <SelectItem value="continuous">连续发送</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-      )}
-
-      {widget.type === "joystick" && (
-        <div className="space-y-3">
-          <div className="grid gap-3">
-            {(["xMin", "xMax", "yMin", "yMax", "step"] as const).map((key) => (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`${widget.id}-${key}`}>
-                  {key === "xMin"
-                    ? "X 最小值"
-                    : key === "xMax"
-                      ? "X 最大值"
-                      : key === "yMin"
-                        ? "Y 最小值"
-                        : key === "yMax"
-                          ? "Y 最大值"
-                          : "步长"}
-                </Label>
-                <Input
-                  id={`${widget.id}-${key}`}
-                  type="number"
-                  value={widget[key]}
-                  onChange={(event) =>
-                    updateWidget(widget.id, (current) =>
-                      current.type === "joystick" ? { ...current, [key]: Number(event.target.value) } : current
-                    )
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <div className="grid gap-3">
-            <div className="space-y-1.5">
-              <Label>发送方式</Label>
-              <Select
-                value={widget.sendMode}
-                onValueChange={(sendMode: "release" | "continuous") =>
-                  updateWidget(widget.id, (current) =>
-                    current.type === "joystick" ? { ...current, sendMode } : current
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="release">松手发送</SelectItem>
-                  <SelectItem value="continuous">连续发送</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end justify-between rounded-lg border border-border/60 px-3 py-2">
-              <div>
-                <Label htmlFor={`${widget.id}-recenter`}>松手回中</Label>
-                <p className="text-[11px] text-muted-foreground">松手后发送中心坐标。</p>
-              </div>
-              <Switch
-                id={`${widget.id}-recenter`}
-                checked={widget.recenter}
-                onCheckedChange={(recenter) =>
-                  updateWidget(widget.id, (current) =>
-                    current.type === "joystick" ? { ...current, recenter } : current
-                  )
-                }
-              />
-            </div>
-          </div>
         </div>
       )}
 
@@ -1335,234 +1033,20 @@ export function SerialControlPanel({
   );
 
   const renderControl = (widget: SerialControlWidget) => {
-    if (widget.type === "button") {
+    if (isSerialSendWidget(widget)) {
       return (
-        <Button
-          className="h-12 w-full"
-          disabled={!sendEnabled}
-          onClick={() => void sendCommand(widget, widget.command)}
-        >
-          <Send className="mr-2 h-4 w-4" />
-          {widget.label}
-        </Button>
-      );
-    }
-
-    if (widget.type === "sequence") {
-      const commands = parseSerialCommandSequence(widget.commands);
-      const running = runningSequenceId === widget.id;
-      return (
-        <div className="space-y-2">
-          <Button
-            className="h-12 w-full"
-            disabled={!sendEnabled || runningSequenceId !== null || commands.length === 0}
-            onClick={() => void runSequence(widget)}
-          >
-            <Send className="mr-2 h-4 w-4" />
-            {running ? "正在执行…" : widget.label}
-          </Button>
-          <div className="text-center text-[11px] text-muted-foreground">
-            {commands.length} 条命令 · 间隔 {widget.intervalMs}ms
-          </div>
-        </div>
-      );
-    }
-
-    if (widget.type === "toggle") {
-      const checked = Boolean(runtimeValues[widget.id] ?? widget.value);
-      return (
-        <div className="flex items-center justify-between gap-4 py-2">
-          <div>
-            <div className="font-medium text-foreground">{widget.label}</div>
-            <div className="text-xs text-muted-foreground">{checked ? "已开启" : "已关闭"}</div>
-          </div>
-          <Switch
-            checked={checked}
-            disabled={!sendEnabled}
-            onCheckedChange={async (next) => {
-              setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
-              const sent = await sendCommand(widget, next ? widget.onCommand : widget.offCommand);
-              if (sent) {
-                updateWidget(widget.id, (current) =>
-                  current.type === "toggle" ? { ...current, value: next } : current
-                );
-              } else {
-                setRuntimeValues((current) => ({ ...current, [widget.id]: checked }));
-              }
-            }}
-          />
-        </div>
-      );
-    }
-
-    if (widget.type === "slider") {
-      const value = Number(runtimeValues[widget.id] ?? widget.value);
-      const handleChange = (next: number) => {
-        setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
-        if (widget.sendMode !== "continuous") return;
-        const now = Date.now();
-        if (now - (lastContinuousSendRef.current[widget.id] ?? 0) < 100) return;
-        lastContinuousSendRef.current[widget.id] = now;
-        void sendSliderValue(widget, next);
-      };
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-foreground">{widget.label}</span>
-            <span className="rounded-full bg-secondary px-3 py-1 font-mono text-sm">{value}</span>
-          </div>
-          <input
-            type="range"
-            min={widget.min}
-            max={widget.max}
-            step={widget.step}
-            value={value}
-            disabled={!sendEnabled}
-            onChange={(event) => handleChange(Number(event.target.value))}
-            onPointerUp={(event) => commitSliderValue(widget, Number(event.currentTarget.value))}
-            onKeyUp={(event) => commitSliderValue(widget, Number(event.currentTarget.value))}
-            className="h-2 w-full cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>{widget.min}</span>
-            <span>{widget.sendMode === "continuous" ? "连续发送 · 100ms 节流" : "松手发送"}</span>
-            <span>{widget.max}</span>
-          </div>
-        </div>
-      );
-    }
-
-    if (widget.type === "stepper") {
-      const rawValue = runtimeValues[widget.id] ?? widget.value;
-      const numericValue = Number(rawValue);
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-foreground">{widget.label}</span>
-            <span className="text-[11px] text-muted-foreground">
-              步长 {widget.step} · {widget.min}～{widget.max}
-            </span>
-          </div>
-          <div className="grid grid-cols-[auto_1fr_auto_auto] gap-2">
-            <Button
-              size="icon"
-              variant="outline"
-              disabled={!sendEnabled}
-              onClick={() => commitStepperValue(widget, numericValue - widget.step)}
-              aria-label={`${widget.label}减小`}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <Input
-              type="number"
-              min={widget.min}
-              max={widget.max}
-              step={widget.step}
-              value={rawValue as string | number}
-              disabled={!sendEnabled}
-              onChange={(event) => setRuntimeValues((current) => ({ ...current, [widget.id]: event.target.value }))}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") commitStepperValue(widget, Number(event.currentTarget.value));
-              }}
-              className="text-center font-mono"
-              aria-label={`${widget.label}数值`}
-            />
-            <Button
-              size="icon"
-              variant="outline"
-              disabled={!sendEnabled}
-              onClick={() => commitStepperValue(widget, numericValue + widget.step)}
-              aria-label={`${widget.label}增大`}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              disabled={!sendEnabled}
-              onClick={() => commitStepperValue(widget, numericValue)}
-              title="发送当前值"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    if (widget.type === "joystick") {
-      const runtime = runtimeValues[widget.id];
-      const point = typeof runtime === "object" ? runtime : { x: widget.x, y: widget.y };
-      const left = ((point.x - widget.xMin) / (widget.xMax - widget.xMin)) * 100;
-      const top = ((widget.yMax - point.y) / (widget.yMax - widget.yMin)) * 100;
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-foreground">{widget.label}</span>
-            <span className="rounded-full bg-secondary px-3 py-1 font-mono text-sm">
-              X {point.x} · Y {point.y}
-            </span>
-          </div>
-          <div
-            role="application"
-            tabIndex={sendEnabled ? 0 : -1}
-            aria-label={`${widget.label}摇杆，X ${point.x}，Y ${point.y}`}
-            className={cn(
-              "relative mx-auto aspect-square w-full max-w-48 touch-none overflow-hidden rounded-full border border-border bg-muted/60",
-              !sendEnabled && "cursor-not-allowed opacity-50"
-            )}
-            onPointerDown={(event) => {
-              if (!sendEnabled) return;
-              event.currentTarget.setPointerCapture(event.pointerId);
-              moveJoystick(widget, joystickPointFromEvent(widget, event));
-            }}
-            onPointerMove={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                moveJoystick(widget, joystickPointFromEvent(widget, event));
-              }
-            }}
-            onPointerUp={(event) => {
-              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-              const next = joystickPointFromEvent(widget, event);
-              event.currentTarget.releasePointerCapture(event.pointerId);
-              void finishJoystick(widget, next);
-            }}
-            onKeyDown={(event) => {
-              const offset =
-                event.key === "ArrowLeft"
-                  ? [-widget.step, 0]
-                  : event.key === "ArrowRight"
-                    ? [widget.step, 0]
-                    : event.key === "ArrowUp"
-                      ? [0, widget.step]
-                      : event.key === "ArrowDown"
-                        ? [0, -widget.step]
-                        : null;
-              if (!offset) return;
-              event.preventDefault();
-              const next = joystickPointFromRatio(
-                widget,
-                (point.x + offset[0] - widget.xMin) / (widget.xMax - widget.xMin),
-                (widget.yMax - point.y - offset[1]) / (widget.yMax - widget.yMin)
-              );
-              setRuntimeValues((current) => ({ ...current, [widget.id]: next }));
-              updateWidget(widget.id, (current) =>
-                current.type === "joystick" ? { ...current, x: next.x, y: next.y } : current
-              );
-              void sendJoystickPoint(widget, next);
-            }}
-          >
-            <div className="absolute left-1/2 top-0 h-full w-px bg-border/80" />
-            <div className="absolute left-0 top-1/2 h-px w-full bg-border/80" />
-            <div
-              className="absolute h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/20 shadow-md"
-              style={{ left: `${left}%`, top: `${top}%` }}
-            />
-          </div>
-          <div className="text-center text-[11px] text-muted-foreground">
-            {widget.sendMode === "continuous" ? "连续发送 · 100ms 节流" : "松手发送"}
-            {widget.recenter ? " · 松手回中" : ""}
-          </div>
-        </div>
+        <SerialSendWidgetControl
+          widget={widget}
+          sendEnabled={sendEnabled}
+          runtimeValue={runtimeValues[widget.id]}
+          runningSequenceId={runningSequenceId}
+          onRuntimeValueChange={(value) => setRuntimeValues((current) => ({ ...current, [widget.id]: value }))}
+          onUpdateWidget={(updater) =>
+            updateWidget(widget.id, (current) => (isSerialSendWidget(current) ? updater(current) : current))
+          }
+          onSend={sendCommand}
+          onRunSequence={runSequence}
+        />
       );
     }
 
@@ -1699,32 +1183,7 @@ export function SerialControlPanel({
       );
     }
 
-    const value = String(runtimeValues[widget.id] ?? widget.value);
-    const sendInput = async () => {
-      const sent = await sendCommand(widget, renderSerialControlCommand(widget.template, value));
-      if (sent) {
-        updateWidget(widget.id, (current) => (current.type === "input" ? { ...current, value } : current));
-      }
-    };
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={`${widget.id}-runtime`}>{widget.label}</Label>
-        <div className="flex gap-2">
-          <Input
-            id={`${widget.id}-runtime`}
-            value={value}
-            disabled={!sendEnabled}
-            onChange={(event) => setRuntimeValues((current) => ({ ...current, [widget.id]: event.target.value }))}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void sendInput();
-            }}
-          />
-          <Button size="icon" disabled={!sendEnabled} onClick={() => void sendInput()} title="发送">
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   const selectedWidget = panel.widgets.find((widget) => widget.id === selectedWidgetId);

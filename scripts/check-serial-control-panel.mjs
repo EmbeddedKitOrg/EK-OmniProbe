@@ -24,6 +24,7 @@ try {
   const { buildSerialControlChartData } = await server.ssrLoadModule(
     "/src/components/serial/SerialControlMiniChart.tsx"
   );
+  const { isSerialSendWidget } = await server.ssrLoadModule("/src/components/serial/SerialSendControlWidgets.tsx");
   const { createImuFusionState, estimateGyroBias, updateImuFusion } =
     await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
@@ -57,6 +58,11 @@ try {
   );
   assert.equal(isSerialControlWidgetType("imu-3d"), true);
   assert.equal(isSerialControlWidgetType("unknown"), false);
+  assert.equal(
+    SERIAL_CONTROL_WIDGET_GROUPS[0].items.every(({ type }) => isSerialSendWidget(createSerialControlWidget(type))),
+    true
+  );
+  assert.equal(isSerialSendWidget(createSerialControlWidget("gauge")), false);
   const importedDefaults = parseSerialControlPanel({
     version: 4,
     widgets: widgetTypes.map((type) => ({ type })),
