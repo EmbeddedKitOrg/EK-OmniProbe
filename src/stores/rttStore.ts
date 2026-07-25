@@ -4,6 +4,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
+import { appendChartData } from "@/lib/chartIngestion";
 import {
   loadFromStorage,
   saveToStorage,
@@ -211,19 +212,13 @@ export const useRttStore = create<RttState>((set) => ({
 
   addChartData: (data) =>
     set((state) => {
-      const newData = [...state.chartData, data];
-      // 限制最大数据点数
-      const trimmedData = newData.slice(-state.chartConfig.maxDataPoints);
-      return { chartData: trimmedData };
+      return { chartData: appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints) };
     }),
 
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const newData = state.chartData.concat(points);
-      const max = state.chartConfig.maxDataPoints;
-      const trimmedData = newData.length > max ? newData.slice(-max) : newData;
-      return { chartData: trimmedData };
+      return { chartData: appendChartData(state.chartData, points, state.chartConfig.maxDataPoints) };
     }),
 
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),

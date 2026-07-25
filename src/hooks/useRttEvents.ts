@@ -2,8 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useRttStore } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
-import type { ChartDataPoint } from "@/lib/chartTypes";
-import { parseChartLines } from "@/lib/parseChartData";
+import { ChartIngestionBuffer } from "@/lib/chartIngestion";
 import { parseRttData } from "@/lib/dataFraming";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
@@ -28,8 +27,7 @@ export function useRttEvents() {
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
   const batchBytesRef = useRef(0);
-  const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
-  const batchParseRef = useRef({ success: 0, fail: 0 });
+  const chartIngestionRef = useRef(new ChartIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -40,15 +38,9 @@ export function useRttEvents() {
         batchLinesRef.current = [];
       }
 
-      if (batchChartPointsRef.current.length > 0) {
-        addChartDataBatch(batchChartPointsRef.current);
-        batchChartPointsRef.current = [];
-      }
-
-      if (batchParseRef.current.success > 0 || batchParseRef.current.fail > 0) {
-        incrementParseCounts(batchParseRef.current.success, batchParseRef.current.fail);
-        batchParseRef.current = { success: 0, fail: 0 };
-      }
+      const chartBatch = chartIngestionRef.current.drain();
+      if (chartBatch.points.length > 0) addChartDataBatch(chartBatch.points);
+      if (chartBatch.success > 0 || chartBatch.fail > 0) incrementParseCounts(chartBatch.success, chartBatch.fail);
 
       if (batchBytesRef.current > 0) {
         addBytes(batchBytesRef.current);
@@ -84,10 +76,7 @@ export function useRttEvents() {
         // 图表解析：累积到批，flushBatch 时单次 setState
         const currentChartConfig = useRttStore.getState().chartConfig;
         if (currentChartConfig.enabled) {
-          const parsed = parseChartLines(lines, currentChartConfig);
-          batchChartPointsRef.current.push(...parsed.points);
-          batchParseRef.current.success += parsed.success;
-          batchParseRef.current.fail += parsed.fail;
+          chartIngestionRef.current.ingestLines(lines, currentChartConfig);
         }
 
         scheduleBatchUpdate();

@@ -3,8 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { parseSerialData } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
-import type { ChartDataPoint } from "@/lib/chartTypes";
-import { parseChartLines } from "@/lib/parseChartData";
+import { ChartIngestionBuffer } from "@/lib/chartIngestion";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -32,8 +31,7 @@ export function useBluetoothEvents() {
 
   const batchLinesRef = useRef<Omit<BleLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
-  const batchChartPointsRef = useRef<ChartDataPoint[]>([]);
-  const batchParseRef = useRef({ success: 0, fail: 0 });
+  const chartIngestionRef = useRef(new ChartIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -42,14 +40,9 @@ export function useBluetoothEvents() {
         addLines(batchLinesRef.current);
         batchLinesRef.current = [];
       }
-      if (batchChartPointsRef.current.length > 0) {
-        addChartDataBatch(batchChartPointsRef.current);
-        batchChartPointsRef.current = [];
-      }
-      if (batchParseRef.current.success > 0 || batchParseRef.current.fail > 0) {
-        incrementParseCounts(batchParseRef.current.success, batchParseRef.current.fail);
-        batchParseRef.current = { success: 0, fail: 0 };
-      }
+      const chartBatch = chartIngestionRef.current.drain();
+      if (chartBatch.points.length > 0) addChartDataBatch(chartBatch.points);
+      if (chartBatch.success > 0 || chartBatch.fail > 0) incrementParseCounts(chartBatch.success, chartBatch.fail);
       if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
         const cur = useBluetoothStore.getState().stats;
         updateStats({
@@ -84,10 +77,7 @@ export function useBluetoothEvents() {
 
         const chartConfig = useBluetoothStore.getState().chartConfig;
         if (chartConfig.enabled) {
-          const parsed = parseChartLines(lines, chartConfig);
-          batchChartPointsRef.current.push(...parsed.points);
-          batchParseRef.current.success += parsed.success;
-          batchParseRef.current.fail += parsed.fail;
+          chartIngestionRef.current.ingestLines(lines, chartConfig);
         }
       }
 

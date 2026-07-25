@@ -21,6 +21,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
+import { appendChartData } from "@/lib/chartIngestion";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
   loadBooleanFromStorage,
@@ -718,20 +719,13 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   addChartData: (data) =>
     set((state) => {
-      const newData = [...state.chartData, data];
-      const trimmedData = newData.slice(-state.chartConfig.maxDataPoints);
-      return { chartData: trimmedData };
+      return { chartData: appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints) };
     }),
 
   addChartDataBatch: (points) =>
     set((state) => {
-      if (points.length === 0) {
-        return state;
-      }
-      const newData = state.chartData.concat(points);
-      const max = state.chartConfig.maxDataPoints;
-      const trimmedData = newData.length > max ? newData.slice(-max) : newData;
-      return { chartData: trimmedData };
+      if (points.length === 0) return state;
+      return { chartData: appendChartData(state.chartData, points, state.chartConfig.maxDataPoints) };
     }),
 
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),

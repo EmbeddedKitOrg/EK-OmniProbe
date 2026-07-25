@@ -12,6 +12,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
+import { appendChartData } from "@/lib/chartIngestion";
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -300,9 +301,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const merged = state.chartData.concat(points);
-      const max = state.chartConfig.maxDataPoints;
-      return { chartData: merged.length > max ? merged.slice(-max) : merged };
+      return { chartData: appendChartData(state.chartData, points, state.chartConfig.maxDataPoints) };
     }),
   clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
   setChartPaused: (paused) => set({ chartPaused: paused }),

@@ -11,7 +11,7 @@ import type { SerialLine } from "@/lib/serialTypes";
 import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
-import { parseChartLines } from "@/lib/parseChartData";
+import { ChartIngestionBuffer } from "@/lib/chartIngestion";
 import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
 import { formatBytes } from "@/lib/formatters";
 import { parseLogLevel } from "@/lib/utils";
@@ -154,27 +154,22 @@ export function LogAnalysisMode() {
     }
 
     const parse = async () => {
-      const points: ChartDataPoint[] = [];
-      let success = 0;
-      let fail = 0;
+      const ingestion = new ChartIngestionBuffer(chartConfig.maxDataPoints);
       setChartParsing(true);
       setChartProgress(0);
 
       for (let offset = 0; offset < lines.length; offset += CHART_PARSE_BATCH_SIZE) {
         if (runId !== chartRunRef.current) return;
-        const parsed = parseChartLines(lines.slice(offset, offset + CHART_PARSE_BATCH_SIZE), chartConfig);
-        points.push(...parsed.points);
-        success += parsed.success;
-        fail += parsed.fail;
-        if (points.length > chartConfig.maxDataPoints) points.splice(0, points.length - chartConfig.maxDataPoints);
+        ingestion.ingestLines(lines.slice(offset, offset + CHART_PARSE_BATCH_SIZE), chartConfig);
         setChartProgress(Math.min(100, Math.round(((offset + CHART_PARSE_BATCH_SIZE) / lines.length) * 100)));
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       }
 
       if (runId === chartRunRef.current) {
-        setChartData(points);
-        setParseSuccessCount(success);
-        setParseFailCount(fail);
+        const parsed = ingestion.drain();
+        setChartData(parsed.points);
+        setParseSuccessCount(parsed.success);
+        setParseFailCount(parsed.fail);
         setChartParsing(false);
         setChartProgress(100);
       }
