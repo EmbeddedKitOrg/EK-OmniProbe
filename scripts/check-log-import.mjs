@@ -7,6 +7,7 @@ const server = await createServer({ root, logLevel: "silent", server: { middlewa
 
 try {
   const { streamLogLines } = await server.ssrLoadModule("/src/lib/logImport.ts");
+  await server.ssrLoadModule("/src/components/modes/LogAnalysisMode.tsx");
   const log = new Blob([
     "\uFEFF[20260724_13:18:19:567]P:1,2\r\n",
     "E:calendar month 7,0x7\r",

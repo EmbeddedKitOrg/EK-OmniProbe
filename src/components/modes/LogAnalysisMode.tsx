@@ -236,7 +236,9 @@ export function LogAnalysisMode() {
             </span>
             <span>{formatBytes(fileSize)}</span>
             <span>{importedCount.toLocaleString()} 行</span>
-            {inferredTimestampCount > 0 && <span className="text-amber-600">{inferredTimestampCount} 行时间为推断值</span>}
+            {inferredTimestampCount > 0 && (
+              <span className="text-amber-600">{inferredTimestampCount} 行时间为推断值</span>
+            )}
             {chartParsing && <span>图表解析 {chartProgress}%</span>}
           </>
         ) : (
