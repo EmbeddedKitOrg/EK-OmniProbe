@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
-import { previewChartParser, type ChartSample } from "@/lib/chartAutoConfig";
+import { previewChartParser, type ChartSample } from "@/lib/chartAnalysis";
 import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 

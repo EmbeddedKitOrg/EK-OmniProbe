@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
-import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
+import { detectChartConfig } from "@/lib/chartAnalysis";
 import {
   Trash2,
   Search,
@@ -78,16 +78,13 @@ export function BleToolbar() {
       return;
     }
 
-    const result = detectDataFormat(
-      samples.map((line) => line.text),
-      chartConfig.framePrefix
-    );
+    const { config, detection: result } = detectChartConfig(chartConfig, samples);
     if (result.confidence < 0.5) {
       addLog("warn", `无法识别 BLE 数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
       return;
     }
 
-    setChartConfig(applyAutoConfig(chartConfig, result));
+    setChartConfig(config);
     if (viewMode === "text") setViewMode("split");
     addLog("success", result.description);
   };

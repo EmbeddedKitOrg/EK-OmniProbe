@@ -10,7 +10,7 @@ import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import type { SerialLine } from "@/lib/serialTypes";
 import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
+import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
 import { parseChartLines } from "@/lib/parseChartData";
 import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
 import { formatBytes } from "@/lib/formatters";
