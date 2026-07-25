@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -33,6 +34,7 @@ import { useLogStore } from "@/stores/logStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useShallow } from "zustand/react/shallow";
 import { sendSerialPayload } from "@/lib/serialSend";
+import { resolveChartProcessing } from "@/lib/chartFilter";
 import {
   createSerialControlWidget,
   clampFloatingPanelPosition,
@@ -139,7 +141,17 @@ export function SerialControlPanel({
   const setSerialViewMode = useSerialStore((state) => state.setViewMode);
   const sourceData = data ?? serialData;
   const { connected, sendSettings, chartData, chartConfig } = sourceData;
-  const latestValues = chartData[chartData.length - 1]?.values ?? EMPTY_CHART_VALUES;
+  const rawLatestValues = chartData[chartData.length - 1]?.values ?? EMPTY_CHART_VALUES;
+  const processingChannelKeys = useMemo(
+    () => Array.from(new Set([...chartConfig.channels.map(({ key }) => key), ...Object.keys(rawLatestValues)])),
+    [chartConfig.channels, rawLatestValues]
+  );
+  const processing = useMemo(
+    () => resolveChartProcessing(chartData, processingChannelKeys, chartConfig.dataFilter),
+    [chartConfig.dataFilter, chartData, processingChannelKeys]
+  );
+  const processedChartData = processing.processedData;
+  const latestValues = processedChartData[processedChartData.length - 1]?.values ?? EMPTY_CHART_VALUES;
   const chartChannels = chartConfig.channels;
   const sendEnabled = connected && canSend;
   const addLog = useLogStore((state) => state.addLog);
@@ -475,7 +487,9 @@ export function SerialControlPanel({
           widget={widget}
           showWorkspaceActions={showWorkspaceActions}
           source={source}
-          chartData={chartData}
+          chartData={processedChartData}
+          rawChartData={processing.comparisonData}
+          filterActive={processing.filterActive}
           chartConfig={chartConfig}
           latestValues={latestValues}
           onOpenChart={onOpenChart ?? (() => setSerialViewMode("chart"))}
