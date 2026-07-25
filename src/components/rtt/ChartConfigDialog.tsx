@@ -11,7 +11,7 @@ import type {
 } from "@/lib/chartTypes";
 import { PRESET_COLORS } from "@/lib/chartTypes";
 import { listChartParsers } from "@/lib/parseChartData";
-import { populateEmptyChannelsFromSamples, previewChartParser, type ChartSample } from "@/lib/chartAutoConfig";
+import { populateEmptyChannelsFromSamples, previewChartParser, type ChartSample } from "@/lib/chartAnalysis";
 import {
   calculateSosFrequencyResponse,
   designParametricSos,

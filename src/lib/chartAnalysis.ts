@@ -1,5 +1,5 @@
 /**
- * RTT 图表智能自动配置
+ * 图表样本分析：格式检测、配置生成、通道推导与解析预览。
  */
 
 import type { ChartConfig, Channel } from "./chartTypes";
@@ -7,9 +7,7 @@ import { PRESET_COLORS } from "./chartTypes";
 import { extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
 
-/**
- * 检测结果
- */
+/** 样本格式检测结果。 */
 export interface DetectionResult {
   /** 检测到的格式类型 */
   format: "single-value" | "csv" | "xy-data" | "xy-with-seq" | "json" | "kv" | "regex" | "unknown";
@@ -33,6 +31,11 @@ export interface ChartParserPreview {
   success: boolean;
   values: Record<string, number>;
   message: string;
+}
+
+export interface ChartConfigDetection {
+  config: ChartConfig;
+  detection: DetectionResult;
 }
 
 /** 用一条可编辑样本预览当前解析配置，同时为无通道配置推导通道。 */
@@ -75,7 +78,7 @@ export function previewChartParser(
 /**
  * 智能检测数据格式
  */
-export function detectDataFormat(sampleLines: string[], framePrefix = ""): DetectionResult {
+function detectDataFormat(sampleLines: string[], framePrefix = ""): DetectionResult {
   const eligibleLines = sampleLines.flatMap((line) => {
     const payload = extractChartPayload(line, framePrefix);
     return payload === null ? [] : [payload];
@@ -534,14 +537,14 @@ function detectCsv(lines: string[]): DetectionResult {
   };
 }
 
-/**
- * 应用自动配置
- */
-export function applyAutoConfig(currentConfig: ChartConfig, detectionResult: DetectionResult): ChartConfig {
-  return {
-    ...currentConfig,
-    ...detectionResult.suggestedConfig,
-  };
+/** 检测样本格式并返回可直接应用的图表配置。 */
+export function detectChartConfig(currentConfig: ChartConfig, samples: ChartSample[]): ChartConfigDetection {
+  const detection = detectDataFormat(
+    samples.map((sample) => sample.text),
+    currentConfig.framePrefix
+  );
+  const config = detection.confidence >= 0.5 ? { ...currentConfig, ...detection.suggestedConfig } : currentConfig;
+  return { config, detection };
 }
 
 /**

@@ -6,8 +6,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const { populateEmptyChannelsFromSamples, previewChartParser } =
-    await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
+  const { detectChartConfig, populateEmptyChannelsFromSamples, previewChartParser } =
+    await server.ssrLoadModule("/src/lib/chartAnalysis.ts");
   const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, parseWithKv, registerChartParser } =
     await server.ssrLoadModule("/src/lib/parseChartData.ts");
   const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
@@ -150,6 +150,12 @@ try {
   const auto = populateEmptyChannelsFromSamples(DEFAULT_CHART_CONFIG, [{ text: "1,2" }, { text: "3,4" }]);
   assert.equal(auto.parseMode, "delimiter");
   assert.equal(auto.channels.length, 2);
+
+  const analyzed = detectChartConfig(DEFAULT_CHART_CONFIG, [{ text: "1,2" }, { text: "3,4" }]);
+  assert.ok(analyzed.detection.confidence >= 0.5);
+  assert.equal(analyzed.config.parseMode, "delimiter");
+  assert.equal(analyzed.config.channels.length, 2);
+  assert.equal(detectChartConfig(DEFAULT_CHART_CONFIG, [{ text: "not chart data" }]).config, DEFAULT_CHART_CONFIG);
 
   assert.deepEqual(parseWithKv("mid:0,power:86,cam:0x8").dataPoint.values, { mid: 0, power: 86, cam: 8 });
   const colonKv = populateEmptyChannelsFromSamples({ ...DEFAULT_CHART_CONFIG, framePrefix: "D:" }, [

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
-import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
+import { detectChartConfig } from "@/lib/chartAnalysis";
 import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
@@ -208,8 +208,10 @@ export function SerialToolbar() {
       .filter((text) => !chartConfig.framePrefix || text.startsWith(chartConfig.framePrefix))
       .slice(-20);
 
-    // Detect data format
-    const result = detectDataFormat(sampleLines, chartConfig.framePrefix);
+    const { config: newConfig, detection: result } = detectChartConfig(
+      chartConfig,
+      sampleLines.map((text) => ({ text }))
+    );
 
     if (result.confidence < 0.5) {
       addLog("warn", `无法识别数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
@@ -217,8 +219,6 @@ export function SerialToolbar() {
       return;
     }
 
-    // Apply auto config
-    const newConfig = applyAutoConfig(chartConfig, result);
     setChartConfig(newConfig);
 
     // Switch to split or chart view

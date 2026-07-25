@@ -29,7 +29,7 @@ import { ColorSettingsDialog } from "./ColorSettingsDialog";
 import { ChartConfigDialog } from "./ChartConfigDialog";
 import { RttIntegrationGuideDialog } from "./RttIntegrationGuideDialog";
 import { useEffect, useState } from "react";
-import { detectDataFormat, applyAutoConfig } from "@/lib/chartAutoConfig";
+import { detectChartConfig } from "@/lib/chartAnalysis";
 import { exportRttLinesAsTxt, exportRttLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatRttLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
@@ -275,8 +275,10 @@ export function RttToolbar() {
       .filter((text) => !chartConfig.framePrefix || text.startsWith(chartConfig.framePrefix))
       .slice(-20);
 
-    // 检测数据格式
-    const result = detectDataFormat(sampleLines, chartConfig.framePrefix);
+    const { config: newConfig, detection: result } = detectChartConfig(
+      chartConfig,
+      sampleLines.map((text) => ({ text }))
+    );
 
     if (result.confidence < 0.5) {
       addLog("warn", `无法识别数据格式（置信度: ${(result.confidence * 100).toFixed(0)}%）`);
@@ -284,8 +286,6 @@ export function RttToolbar() {
       return;
     }
 
-    // 应用自动配置
-    const newConfig = applyAutoConfig(chartConfig, result);
     setChartConfig(newConfig);
 
     // 切换到分屏或图表视图
