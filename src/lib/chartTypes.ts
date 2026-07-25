@@ -257,8 +257,9 @@ export function getXChannel(config: ChartConfig): Channel | undefined {
  * 折叠成新版 ChartConfig 的 channels 模型。
  *
  * 幂等：传入新版 shape（已含 channels 数组）时仅做字段补齐。
+ * allowJustFloat=false 用于只支持文本解析的 RTT/BLE 来源。
  */
-export function migrateChartConfig(raw: unknown): ChartConfig {
+export function migrateChartConfig(raw: unknown, allowJustFloat = true): ChartConfig {
   if (!raw || typeof raw !== "object") {
     return { ...DEFAULT_CHART_CONFIG };
   }
@@ -266,7 +267,8 @@ export function migrateChartConfig(raw: unknown): ChartConfig {
   const source = raw as Record<string, unknown>;
 
   const enabled = typeof source.enabled === "boolean" ? source.enabled : DEFAULT_CHART_CONFIG.enabled;
-  const parseMode = isParseMode(source.parseMode) ? source.parseMode : DEFAULT_CHART_CONFIG.parseMode;
+  const parsedMode = isParseMode(source.parseMode) ? source.parseMode : DEFAULT_CHART_CONFIG.parseMode;
+  const parseMode = !allowJustFloat && parsedMode === "justfloat" ? DEFAULT_CHART_CONFIG.parseMode : parsedMode;
   const chartType = isChartType(source.chartType) ? source.chartType : DEFAULT_CHART_CONFIG.chartType;
   const signalDomain = source.signalDomain === "fft" ? "fft" : DEFAULT_CHART_CONFIG.signalDomain;
 

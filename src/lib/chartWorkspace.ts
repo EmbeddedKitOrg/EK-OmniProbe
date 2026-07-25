@@ -13,6 +13,7 @@ export interface ChartWorkspaceSnapshot {
   title: string;
   subtitle: string;
   chartData: ChartDataPoint[];
+  processedChartData?: ChartDataPoint[];
   chartConfig: ChartConfig;
   chartPaused: boolean;
   parseSuccessCount: number;
