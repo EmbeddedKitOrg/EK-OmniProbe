@@ -6,10 +6,10 @@
 
 ## 最常用的两本手册
 
-| 我想做什么                                              | 从这里开始                                        |
-| ------------------------------------------------------- | ------------------------------------------------- |
-| 确认设备应该输出 JSON、KV、CSV、正则还是 JustFloat      | [输入数据解析格式](DATA_FORMAT_GUIDE.md)          |
-| 配置发送按钮、滑块、摇杆、FFT、XY 或 IMU 等控制面板组件 | [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)     |
+| 我想做什么                                              | 从这里开始                                    |
+| ------------------------------------------------------- | --------------------------------------------- |
+| 确认设备应该输出 JSON、KV、CSV、正则还是 JustFloat      | [输入数据解析格式](DATA_FORMAT_GUIDE.md)      |
+| 配置发送按钮、滑块、摇杆、FFT、XY 或 IMU 等控制面板组件 | [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md) |
 
 ## 按工作流查找
 
@@ -20,6 +20,7 @@
 
 ### 数据与串口
 
+- [日志分析](LOG_ANALYSIS_GUIDE.md)：导入 UTF-8 日志文件，搜索正文并解析数值图表。
 - [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则和 JustFloat。
 - [数据滤波与 MATLAB 参数](MATLAB_FILTER_GUIDE.md)：图形化级联低通、高通、带通，预览和导出参数，或导入 FIR 与 SOS/ScaleValues。
 - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。

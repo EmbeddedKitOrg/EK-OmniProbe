@@ -155,9 +155,7 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
         )}
         {mode !== "log-analysis" && (
           <span className="status-chip flex items-center gap-1.5">
-            <span
-              className={connected ? "h-2 w-2 rounded-full bg-green-500" : "h-2 w-2 rounded-full bg-red-500"}
-            />
+            <span className={connected ? "h-2 w-2 rounded-full bg-green-500" : "h-2 w-2 rounded-full bg-red-500"} />
             <span className={connected ? "text-green-600" : "text-red-500"}>
               {connectionLabel}
               {connected ? "已连接" : "未连接"}
