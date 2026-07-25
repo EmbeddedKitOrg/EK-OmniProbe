@@ -4,8 +4,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendChartData } from "@/lib/chartIngestion";
-import { resolveTelemetryProcessing } from "@/lib/telemetry";
+import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
 import {
   loadFromStorage,
   saveToStorage,
@@ -58,6 +57,7 @@ interface RttState {
   // 图表数据
   chartData: ChartDataPoint[]; // 图表数据点
   processedChartData: ChartDataPoint[]; // 共享处理结果；chartData 始终保留原始数值
+  filterActive: boolean;
   chartConfig: ChartConfig; // 图表配置
   chartPaused: boolean; // 图表是否冻结显示（后台仍继续缓存）
 
@@ -130,6 +130,7 @@ export const useRttStore = create<RttState>((set) => ({
   splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
   processedChartData: [],
+  filterActive: false,
   chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), false),
   chartPaused: false, // 新增：图表冻结状态
   parseSuccessCount: 0, // 新增：解析成功计数
@@ -209,46 +210,51 @@ export const useRttStore = create<RttState>((set) => ({
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
     set((state) => {
       const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);
+      const processing = resolveTelemetryProcessing(chartData, normalizedConfig.channels, normalizedConfig.dataFilter);
       return {
         chartConfig: normalizedConfig,
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          normalizedConfig.channels,
-          normalizedConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     });
   },
 
   addChartData: (data) =>
     set((state) => {
-      const chartData = appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints);
+      const processing = appendTelemetryProcessing(
+        state.chartData,
+        [data],
+        state.chartConfig.maxDataPoints,
+        state.chartConfig.channels,
+        state.chartConfig.dataFilter
+      );
       return {
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          state.chartConfig.channels,
-          state.chartConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     }),
 
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const chartData = appendChartData(state.chartData, points, state.chartConfig.maxDataPoints);
+      const processing = appendTelemetryProcessing(
+        state.chartData,
+        points,
+        state.chartConfig.maxDataPoints,
+        state.chartConfig.channels,
+        state.chartConfig.dataFilter
+      );
       return {
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          state.chartConfig.channels,
-          state.chartConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     }),
 
-  clearChartData: () => set({ chartData: [], processedChartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () =>
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 

@@ -14,6 +14,7 @@ export interface ChartWorkspaceSnapshot {
   subtitle: string;
   chartData: ChartDataPoint[];
   processedChartData?: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   chartPaused: boolean;
   parseSuccessCount: number;

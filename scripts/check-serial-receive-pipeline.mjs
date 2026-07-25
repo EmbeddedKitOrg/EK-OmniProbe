@@ -57,6 +57,7 @@ try {
     terminalLineCounter: 0,
     chartData: [],
     processedChartData: [],
+    filterActive: false,
     chartConfig: jsonConfig.chartConfig,
     parseSuccessCount: 0,
     parseFailCount: 0,
@@ -67,6 +68,7 @@ try {
   assert.equal(committed.terminalLines[0].text, '{"signal":1.25}');
   assert.deepEqual(committed.chartData, merged.telemetryBatch.points);
   assert.equal(committed.processedChartData, committed.chartData);
+  assert.equal(committed.filterActive, false);
   assert.equal(committed.parseSuccessCount, 1);
   assert.deepEqual(committed.stats, { bytes_received: jsonBytes.length, bytes_sent: 7 });
 

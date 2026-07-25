@@ -11,6 +11,7 @@ export function RttChartViewer() {
   const {
     chartData,
     processedChartData,
+    filterActive,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -22,6 +23,7 @@ export function RttChartViewer() {
     useShallow((state) => ({
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -36,6 +38,7 @@ export function RttChartViewer() {
     <ChartViewer
       chartData={chartData}
       processedData={processedChartData}
+      filterActive={filterActive}
       chartConfig={chartConfig}
       chartPaused={chartPaused}
       parseSuccessCount={parseSuccessCount}

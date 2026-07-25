@@ -56,3 +56,13 @@ export function resolveTelemetryProcessing(
     filterActive: processing.filterActive,
   };
 }
+
+export function appendTelemetryProcessing(
+  current: TelemetrySample[],
+  incoming: TelemetrySample[],
+  maxDataPoints: number,
+  channels: TelemetryChannelDescriptor[],
+  config: DataFilterConfig
+): TelemetryProcessingResult {
+  return resolveTelemetryProcessing(appendTelemetrySamples(current, incoming, maxDataPoints), channels, config);
+}

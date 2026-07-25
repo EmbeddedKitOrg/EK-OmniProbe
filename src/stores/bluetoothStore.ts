@@ -12,8 +12,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendChartData } from "@/lib/chartIngestion";
-import { resolveTelemetryProcessing } from "@/lib/telemetry";
+import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -101,6 +100,7 @@ interface BluetoothState {
   // 图表
   chartData: ChartDataPoint[];
   processedChartData: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   chartPaused: boolean;
   parseSuccessCount: number;
@@ -199,6 +199,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
 
   chartData: [],
   processedChartData: [],
+  filterActive: false,
   chartConfig: migrateChartConfig(loadFromStorage(BLE_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), false),
   chartPaused: false,
   parseSuccessCount: 0,
@@ -298,31 +299,33 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
     saveToStorage(BLE_CHART_CONFIG_KEY, normalized);
     set((state) => {
       const chartData = state.chartData.slice(-normalized.maxDataPoints);
+      const processing = resolveTelemetryProcessing(chartData, normalized.channels, normalized.dataFilter);
       return {
         chartConfig: normalized,
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          normalized.channels,
-          normalized.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     });
   },
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const chartData = appendChartData(state.chartData, points, state.chartConfig.maxDataPoints);
+      const processing = appendTelemetryProcessing(
+        state.chartData,
+        points,
+        state.chartConfig.maxDataPoints,
+        state.chartConfig.channels,
+        state.chartConfig.dataFilter
+      );
       return {
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          state.chartConfig.channels,
-          state.chartConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     }),
-  clearChartData: () => set({ chartData: [], processedChartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () =>
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
   setChartPaused: (paused) => set({ chartPaused: paused }),
   incrementParseCounts: (success, fail) =>
     set((state) => {

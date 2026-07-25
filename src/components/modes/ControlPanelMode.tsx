@@ -38,6 +38,7 @@ export function ControlPanelMode() {
       searchQuery: state.searchQuery,
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       setViewMode: state.setViewMode,
     }))
@@ -59,6 +60,7 @@ export function ControlPanelMode() {
       searchQuery: rtt.searchQuery,
       chartData: rtt.chartData,
       processedChartData: rtt.processedChartData,
+      filterActive: rtt.filterActive,
       chartConfig: rtt.chartConfig,
       sendSettings: serial.sendSettings,
     }),

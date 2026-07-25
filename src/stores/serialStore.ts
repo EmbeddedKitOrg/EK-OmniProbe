@@ -21,8 +21,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendChartData } from "@/lib/chartIngestion";
-import { resolveTelemetryProcessing } from "@/lib/telemetry";
+import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
 import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
@@ -178,6 +177,7 @@ interface SerialState {
   // Chart data
   chartData: ChartDataPoint[];
   processedChartData: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   chartPaused: boolean;
 
@@ -526,6 +526,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   chartData: [],
   processedChartData: [],
+  filterActive: false,
   chartConfig: migrateChartConfig(loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false,
 
@@ -673,13 +674,16 @@ export const useSerialStore = create<SerialState>((set, get) => ({
         next.chartConfig = chartConfig;
       }
       if (telemetryBatch.points.length > 0) {
-        const chartData = appendChartData(state.chartData, telemetryBatch.points, chartConfig.maxDataPoints);
-        next.chartData = chartData;
-        next.processedChartData = resolveTelemetryProcessing(
-          chartData,
+        const processing = appendTelemetryProcessing(
+          state.chartData,
+          telemetryBatch.points,
+          chartConfig.maxDataPoints,
           chartConfig.channels,
           chartConfig.dataFilter
-        ).processedData;
+        );
+        next.chartData = processing.rawData;
+        next.processedChartData = processing.processedData;
+        next.filterActive = processing.filterActive;
       }
       if (telemetryBatch.success > 0 || telemetryBatch.fail > 0) {
         next.parseSuccessCount = state.parseSuccessCount + telemetryBatch.success;
@@ -763,46 +767,51 @@ export const useSerialStore = create<SerialState>((set, get) => ({
     saveToStorage(SERIAL_CHART_CONFIG_KEY, normalizedConfig);
     set((state) => {
       const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);
+      const processing = resolveTelemetryProcessing(chartData, normalizedConfig.channels, normalizedConfig.dataFilter);
       return {
         chartConfig: normalizedConfig,
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          normalizedConfig.channels,
-          normalizedConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     });
   },
 
   addChartData: (data) =>
     set((state) => {
-      const chartData = appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints);
+      const processing = appendTelemetryProcessing(
+        state.chartData,
+        [data],
+        state.chartConfig.maxDataPoints,
+        state.chartConfig.channels,
+        state.chartConfig.dataFilter
+      );
       return {
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          state.chartConfig.channels,
-          state.chartConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     }),
 
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const chartData = appendChartData(state.chartData, points, state.chartConfig.maxDataPoints);
+      const processing = appendTelemetryProcessing(
+        state.chartData,
+        points,
+        state.chartConfig.maxDataPoints,
+        state.chartConfig.channels,
+        state.chartConfig.dataFilter
+      );
       return {
-        chartData,
-        processedChartData: resolveTelemetryProcessing(
-          chartData,
-          state.chartConfig.channels,
-          state.chartConfig.dataFilter
-        ).processedData,
+        chartData: processing.rawData,
+        processedChartData: processing.processedData,
+        filterActive: processing.filterActive,
       };
     }),
 
-  clearChartData: () => set({ chartData: [], processedChartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () =>
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 

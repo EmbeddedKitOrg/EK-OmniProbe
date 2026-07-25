@@ -26,7 +26,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { downsamplePoints } from "@/lib/downsampling";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
-import { resolveChartProcessing } from "@/lib/chartFilter";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
 interface BrushDomain {
@@ -62,7 +61,8 @@ export function resolveChartDisplayData(
 
 export interface ChartViewerProps {
   chartData: ChartDataPoint[];
-  processedData?: ChartDataPoint[];
+  processedData: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   chartPaused: boolean;
   parseSuccessCount: number;
@@ -75,6 +75,7 @@ export interface ChartViewerProps {
 export function ChartViewer({
   chartData,
   processedData,
+  filterActive,
   chartConfig,
   chartPaused,
   parseSuccessCount,
@@ -89,30 +90,21 @@ export function ChartViewer({
   const frozenChartDataRef = useRef(chartData);
   const { displayedData, nextFrozenData } = resolveChartDisplayData(chartData, chartPaused, frozenChartDataRef.current);
   frozenChartDataRef.current = nextFrozenData;
-  const frozenProcessedDataRef = useRef(processedData ?? chartData);
-  const processedDisplay = resolveChartDisplayData(
-    processedData ?? chartData,
-    chartPaused,
-    frozenProcessedDataRef.current
-  );
+  const frozenProcessedDataRef = useRef(processedData);
+  const processedDisplay = resolveChartDisplayData(processedData, chartPaused, frozenProcessedDataRef.current);
   frozenProcessedDataRef.current = processedDisplay.nextFrozenData;
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const addLog = useLogStore((s) => s.addLog);
   const xChannel = useMemo(() => getXChannel(chartConfig), [chartConfig]);
   const xChannelKey = xChannel?.key;
   const visibleSeries = useMemo(() => getVisibleYChannels(chartConfig), [chartConfig]);
-  const visibleKeys = useMemo(() => visibleSeries.map(({ key }) => key), [visibleSeries]);
   const processing = useMemo(
-    () =>
-      processedData
-        ? {
-            processedData: processedDisplay.displayedData,
-            comparisonData:
-              processedData !== chartData && chartConfig.dataFilter.showOriginal ? displayedData : undefined,
-            filterActive: processedData !== chartData,
-          }
-        : resolveChartProcessing(displayedData, visibleKeys, chartConfig.dataFilter),
-    [chartConfig.dataFilter, chartData, displayedData, processedData, processedDisplay.displayedData, visibleKeys]
+    () => ({
+      processedData: processedDisplay.displayedData,
+      comparisonData: filterActive && chartConfig.dataFilter.showOriginal ? displayedData : undefined,
+      filterActive,
+    }),
+    [chartConfig.dataFilter.showOriginal, displayedData, filterActive, processedDisplay.displayedData]
   );
   const analysisData = processing.processedData;
   const latestPoint = analysisData[analysisData.length - 1];

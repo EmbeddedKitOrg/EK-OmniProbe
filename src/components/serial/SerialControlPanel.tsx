@@ -79,6 +79,7 @@ const WIDGET_INPUT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/SE
 export interface ControlPanelData extends SerialViewerData {
   chartData: ChartDataPoint[];
   processedChartData: ChartDataPoint[];
+  filterActive: boolean;
   chartConfig: ChartConfig;
   sendSettings: {
     encoding: string;
@@ -136,13 +137,20 @@ export function SerialControlPanel({
       sendSettings: state.sendSettings,
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
     }))
   );
   const setSerialViewMode = useSerialStore((state) => state.setViewMode);
   const sourceData = data ?? serialData;
-  const { connected, sendSettings, chartData: rawChartData, processedChartData, chartConfig } = sourceData;
-  const filterActive = processedChartData !== rawChartData;
+  const {
+    connected,
+    sendSettings,
+    chartData: rawChartData,
+    processedChartData,
+    filterActive,
+    chartConfig,
+  } = sourceData;
   const displayData = useMemo(
     () => ({ ...sourceData, chartData: processedChartData }),
     [processedChartData, sourceData]

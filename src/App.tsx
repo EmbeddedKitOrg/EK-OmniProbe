@@ -325,6 +325,7 @@ function RttChartWorkspaceHost() {
   const {
     chartData,
     processedChartData,
+    filterActive,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -336,6 +337,7 @@ function RttChartWorkspaceHost() {
     useShallow((state) => ({
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -351,13 +353,14 @@ function RttChartWorkspaceHost() {
       title: "RTT 图表工作台",
       subtitle: "波形、FFT、字段管理与缓冲控制。",
       chartData,
-      processedChartData: processedChartData === chartData ? undefined : processedChartData,
+      processedChartData: filterActive ? processedChartData : undefined,
+      filterActive,
       chartConfig,
       chartPaused,
       parseSuccessCount,
       parseFailCount,
     }),
-    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount, processedChartData]
+    [chartConfig, chartData, chartPaused, filterActive, parseFailCount, parseSuccessCount, processedChartData]
   );
 
   useChartWorkspaceHost({ source: "rtt", snapshot, setChartPaused, clearChartData, setChartConfig });
@@ -368,6 +371,7 @@ function SerialChartWorkspaceHost() {
   const {
     chartData,
     processedChartData,
+    filterActive,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -379,6 +383,7 @@ function SerialChartWorkspaceHost() {
     useShallow((state) => ({
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -394,13 +399,14 @@ function SerialChartWorkspaceHost() {
       title: "串口图表工作台",
       subtitle: "波形、FFT、字段管理与缓冲控制。",
       chartData,
-      processedChartData: processedChartData === chartData ? undefined : processedChartData,
+      processedChartData: filterActive ? processedChartData : undefined,
+      filterActive,
       chartConfig,
       chartPaused,
       parseSuccessCount,
       parseFailCount,
     }),
-    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount, processedChartData]
+    [chartConfig, chartData, chartPaused, filterActive, parseFailCount, parseSuccessCount, processedChartData]
   );
 
   useChartWorkspaceHost({ source: "serial", snapshot, setChartPaused, clearChartData, setChartConfig });
@@ -411,6 +417,7 @@ function BluetoothChartWorkspaceHost() {
   const {
     chartData,
     processedChartData,
+    filterActive,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -422,6 +429,7 @@ function BluetoothChartWorkspaceHost() {
     useShallow((state) => ({
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -437,13 +445,14 @@ function BluetoothChartWorkspaceHost() {
       title: "蓝牙图表工作台",
       subtitle: "BLE 波形、FFT、字段管理与缓冲控制。",
       chartData,
-      processedChartData: processedChartData === chartData ? undefined : processedChartData,
+      processedChartData: filterActive ? processedChartData : undefined,
+      filterActive,
       chartConfig,
       chartPaused,
       parseSuccessCount,
       parseFailCount,
     }),
-    [chartConfig, chartData, chartPaused, parseFailCount, parseSuccessCount, processedChartData]
+    [chartConfig, chartData, chartPaused, filterActive, parseFailCount, parseSuccessCount, processedChartData]
   );
 
   useChartWorkspaceHost({ source: "bluetooth", snapshot, setChartPaused, clearChartData, setChartConfig });
