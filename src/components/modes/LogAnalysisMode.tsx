@@ -2,19 +2,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, Columns2, FileText, FileUp, Loader2, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SerialViewer } from "@/components/serial/SerialViewer";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import type { SerialLine } from "@/lib/serialTypes";
 import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
+import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
 import { parseChartLines } from "@/lib/parseChartData";
-import { streamLogLines } from "@/lib/logImport";
+import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
 import { formatBytes } from "@/lib/formatters";
 import { parseLogLevel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const CHART_PARSE_BATCH_SIZE = 5_000;
+const PREFIX_SAMPLE_LIMIT = 20;
+
+interface LogPrefixSummary {
+  prefix: string;
+  count: number;
+  samples: ChartSample[];
+}
 
 export function LogAnalysisMode() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +38,7 @@ export function LogAnalysisMode() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [prefixSummaries, setPrefixSummaries] = useState<LogPrefixSummary[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("text");
   const [chartConfig, setChartConfig] = useState(() => migrateChartConfig(DEFAULT_CHART_CONFIG));
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -37,7 +48,14 @@ export function LogAnalysisMode() {
   const [parseSuccessCount, setParseSuccessCount] = useState(0);
   const [parseFailCount, setParseFailCount] = useState(0);
 
-  const samples = useMemo(() => lines.slice(0, 200).map((line) => ({ text: line.text })), [lines]);
+  const selectedPrefixSummary = useMemo(
+    () => prefixSummaries.find(({ prefix }) => prefix === chartConfig.framePrefix),
+    [chartConfig.framePrefix, prefixSummaries]
+  );
+  const samples = useMemo(
+    () => selectedPrefixSummary?.samples ?? lines.slice(0, 200).map((line) => ({ text: line.text })),
+    [lines, selectedPrefixSummary]
+  );
   const viewerData = useMemo(
     () => ({
       autoScroll: false,
@@ -64,6 +82,7 @@ export function LogAnalysisMode() {
     setImporting(false);
     setImportError("");
     setSearchQuery("");
+    setPrefixSummaries([]);
     setChartData([]);
     setChartParsing(false);
     setChartProgress(0);
@@ -74,6 +93,7 @@ export function LogAnalysisMode() {
   const importFile = async (file: File) => {
     const runId = ++importRunRef.current;
     const importedLines: SerialLine[] = [];
+    const detectedPrefixes = new Map<string, LogPrefixSummary>();
     let inferred = 0;
 
     setFileName(file.name);
@@ -81,6 +101,7 @@ export function LogAnalysisMode() {
     setLines([]);
     setImportedCount(0);
     setInferredTimestampCount(0);
+    setPrefixSummaries([]);
     setImportError("");
     setImporting(true);
 
@@ -88,6 +109,13 @@ export function LogAnalysisMode() {
       for await (const batch of streamLogLines(file)) {
         if (runId !== importRunRef.current) return;
         for (const line of batch) {
+          const prefix = detectLogFramePrefix(line.text);
+          if (prefix) {
+            const summary = detectedPrefixes.get(prefix) ?? { prefix, count: 0, samples: [] };
+            summary.count += 1;
+            if (summary.samples.length < PREFIX_SAMPLE_LIMIT) summary.samples.push({ text: line.text });
+            detectedPrefixes.set(prefix, summary);
+          }
           importedLines.push({
             id: line.lineNumber,
             timestamp: new Date(line.timestamp),
@@ -101,7 +129,12 @@ export function LogAnalysisMode() {
         setInferredTimestampCount(inferred);
       }
 
-      if (runId === importRunRef.current) setLines(importedLines);
+      if (runId === importRunRef.current) {
+        setLines(importedLines);
+        setPrefixSummaries(
+          Array.from(detectedPrefixes.values()).sort((left, right) => left.prefix.localeCompare(right.prefix))
+        );
+      }
     } catch (error) {
       if (runId === importRunRef.current) setImportError(String(error));
     } finally {
@@ -153,8 +186,36 @@ export function LogAnalysisMode() {
     };
   }, [chartConfig, lines]);
 
+  const selectAnalysisPrefix = (prefix: string) => {
+    const summary = prefixSummaries.find((item) => item.prefix === prefix);
+    if (!summary) return;
+
+    const inferredConfig = populateEmptyChannelsFromSamples(
+      {
+        ...chartConfig,
+        enabled: false,
+        parseMode: "auto",
+        framePrefix: prefix,
+        regexPattern: "",
+        regexFlags: "",
+        channels: [],
+      },
+      summary.samples
+    );
+    setChartConfig(migrateChartConfig({ ...inferredConfig, enabled: true }));
+    setViewMode("split");
+  };
+
   const hasText = viewMode !== "chart";
   const hasChart = viewMode !== "text";
+  const visibleChannelCount = chartConfig.channels.filter((channel) => channel.visible).length;
+
+  const setAllChannelsVisible = (visible: boolean) => {
+    setChartConfig((current) => ({
+      ...current,
+      channels: current.channels.map((channel) => ({ ...channel, visible })),
+    }));
+  };
 
   return (
     <div className="surface-strong flex h-full min-h-0 flex-col gap-2 overflow-hidden rounded-[14px] p-2">
@@ -175,6 +236,26 @@ export function LogAnalysisMode() {
           {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
           {fileName ? "重新导入" : "导入日志"}
         </Button>
+
+        <Select
+          value={selectedPrefixSummary?.prefix ?? "__none"}
+          onValueChange={(value) => {
+            if (value !== "__none") selectAnalysisPrefix(value);
+          }}
+          disabled={prefixSummaries.length === 0}
+        >
+          <SelectTrigger className="h-8 w-48">
+            <SelectValue placeholder="选择分析前缀" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">选择分析前缀</SelectItem>
+            {prefixSummaries.map(({ prefix, count }) => (
+              <SelectItem key={prefix} value={prefix}>
+                {prefix} · {count.toLocaleString()} 行
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="relative min-w-52 flex-1 md:max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -209,6 +290,58 @@ export function LogAnalysisMode() {
           ))}
         </div>
 
+        {chartConfig.channels.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline">
+                通道 {visibleChannelCount}/{chartConfig.channels.length}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium">显示通道</div>
+                  <div className="text-xs text-muted-foreground">取消勾选可隐藏曲线</div>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setAllChannelsVisible(true)}>
+                    全选
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setAllChannelsVisible(false)}>
+                    清空
+                  </Button>
+                </div>
+              </div>
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {chartConfig.channels.map((channel, index) => (
+                  <label
+                    key={`${channel.key}-${index}`}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={channel.visible}
+                      onChange={(event) =>
+                        setChartConfig((current) => ({
+                          ...current,
+                          channels: current.channels.map((item, itemIndex) =>
+                            itemIndex === index ? { ...item, visible: event.target.checked } : item
+                          ),
+                        }))
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{channel.name || channel.key}</span>
+                    {channel.name !== channel.key && (
+                      <code className="max-w-24 truncate text-[11px] text-muted-foreground">{channel.key}</code>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <ChartConfigDialog
           chartConfig={chartConfig}
           setChartConfig={(config) => setChartConfig(migrateChartConfig(config))}
@@ -217,7 +350,7 @@ export function LogAnalysisMode() {
           allowParserConfig
           trigger={
             <Button size="sm" variant="outline" disabled={lines.length === 0}>
-              解析配置
+              高级设置
             </Button>
           }
         />
@@ -236,6 +369,12 @@ export function LogAnalysisMode() {
             </span>
             <span>{formatBytes(fileSize)}</span>
             <span>{importedCount.toLocaleString()} 行</span>
+            {selectedPrefixSummary && (
+              <span>
+                分析 {selectedPrefixSummary.prefix} · {selectedPrefixSummary.count.toLocaleString()} 行
+                {chartConfig.parseMode === "auto" && chartConfig.channels.length === 0 && " · 待配置解析规则"}
+              </span>
+            )}
             {inferredTimestampCount > 0 && (
               <span className="text-amber-600">{inferredTimestampCount} 行时间为推断值</span>
             )}

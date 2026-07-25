@@ -1,6 +1,7 @@
 import type { ChartInputLine } from "./parseChartData";
 
 const TIMESTAMPED_LOG_LINE = /^\[(\d{4})(\d{2})(\d{2})_(\d{2}):(\d{2}):(\d{2}):(\d{3})\](.*)$/;
+const LOG_FRAME_PREFIX = /^([^\s:]{1,32}:)/;
 
 export interface ImportedLogLine extends ChartInputLine {
   lineNumber: number;
@@ -22,6 +23,11 @@ export interface LogImportOptions {
   fallbackTimestamp?: number;
   maxLineLength?: number;
   parseLine?: LogLineParser;
+}
+
+/** 提取行首短前缀，如 P:、@PLOT:；普通文本返回 null。 */
+export function detectLogFramePrefix(text: string): string | null {
+  return text.match(LOG_FRAME_PREFIX)?.[1] ?? null;
 }
 
 function parseLocalTimestamp(match: RegExpMatchArray): number | null {

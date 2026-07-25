@@ -40,10 +40,18 @@ export interface ChartParseBatch {
   fail: number;
 }
 
-/**
- * 匹配 key=value 对的全局正则。
- */
-const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+/** 匹配 key=value / key:value 对的全局正则。 */
+const KV_PAIR_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(-?(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?))/g;
+
+function parseNumericToken(value: string): number {
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  if (/^0x/i.test(unsigned)) {
+    const parsed = Number.parseInt(unsigned.slice(2), 16);
+    return negative ? -parsed : parsed;
+  }
+  return Number(value);
+}
 
 /** 返回剥离文本帧前缀后的载荷；不匹配时返回 null。 */
 export function extractChartPayload(text: string, framePrefix: string): string | null {
@@ -210,9 +218,9 @@ export function parseWithJson(text: string, channels?: Channel[], timestamp = Da
 }
 
 /**
- * 解析 key=value 对（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
+ * 解析 key=value / key:value 对，支持十进制、科学计数法和 0x 十六进制。
  *
- * channels 为空 → 自动提取所有 key=number 对；非空 → 只保留 channel.key 对应键。
+ * channels 为空 → 自动提取所有键值对；非空 → 只保留 channel.key 对应键。
  */
 export function parseWithKv(text: string, channels?: Channel[], timestamp = Date.now()): ParseResult {
   KV_PAIR_REGEX.lastIndex = 0;
@@ -223,7 +231,7 @@ export function parseWithKv(text: string, channels?: Channel[], timestamp = Date
   while ((match = KV_PAIR_REGEX.exec(text)) !== null) {
     const [, key, valueStr] = match;
     if (filter && !filter.has(key)) continue;
-    const num = parseFloat(valueStr);
+    const num = parseNumericToken(valueStr);
     if (Number.isFinite(num)) {
       values[key] = num;
     }
@@ -232,7 +240,7 @@ export function parseWithKv(text: string, channels?: Channel[], timestamp = Date
   if (Object.keys(values).length === 0) {
     return {
       success: false,
-      error: "未匹配到任何 key=value 数值对",
+      error: "未匹配到任何 key=value 或 key:value 数值对",
     };
   }
 
@@ -266,7 +274,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
     "kv",
     {
       id: "kv",
-      label: "KV (key=value)",
+      label: "KV (key=value / key:value)",
       parse: (text, config, timestamp) => parseWithKv(text, config.channels, timestamp),
     },
   ],

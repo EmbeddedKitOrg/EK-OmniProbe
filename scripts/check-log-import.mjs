@@ -6,7 +6,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const { streamLogLines } = await server.ssrLoadModule("/src/lib/logImport.ts");
+  const { detectLogFramePrefix, streamLogLines } = await server.ssrLoadModule("/src/lib/logImport.ts");
   await server.ssrLoadModule("/src/components/modes/LogAnalysisMode.tsx");
   const log = new Blob([
     "\uFEFF[20260724_13:18:19:567]P:1,2\r\n",
@@ -15,6 +15,10 @@ try {
   ]);
   const batches = [];
   const fallbackTimestamp = new Date(2026, 0, 1).getTime();
+
+  assert.equal(detectLogFramePrefix("P:1,2"), "P:");
+  assert.equal(detectLogFramePrefix("@PLOT:1,2"), "@PLOT:");
+  assert.equal(detectLogFramePrefix("ordinary log text"), null);
 
   for await (const batch of streamLogLines(log, { batchSize: 2, fallbackTimestamp })) {
     batches.push(batch);

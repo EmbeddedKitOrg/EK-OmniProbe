@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
-import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAutoConfig";
-import { listChartParsers, parseChartData } from "@/lib/parseChartData";
+import { previewChartParser, type ChartSample } from "@/lib/chartAutoConfig";
+import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
@@ -42,7 +42,6 @@ export function ChartParserPanel({
   const [sampleText, setSampleText] = useState(initialSample?.text ?? "");
 
   const preview = useMemo(() => {
-    const sample = { text: sampleText, rawData: latestSample?.rawData };
     const baseConfig: ChartConfig = {
       ...chartConfig,
       enabled: true,
@@ -53,43 +52,8 @@ export function ChartParserPanel({
       regexFlags,
       channels: [],
     };
-    const inferredConfig = populateEmptyChannelsFromSamples(
-      baseConfig,
-      parseMode === "justfloat" ? samples : sampleText ? [sample] : samples
-    );
-
-    if (parseMode === "justfloat") {
-      return {
-        config: inferredConfig,
-        success: inferredConfig.channels.length > 0,
-        values: {},
-        message:
-          inferredConfig.channels.length > 0
-            ? `识别到 ${inferredConfig.channels.length} 个浮点通道`
-            : "等待完整 JustFloat 数据帧",
-      };
-    }
-
-    const result = sampleText ? parseChartData(sampleText, inferredConfig) : undefined;
-    return {
-      config: inferredConfig,
-      success: Boolean(result?.success),
-      values: result?.dataPoint?.values ?? {},
-      message: result?.success
-        ? `识别到 ${Object.keys(result.dataPoint?.values ?? {}).length} 个数值通道`
-        : (result?.error ?? "暂无可预览的数据"),
-    };
-  }, [
-    chartConfig,
-    delimiter,
-    framePrefix,
-    latestSample?.rawData,
-    parseMode,
-    regexFlags,
-    regexPattern,
-    sampleText,
-    samples,
-  ]);
+    return previewChartParser(baseConfig, samples, sampleText);
+  }, [chartConfig, delimiter, framePrefix, parseMode, regexFlags, regexPattern, sampleText, samples]);
 
   const apply = () => {
     const parserChanged = parseMode !== chartConfig.parseMode;
@@ -137,7 +101,7 @@ export function ChartParserPanel({
             <div className="space-y-2 text-xs">
               {[
                 ["JSON", '{"temp":25.3,"voltage":3.3}'],
-                ["KV", "temp=25.3,voltage=3.3"],
+                ["KV", "temp=25.3,voltage=3.3 或 temp:25.3,voltage:3.3"],
                 ["分隔符", "25.3,3.3"],
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],

@@ -6,8 +6,9 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const { populateEmptyChannelsFromSamples } = await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
-  const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, registerChartParser } =
+  const { populateEmptyChannelsFromSamples, previewChartParser } =
+    await server.ssrLoadModule("/src/lib/chartAutoConfig.ts");
+  const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, parseWithKv, registerChartParser } =
     await server.ssrLoadModule("/src/lib/parseChartData.ts");
   const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
@@ -149,6 +150,32 @@ try {
   const auto = populateEmptyChannelsFromSamples(DEFAULT_CHART_CONFIG, [{ text: "1,2" }, { text: "3,4" }]);
   assert.equal(auto.parseMode, "delimiter");
   assert.equal(auto.channels.length, 2);
+
+  assert.deepEqual(parseWithKv("mid:0,power:86,cam:0x8").dataPoint.values, { mid: 0, power: 86, cam: 8 });
+  const colonKv = populateEmptyChannelsFromSamples({ ...DEFAULT_CHART_CONFIG, framePrefix: "D:" }, [
+    { text: "D:mid:0,water:0,power:80,dtgt:0,soft:0" },
+    { text: "D:mid:0,water:1,power:86,dtgt:2,soft:3" },
+  ]);
+  assert.equal(colonKv.parseMode, "kv");
+  assert.deepEqual(
+    colonKv.channels.map((channel) => channel.key),
+    ["mid", "water", "power", "dtgt", "soft"]
+  );
+
+  const regexPreview = previewChartParser(
+    {
+      ...DEFAULT_CHART_CONFIG,
+      parseMode: "regex",
+      framePrefix: "D:",
+      regexPattern:
+        "mid:(?<mid>-?\\d+),water:(?<water>-?\\d+),power:(?<power>-?\\d+),dtgt:(?<dtgt>-?\\d+),soft:(?<soft>-?\\d+)",
+    },
+    [{ text: "D:mid:0,water:1,power:86,dtgt:2,soft:3" }],
+    "D:mid:0,water:1,power:86,dtgt:2,soft:3"
+  );
+  assert.equal(regexPreview.success, true);
+  assert.deepEqual(regexPreview.values, { mid: 0, water: 1, power: 86, dtgt: 2, soft: 3 });
+  assert.equal(previewChartParser({ ...DEFAULT_CHART_CONFIG, parseMode: "regex" }, [], "not matched").success, false);
 
   const json = populateEmptyChannelsFromSamples({ ...DEFAULT_CHART_CONFIG, parseMode: "json" }, [
     { text: '{"temp":25.1,"humi":48}' },

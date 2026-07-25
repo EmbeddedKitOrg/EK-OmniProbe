@@ -4,7 +4,7 @@
 
 import type { ChartConfig, Channel } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
-import { extractChartPayload, parseChartData } from "./parseChartData";
+import { extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
 
 /**
@@ -28,7 +28,49 @@ export interface ChartSample {
   rawData?: number[];
 }
 
-const KV_DETECT_REGEX = /([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+export interface ChartParserPreview {
+  config: ChartConfig;
+  success: boolean;
+  values: Record<string, number>;
+  message: string;
+}
+
+/** 用一条可编辑样本预览当前解析配置，同时为无通道配置推导通道。 */
+export function previewChartParser(
+  config: ChartConfig,
+  samples: ChartSample[],
+  sampleText: string
+): ChartParserPreview {
+  const latestSample = samples[samples.length - 1];
+  const sample = { text: sampleText, rawData: latestSample?.rawData };
+  const baseConfig = { ...config, enabled: true, channels: [] };
+  const inferredConfig = populateEmptyChannelsFromSamples(
+    baseConfig,
+    config.parseMode === "justfloat" ? samples : sampleText ? [sample] : samples
+  );
+
+  if (config.parseMode === "justfloat") {
+    return {
+      config: inferredConfig,
+      success: inferredConfig.channels.length > 0,
+      values: {},
+      message:
+        inferredConfig.channels.length > 0
+          ? `识别到 ${inferredConfig.channels.length} 个浮点通道`
+          : "等待完整 JustFloat 数据帧",
+    };
+  }
+
+  const result = sampleText ? parseChartData(sampleText, inferredConfig) : undefined;
+  return {
+    config: inferredConfig,
+    success: Boolean(result?.success),
+    values: result?.dataPoint?.values ?? {},
+    message: result?.success
+      ? `识别到 ${Object.keys(result.dataPoint?.values ?? {}).length} 个数值通道`
+      : (result?.error ?? "请输入一条数据样本"),
+  };
+}
 
 /**
  * 智能检测数据格式
@@ -85,7 +127,7 @@ export function detectDataFormat(sampleLines: string[], framePrefix = ""): Detec
 }
 
 /**
- * 检测 key=value 格式（如 "seq=17 fft=1024 fs=255863 Hz mag=10145.5"）
+ * 检测 key=value / key:value 格式。
  */
 function detectKv(lines: string[]): DetectionResult {
   const trimmedLines = lines.map((l) => l.trim()).filter((l) => l.length > 0);
@@ -97,12 +139,8 @@ function detectKv(lines: string[]): DetectionResult {
   let validLineCount = 0;
 
   for (const line of trimmedLines) {
-    KV_DETECT_REGEX.lastIndex = 0;
-    const lineKeys = new Set<string>();
-    let match: RegExpExecArray | null;
-    while ((match = KV_DETECT_REGEX.exec(line)) !== null) {
-      lineKeys.add(match[1]);
-    }
+    const parsed = parseWithKv(line);
+    const lineKeys = new Set(Object.keys(parsed.dataPoint?.values ?? {}));
     if (lineKeys.size >= 2) {
       validLineCount++;
       for (const key of lineKeys) {
@@ -129,7 +167,7 @@ function detectKv(lines: string[]): DetectionResult {
       },
       detectedKeys: stableKeys,
       confidence,
-      description: `检测到 key=value 格式，共 ${stableKeys.length} 个稳定数值字段`,
+      description: `检测到键值格式，共 ${stableKeys.length} 个稳定数值字段`,
     };
   }
 
@@ -138,7 +176,7 @@ function detectKv(lines: string[]): DetectionResult {
     suggestedConfig: {},
     detectedKeys: [],
     confidence,
-    description: "不是 KV 格式",
+    description: "不是键值格式",
   };
 }
 
