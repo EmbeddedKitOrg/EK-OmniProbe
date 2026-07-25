@@ -32,7 +32,7 @@ try {
   const { isSerialVisualizationWidget } = await server.ssrLoadModule(
     "/src/components/serial/SerialVisualizationControlWidgets.tsx"
   );
-  const { createImuFusionState, estimateGyroBias, updateImuFusion } =
+  const { createImuFusionState, estimateGyroBias, ImuFusionProcessor, updateImuFusion } =
     await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
   const { createSimulationSample, normalizeSimulationConfig } =
@@ -229,6 +229,19 @@ try {
   assert.ok(Math.abs(fusion.roll - 0.9) < 1e-9);
   assert.equal(fusion.pitch, 0);
   assert.ok(Math.abs(fusion.yaw - 0.45) < 1e-9);
+  const imuPoints = [
+    { timestamp: 0, values: { ax: 0, ay: 0, az: 1, gx: 0, gy: 0, gz: 0 } },
+    { timestamp: 10, values: { ax: 0, ay: 0, az: 1, gx: 90, gy: 0, gz: 45 } },
+  ];
+  const imuProcessor = new ImuFusionProcessor();
+  const firstOrientation = imuProcessor.process(imuPoints, fusionConfig);
+  assert.ok(Math.abs(firstOrientation.roll - 0.9) < 1e-9);
+  assert.ok(Math.abs(firstOrientation.yaw - 0.45) < 1e-9);
+  assert.deepEqual(imuProcessor.process(imuPoints, fusionConfig), firstOrientation);
+  assert.equal(
+    imuProcessor.process(imuPoints, { ...fusionConfig, gyroBiasX: 90 }).roll,
+    0
+  );
   assert.deepEqual(
     estimateGyroBias(
       [
