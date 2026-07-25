@@ -12,6 +12,7 @@ import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
 import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
+import { resolveTelemetryProcessing } from "@/lib/telemetry";
 import { detectLogFramePrefix, streamLogLines } from "@/lib/logImport";
 import { createSimulationSample, normalizeSimulationConfig } from "@/lib/serialSimulation";
 import { formatBytes } from "@/lib/formatters";
@@ -87,6 +88,10 @@ export function LogAnalysisMode() {
       searchQuery,
     }),
     [lines, searchQuery]
+  );
+  const processing = useMemo(
+    () => resolveTelemetryProcessing(chartData, chartConfig.channels, chartConfig.dataFilter),
+    [chartConfig.channels, chartConfig.dataFilter, chartData]
   );
 
   const clear = () => {
@@ -486,6 +491,8 @@ export function LogAnalysisMode() {
               <div className="min-h-0 overflow-hidden rounded-[22px] border border-border/60 bg-background">
                 <ChartViewer
                   chartData={chartData}
+                  processedData={processing.processedData}
+                  filterActive={processing.filterActive}
                   chartConfig={chartConfig}
                   chartPaused={chartPaused}
                   parseSuccessCount={parseSuccessCount}

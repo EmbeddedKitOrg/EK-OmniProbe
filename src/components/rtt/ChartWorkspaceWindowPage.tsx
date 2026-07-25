@@ -100,7 +100,8 @@ export function ChartWorkspaceWindowPage({ source }: ChartWorkspaceWindowPagePro
         {snapshot ? (
           <ChartViewer
             chartData={snapshot.chartData}
-            processedData={snapshot.processedChartData}
+            processedData={snapshot.processedChartData ?? snapshot.chartData}
+            filterActive={snapshot.filterActive}
             chartConfig={snapshot.chartConfig}
             chartPaused={snapshot.chartPaused}
             parseSuccessCount={snapshot.parseSuccessCount}

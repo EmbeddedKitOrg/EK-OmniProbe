@@ -20,6 +20,7 @@ function BleChartViewer() {
   const {
     chartData,
     processedChartData,
+    filterActive,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -31,6 +32,7 @@ function BleChartViewer() {
     useShallow((state) => ({
       chartData: state.chartData,
       processedChartData: state.processedChartData,
+      filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -45,6 +47,7 @@ function BleChartViewer() {
     <ChartViewer
       chartData={chartData}
       processedData={processedChartData}
+      filterActive={filterActive}
       chartConfig={chartConfig}
       chartPaused={chartPaused}
       parseSuccessCount={parseSuccessCount}
