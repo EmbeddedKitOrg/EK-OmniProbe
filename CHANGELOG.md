@@ -7,6 +7,35 @@
 
 ## [未发布]
 
+## [2.0.0] - 2026-07-25
+
+本版本完成实时数据链路的分层解耦：串口、RTT 和 BLE 保持各自采集职责，进入应用后统一经过文本分帧、数值解析、数据处理与图表展示。数据源接入与后处理不再相互绑定，为后续增加输入协议、分析算法和展示方式提供稳定边界。
+
+### 架构调整
+
+- 新增公共 `TextFrameStream`，统一串口、RTT 和 BLE 文本数据的增量写入、空闲残帧刷出与会话重置
+- 统一三种实时来源进入标准多通道样本后的缓存、滤波、统计、波形、FFT、CSV 与 PNG 展示链路
+- BLE 后端事件改为按数据块传递并保留每个 Notify 的接收时间戳；RTT 移除未减少 IPC 次数却增加延迟的批处理
+- README 新增 Mermaid 实时数据流图，明确采集、分帧、解析、处理和展示的职责边界
+
+### 新增
+
+- 波形工作台新增底部状态栏，集中显示采样间隔、缓冲与绘制点数、每格时间或频率、通道和滤波状态
+- 新增可拖动的 X 轴缩放条，与 `Shift + 滚轮`共用时域和 FFT 横轴缩放状态
+- 无图表数据时增加操作引导，提示前往右侧“数据”页粘贴样本、应用解析并开始接收
+
+### 优化
+
+- 文本流在短暂空闲时会刷出没有换行符的剩余数据，停止或断开时重置分帧状态，避免重连后串帧
+- 图表解析配置应用后，以当前预览字段更新通道；同名通道保留名称、颜色、单位和显隐设置
+- 图表状态与快捷交互统一到底部控制栏，小型控制面板预览继续保持紧凑布局
+
+### 修复
+
+- 修复自动识别模式未变化时，应用新的数据样本后仍保留旧图表通道的问题
+- 修复 BLE 批量 Notify 共用单一时间戳导致采样时间失真的问题
+- 修复 RTT 假批处理额外增加约 50ms 延迟的问题
+
 ## [1.9.0] - 2026-07-24
 
 本版本将控制面板提升为独立工作台，新增 MATLAB 参数与图形化级联滤波，精简 RTT、串口和 BLE 图表交互，并支持从混合日志中按文本数据帧前缀提取采样数据。
@@ -432,19 +461,23 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 蓝牙模式新增**经典蓝牙 SPP** 入口，与 BLE 并列。SPP 走系统虚拟 COM 路由——配对后由 OS 映射成 COMxx / `/dev/rfcommN`，应用内一键跳转到串口模式直接复用全部串口能力。
 
 ### 新增功能
+
 - ✨ **蓝牙工作模式切换** - 蓝牙侧边栏顶部新增 BLE / SPP 单选；模式偏好持久化到 localStorage
 - ✨ **SPP 虚拟串口列表** - 通过 `serialport::SerialPortType::BluetoothPort` + 描述/名称关键字双重识别（"Bluetooth"、"蓝牙"、"rfcomm"、"spp"），覆盖 Windows/Linux/macOS
 - ✨ **一键连接并跳转** - 点击 SPP 端口右侧「连接」自动断开旧串口、用当前串口默认参数连接、启动轮询并切到串口工作台
 - ✨ **SPP 引导提示** - SPP 模式主区显示使用步骤卡片，避免新用户搞不清「为什么连完会跳到串口模式」
 
 ### 改进
+
 - 🔧 **README / 用户手册** - 新增 SPP 章节，明确「先在系统蓝牙设置配对 → 再回应用刷新」的操作流程
 - 🔧 **已知限制** - 更新蓝牙限制描述：SPP 走系统虚拟 COM 路由，不在应用内做配对
 
 ### 重构
+
 - 🔧 `bleTypes.ts` 新增 `BluetoothConnectionMode = "ble" | "spp"`，bluetoothStore 增加 `connectionMode` / `sppPorts` / `sppLoading` 三个字段；BleSidebar 拆出 `SppPortsCard` 子组件，BluetoothPanel 在 SPP 模式下渲染 `SppGuidanceCard`
 
 ### 构建脚本
+
 - 🔧 **build.ps1 自动加载 Tauri updater 签名密钥** - 按"环境变量 → 本地 `.tauri-signing.local.ps1` → 自动探测 `~/.tauri/zuolandaplink.key`"三级优先级解析私钥，省掉每次手动 `$env:` 设值
 - 🔧 **签名失败不再阻断构建** - 若 msi/nsis 安装包已产出但仅签名步骤失败，build.ps1 改为打 warning 并以 0 退出码结束；既保证手动分发流程畅通（GitHub Release 直传安装包），又不会让 `.\build.ps1` 因为缺密码就整段失败
 - ✨ **新增 `.tauri-signing.local.ps1.example`** - 样例文件演示如何在本地存私钥路径与密码；正式名加入 `.gitignore`
@@ -454,6 +487,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 新增 **BLE 蓝牙模式**，与烧录、RTT、串口并列的第 4 种工作模式（Ctrl+4）。基于 `btleplug` 跨平台 BLE 中央设备实现，数据流复用现有解析、波形、FFT 工作台。
 
 ### 新增功能
+
 - ✨ **BLE 设备扫描与连接** - 6 秒主动扫描，按是否有名称 + RSSI 排序展示；点击即可连接，支持随时断开重连
 - ✨ **NUS 自动识别** - 检测到 Nordic UART Service（`6E40000x-...`）后自动定位 RX/TX 特征值，一键开始接收
 - ✨ **GATT 服务浏览** - 对所有服务及特征值按属性（Read / Write / Notify / Indicate）打 tag，点击即可分别指定 Notify 与 Write 特征值
@@ -462,14 +496,17 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ **图表复用** - BLE 字节流复用现有颜色解析与图表工作台，单数值波形、CSV / JSON 字段拆分、FFT 频谱、XY 散点图均可直接使用
 
 ### 集成
+
 - 🔧 **顶栏 / 设置中心** - 模式切换器新增「蓝牙」按钮和 Ctrl+4 快捷键；设置中心默认工作台选项加入「蓝牙工作台」
 - 🔧 **快捷键** - Ctrl+L 在蓝牙模式下清空数据与图表；Ctrl+F 聚焦工具栏搜索框
 
 ### 依赖
+
 - 📦 **btleplug 0.11** - 跨平台 BLE 中央设备库（Windows / macOS / Linux 均使用系统蓝牙栈）
 - 📦 **uuid 1 / futures 0.3** - 配套 UUID 解析与异步 stream 处理
 
 ### 已知限制
+
 - 第一版只做 BLE Central，不支持经典蓝牙 SPP、PIN 配对绑定与自定义 MTU
 - macOS 首次扫描需要在系统设置 → 隐私与安全 → 蓝牙 中给予 EK-OmniProbe 权限
 
@@ -478,6 +515,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 本次集中修复了 **921600 高 baud 串口丢字节** 的老问题，并对图表配置做了破坏性重构（合并字段/系列/X 轴为统一的「通道」模型）。
 
 ### 性能优化
+
 - 🚀 **串口高 baud 不再丢字节** - 921600 baud 长时间连续输出（如 fftdump）下不再出现整段消失，从根上重做读取链路：
   - **OS 驱动 RX 队列扩到 64 KB**（Windows）：`LocalSerial::connect` 改用 `open_native()` 拿到 `COMPort` 后调 WinAPI `SetupComm(handle, 65536, 8192)`，从默认 4 KB 提升 16 倍，能扛住 ~700ms 的调度抖动
   - **专用阻塞读线程**：`start_serial` 不再用 `tokio::interval` 5ms 轮询 + `spawn_blocking`，改为单独 `std::thread` 永远 block 在 `read()` 上，OS FIFO 始终被排空；读到的 chunk 通过 `tokio::sync::mpsc::unbounded_channel` 送给 async 批处理任务
@@ -485,19 +523,23 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
   - 重连逻辑随之搬到读线程内部，前端 `serial-status` 事件 schema 不变
 
 ### 新增功能
+
 - ✨ **"序号, X, Y" 三列自动识别** - 形如 `20,4997.32,122954.44` 的纯数字数据现在会被自动检测为 XY 散点图模式：第 1 列单调递增的整数当作隐藏序号、第 2 列设为 X 轴、第 3 列作 Y 轴；新增 `detectXyWithSeq()` 检测策略，置信度优先于通用 CSV
 - ✨ **图表通道模型** - 用统一的 `Channel` 替换原先分散的 `fields` / `series` / `jsonKeys` / `kvKeys` / `xAxisField` 五份配置，一行通道同时承载「字段名 / 列号 / 显示名 / 单位 / 颜色 / 可见性 / X-Y 角色」；删除了 4 个冗余的 `xxxEnabled` 开关，`parseMode` 成为单一真相源
 
 ### 改进
+
 - 🔧 **图表配置对话框完全重写** - 干掉 6-tab 布局，改成单页可滚卡片：基础 / 模式专属字段 / 通道表 / 性能采样（折叠）/ 显示选项（折叠）；通道表会随 parseMode 动态显隐「列号」列、随 chartType 动态显隐「角色」列，避免在多个 tab 间反复切换；不再需要在「分隔符 tab」配字段后再去「系列 tab」拼 key
 - 🔧 **解析容错** - `parseWithDelimiter` 在通道未填「列号」时退回到通道在数组里的位置（0/1/2…），自动模式的分隔符回退路径不再要求至少有一条通道带 `sourceIndex`，老配置不用手动重配
 
 ### 修复
+
 - 🐛 **对话框里下拉打不开** - shadcn `Select` / `Popover` / `Tooltip` 的 z-index 都是 `z-50`，但 Dialog 包装层是 `z-[80]`，导致下拉的 portal 打开后被 Dialog 玻璃面板压在底下，看着像"点击没反应"；三处弹层统一抬到 `z-[90]`
 - 🐛 **对话框纵向无法滚动** - `index.css` 里 `.glass-dialog { overflow: hidden }` 简写覆盖了 Tailwind 的 `overflow-y-auto`，导致超过 viewport 高度时底部按钮够不到；改成 `overflow-x: hidden` 单独截 X 轴，纵向交回 utility class
 - 🐛 **配置迁移** - 新增 `migrateChartConfig()` shim，旧版 localStorage 里的 `series + fields + xAxisField + jsonKeys + kvKeys` 自动折成新版 `channels[]`，幂等可重入；`xAxisField` 对应的 key 自动设 `role: "x"`
 
 ### 重构
+
 - 🔧 **类型层** - `chartTypes.ts` 新增 `Channel` / `getYChannels` / `getVisibleYChannels` / `getXChannel` helper；`ChartSeries` 保留为 `Channel` 别名，渲染层（SignalPlotCanvas、recharts 业务图）零改动
 - 🔧 **解析层** - 4 个 parser（regex / delimiter / json / kv）全部从 `channels` 读取目标键和列索引，签名统一
 - 🔧 **store 层** - `rttStore` / `serialStore` 在 `loadFromStorage` 后立刻跑 `migrateChartConfig`；`setChartConfig` 同样过迁移，保证从分离图表窗口推回主窗口的配置也是新 shape；删除已死的 `updateChartSeries` action
@@ -505,10 +547,12 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ## [1.0.1] - 2026-04-25
 
 ### 新增功能
+
 - ✨ **应用内更新检测** - 启动时静默检查 GitHub Release 是否有新版本，命中后弹窗展示当前版本 / 新版本 / 完整 changelog 内容并支持一键下载安装；设置中心同时提供"检查更新"手动按钮
 - ✨ **更新弹窗展示 changelog** - 检测到新版后直接拉取 `latest.json` 中的 notes 字段，把新版本所有"新增 / 改进 / 修复"条目铺在对话框里，让用户在升级前就能看到本次变更
 
 ### 修复
+
 - 🐛 **应用内更新无法重启** - 补齐 `tauri-plugin-process` 的 Rust 端注册和 capability 权限（`process:default` / `process:allow-restart`），修复"立即更新"下载完成后调用 `relaunch()` 静默失败的问题
 - 🐛 **GitHub Release 说明退化为占位符** - 修复 `release.yml` 中 awk 范围匹配 `/start/,/end/` 因起止 pattern 同行立即闭合，导致提取到空内容的问题；改用 `index()` 字面量匹配，发布说明和 `latest.json` 的 notes 字段不再退化
 - 🐛 **历史 Release 说明回填** - 同步修正了此前 25 个历史 Release 的 body，使其与 CHANGELOG 对应版本内容一致
@@ -518,6 +562,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 首个正式版本。集中迭代了**数据导出**、**断线重连**、**终端体验**、**图表解析**与**整体 UI 密度**。
 
 ### 新增功能
+
 - ✨ **数据导出** - 全方位导出能力：日志面板、串口/RTT 文本均支持 TXT/CSV 导出，图表区支持 CSV（含时间戳与系列值）和 PNG（自适配 Canvas 波形与 Recharts 业务图）；统一走 Tauri 原生保存对话框，不再使用浏览器下载兜底
 - ✨ **断线自动重连** - 本地串口和 TCP 串口都支持读取出错后自动重连（指数退避 1s 起、上限 5s），重连过程会持续发送状态事件，恢复后自动接续轮询；左侧串口配置卡新增"断线自动重连"开关
 - ✨ **终端行编辑模式** - 终端选项新增"行编辑模式"开关，开启后键盘输入先在本地累积成一行（带 `>` 提示符），回车整行发送，`↑/↓` 翻发送历史，`Esc` 清空；与 SendBar 共用一份 localStorage 历史
@@ -526,6 +571,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ **全局快捷键扩展** - `Ctrl+L` 清空当前模式数据、`Ctrl+F` 聚焦当前模式搜索框、`Space` 在 RTT 模式切换图表暂停
 
 ### 改进
+
 - 🔧 **整体 UI 密度放松** - 顶栏 chip、工具栏分组、Popover 内卡片三处高频区统一升一档（`text-[11px]` → `text-xs`、`py-1` → `py-1.5`、`gap-1` → `gap-1.5`），主壳 padding/gap 由 `12px` 升 `16px`，与 32px 大圆角更协调
 - 🔧 **TopBar 响应式** - 单行布局断点从 `2xl` 提前到 `lg`，1024-1535px 窄屏不再出现 Workspace 卡撑满空行的问题；非装饰性的状态 chip（如串口 FFT 提示）移除
 - 🔧 **图表工具栏分组** - 7 个按钮按"暂停 / 清空 / 导出 / Time-FFT"加竖线分组，工具栏外壳 padding 同步放松
@@ -533,29 +579,34 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🔧 **终端复制体验** - 选中文字后 `Ctrl+C` 复制（无选区时才发送 SIGINT），`Ctrl+Shift+C/V` 强制复制/粘贴；用户正在选择时点击不再夺焦
 
 ### 性能优化
+
 - 🚀 **高速串口刷新率** - 921600bps 等高速场景下，把 `appendTerminalChunk`、`addChartData`、`incrementParseSuccess/Fail` 全部并入 `requestAnimationFrame` 批量节流，每帧最多 4-5 次 setState；新增 `addChartDataBatch` 和 `incrementParseCounts` 两个 store 批量 setter
 - 🚀 **终端 chunk 处理** - `processTerminalChunk` 改为按需复制 `terminalLines`（无 `\n` 的 chunk 不再深拷贝 4000 项数组），订阅 `terminalLines` 的组件在键盘回显场景跳过 re-render
 - 🚀 **FFT 计算** - Hann 窗按 size 缓存到 `Map<number, Float64Array>`，FFT 缓冲区跨调用复用，避免每帧重新分配
 
 ### 修复
+
 - 🐛 **终端无法复制选区** - 之前点击始终把焦点偷到隐藏 textarea + Ctrl+C 全部当 SIGINT，导致框选完一松手就丢、永远复制不了；按主流终端约定重写
 - 🐛 **虚拟列表行重叠** - SerialViewer / RttViewer / SerialTerminalViewer 的 `useVirtualizer` 给每行加 `data-index` + `ref={rowVirtualizer.measureElement}`，让 ResizeObserver 测量长行换行后的真实高度，修复行 absolute 定位重叠造成的"文字叠加"
 - 🐛 **Popover 背景透明** - shadcn 默认 `bg-popover` token 在本项目 tailwind 配置里没有定义，导致 SerialSendBar / 各工具栏的 Popover 背景全透；改用项目已有的 `surface-card` 样式（带 border / 半透白底 / backdrop-blur）
 - 🐛 **日志/终端模式 TX 混淆** - SendBar 之前不论 textViewMode 总是往日志 store 塞 TX 行，终端模式发送后切回日志会看到"幽灵 TX"；改为只在 `textViewMode === "log"` 时记录 TX，终端模式仍由 `appendTerminalChunk` 走本地回显
 
 ### 重构
+
 - 🔧 **抽取 downsampling.ts / formatChartNumber** - ChartViewer 与 SignalPlotCanvas 中重复的降采样和数值格式化函数合并到 `src/lib/`
 - 🔧 **删除 RTT 死状态** - `RttState` 中的 `line_buffers / channel_read_offsets / channel_buffers` 三个 HashMap 字段从未被写入，仅在 `default()`/`reset()` 中被清空；按 KISS/YAGNI 直接删除
 
 ## [0.9.5] - 2026-04-06
 
 ### 改进
+
 - ✨ **图表独立窗口** - RTT / 串口的整个图表工作台现在可以弹出为独立窗口，主窗口继续保留日志/终端区域，并支持随时收回
 - ✨ **图表工作台重构** - RTT / 串口图表区改成“主图 + 右侧字段栏 + 下方控制条”，支持实时查看解析值、按字段入图，并直接调整缓冲区、可视点数和采样率
 - ✨ **分屏方向切换** - RTT / 串口在分屏模式下支持 `上下 / 左右` 两种布局，窗口较窄时也能更灵活安排文本区和图表区
 - ✨ **终端区直接输入** - 串口终端支持点击会话区域后直接键入，输入、粘贴和控制键交互更接近 shell / CLI
 
 ### 修复
+
 - 🐛 **图表独立窗口关闭链路** - 修复独立图表窗口点击“关闭 / 收回”后主窗口状态恢复但弹出窗口未销毁的问题
 - 🐛 **时域波形横轴渲染** - 波形示波器改为按采样率重建等间隔时间轴，修复串口 / RTT 批量到达数据时出现竖线、折返和乱跳的问题
 - 🐛 **终端本地回显默认关闭** - 默认避免与设备自身回显叠加，修复 `hheellpp` 这类字符双写问题
@@ -564,6 +615,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ## [0.9.4] - 2026-04-06
 
 ### 改进
+
 - ✨ **图表独立窗口** - RTT / 串口的整个图表工作台现在可以弹出为独立窗口，主窗口继续保留日志/终端区域，并支持随时收回
 - ✨ **图表工作台重构** - RTT / 串口图表区改成“主图 + 右侧字段栏 + 下方控制条”，支持实时查看解析值、按字段入图，并直接调整缓冲区、可视点数和采样率
 - 🔧 **图表清除曲线按钮** - RTT / 串口图表区新增一键清除曲线按钮，无需进入图表配置逐条删除系列
@@ -573,11 +625,13 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🔧 **终端本地回显默认关闭** - 默认避免与设备自身回显叠加，修复 `hheellpp` 这类字符双写问题
 
 ### 修复
+
 - 🐛 **终端输入类型兼容** - 修复 `pnpm exec tsc --noEmit` 下 `isComposing` 的 TypeScript 类型检查错误
 
 ## [0.9.3] - 2026-04-06
 
 ### 改进
+
 - ✨ **串口终端视图** - 串口文本区新增 `日志 / 终端` 双视图，终端模式支持本地回显、控制键快捷发送和常见回车/退格会话语义
 - 🔧 **RTT / 串口工作台继续紧凑化** - 移除首屏冗余说明卡，仅在未连接、未启动或无数据时显示流程提示，让文本区和波形区获得更多高度
 - 🔧 **工具栏低频操作收口** - 将 RTT / 串口的低频查看项、图表配置、颜色设置和导出统一收进 `更多` 弹出层，减少工具栏换行和首屏挤压
@@ -592,26 +646,31 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ## [0.9.2] - 2026-03-31
 
 ### 修复
+
 - 🐛 **发布流水线 updater 产物缺失** - 启用 Tauri `createUpdaterArtifacts`，确保生成带签名的 updater 产物，修复 `latest.json` 合并失败问题
 
 ## [0.9.1] - 2026-03-31
 
 ### 改进
+
 - 🔧 **设置中心紧凑化** - 收紧设置中心的布局尺寸、信息密度和滚动区域，改善小窗口下的可用性
 - 🔧 **顶栏响应式优化** - 调整顶部工作区栏的响应式布局，减少窄窗口下的挤压和错位
 - 🔧 **背景图片能力补全** - 设置中心支持保留默认背景、自定义本地图片和透明度调节
 
 ### 修复
+
 - 🐛 **芯片搜索结果遮挡** - 目标芯片搜索结果改为卡片内展开列表，不再被后续区块覆盖
 - 🐛 **设置中心可滚动性** - 修复设置界面在小窗口下不易滚动的问题
 
 ## [0.9.0] - 2026-03-31
 
 ### 新增功能
+
 - ✨ **设置中心** - 新增统一的设置入口，支持主题切换、启动默认工作台、RTT / 串口默认视图，以及默认波形观察域偏好
 - ✨ **日志面板偏好持久化** - 新增 `uiPreferencesStore`，支持记住日志面板高度，让不同工作流下的面板比例保持一致
 
 ### 改进
+
 - 🔧 **工作台信息架构重整** - 参考 Entrance 的桌面工作区思路，重构 RTT / 串口模式页顶部信息布局，突出真正高频的工作流入口
 - 🔧 **波形 / FFT 入口前移** - RTT 和串口工具栏都提供显式的 `波形` / `FFT` 快捷入口，不再需要先深挖配置再切换分析域
 - 🔧 **图表概览增强** - 图表区域补充观察域、采样与缓存、解析健康度、活跃系列和最近系列快照，方便快速判断当前数据状态
@@ -619,12 +678,14 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🔧 **工作台信息降噪** - 进一步压缩模式页说明和面板提示，把更多首屏空间还给文本区和图表区
 
 ### 修复
+
 - 🐛 **FFT 工作流可发现性** - 修复“FFT 入口藏得过深”的使用问题，让 RTT 和串口都能沿同一套数值流分析路径进入频谱视图
 - 🐛 **面板承接层不一致** - 统一 RTT / 串口文本区、图表区和错误提示的视觉层级，减少分屏模式下的信息割裂感
 
 ## [0.8.0] - 2026-03-20
 
 ### 性能优化
+
 - 🚀 **虚拟化列表渲染** - RTT 和串口查看器引入 `@tanstack/react-virtual`，大量数据下界面流畅不卡顿
   - `RttViewer` 和 `SerialViewer` 均改为虚拟化渲染，仅渲染可视区域行
   - 使用 `React.memo` 优化 `RttLineItem` 和 `SerialLineItem`，减少不必要的重渲染
@@ -633,6 +694,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🚀 **修复事件监听器频繁重建** - 修复 useEffect 依赖问题，Tauri 事件监听器不再因状态变化频繁重建
 
 ### 重构
+
 - 🔧 **抽取 storage.ts** - 统一封装 localStorage 读写操作，消除各 store 中重复的 try/catch 模式
 - 🔧 **抽取 ansiParser.ts** - 将 ANSI 解析逻辑提取为公共模块，消除 RTT 和串口模块间的函数重复
 - 🔧 **抽取 formatters.ts** - 将格式化函数提取为公共模块，统一 HEX、时间戳等格式化逻辑
@@ -641,6 +703,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🔧 **代码清理** - 移除调试用 console.log、删除废弃导出、修复 any 类型、提升 TooltipProvider 到根级别
 
 ### 修复
+
 - 🐛 **固件格式校验** - `verify_firmware` 添加 ELF/HEX 格式检测，非 BIN 格式文件返回明确错误提示
 - 🐛 **统一 Mutex 实现** - 全面改用 `parking_lot::Mutex`，移除 `lazy_static` 依赖，消除标准库锁中毒 panic 风险
 - 🐛 **内存操作安全校验** - 新增 `InvalidInput` 错误类型，为 `read_memory`/`read_flash`/`erase_sector` 添加大小上限校验，防止越界操作
@@ -650,17 +713,20 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - 🐛 **ChartViewer 参数修复** - 补充 ChartViewer 函数参数中缺失的 `setChartConfig`
 
 ### 其他
+
 - 🗂️ 将 `docs/` 目录移出 Git 追踪（内容保留在本地，不再随仓库分发）
 
 ## [0.7.2] - 2026-01-26
 
 ### 修复
+
 - 🐛 **清理编译警告** - 修复 Windows 平台编译时的未使用导入和常量警告
   - 为 Linux 特定的导入添加条件编译标记（`#[cfg(target_os = "linux")]`）
   - 优化 `pack/paths.rs` 和 `udev.rs` 模块的导入结构
   - 确保跨平台编译的代码整洁性
 
 ### 改进
+
 - 🔧 **统一应用名称** - 规范化所有配置文件中的应用名称
   - 产品名称统一为 "EK-OmniProbe"
   - 窗口标题统一为 "EK-OmniProbe - RTTVIEW"
@@ -670,6 +736,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ## [0.7.1] - 2026-01-25
 
 ### 新增功能
+
 - ✨ **Linux udev 权限管理** - 新增 udev 规则文件和自动安装脚本，解决 Linux 下探针权限问题
   - 提供 `99-zuolan-daplink.rules` udev 规则文件
   - 提供 `install-udev-rules.sh` 一键安装脚本
@@ -680,6 +747,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ **权限提示对话框** - 新增 `UdevPermissionDialog` 组件，友好提示用户配置权限
 
 ### 性能优化
+
 - 🚀 **串口性能深度优化** - 解决高速数据流导致界面卡顿问题
   - 优化数据接收和处理流程
   - 改进前端渲染性能
@@ -690,10 +758,12 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
   - 大幅提升 Linux 平台 RTT 使用体验
 
 ### 修复
+
 - 🐛 **修复 Linux 端 Pack 芯片识别问题** - 解决 Linux 平台无法正确识别 Pack 中芯片的问题
 - 🐛 **修复串口模块编译警告** - 清理代码，消除编译时的警告信息
 
 ### 改进
+
 - 🔧 **Pack 路径管理** - 新增 `pack/paths.rs` 模块，统一管理 Pack 文件路径
 - 🔧 **配置模块集成** - 将 udev 和配置功能集成到主程序
 - 🔧 **前端 UI 改进** - 优化配置界面和权限提示体验
@@ -701,15 +771,18 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ### 新增组件
 
 **后端 (Rust)**：
+
 - ✨ `app_config.rs` - 应用配置管理模块 (95 行)
 - ✨ `pack/paths.rs` - Pack 路径管理模块 (43 行)
 - ✨ `udev.rs` - Linux udev 权限管理模块 (125 行)
 
 **前端 (React)**：
+
 - ✨ `UdevPermissionDialog.tsx` - udev 权限提示对话框 (191 行)
 - ✨ `alert.tsx` - Alert UI 组件 (58 行)
 
 ### 文件变更
+
 - 新增 `99-zuolan-daplink.rules` - udev 规则文件
 - 新增 `install-udev-rules.sh` - udev 规则安装脚本
 - 改进多个命令模块（config, flash, probe, rtt, serial）
@@ -718,16 +791,19 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ## [0.7.0] - 2026-01-25
 
 ### 新增功能
+
 - ✨ **烧录前重载固件** - 烧录前自动重新读取固件文件，确保使用最新编译结果
 - ✨ **固件文件大小显示** - 选择和烧录时显示固件文件大小
 - ✨ **Flash 设置持久化** - 校验、复位、擦除模式等设置自动保存到本地
 
 ### 改进
+
 - 🔧 **HID/WinUSB 合并显示** - 同时支持 HID 和 WinUSB 的设备合并为一个条目显示，简化用户体验
 - 🔧 **日志面板性能优化** - 使用 requestAnimationFrame 节流拖动操作，解决烧录时拖动卡死问题
 - 🔧 **默认关闭烧录校验** - 加快烧录速度，用户可手动开启
 
 ### 依赖升级
+
 - 📦 **probe-rs 0.27 → 0.31** - 底层调试库重大升级
   - 新增 ESP32 系列、CH32F1、Zynq-7000 SoC 等芯片支持
   - 新增 STM32WB0、STM32U3、EFR32MG24 等目标
@@ -737,32 +813,38 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
   - 修复多个 RTT 和 Xtensa 相关问题
 
 ### 修复
+
 - 🐛 修复日志面板在烧录过程中拖动导致界面卡死的问题
 - 🐛 修复拖动时文本被意外选中的问题
 
 ## [0.6.1] - 2026-01-25
 
 ### 新增功能
+
 - ✨ **DP IDCODE 显示** - 连接后显示调试端口标识码 (DPIDR)，便于识别目标芯片调试接口
 
 ### 改进
+
 - 🔧 **DAP 版本检测优化** - 改进探针类型检测逻辑，支持更多 CMSIS-DAP 命名格式
 
 ## [0.6.0] - 2026-01-25
 
 ### 重大新增
+
 - 🚀 **串口终端模式** - 新增第三种工作模式，与烧录模式、RTT模式并列
 - ✨ **多数据源架构** - DataSource 抽象层，支持未来扩展更多数据源类型
 
 ### 新增功能
 
 **串口连接**：
+
 - ✨ **本地串口支持** - 支持本地 COM 口连接，使用 serialport crate 实现
 - ✨ **TCP 远程串口** - 支持 TCP 串口服务器（ser2net、ESP-Link 等）
 - ✨ **完整串口参数** - 波特率、数据位、停止位、校验位、流控制全面支持
 - ✨ **串口列表刷新** - 自动检测可用串口，支持手动刷新
 
 **终端显示**：
+
 - ✨ **收发分屏** - 左右分屏显示接收(RX)和发送(TX)数据
 - ✨ **分屏与图表兼容** - 收发分屏可以与图表视图同时使用
 - ✨ **时间戳显示** - 可开关的时间戳显示（精确到毫秒）
@@ -770,16 +852,19 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ **ANSI 颜色支持** - 复用 RTT 的颜色解析功能
 
 **发送功能**：
+
 - ✨ **文本发送** - 支持 UTF-8/GBK 编码，可选换行符
 - ✨ **HEX 发送** - 支持十六进制格式发送
 - ✨ **发送历史** - 最近 20 条发送历史，支持快速选择
 
 **复用能力**：
+
 - ✨ **图表可视化** - 复用 RTT 的图表绘制功能
 - ✨ **智能配置** - 复用 RTT 的数据格式检测和自动配置
 - ✨ **颜色标记** - 复用 RTT 的自定义颜色标记解析
 
 ### UI 改进
+
 - 🎨 **串口专用侧边栏** - 串口模式下显示专用配置面板
 - 🎨 **模式切换扩展** - TopBar 添加串口模式切换按钮
 - 🎨 **快捷键支持** - Ctrl+3 快速切换到串口模式
@@ -788,6 +873,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ### 新增组件
 
 **后端 (Rust)**：
+
 - ✨ `serial/` 模块 - 串口数据源实现
   - `mod.rs` - DataSource trait 定义
   - `local.rs` - 本地串口实现 (173 行)
@@ -795,6 +881,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ `commands/serial.rs` - 串口 Tauri 命令 (283 行)
 
 **前端 (React)**：
+
 - ✨ `SerialMode.tsx` - 串口模式入口组件
 - ✨ `SerialPanel.tsx` - 串口主面板
 - ✨ `SerialSidebar.tsx` - 串口配置侧边栏
@@ -806,9 +893,11 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 - ✨ `useSerialEvents.ts` - 串口事件监听 Hook
 
 ### 新增依赖
+
 - ✨ `serialport = "4.3"` - Rust 串口库
 
 ### 架构说明
+
 ```
 新布局结构：
 ┌─────────────────────────────────────────────────────────────┐
@@ -828,6 +917,7 @@ i18n 补丁版本：调试工作台 UI 文案统一中文，与项目其他四�
 ```
 
 ### 数据流
+
 ```
 后端 Rust DataSource (Local/TCP)
     ↓ (receive)
@@ -847,6 +937,7 @@ SerialViewer / RttChartViewer
 ## [0.5.6] - 2026-01-24
 
 ### 改进
+
 - 🔧 **代码质量优化** - 全面提升代码质量和类型安全
   - 创建 `TooltipButton` 和 `TooltipWrapper` 共享组件，消除 30+ 处重复代码
   - 修复所有 `any` 类型使用（10 处 → 0 处）
@@ -854,6 +945,7 @@ SerialViewer / RttChartViewer
   - 新增 `PackScanReport`、`AlgorithmStat` 等类型定义
 
 ### 重构
+
 - 📦 **FlashMode 组件拆分** - 提升代码可维护性
   - 将 742 行的大组件拆分为 4 个独立文件
   - `FlashToolbar.tsx` - 工具栏组件（353 行）
@@ -863,6 +955,7 @@ SerialViewer / RttChartViewer
 ## [0.5.5] - 2026-01-24
 
 ### 新增
+
 - 📦 **Windows 便携版** - 新增免安装的单文件便携版
   - `*_x64_portable.exe` 可直接运行，无需安装
   - 适合 U 盘携带或临时使用
@@ -870,6 +963,7 @@ SerialViewer / RttChartViewer
 ## [0.5.4] - 2026-01-24
 
 ### 修复
+
 - 🔐 **配置签名密钥** - 启用 Tauri updater 签名验证
   - 配置公钥用于验证更新包完整性
   - 修复 Windows/Linux 平台不生成更新包的问题
@@ -878,6 +972,7 @@ SerialViewer / RttChartViewer
 ## [0.5.3] - 2026-01-24
 
 ### 改进
+
 - 🔧 **自动更新修复** - 修复多平台 latest.json 合并问题
   - 添加 merge-updater job 自动合并所有平台更新信息
   - 规范化更新包文件名，确保所有平台都带版本号
@@ -886,6 +981,7 @@ SerialViewer / RttChartViewer
 ## [0.5.2] - 2026-01-24
 
 ### 改进
+
 - 🔧 **自动更新优化** - 启用 Tauri updater JSON 自动生成
   - GitHub Actions 自动生成 latest.json 文件
   - 确保应用自动更新功能正常工作
@@ -894,6 +990,7 @@ SerialViewer / RttChartViewer
 ## [0.5.1] - 2026-01-24
 
 ### 新增功能
+
 - ✨ **应用自动更新** - 集成 Tauri updater 插件，支持从 GitHub Releases 自动检测和安装更新
   - 启动时静默检查更新（不打扰用户）
   - 手动检查更新按钮
@@ -902,6 +999,7 @@ SerialViewer / RttChartViewer
   - 自动安装和重启
 
 ### 改进
+
 - 🔧 **Pack 版本管理** - 添加 Pack 扫描器版本标记和检测功能
   - 在生成的 YAML 文件中添加版本标记
   - 支持检测旧版本生成的配置文件
@@ -912,17 +1010,20 @@ SerialViewer / RttChartViewer
   - 添加更新功能使用指南
 
 ### 修复
+
 - 🐛 **权限配置** - 修复 updater 插件权限配置问题
 
 ## [0.5.0] - 2026-01-24
 
 ### 重大变更
+
 - 🚀 **模式切换架构重构** - 从混合布局重构为"烧录模式"和"RTT模式"独立界面
   - 烧录模式：专注于固件烧录、擦除、校验等操作
   - RTT模式：专注于实时调试输出和数据可视化
   - 共用左侧边栏配置（探针、芯片、接口设置）
 
 ### 新增功能
+
 - ✨ **键盘快捷键** - 支持 `Ctrl+1` 切换到烧录模式，`Ctrl+2` 切换到 RTT 模式
 - ✨ **模式切换动画** - 平滑的淡入淡出过渡效果（200ms）
 - ✨ **固件拖放导入** - 支持直接拖放 .hex/.bin/.elf/.axf/.out/.ihex 文件到烧录界面
@@ -931,6 +1032,7 @@ SerialViewer / RttChartViewer
 - ✨ **RTT系统日志** - RTT 模式添加系统日志面板，显示连接错误等信息
 
 ### UI改进
+
 - 🎨 **新增 TopBar** - 顶部状态栏显示：当前芯片、固件文件名、RTT数据量、连接状态
 - 🎨 **新增 ModeSwitch** - 模式切换组件，显示快捷键提示
 - 🎨 **连接按钮优化** - 改进连接/断开按钮的视觉反馈（绿色连接、红色断开）
@@ -938,6 +1040,7 @@ SerialViewer / RttChartViewer
 - 🎨 **模式状态持久化** - 记住用户上次选择的模式
 
 ### 技术改进
+
 - 🏗️ 新增 `appStore.ts` - 管理应用模式状态
 - 🏗️ 新增 `modes/` 目录 - 包含 FlashMode 和 RttMode 组件
 - 🏗️ 新增 `TopBar.tsx` - 替代旧的 Header 组件
@@ -946,10 +1049,12 @@ SerialViewer / RttChartViewer
 - 🏗️ RttPanel 添加 className prop 支持样式自定义
 
 ### 删除
+
 - 🗑️ 删除 `Header.tsx` - 拆分为 TopBar 和 FlashToolbar
 - 🗑️ 删除 `MainArea.tsx` - 拆分为 FlashMode 组件
 
 ### 架构说明
+
 ```
 新布局结构：
 ┌─────────────────────────────────────────────────────────────┐
@@ -969,25 +1074,30 @@ SerialViewer / RttChartViewer
 ## [0.4.2] - 2026-01-24
 
 ### 新增功能
+
 - ✨ **AXF/OUT 固件格式支持** - 烧录支持 ARM AXF 和 OUT 格式的 ELF 文件
 - ✨ **IHEX 格式支持** - 文件选择器支持 .ihex 扩展名
 
 ### 修复
+
 - 🐛 **修复 Flash 算法扇区地址错误** - probe-rs 要求扇区地址使用相对偏移（从 0 开始），修复了使用绝对地址导致的 `assertion failed: props.sectors[0].address == 0` 错误
 - 🐛 **修复 Flash 算法加载地址错误** - 为 load_address 预留 0x20 字节的 header 空间，修复 `InvalidFlashAlgorithmLoadAddress` 错误
 - 🐛 **修复 RAM 地址选择逻辑** - PDSC 解析时优先选择 default="1" 的 RAM 区域或主 SRAM（0x20000000）
 
 ### 改进
+
 - 🎨 **优化 FLM 文件匹配** - 根据 Flash 大小智能匹配对应的 FLM 算法文件
 - 🎨 **算法命名去重** - 算法名称包含 Flash 大小后缀，避免不同设备共享错误配置
 - 🎨 **增强错误日志** - 烧录失败时输出详细错误信息便于调试
 
 ### 代码清理
+
 - 🗑️ 删除未使用的 `generate_probe_rs_yaml` 函数
 - 🗑️ 删除临时测试文件（.pdb, nul）
 - 🗑️ 更新 .gitignore 排除调试文件
 
 ### 技术细节
+
 - 扇区地址使用相对偏移：`address: addr` 替代 `address: flash_start + addr`
 - load_address 预留 header：`collected.load_address + 0x20`
 - 支持固件格式：ELF, HEX, BIN, AXF, OUT, IHEX
@@ -995,21 +1105,25 @@ SerialViewer / RttChartViewer
 ## [0.4.1] - 2026-01-24
 
 ### 新增功能
+
 - ✨ **Flash 算法选择** - 支持在多个 Flash 算法可用时手动选择使用哪个算法
 - ✨ **CMSIS-Pack Flash 算法提取** - 从 .FLM 文件中提取 Flash 算法并集成到 probe-rs
 - ✨ **算法选择 UI** - 可点击的算法列表，支持选择和高亮显示
 - ✨ **自动算法选择** - 自动选择标记为 default 的算法
 
 ### 改进
+
 - 🎨 **算法集成到烧录流程** - 选中的算法会传递到后端并记录在日志中
 - 🎨 **项目规范文档** - 新增 CLAUDE.md 定义项目开发规范和版本发布清单
 - 🎨 **文档清理** - 移除实现细节文档，只保留用户功能文档
 - 🎨 **简化 Windows 打包** - 只生成 NSIS 安装程序，移除 MSI 包
 
 ### 修复
+
 - 🐛 **修复 MSI 构建失败** - 测试版本号不符合 MSI 要求，改为只构建 NSIS 安装包
 
 ### 技术细节
+
 - 新增 `selectedFlashAlgorithm` 状态管理
 - 新增 `flash_algorithm` 参数到 FlashOptions
 - 实现算法选择 UI 交互（点击、高亮、✓ 标记）
@@ -1018,12 +1132,14 @@ SerialViewer / RttChartViewer
 - MSI 要求预发布标识符必须是纯数字，正式版无此限制
 
 ### 文档
+
 - 📚 新增 `CLAUDE.md` - 项目开发规范和版本发布清单
 - 📚 清理 docs/ 目录，只保留用户功能文档
 
 ## [0.4.0] - 2026-01-24
 
 ### 重大新增
+
 - 🎨 **RTT 图表可视化系统** - 完整的实时数据图表功能，支持多种图表类型和数据格式
 - ✨ **XY 散点图** - 新增真正的 XY 散点图模式，支持参数曲线、李萨如图形等
 - 🚀 **智能自动配置** - 一键检测数据格式并自动配置图表，支持单数值、XY、CSV、JSON 格式
@@ -1032,6 +1148,7 @@ SerialViewer / RttChartViewer
 ### 新增功能
 
 **图表系统**：
+
 - ✨ **四种图表类型** - 折线图、柱状图、散点图、XY 散点图
 - ✨ **智能数据检测** - 自动识别单数值、XY 数据、CSV、JSON 格式
 - ✨ **统计信息显示** - 显示每个系列的最小值、最大值、平均值、当前值
@@ -1042,18 +1159,21 @@ SerialViewer / RttChartViewer
 - ✨ **自定义配置** - 支持手动配置解析规则、图表样式
 
 **XY 散点图**：
+
 - ✨ **真正的 XY 坐标** - X 和 Y 都使用实际数据值，而非索引
 - ✨ **X 轴字段配置** - 指定哪个字段作为 X 轴
 - ✨ **自动范围计算** - X 和 Y 轴都有智能范围计算
 - ✨ **多系列支持** - 支持多条 Y 轴曲线共享同一 X 轴
 
 **智能配置**：
+
 - ✨ **一键启用** - 点击"智能启用"按钮自动完成配置
 - ✨ **格式检测** - 自动检测单数值、XY 数据、CSV、JSON 格式
 - ✨ **置信度评分** - 显示检测置信度，确保准确性
 - ✨ **自动创建系列** - 自动创建数据系列并分配颜色
 
 **UI 优化**：
+
 - ✨ **左侧边栏折叠** - 接口设置、自动断开支持折叠，节省空间
 - ✨ **统计信息弹窗** - Popover 显示详细统计，不占用空间
 - ✨ **视图模式切换** - 支持仅文本、仅图表、分屏三种模式
@@ -1061,6 +1181,7 @@ SerialViewer / RttChartViewer
 ### 改进
 
 **图表功能**：
+
 - 🎨 **Y 轴范围优化** - 修复所有数据值相同时的边界情况
 - 🎨 **X 轴范围计算** - XY 散点图的 X 轴自动计算合理范围
 - 🎨 **边距自动添加** - X 和 Y 轴自动添加 10% 边距
@@ -1068,6 +1189,7 @@ SerialViewer / RttChartViewer
 - 🎨 **性能优化** - 使用 useMemo 缓存计算结果
 
 **用户体验**：
+
 - 🎨 **配置简化** - 从 7 步手动配置简化为 1 步智能启用
 - 🎨 **实时预览** - 配置更改实时反映到图表
 - 🎨 **配置持久化** - 图表配置自动保存到 localStorage
@@ -1076,16 +1198,19 @@ SerialViewer / RttChartViewer
 ### 新增组件
 
 **UI 组件**：
+
 - ✨ `Collapsible` - 折叠组件（基于 @radix-ui/react-collapsible）
 - ✨ `Popover` - 弹出框组件（基于 @radix-ui/react-popover）
 
 **图表组件**：
+
 - ✨ `RttChartViewer` - 图表查看器，支持多种图表类型
 - ✨ `ChartConfigDialog` - 图表配置对话框
 - ✨ `chartAutoConfig.ts` - 智能检测和自动配置引擎
 - ✨ `chartTypes.ts` - 图表类型定义
 
 ### 新增依赖
+
 - ✨ `@radix-ui/react-collapsible` ^1.1.12 - 折叠组件
 - ✨ `@radix-ui/react-popover` ^1.1.15 - 弹出框组件
 - ✨ `recharts` - 图表库（已有依赖）
@@ -1093,6 +1218,7 @@ SerialViewer / RttChartViewer
 ### 技术细节
 
 **图表架构**：
+
 ```
 智能检测 (chartAutoConfig.ts)
     ↓
@@ -1104,30 +1230,35 @@ SerialViewer / RttChartViewer
 ```
 
 **支持的数据格式**：
+
 1. **单数值**：`100\n98\n95\n` → 折线图
 2. **XY 数据**：`10,25\n11,26\n12,24\n` → XY 散点图
 3. **CSV**：`25.5,60.2,1013\n` → 多系列折线图
 4. **JSON**：`{"temp":25.5,"humi":60.2}\n` → 多系列折线图
 
 **图表类型**：
+
 - `line` - 折线图（默认）
 - `bar` - 柱状图
 - `scatter` - 散点图（X 轴为索引）
 - `xy-scatter` - XY 散点图（X 轴为数据值）
 
 **智能检测优先级**：
+
 1. 单数值检测（置信度 > 80%）
 2. XY 数据检测（置信度 > 80%）
 3. JSON 检测（置信度 > 80%）
 4. CSV 检测（置信度 > 60%）
 
 **缩放功能**：
+
 - 使用 Recharts 的 `Brush` 组件
 - 支持拖动滑块调整显示范围
 - 支持拖动滑块中间平移视图
 - 状态独立管理，不影响数据
 
 ### 文档更新
+
 - 📚 新增 `docs/RTT_CHART_GUIDE.md` - 图表功能基础指南
 - 📚 新增 `docs/RTT_CHART_SMART_ENABLE.md` - 智能启用使用指南
 - 📚 新增 `docs/RTT_XY_SCATTER_GUIDE.md` - XY 散点图详细指南
@@ -1136,6 +1267,7 @@ SerialViewer / RttChartViewer
 ### 使用示例
 
 **单数值波形**：
+
 ```c
 // 正弦波
 for (int i = 0; i < 360; i++) {
@@ -1144,9 +1276,11 @@ for (int i = 0; i < 360; i++) {
     SEGGER_RTT_printf(0, "%d\n", value);
 }
 ```
+
 → 点击"智能启用" → 自动配置为折线图
 
 **李萨如图形**：
+
 ```c
 // XY 散点图
 for (int i = 0; i < 360; i++) {
@@ -1156,22 +1290,27 @@ for (int i = 0; i < 360; i++) {
     SEGGER_RTT_printf(0, "%d,%d\n", x, y);
 }
 ```
+
 → 点击"智能启用" → 自动配置为 XY 散点图
 
 **多传感器数据**：
+
 ```c
 // CSV 格式
 SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ```
+
 → 点击"智能启用" → 自动配置为多系列折线图
 
 ### 性能指标
+
 - ✅ 支持最多 1000 个数据点（可配置）
 - ✅ 实时更新延迟 < 100ms
 - ✅ 智能检测耗时 < 50ms（20 行样本）
 - ✅ 图表渲染使用 useMemo 优化
 
 ### 已知限制
+
 - ⚠️ 大数据量（>1000 点）时建议使用采样
 - ⚠️ XY 散点图不支持时间轴模式
 - ⚠️ 图表导出仅支持 CSV 格式（图片导出待实现）
@@ -1179,11 +1318,13 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ## [0.3.3] - 2026-01-23
 
 ### 重大改进
+
 - 🚀 **RTT 独立连接架构重构** - RTT 调试功能现在完全独立于烧录连接，可单独使用
 - ✨ **共用配置，独立连接** - 烧录和 RTT 共用左侧边栏的探针、芯片、接口配置，但连接生命周期完全独立
 - 🎨 **RTT 颜色语义化** - 支持自定义颜色标记语法（如 `[red]错误[/]`），可配置标记前缀、后缀和颜色映射
 
 ### 新增
+
 - ✨ **RTT 独立连接命令** - 新增 `connect_rtt()`, `disconnect_rtt()`, `get_rtt_connection_status()` 后端命令
 - ✨ **RTT 连接状态管理** - 新增 `rttConnected`, `rttConnecting` 状态管理
 - ✨ **RTT 工具栏连接控制** - 添加独立的"连接 RTT"/"断开 RTT"按钮
@@ -1195,6 +1336,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - ✨ **自动从 CHANGELOG 提取更新日志** - GitHub Release 自动读取 CHANGELOG 内容
 
 ### 改进
+
 - 🎨 **移除 RTT 主连接依赖** - RTT 界面不再要求先连接主设备（烧录连接）
 - 🎨 **优化用户体验** - 用户可以直接在 RTT 标签页中连接和使用 RTT，无需额外配置
 - 🎨 **独立会话管理** - 后端使用独立的 `rtt_session` 管理 RTT 连接，与 `session`（烧录连接）分离
@@ -1202,6 +1344,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - 🎨 **颜色标记持久化** - 用户自定义的颜色配置保存到 localStorage
 
 ### 修复
+
 - 🐛 **修复 RTT 界面访问限制** - 移除 `RttPanel` 中对主连接状态的检查
 - 🐛 **修复探针选择问题** - 自动选择第一个探针，避免用户手动选择的困扰
 - 🐛 **修复芯片名称获取逻辑** - 优先使用选中的芯片，如果为空则使用输入框的值
@@ -1212,6 +1355,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ### 技术细节
 
 **RTT 独立连接**：
+
 - 后端新增 `rtt_session: Arc<Mutex<Option<Session>>>` 独立会话
 - 后端新增 `rtt_connection_info` 存储 RTT 连接信息
 - 前端新增 `selectedChipName` 状态同步芯片选择
@@ -1220,6 +1364,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - 修改 `RttToolbar.tsx` 实现独立的 RTT 连接逻辑
 
 **颜色语义化**：
+
 - 新增 `ColorParserConfig` 接口，支持自定义标记语法
 - 新增 `parseColoredText()` 函数，解析自定义颜色标记
 - 新增 `parseAnsiText()` 函数，解析 ANSI 转义序列
@@ -1227,10 +1372,12 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - 默认支持 12 种颜色标记和 3 种样式标记
 
 **时钟速度修复**：
+
 - 修正前端传递的 Hz 到后端 kHz 的单位转换
 - 添加详细的错误日志，显示实际使用的时钟速度
 
 ### 架构说明
+
 ```
 左侧边栏（全局配置）
 ├── 探针选择
@@ -1241,6 +1388,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ```
 
 ### 颜色标记示例
+
 ```
 [red]错误信息[/]
 [green]成功信息[/]
@@ -1249,19 +1397,23 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ```
 
 ### 已知问题
+
 - ⚠️ v0.3.2 版本发布失败（GitHub Actions 权限问题：Resource not accessible by integration）
 
 ## [0.3.2] - 2026-01-23
 
 ### 改进
+
 - 🎨 **Flash进度回调优化** - 实现真实的烧录进度跟踪，显示准确的进度百分比和字节数
 - 🎨 优化进度计算逻辑，擦除阶段0-30%，编程阶段30-95%
 - 🎨 显示详细进度信息（如"已编程 32768/65536 字节"）
 
 ### 修复
+
 - 🐛 修复未使用的导入警告（Header.tsx中的FileDown）
 
 ### 技术细节
+
 - 使用 `Arc<Mutex<ProgressState>>` 跟踪累积进度
 - 实现 `ProgressState` 结构体，跟踪擦除和编程阶段的字节数
 - 通过 `DownloadOptions.progress` 设置进度回调
@@ -1270,21 +1422,25 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ## [0.3.1] - 2026-01-23
 
 ### 新增
+
 - ✨ **高级擦除对话框** - 点击"擦除Flash"按钮弹出对话框，支持全片擦除和自定义范围擦除
 - ✨ **GD32F470系列支持** - 新增6个GD32F470型号（VGT6/VIT6/ZGT6/ZIT6/IGT6/IIT6）
 - ✨ **EraseDialog组件** - 新增擦除对话框组件 (`src/components/dialogs/EraseDialog.tsx`)
 - ✨ **UI组件扩展** - 新增dialog、label、radio-group基础UI组件
 
 ### 改进
+
 - 🎨 优化工具栏布局，添加"烧录模式:"标签，避免擦除模式选择器混淆
 - 🎨 改进擦除功能，独立擦除操作使用对话框，烧录时擦除使用下拉框
 - 🎨 优化进度显示，显示详细字节数（如"已编程 32768/65536 字节"）
 
 ### 修复
+
 - 🐛 **修复Flash进度条显示错误** - 之前显示5500%，现在正确显示0-100%
 - 🐛 **修复日志面板拖动方向** - 向下拖动面板变高，向上拖动面板变矮（符合直觉）
 
 ### 技术细节
+
 - 使用 `Arc<Mutex<ProgressState>>` 跟踪Flash操作进度状态
 - 根据实际字节数计算进度（填充0-20%，擦除20-50%，编程50-95%）
 - 反转日志面板拖动的deltaY计算
@@ -1294,6 +1450,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ## [0.3.0] - 2026-01-23
 
 ### 新增
+
 - ✨ **CMSIS-Pack导入UI** - 在侧边栏添加Pack管理界面，支持导入和查看Pack列表
 - ✨ **自定义ROM地址配置** - 支持Keil风格的IROM1地址和大小配置
 - ✨ **一键填充芯片默认值** - 自动从芯片信息读取Flash配置
@@ -1302,6 +1459,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - ✨ **PackManager组件** - 新增Pack管理UI组件 (`src/components/config/PackManager.tsx`)
 
 ### 改进
+
 - 🎨 优化烧录设置界面，添加Keil风格的ROM配置
 - 🎨 改进Pack管理，显示Pack详细信息（厂商、版本、设备数）
 - 🎨 优化日志面板，修复滚动方向，添加拖动手柄
@@ -1309,10 +1467,12 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - 🎨 改进MainArea组件，添加自定义ROM地址配置UI
 
 ### 修复
+
 - 🐛 修复自定义地址在BIN文件烧录时的应用逻辑
 - 🐛 修复日志面板滚动到顶部的问题（现在正确滚动到底部）
 
 ### 技术细节
+
 - 扩展 `FlashOptions` 结构，添加自定义地址字段
 - 修改 `flash_firmware` 函数，支持使用自定义地址烧录BIN文件
 - 新增 `useCustomAddress`, `customFlashAddress`, `customFlashSize` 状态
@@ -1321,6 +1481,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ## [0.2.0] - 2026-01-23
 
 ### 新增
+
 - ✨ **支持更多国产芯片** - 添加GD32全系列（F0/F1/F2/F3/F4/E/L）和CW32系列支持
 - ✨ **DAP版本显示** - 显示探针DAP版本信息（DAPv1 HID / DAPv2 WinUSB）
 - ✨ **RTT双模式显示** - 支持文本和Hex两种显示模式，可一键切换
@@ -1329,6 +1490,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - ✨ **useUserActivity Hook** - 新增用户活动检测Hook (`src/hooks/useUserActivity.ts`)
 
 ### 改进
+
 - 🎨 优化探针选择界面，显示更多信息（DAP版本、序列号）
 - 🎨 优化RTT工具栏，添加显示模式切换按钮
 - 🎨 优化侧边栏布局，添加自动断开配置卡片
@@ -1336,10 +1498,12 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - 🎨 扩展ConnectionInfo结构，添加probe_serial和target_idcode字段
 
 ### 修复
+
 - 🐛 修复RTT数据解析中的字节对齐问题
 - 🐛 修复Sidebar中ConnectionInfo类型不匹配问题
 
 ### 技术细节
+
 - 在 `BUILTIN_CHIPS` 中添加40+国产芯片型号
 - 实现DAP版本检测逻辑（基于probe_type判断）
 - 扩展RttStore，添加displayMode状态和Hex格式化功能
@@ -1349,6 +1513,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 ## [0.1.0] - 2026-01-22
 
 ### 新增
+
 - 🎉 初始版本发布
 - ✨ 基础探针检测和连接功能
 - ✨ 固件烧录功能（支持ELF/HEX/BIN）
@@ -1358,6 +1523,7 @@ SEGGER_RTT_printf(0, "%.1f,%.1f,%.1f\n", temp, humi, press);
 - ✨ 内置150+常用芯片支持
 
 ### 技术栈
+
 - 前端：React 18 + TypeScript + Tailwind CSS + Zustand
 - 后端：Rust + Tauri 2.0 + probe-rs 0.27
 - UI组件：Radix UI + Lucide Icons

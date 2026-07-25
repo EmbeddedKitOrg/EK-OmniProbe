@@ -454,8 +454,10 @@ export function ChartViewer({
     return (
       <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
         <div className="space-y-2 text-center">
-          <p className="text-base font-medium text-foreground">结构化数据解析未启用</p>
-          <p className="text-xs text-muted-foreground">请先在数据解析中识别数值通道并应用配置</p>
+          <p className="text-base font-medium text-foreground">图表尚未配置</p>
+          <p className="text-xs text-muted-foreground">
+            请到右侧“数据”页粘贴一条真实样本，确认识别出数值通道后点击“应用解析”。
+          </p>
         </div>
       </div>
     );
@@ -679,10 +681,13 @@ export function ChartViewer({
       <div ref={chartContainerRef} className="min-h-[360px] flex-1">
         {displayedData.length === 0 ? (
           <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
-            <div className="space-y-2 text-center">
-              <p className="text-sm font-medium text-foreground">等待数据流入…</p>
+            <div className="max-w-xl space-y-2 px-6 text-center">
+              <p className="text-sm font-medium text-foreground">还没有可绘制的数据</p>
               <p className="text-xs text-muted-foreground">
-                先接收数值流，再切到图表视图。波形示波器支持时域 / FFT 两种观察方式。
+                先到右侧“数据”页粘贴一条真实样本，确认识别出数值通道并点击“应用解析”。
+              </p>
+              <p className="text-xs text-muted-foreground">
+                然后连接数据源并开始接收；匹配的数据到达后会自动生成图表。
               </p>
             </div>
           </div>
@@ -690,7 +695,9 @@ export function ChartViewer({
           <div className="flex h-full min-h-[320px] items-center justify-center rounded-[28px] border border-dashed border-border/80 bg-white/55">
             <div className="space-y-2 text-center">
               <p className="text-sm font-medium text-foreground">当前没有可见曲线</p>
-              <p className="text-xs text-muted-foreground">点击图表工具栏的“通道”，打开显示开关或加入曲线。</p>
+              <p className="text-xs text-muted-foreground">
+                可在右侧“数据”页重新粘贴样本并应用解析，或从图表工具栏“通道”打开已有曲线。
+              </p>
             </div>
           </div>
         ) : chartConfig.chartType === "waveform" ? (
