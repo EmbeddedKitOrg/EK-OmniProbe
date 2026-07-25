@@ -146,7 +146,44 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - JustFloat / VOFA RawData：串口二进制浮点流
 - 时域 / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
-图表工作台支持字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。串口的数据解析统一放在右侧“数据”页，图表工具栏集中提供冻结、清空、时域/FFT、统计、通道和导出；冻结期间后台仍会继续解析并缓存数据。
+### 实时数据流向
+
+```mermaid
+flowchart TB
+  subgraph acquisition["采集层（保持独立）"]
+    SERIAL["本地串口 / TCP / UDP / 模拟数据"]
+    SPP["经典蓝牙 SPP<br/>系统虚拟串口"]
+    RTT["RTT<br/>调试探针轮询"]
+    BLE["BLE<br/>GATT Notify / Indicate"]
+  end
+
+  SERIAL --> SERIAL_RX["串口接收"]
+  SPP --> SERIAL_RX
+  RTT --> RTT_RX["RTT 接收"]
+  BLE --> BLE_RX["BLE 接收"]
+
+  SERIAL_RX --> FRAME["统一文本分帧<br/>空闲残帧刷出 / 会话重置"]
+  RTT_RX --> FRAME
+  BLE_RX --> FRAME
+
+  FRAME --> LOG["原始文本 / HEX 日志"]
+  LOG --> TEXT_VIEW["文本窗口"]
+  FRAME --> PARSE["JSON / KV / CSV / Regex 解析"]
+  SERIAL_RX --> JUST_FLOAT["JustFloat / VOFA RawData 解析"]
+
+  PARSE --> SAMPLE["统一多通道数值采样"]
+  JUST_FLOAT --> SAMPLE
+  SAMPLE --> RAW["原始缓存"]
+  RAW --> PROCESS["滤波与分析"]
+  PROCESS --> DISPLAY["波形 / FFT / 趋势与 XY 图 / 统计 / IMU 3D"]
+  RAW --> CSV["原始 / 处理后 CSV 导出"]
+  PROCESS --> CSV
+  DISPLAY --> PNG["PNG 导出"]
+```
+
+三种实时来源在连接和采集阶段保持独立，进入数值解析后共用同一套数据结构、滤波和图表组件。每路文本数据都会保留未完成帧；短暂空闲、停止或断开时会刷出剩余内容并重置会话，避免无换行数据不显示或重连后串帧。BLE 会保留每个 Notify 数据块的接收时间，经典蓝牙 SPP 则完整复用串口链路。
+
+图表工作台支持字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。波形底部控制栏统一显示采样间隔、缓冲/绘制点数、每格时间或频率、通道和滤波状态，并提供与 `Shift + 滚轮`作用相同的 X 轴缩放条；采样率与视图范围可一键恢复自动。串口的数据解析统一放在右侧“数据”页，图表工具栏集中提供冻结、清空、时域/FFT、统计、通道和导出；冻结期间后台仍会继续解析并缓存数据。
 
 串口右侧“数据”页支持图形化级联低通、高通和带通滤波，可预览频率响应并导出 JSON 参数；也可以粘贴 MATLAB 生成的 FIR 系数或 IIR 的 SOS/ScaleValues。可在串口工作台右侧“连接”页选择“模拟数据 → 滤波演示”，用内置的 5 Hz 主信号和 40 Hz 干扰直接观察时域、FFT 和统计结果。原始日志、CSV 和 AI 数据不会被覆盖。详见 [数据滤波与 MATLAB 参数](docs/MATLAB_FILTER_GUIDE.md)。
 

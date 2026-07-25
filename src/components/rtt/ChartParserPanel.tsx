@@ -7,7 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
-import { previewChartParser, type ChartSample } from "@/lib/chartAnalysis";
+import {
+  haveChannelKeysChanged,
+  previewChartParser,
+  resolveAppliedParserChannels,
+  type ChartSample,
+} from "@/lib/chartAnalysis";
 import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 
@@ -19,6 +24,7 @@ interface ChartParserPanelProps {
   allowJustFloat?: boolean;
   allowDataFilter?: boolean;
   setChartConfig: (config: ChartConfig) => void;
+  clearChartData?: () => void;
   onClose: () => void;
 }
 
@@ -28,6 +34,7 @@ export function ChartParserPanel({
   allowJustFloat = false,
   allowDataFilter = false,
   setChartConfig,
+  clearChartData,
   onClose,
 }: ChartParserPanelProps) {
   const [parseMode, setParseMode] = useState(chartConfig.parseMode);
@@ -56,7 +63,9 @@ export function ChartParserPanel({
   }, [chartConfig, delimiter, framePrefix, parseMode, regexFlags, regexPattern, sampleText, samples]);
 
   const apply = () => {
-    const parserChanged = parseMode !== chartConfig.parseMode;
+    if (!preview.success) return;
+    const channels = resolveAppliedParserChannels(chartConfig.channels, preview.config.channels);
+    const channelKeysChanged = haveChannelKeysChanged(chartConfig.channels, channels);
     setChartConfig({
       ...chartConfig,
       enabled: true,
@@ -65,12 +74,9 @@ export function ChartParserPanel({
       delimiter: parseMode === "auto" ? preview.config.delimiter : delimiter,
       regexPattern,
       regexFlags,
-      channels: parserChanged
-        ? preview.config.channels
-        : chartConfig.channels.length === 0 && preview.config.channels.length > 0
-          ? preview.config.channels
-          : chartConfig.channels,
+      channels,
     });
+    if (channelKeysChanged) clearChartData?.();
     onClose();
   };
 
@@ -270,7 +276,9 @@ export function ChartParserPanel({
         <Button variant="outline" onClick={onClose}>
           取消
         </Button>
-        <Button onClick={apply}>应用解析</Button>
+        <Button onClick={apply} disabled={!preview.success}>
+          应用解析
+        </Button>
       </div>
     </div>
   );

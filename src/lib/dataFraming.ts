@@ -8,6 +8,10 @@ export interface PendingTextData {
   rawData: number[];
 }
 
+export const TEXT_FRAME_IDLE_MS = 200;
+
+const emptyPendingTextData = (): PendingTextData => ({ text: "", rawData: [] });
+
 function parseHexDelimiter(input: string): number[] {
   const hex = input.replace(/[^0-9a-fA-F]/g, "");
   const bytes: number[] = [];
@@ -102,6 +106,45 @@ export function parseSerialData(
     lines,
     pending: { text: decoder.decode(new Uint8Array(rest)), rawData: rest },
   };
+}
+
+/** 持有单路文本字节流的残帧，并统一提供接收、空闲刷出和会话重置。 */
+export class TextFrameStream {
+  private pending = emptyPendingTextData();
+  private direction: "rx" | "tx" = "rx";
+
+  ingest(
+    data: number[],
+    timestamp: number,
+    direction: "rx" | "tx",
+    framing: RxFramingSettings = DEFAULT_RX_FRAMING
+  ): Omit<SerialLine, "id">[] {
+    const result = parseSerialData(data, timestamp, direction, this.pending, framing);
+    this.pending = result.pending;
+    this.direction = direction;
+    return result.lines;
+  }
+
+  flush(timestamp = Date.now()): Omit<SerialLine, "id">[] {
+    if (this.pending.rawData.length === 0 && this.pending.text.length === 0) return [];
+
+    const pending = this.pending;
+    this.pending = emptyPendingTextData();
+    return [
+      {
+        timestamp: new Date(timestamp),
+        text: pending.text,
+        level: parseLogLevel(pending.text),
+        rawData: pending.rawData,
+        direction: this.direction,
+      },
+    ];
+  }
+
+  reset(): void {
+    this.pending = emptyPendingTextData();
+    this.direction = "rx";
+  }
 }
 
 /** RTT 仅增加通道维度，分帧行为与其他文本数据源保持一致。 */

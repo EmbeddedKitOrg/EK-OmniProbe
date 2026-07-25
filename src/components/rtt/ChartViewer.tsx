@@ -25,7 +25,6 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buildChartDisplayRows, calculateChartStatistics } from "@/lib/chartPresentation";
 import { formatChartNumber } from "@/lib/formatters";
-import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
 
 interface BrushDomain {
@@ -161,10 +160,6 @@ export function ChartViewer({
     () => calculateChartStatistics(analysisData, visibleSeries),
     [analysisData, visibleSeries]
   );
-
-  // 瞬时估算值本身有抖动，直接展示在徽标上会让文字宽度跟着跳动、挤动工具栏布局，
-  // 这里改用共享的 EMA 平滑 hook（与波形图横轴使用同一份平滑结果）。
-  const estimatedSampleRate = useSmoothedSampleRate(displayedData, chartConfig.sampleRateHz);
 
   const parseHealth = useMemo(() => {
     const total = parseSuccessCount + parseFailCount;
@@ -676,13 +671,6 @@ export function ChartViewer({
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
           {chartPaused && <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">已冻结</span>}
           <span className="rounded-full bg-white/80 px-3 py-1">
-            {estimatedSampleRate ? `${estimatedSampleRate.toFixed(1)} Hz` : "采样率待定"}
-          </span>
-          <span className="rounded-full bg-white/80 px-3 py-1">{visibleSeries.length} 通道</span>
-          <span className="rounded-full bg-white/80 px-3 py-1">
-            {displayedData.length} / {chartConfig.maxDataPoints} 点
-          </span>
-          <span className="rounded-full bg-white/80 px-3 py-1">
             解析 {parseHealth === null ? "—" : `${parseHealth.toFixed(0)}%`}
           </span>
         </div>
@@ -713,6 +701,7 @@ export function ChartViewer({
             series={visibleSeries}
             chartConfig={chartConfig}
             domain={signalDomain}
+            onChartConfigChange={setChartConfig}
           />
         ) : (
           <div className="h-full min-h-[320px] rounded-[28px] border border-border/60 bg-white/80 p-3">

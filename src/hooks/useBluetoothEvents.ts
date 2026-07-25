@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
-import { parseSerialData } from "@/lib/dataFraming";
+import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
 import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
 import { formatBytes } from "@/lib/formatters";
@@ -24,15 +24,13 @@ export function useBluetoothEvents() {
       }))
     );
 
-  const pendingBufferRef = useRef<{ text: string; rawData: number[] }>({
-    text: "",
-    rawData: [],
-  });
+  const frameStreamRef = useRef(new TextFrameStream());
 
   const batchLinesRef = useRef<Omit<BleLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
   const telemetryIngestionRef = useRef(new TelemetryIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
+  const idleFlushTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const flushBatch = () => {
@@ -61,42 +59,65 @@ export function useBluetoothEvents() {
       }
     };
 
+    const queueLines = (lines: Omit<BleLine, "id">[]) => {
+      if (lines.length === 0) return;
+      batchLinesRef.current.push(...lines);
+      const chartConfig = useBluetoothStore.getState().chartConfig;
+      if (chartConfig.enabled) telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+    };
+
+    const clearIdleFlush = () => {
+      if (idleFlushTimerRef.current !== null) window.clearTimeout(idleFlushTimerRef.current);
+      idleFlushTimerRef.current = null;
+    };
+
+    const flushPending = (schedule = true) => {
+      clearIdleFlush();
+      const lines = frameStreamRef.current.flush();
+      queueLines(lines);
+      if (schedule && lines.length > 0) scheduleBatchUpdate();
+    };
+
+    const scheduleIdleFlush = () => {
+      clearIdleFlush();
+      idleFlushTimerRef.current = window.setTimeout(flushPending, TEXT_FRAME_IDLE_MS);
+    };
+
     const unlistenData = listen<BleDataEvent>("ble-data", (event) => {
-      const { data, timestamp, direction } = event.payload;
+      const { chunks, direction } = event.payload;
 
-      if (direction === "rx") {
-        batchStatsRef.current.bytes_received += data.length;
-      } else {
-        batchStatsRef.current.bytes_sent += data.length;
-      }
-
-      const { lines, pending } = parseSerialData(data, timestamp, direction as "rx" | "tx", pendingBufferRef.current);
-      pendingBufferRef.current = pending;
-
-      if (lines.length > 0) {
-        batchLinesRef.current.push(...lines);
-
-        const chartConfig = useBluetoothStore.getState().chartConfig;
-        if (chartConfig.enabled) {
-          telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+      for (const { data, timestamp } of chunks) {
+        if (direction === "rx") {
+          batchStatsRef.current.bytes_received += data.length;
+        } else {
+          batchStatsRef.current.bytes_sent += data.length;
         }
+        queueLines(frameStreamRef.current.ingest(data, timestamp, direction));
       }
 
       scheduleBatchUpdate();
+      if (chunks.length > 0) scheduleIdleFlush();
     });
 
     const unlistenStatus = listen<BleStatusEvent>("ble-status", (event) => {
       const { connected, running, error } = event.payload;
+      if (!running) {
+        flushPending(false);
+        frameStreamRef.current.reset();
+        scheduleBatchUpdate();
+      }
       setConnected(connected);
       setRunning(running);
       if (error) setError(error);
     });
 
     return () => {
+      flushPending(false);
+      frameStreamRef.current.reset();
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
-        flushBatch();
       }
+      flushBatch();
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };

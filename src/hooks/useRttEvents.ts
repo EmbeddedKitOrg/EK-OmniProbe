@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useRttStore } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
-import { parseRttData } from "@/lib/dataFraming";
+import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -22,7 +22,8 @@ export function useRttEvents() {
       incrementParseCounts: state.incrementParseCounts,
     }))
   );
-  const pendingBufferRef = useRef<Map<number, { text: string; rawData: number[] }>>(new Map());
+  const frameStreamsRef = useRef(new Map<number, TextFrameStream>());
+  const idleFlushTimersRef = useRef(new Map<number, number>());
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
@@ -58,35 +59,79 @@ export function useRttEvents() {
       }
     };
 
+    const queueLines = (lines: Omit<RttLine, "id">[]) => {
+      if (lines.length === 0) return;
+      batchLinesRef.current.push(...lines);
+      const chartConfig = useRttStore.getState().chartConfig;
+      if (chartConfig.enabled) telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+    };
+
+    const clearIdleFlush = (channel: number) => {
+      const timer = idleFlushTimersRef.current.get(channel);
+      if (timer !== undefined) window.clearTimeout(timer);
+      idleFlushTimersRef.current.delete(channel);
+    };
+
+    const flushPendingChannel = (channel: number, schedule = true) => {
+      clearIdleFlush(channel);
+      const stream = frameStreamsRef.current.get(channel);
+      if (!stream) return;
+      const lines = stream.flush().map((line) => ({
+        channel,
+        timestamp: line.timestamp,
+        text: line.text,
+        level: line.level,
+        rawData: line.rawData,
+      }));
+      queueLines(lines);
+      if (schedule && lines.length > 0) scheduleBatchUpdate();
+    };
+
+    const scheduleIdleFlush = (channel: number) => {
+      clearIdleFlush(channel);
+      idleFlushTimersRef.current.set(
+        channel,
+        window.setTimeout(() => flushPendingChannel(channel), TEXT_FRAME_IDLE_MS)
+      );
+    };
+
     // 监听 RTT 数据事件
     const unlistenData = listen<RttDataEvent>("rtt-data", (event) => {
+      const { channel, data, timestamp } = event.payload;
+
       // 如果暂停，不处理数据
       if (useRttStore.getState().isPaused) {
+        frameStreamsRef.current.get(channel)?.reset();
+        clearIdleFlush(channel);
         return;
       }
 
-      const { channel, data, timestamp } = event.payload;
-
       batchBytesRef.current += data.length;
-
-      const lines = parseRttData(data, channel, timestamp, pendingBufferRef.current);
-
-      if (lines.length > 0) {
-        batchLinesRef.current.push(...lines);
-
-        // 图表解析：累积到批，flushBatch 时单次 setState
-        const currentChartConfig = useRttStore.getState().chartConfig;
-        if (currentChartConfig.enabled) {
-          telemetryIngestionRef.current.ingestLines(lines, currentChartConfig);
-        }
-
-        scheduleBatchUpdate();
+      let stream = frameStreamsRef.current.get(channel);
+      if (!stream) {
+        stream = new TextFrameStream();
+        frameStreamsRef.current.set(channel, stream);
       }
+      const lines = stream.ingest(data, timestamp, "rx").map((line) => ({
+        channel,
+        timestamp: line.timestamp,
+        text: line.text,
+        level: line.level,
+        rawData: line.rawData,
+      }));
+      queueLines(lines);
+      scheduleBatchUpdate();
+      scheduleIdleFlush(channel);
     });
 
     // 监听 RTT 状态事件
     const unlistenStatus = listen<RttStatusEvent>("rtt-status", (event) => {
       const { running, error } = event.payload;
+      if (!running) {
+        for (const channel of frameStreamsRef.current.keys()) flushPendingChannel(channel, false);
+        frameStreamsRef.current.clear();
+        scheduleBatchUpdate();
+      }
       setRunning(running);
       if (error) {
         setError(error);
@@ -95,11 +140,14 @@ export function useRttEvents() {
 
     // 清理
     return () => {
-      // 清理定时器
+      for (const channel of frameStreamsRef.current.keys()) flushPendingChannel(channel, false);
+      frameStreamsRef.current.clear();
+      for (const timer of idleFlushTimersRef.current.values()) window.clearTimeout(timer);
+      idleFlushTimersRef.current.clear();
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
-        flushBatch(); // 确保剩余数据被处理
       }
+      flushBatch();
 
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
