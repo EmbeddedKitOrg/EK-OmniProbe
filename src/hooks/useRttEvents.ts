@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useRttStore, parseRttData } from "@/stores/rttStore";
+import { useRttStore } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import type { ChartDataPoint } from "@/lib/chartTypes";
-import { parseChartData } from "@/lib/parseChartData";
+import { parseChartLines } from "@/lib/parseChartData";
+import { parseRttData } from "@/lib/dataFraming";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -83,15 +84,10 @@ export function useRttEvents() {
         // 图表解析：累积到批，flushBatch 时单次 setState
         const currentChartConfig = useRttStore.getState().chartConfig;
         if (currentChartConfig.enabled) {
-          for (const line of lines) {
-            const result = parseChartData(line.text, currentChartConfig);
-            if (result.success && result.dataPoint) {
-              batchChartPointsRef.current.push(result.dataPoint);
-              batchParseRef.current.success += 1;
-            } else if (!result.ignored) {
-              batchParseRef.current.fail += 1;
-            }
-          }
+          const parsed = parseChartLines(lines, currentChartConfig);
+          batchChartPointsRef.current.push(...parsed.points);
+          batchParseRef.current.success += parsed.success;
+          batchParseRef.current.fail += parsed.fail;
         }
 
         scheduleBatchUpdate();

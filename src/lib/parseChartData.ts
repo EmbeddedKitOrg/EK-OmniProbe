@@ -20,6 +20,19 @@ export interface ParseResult {
   method?: "regex" | "delimiter" | "json" | "kv";
 }
 
+export interface ChartInputLine {
+  text: string;
+  timestamp: Date | number;
+}
+
+export type ChartLineParser = (text: string, config: ChartConfig, timestamp: number) => ParseResult;
+
+export interface ChartParseBatch {
+  points: ChartDataPoint[];
+  success: number;
+  fail: number;
+}
+
 /**
  * 匹配 key=value 对的全局正则。
  */
@@ -37,7 +50,13 @@ export function extractChartPayload(text: string, framePrefix: string): string |
  * channels 仅用于约束输出键集合（若给出且非空，则只保留 channel.key 对应的命名捕获组）。
  * 实际值仍来自正则的命名捕获组。
  */
-export function parseWithRegex(text: string, pattern: string, flags?: string, channels?: Channel[]): ParseResult {
+export function parseWithRegex(
+  text: string,
+  pattern: string,
+  flags?: string,
+  channels?: Channel[],
+  timestamp = Date.now()
+): ParseResult {
   try {
     const regex = new RegExp(pattern, flags);
     const match = regex.exec(text);
@@ -70,7 +89,7 @@ export function parseWithRegex(text: string, pattern: string, flags?: string, ch
     return {
       success: true,
       dataPoint: {
-        timestamp: Date.now(),
+        timestamp,
         values,
       },
       method: "regex",
@@ -88,7 +107,12 @@ export function parseWithRegex(text: string, pattern: string, flags?: string, ch
  *
  * 每条 channel 对应一列；sourceIndex 缺失时退回到 channel 在数组里的位置。
  */
-export function parseWithDelimiter(text: string, delimiter: string, channels: Channel[]): ParseResult {
+export function parseWithDelimiter(
+  text: string,
+  delimiter: string,
+  channels: Channel[],
+  timestamp = Date.now()
+): ParseResult {
   try {
     const parts = text.split(delimiter);
     const values: Record<string, number> = {};
@@ -116,7 +140,7 @@ export function parseWithDelimiter(text: string, delimiter: string, channels: Ch
     return {
       success: true,
       dataPoint: {
-        timestamp: Date.now(),
+        timestamp,
         values,
       },
       method: "delimiter",
@@ -134,7 +158,7 @@ export function parseWithDelimiter(text: string, delimiter: string, channels: Ch
  *
  * channels 为空 → 自动提取所有数值字段；非空 → 只保留 channel.key 对应字段。
  */
-export function parseWithJson(text: string, channels?: Channel[]): ParseResult {
+export function parseWithJson(text: string, channels?: Channel[], timestamp = Date.now()): ParseResult {
   try {
     const data = JSON.parse(text);
 
@@ -165,7 +189,7 @@ export function parseWithJson(text: string, channels?: Channel[]): ParseResult {
     return {
       success: true,
       dataPoint: {
-        timestamp: Date.now(),
+        timestamp,
         values,
       },
       method: "json",
@@ -183,7 +207,7 @@ export function parseWithJson(text: string, channels?: Channel[]): ParseResult {
  *
  * channels 为空 → 自动提取所有 key=number 对；非空 → 只保留 channel.key 对应键。
  */
-export function parseWithKv(text: string, channels?: Channel[]): ParseResult {
+export function parseWithKv(text: string, channels?: Channel[], timestamp = Date.now()): ParseResult {
   KV_PAIR_REGEX.lastIndex = 0;
   const filter = channels && channels.length > 0 ? new Set(channels.map((c) => c.key)) : null;
   const values: Record<string, number> = {};
@@ -208,7 +232,7 @@ export function parseWithKv(text: string, channels?: Channel[]): ParseResult {
   return {
     success: true,
     dataPoint: {
-      timestamp: Date.now(),
+      timestamp,
       values,
     },
     method: "kv",
@@ -218,20 +242,20 @@ export function parseWithKv(text: string, channels?: Channel[]): ParseResult {
 /**
  * 自动解析（按 JSON → 正则 → KV → 分隔符 顺序尝试）
  */
-export function parseAuto(text: string, config: ChartConfig): ParseResult {
-  const jsonResult = parseWithJson(text, config.channels);
+export function parseAuto(text: string, config: ChartConfig, timestamp = Date.now()): ParseResult {
+  const jsonResult = parseWithJson(text, config.channels, timestamp);
   if (jsonResult.success) return jsonResult;
 
   if (config.regexPattern) {
-    const regexResult = parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels);
+    const regexResult = parseWithRegex(text, config.regexPattern, config.regexFlags, config.channels, timestamp);
     if (regexResult.success) return regexResult;
   }
 
-  const kvResult = parseWithKv(text, config.channels);
+  const kvResult = parseWithKv(text, config.channels, timestamp);
   if (kvResult.success) return kvResult;
 
   if (config.channels.length > 0) {
-    const delimiterResult = parseWithDelimiter(text, config.delimiter, config.channels);
+    const delimiterResult = parseWithDelimiter(text, config.delimiter, config.channels, timestamp);
     if (delimiterResult.success) return delimiterResult;
   }
 
@@ -244,7 +268,7 @@ export function parseAuto(text: string, config: ChartConfig): ParseResult {
 /**
  * 主解析函数
  */
-export function parseChartData(text: string, config: ChartConfig): ParseResult {
+export function parseChartData(text: string, config: ChartConfig, timestamp = Date.now()): ParseResult {
   if (!config.enabled) {
     return {
       success: false,
@@ -269,7 +293,7 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
           error: "正则表达式未配置",
         };
       }
-      return parseWithRegex(payload, config.regexPattern, config.regexFlags, config.channels);
+      return parseWithRegex(payload, config.regexPattern, config.regexFlags, config.channels, timestamp);
 
     case "delimiter":
       if (config.channels.length === 0) {
@@ -278,16 +302,16 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
           error: "分隔符模式未配置任何通道",
         };
       }
-      return parseWithDelimiter(payload, config.delimiter, config.channels);
+      return parseWithDelimiter(payload, config.delimiter, config.channels, timestamp);
 
     case "json":
-      return parseWithJson(payload, config.channels);
+      return parseWithJson(payload, config.channels, timestamp);
 
     case "kv":
-      return parseWithKv(payload, config.channels);
+      return parseWithKv(payload, config.channels, timestamp);
 
     case "auto":
-      return parseAuto(payload, config);
+      return parseAuto(payload, config, timestamp);
 
     case "justfloat":
       return {
@@ -301,4 +325,29 @@ export function parseChartData(text: string, config: ChartConfig): ParseResult {
         error: "未知的解析模式",
       };
   }
+}
+
+/**
+ * 批量解析文本行。parser 参数是后续内置/外部解析插件的最小注入点，
+ * 当前默认复用内置 parseChartData。
+ */
+export function parseChartLines(
+  lines: ChartInputLine[],
+  config: ChartConfig,
+  parser: ChartLineParser = parseChartData
+): ChartParseBatch {
+  const batch: ChartParseBatch = { points: [], success: 0, fail: 0 };
+
+  for (const line of lines) {
+    const timestamp = line.timestamp instanceof Date ? line.timestamp.getTime() : line.timestamp;
+    const result = parser(line.text, config, timestamp);
+    if (result.success && result.dataPoint) {
+      batch.points.push(result.dataPoint);
+      batch.success += 1;
+    } else if (!result.ignored) {
+      batch.fail += 1;
+    }
+  }
+
+  return batch;
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
-import { parseSerialData } from "@/stores/serialStore";
+import { parseSerialData } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
 import type { ChartDataPoint } from "@/lib/chartTypes";
-import { parseChartData } from "@/lib/parseChartData";
+import { parseChartLines } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -84,15 +84,10 @@ export function useBluetoothEvents() {
 
         const chartConfig = useBluetoothStore.getState().chartConfig;
         if (chartConfig.enabled) {
-          for (const line of lines) {
-            const result = parseChartData(line.text, chartConfig);
-            if (result.success && result.dataPoint) {
-              batchChartPointsRef.current.push(result.dataPoint);
-              batchParseRef.current.success += 1;
-            } else if (!result.ignored) {
-              batchParseRef.current.fail += 1;
-            }
-          }
+          const parsed = parseChartLines(lines, chartConfig);
+          batchChartPointsRef.current.push(...parsed.points);
+          batchParseRef.current.success += parsed.success;
+          batchParseRef.current.fail += parsed.fail;
         }
       }
 
