@@ -28,6 +28,9 @@ try {
   const { isSerialDisplayWidget } = await server.ssrLoadModule(
     "/src/components/serial/SerialDisplayControlWidgets.tsx"
   );
+  const { isSerialVisualizationWidget } = await server.ssrLoadModule(
+    "/src/components/serial/SerialVisualizationControlWidgets.tsx"
+  );
   const { createImuFusionState, estimateGyroBias, updateImuFusion } =
     await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
@@ -71,6 +74,13 @@ try {
     true
   );
   assert.equal(isSerialDisplayWidget(createSerialControlWidget("yt-chart")), false);
+  assert.equal(
+    SERIAL_CONTROL_WIDGET_GROUPS[2].items.every(({ type }) =>
+      isSerialVisualizationWidget(createSerialControlWidget(type))
+    ),
+    true
+  );
+  assert.equal(isSerialVisualizationWidget(createSerialControlWidget("button")), false);
   const importedDefaults = parseSerialControlPanel({
     version: 4,
     widgets: widgetTypes.map((type) => ({ type })),
