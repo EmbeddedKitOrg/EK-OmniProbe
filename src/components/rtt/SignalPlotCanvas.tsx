@@ -9,6 +9,7 @@ import {
 } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
 import { downsamplePoints } from "@/lib/downsampling";
+import { calculateSpectrum } from "@/lib/chartPresentation";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 import { Button } from "@/components/ui/button";
@@ -114,12 +115,6 @@ export function traceSignalPath(
   }
 }
 
-function nextPowerOfTwo(value: number) {
-  let result = 1;
-  while (result < value) result <<= 1;
-  return result;
-}
-
 function formatRelativeTime(seconds: number, visibleDurationSec: number) {
   const absSec = Math.abs(seconds);
   if (visibleDurationSec < 0.01) {
@@ -132,114 +127,6 @@ function formatRelativeTime(seconds: number, visibleDurationSec: number) {
     return `${seconds.toFixed(2)} s`;
   }
   return `${(seconds / 60).toFixed(2)} min`;
-}
-
-// Hann 窗函数按 size 缓存，FFT 窗口尺寸通常只有少数几个固定值
-const windowCache = new Map<number, Float64Array>();
-
-function getHannWindow(size: number): Float64Array {
-  let cached = windowCache.get(size);
-  if (cached) return cached;
-  cached = new Float64Array(size);
-  if (size <= 1) {
-    cached[0] = 1;
-  } else {
-    const factor = (2 * Math.PI) / (size - 1);
-    for (let i = 0; i < size; i += 1) {
-      cached[i] = 0.5 * (1 - Math.cos(factor * i));
-    }
-  }
-  windowCache.set(size, cached);
-  return cached;
-}
-
-// 跨调用复用的 FFT 缓冲区，按需扩容；computeSpectrum 在 useMemo 中串行调用
-let fftReBuf: Float64Array = new Float64Array(0);
-let fftImBuf: Float64Array = new Float64Array(0);
-
-function ensureFftBuffers(size: number) {
-  if (fftReBuf.length < size) {
-    fftReBuf = new Float64Array(size);
-    fftImBuf = new Float64Array(size);
-  } else {
-    fftReBuf.fill(0, 0, size);
-    fftImBuf.fill(0, 0, size);
-  }
-}
-
-function fftInPlace(re: Float64Array, im: Float64Array, size: number) {
-  let j = 0;
-
-  for (let i = 1; i < size; i += 1) {
-    let bit = size >> 1;
-    while (j & bit) {
-      j ^= bit;
-      bit >>= 1;
-    }
-    j ^= bit;
-    if (i < j) {
-      const tr = re[i];
-      re[i] = re[j];
-      re[j] = tr;
-      const ti = im[i];
-      im[i] = im[j];
-      im[j] = ti;
-    }
-  }
-
-  for (let len = 2; len <= size; len <<= 1) {
-    const half = len >> 1;
-    const angle = (-2 * Math.PI) / len;
-    const wLenRe = Math.cos(angle);
-    const wLenIm = Math.sin(angle);
-
-    for (let i = 0; i < size; i += len) {
-      let wRe = 1;
-      let wIm = 0;
-      for (let k = 0; k < half; k += 1) {
-        const evenIndex = i + k;
-        const oddIndex = evenIndex + half;
-        const oddRe = re[oddIndex] * wRe - im[oddIndex] * wIm;
-        const oddIm = re[oddIndex] * wIm + im[oddIndex] * wRe;
-
-        re[oddIndex] = re[evenIndex] - oddRe;
-        im[oddIndex] = im[evenIndex] - oddIm;
-        re[evenIndex] += oddRe;
-        im[evenIndex] += oddIm;
-
-        const nextRe = wRe * wLenRe - wIm * wLenIm;
-        wIm = wRe * wLenIm + wIm * wLenRe;
-        wRe = nextRe;
-      }
-    }
-  }
-}
-
-function computeSpectrum(values: number[], sampleRateHz: number) {
-  const fftSize = nextPowerOfTwo(values.length);
-  ensureFftBuffers(fftSize);
-  const re = fftReBuf;
-  const im = fftImBuf;
-  const window = getHannWindow(values.length);
-
-  for (let index = 0; index < values.length; index += 1) {
-    re[index] = values[index] * window[index];
-  }
-
-  fftInPlace(re, im, fftSize);
-
-  const half = fftSize >> 1;
-  const result: Array<{ freq: number; magnitude: number }> = new Array(half);
-  const freqStep = sampleRateHz / fftSize;
-  const ampScale = 2 / fftSize;
-  for (let bin = 0; bin < half; bin += 1) {
-    const amplitude = ampScale * Math.hypot(re[bin], im[bin]);
-    result[bin] = {
-      freq: bin * freqStep,
-      magnitude: amplitude > 1e-12 ? 20 * Math.log10(amplitude) : -240,
-    };
-  }
-  return result;
 }
 
 export function SignalPlotCanvas({
@@ -384,7 +271,7 @@ export function SignalPlotCanvas({
           key: item.key,
           name: item.name,
           color: item.color,
-          bins: computeSpectrum(values, sampleRateHz),
+          bins: calculateSpectrum(values, sampleRateHz),
         });
       }
     }

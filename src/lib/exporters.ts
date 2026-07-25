@@ -114,22 +114,40 @@ export async function exportSerialLinesAsCsv(lines: SerialLine[]): Promise<strin
 
 // ============ Chart ============
 
-export async function exportChartDataAsCsv(data: ChartDataPoint[], config: ChartConfig): Promise<string | null> {
+export function serializeChartDataAsCsv(
+  data: ChartDataPoint[],
+  config: ChartConfig,
+  comparisonData?: ChartDataPoint[]
+): string {
   const channelKeys = config.channels.map((c) => c.key);
   const channelNames = config.channels.map((c) => c.name || c.key);
 
-  const header = ["timestamp", ...channelNames.map(escapeCsv)].join(",");
-  const rows = data.map((point) => {
+  const header = comparisonData
+    ? ["timestamp", ...channelNames.flatMap((name) => [`${name} (处理后)`, `${name} (原始)`]).map(escapeCsv)].join(",")
+    : ["timestamp", ...channelNames.map(escapeCsv)].join(",");
+  const rows = data.map((point, index) => {
     const cells = [escapeCsv(new Date(point.timestamp).toISOString())];
     for (const key of channelKeys) {
       const value = point.values[key];
       cells.push(value === undefined || !Number.isFinite(value) ? "" : String(value));
+      if (comparisonData) {
+        const comparisonValue = comparisonData[index]?.values[key];
+        cells.push(comparisonValue === undefined || !Number.isFinite(comparisonValue) ? "" : String(comparisonValue));
+      }
     }
     return cells.join(",");
   });
 
-  const content = [header, ...rows].join("\n");
-  return saveTextFile(content, `chart-${timestampSuffix()}.csv`, CSV_FILTERS);
+  return [header, ...rows].join("\n");
+}
+
+export async function exportChartDataAsCsv(
+  data: ChartDataPoint[],
+  config: ChartConfig,
+  options: { comparisonData?: ChartDataPoint[]; filenamePrefix?: string } = {}
+): Promise<string | null> {
+  const content = serializeChartDataAsCsv(data, config, options.comparisonData);
+  return saveTextFile(content, `${options.filenamePrefix ?? "chart"}-${timestampSuffix()}.csv`, CSV_FILTERS);
 }
 
 /**

@@ -23,7 +23,7 @@ import { Download, Info, Play, Plus, Settings2, Snowflake, Trash2 } from "lucide
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { downsamplePoints } from "@/lib/downsampling";
+import { buildChartDisplayRows, calculateChartStatistics } from "@/lib/chartPresentation";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
 import { SignalPlotCanvas } from "./SignalPlotCanvas";
@@ -111,17 +111,7 @@ export function ChartViewer({
 
   const chartDataFormatted = useMemo(() => {
     if (chartConfig.chartType === "waveform" || analysisData.length === 0) return [];
-    const firstTimestamp = analysisData[0].timestamp;
-    const formatted = analysisData.map((point, index) => ({
-      index,
-      timestamp: point.timestamp,
-      time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
-      ...point.values,
-    }));
-    return downsamplePoints(
-      formatted,
-      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : formatted.length
-    );
+    return buildChartDisplayRows(analysisData, chartConfig.visiblePointLimit);
   }, [analysisData, chartConfig.chartType, chartConfig.visiblePointLimit]);
 
   const yAxisDomain = useMemo(() => {
@@ -167,24 +157,10 @@ export function ChartViewer({
     return [min - margin, max + margin];
   }, [analysisData, chartConfig.chartType, xChannelKey]);
 
-  const statistics = useMemo(() => {
-    if (analysisData.length === 0) return null;
-    const stats: Record<string, { min: number; max: number; avg: number; latest: number }> = {};
-    visibleSeries.forEach((series) => {
-      const values = analysisData
-        .map((point) => point.values[series.key])
-        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-      if (values.length > 0) {
-        stats[series.key] = {
-          min: Math.min(...values),
-          max: Math.max(...values),
-          avg: values.reduce((sum, value) => sum + value, 0) / values.length,
-          latest: values[values.length - 1],
-        };
-      }
-    });
-    return stats;
-  }, [analysisData, visibleSeries]);
+  const statistics = useMemo(
+    () => calculateChartStatistics(analysisData, visibleSeries),
+    [analysisData, visibleSeries]
+  );
 
   // 瞬时估算值本身有抖动，直接展示在徽标上会让文字宽度跟着跳动、挤动工具栏布局，
   // 这里改用共享的 EMA 平滑 hook（与波形图横轴使用同一份平滑结果）。
@@ -237,11 +213,18 @@ export function ChartViewer({
     });
   };
 
-  const handleExportCsv = async () => {
-    if (displayedData.length === 0) return;
+  const handleExportCsv = async (mode: "processed" | "raw" | "comparison") => {
+    const data = mode === "raw" ? displayedData : analysisData;
+    if (data.length === 0) return;
     try {
-      const path = await exportChartDataAsCsv(displayedData, chartConfig);
-      if (path) addLog("success", `图表数据已导出: ${path}`);
+      const path = await exportChartDataAsCsv(data, chartConfig, {
+        comparisonData: mode === "comparison" ? displayedData : undefined,
+        filenamePrefix: filterActive ? `chart-${mode}` : "chart",
+      });
+      if (path) {
+        const label = filterActive ? (mode === "raw" ? "原始" : mode === "comparison" ? "对照" : "处理后") : "";
+        addLog("success", `图表${label}数据已导出: ${path}`);
+      }
     } catch (err) {
       addLog("error", `导出 CSV 失败: ${err}`);
     }
@@ -651,9 +634,38 @@ export function ChartViewer({
           </PopoverTrigger>
           <PopoverContent align="end" className="w-44 rounded-[18px] p-2">
             <div className="grid gap-1">
-              <Button size="sm" variant="ghost" className="justify-start" onClick={handleExportCsv}>
-                导出 CSV 数据
-              </Button>
+              {filterActive ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleExportCsv("processed")}
+                  >
+                    导出处理后数据
+                  </Button>
+                  <Button size="sm" variant="ghost" className="justify-start" onClick={() => handleExportCsv("raw")}>
+                    导出原始数据
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => handleExportCsv("comparison")}
+                  >
+                    导出前后对照
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="justify-start"
+                  onClick={() => handleExportCsv("processed")}
+                >
+                  导出 CSV 数据
+                </Button>
+              )}
               <Button size="sm" variant="ghost" className="justify-start" onClick={handleExportPng}>
                 导出 PNG 图像
               </Button>
