@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // Application mode type
-export type AppMode = "flash" | "rtt" | "serial" | "bluetooth" | "control-panel" | "debug";
+export type AppMode = "flash" | "rtt" | "serial" | "log-analysis" | "bluetooth" | "control-panel" | "debug";
 
 // App mode persistence key
 const APP_MODE_KEY = "app_mode";
@@ -13,6 +13,7 @@ function loadAppMode(): AppMode {
       saved === "flash" ||
       saved === "rtt" ||
       saved === "serial" ||
+      saved === "log-analysis" ||
       saved === "bluetooth" ||
       saved === "control-panel" ||
       saved === "debug"

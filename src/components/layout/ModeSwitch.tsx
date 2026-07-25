@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bluetooth, Bug, LayoutDashboard, Plug2, Terminal, Zap } from "lucide-react";
+import { Bluetooth, Bug, FileSearch, LayoutDashboard, Plug2, Terminal, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore, type AppMode } from "@/stores/appStore";
 import { useRttStore } from "@/stores/rttStore";
@@ -25,6 +25,7 @@ const MODES = [
   { id: "flash", label: "烧录", icon: Zap },
   { id: "rtt", label: "RTT", icon: Terminal },
   { id: "serial", label: "串口", icon: Plug2 },
+  { id: "log-analysis", label: "日志", icon: FileSearch },
   { id: "bluetooth", label: "蓝牙", icon: Bluetooth },
   { id: "control-panel", label: "面板", icon: LayoutDashboard },
   { id: "debug", label: "调试", icon: Bug },

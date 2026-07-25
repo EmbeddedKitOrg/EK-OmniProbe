@@ -4,6 +4,7 @@ import {
   Bug,
   Cpu,
   FileCode,
+  FileSearch,
   LayoutDashboard,
   Loader2,
   PanelRightClose,
@@ -29,6 +30,7 @@ const MODE_META = {
   flash: { label: "烧录工作台", icon: Cpu },
   rtt: { label: "RTT 调试工作台", icon: Radar },
   serial: { label: "串口工作台", icon: Wifi },
+  "log-analysis": { label: "日志分析工作台", icon: FileSearch },
   bluetooth: { label: "蓝牙工作台", icon: Bluetooth },
   "control-panel": { label: "控制面板", icon: LayoutDashboard },
   debug: { label: "调试工作台", icon: Bug },
@@ -89,7 +91,7 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
       </div>
 
       <div className="hidden min-w-0 flex-1 items-center gap-2 xl:flex">
-        {selectedChip && (
+        {mode !== "log-analysis" && selectedChip && (
           <TooltipWrapper tooltip="当前目标芯片">
             <div className="toolbar-chip-strong flex min-w-0 items-center gap-1.5 px-2.5 py-1.5">
               <Cpu className="h-3.5 w-3.5" />
@@ -97,7 +99,7 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
             </div>
           </TooltipWrapper>
         )}
-        {selectedProbe && (
+        {mode !== "log-analysis" && selectedProbe && (
           <TooltipWrapper tooltip={selectedProbe.identifier}>
             <div className="toolbar-chip flex min-w-0 items-center gap-1.5 px-2.5 py-1.5">
               <Activity className="h-3.5 w-3.5" />
@@ -133,7 +135,7 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
       <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
         <UpdateChecker showTrigger={false} />
         <SettingsCenterDialog />
-        {mode !== "control-panel" && (
+        {mode !== "control-panel" && mode !== "log-analysis" && (
           <Button
             size="sm"
             variant="outline"
@@ -145,19 +147,23 @@ export function TopBar({ inspectorOpen, onToggleInspector }: TopBarProps) {
             {inspectorOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </Button>
         )}
-        {rttConnected && !rttRunning && (
+        {mode !== "log-analysis" && rttConnected && !rttRunning && (
           <span className="status-chip hidden items-center gap-1.5 xl:flex">
             <span className="h-2 w-2 rounded-full bg-yellow-500" />
             RTT 就绪
           </span>
         )}
-        <span className="status-chip flex items-center gap-1.5">
-          <span className={connected ? "h-2 w-2 rounded-full bg-green-500" : "h-2 w-2 rounded-full bg-red-500"} />
-          <span className={connected ? "text-green-600" : "text-red-500"}>
-            {connectionLabel}
-            {connected ? "已连接" : "未连接"}
+        {mode !== "log-analysis" && (
+          <span className="status-chip flex items-center gap-1.5">
+            <span
+              className={connected ? "h-2 w-2 rounded-full bg-green-500" : "h-2 w-2 rounded-full bg-red-500"}
+            />
+            <span className={connected ? "text-green-600" : "text-red-500"}>
+              {connectionLabel}
+              {connected ? "已连接" : "未连接"}
+            </span>
           </span>
-        </span>
+        )}
       </div>
     </header>
   );
