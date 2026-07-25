@@ -38,6 +38,29 @@ export interface ChartConfigDetection {
   detection: DetectionResult;
 }
 
+export function resolveAppliedParserChannels(currentChannels: Channel[], detectedChannels: Channel[]): Channel[] {
+  const currentByKey = new Map(currentChannels.map((channel) => [channel.key, channel]));
+  return detectedChannels.map((channel) => {
+    const current = currentByKey.get(channel.key);
+    return current
+      ? {
+          ...channel,
+          name: current.name,
+          unit: current.unit,
+          color: current.color,
+          visible: current.visible,
+          role: current.role,
+        }
+      : channel;
+  });
+}
+
+export function haveChannelKeysChanged(currentChannels: Channel[], nextChannels: Channel[]): boolean {
+  if (currentChannels.length !== nextChannels.length) return true;
+  const currentKeys = new Set(currentChannels.map((channel) => channel.key));
+  return nextChannels.some((channel) => !currentKeys.has(channel.key));
+}
+
 /** 用一条可编辑样本预览当前解析配置，同时为无通道配置推导通道。 */
 export function previewChartParser(
   config: ChartConfig,

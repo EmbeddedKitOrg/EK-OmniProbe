@@ -6,12 +6,17 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const { detectChartConfig, populateEmptyChannelsFromSamples, previewChartParser } =
-    await server.ssrLoadModule("/src/lib/chartAnalysis.ts");
+  const {
+    detectChartConfig,
+    haveChannelKeysChanged,
+    populateEmptyChannelsFromSamples,
+    previewChartParser,
+    resolveAppliedParserChannels,
+  } = await server.ssrLoadModule("/src/lib/chartAnalysis.ts");
   const { listChartParsers, parseChartData, parseChartLines, parseWithDelimiter, parseWithKv, registerChartParser } =
     await server.ssrLoadModule("/src/lib/parseChartData.ts");
   const { ChartIngestionBuffer, appendChartData } = await server.ssrLoadModule("/src/lib/chartIngestion.ts");
-  const { parseRttData, parseSerialData } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
+  const { parseRttData, parseSerialData, TextFrameStream } = await server.ssrLoadModule("/src/lib/dataFraming.ts");
   const { DEFAULT_CHART_CONFIG, getSignalWorkspaceTransition, isSignalWorkspaceActive, migrateChartConfig } =
     await server.ssrLoadModule("/src/lib/chartTypes.ts");
   const {
@@ -263,6 +268,35 @@ try {
     ["temp", "humi"]
   );
 
+  const detectedJsonChannels = previewChartParser(
+    { ...DEFAULT_CHART_CONFIG, parseMode: "auto", channels: [] },
+    [],
+    '{"ch1":0.707107,"ch2":0.707107}'
+  ).config.channels;
+  const appliedJsonChannels = resolveAppliedParserChannels(
+    [{ key: "signal", name: "signal", color: "#3b82f6", visible: true, unit: "", role: "y" }],
+    detectedJsonChannels
+  );
+  assert.deepEqual(
+    appliedJsonChannels.map((channel) => channel.key),
+    ["ch1", "ch2"]
+  );
+  assert.equal(haveChannelKeysChanged([{ key: "signal" }], appliedJsonChannels), true);
+
+  const styledJsonChannels = resolveAppliedParserChannels(
+    [{ key: "ch1", name: "电压", color: "#f97316", visible: false, unit: "V", role: "y" }],
+    detectedJsonChannels
+  );
+  assert.deepEqual(
+    {
+      name: styledJsonChannels[0].name,
+      color: styledJsonChannels[0].color,
+      visible: styledJsonChannels[0].visible,
+      unit: styledJsonChannels[0].unit,
+    },
+    { name: "电压", color: "#f97316", visible: false, unit: "V" }
+  );
+
   const delimiter = populateEmptyChannelsFromSamples(
     { ...DEFAULT_CHART_CONFIG, parseMode: "delimiter", delimiter: "," },
     [{ text: "ok,10,20" }, { text: "ok,11,21" }]
@@ -342,6 +376,13 @@ try {
     { channel: rttLines[0].channel, text: rttLines[0].text, timestamp: rttLines[0].timestamp.getTime() },
     { channel: 1, text: "温度=25", timestamp: sourceTimestamp }
   );
+
+  const frameStream = new TextFrameStream();
+  assert.equal(frameStream.ingest(Array.from(new TextEncoder().encode("残帧")), sourceTimestamp, "rx").length, 0);
+  assert.equal(frameStream.flush(sourceTimestamp + 200)[0].text, "残帧");
+  frameStream.ingest([0x31], sourceTimestamp, "rx");
+  frameStream.reset();
+  assert.equal(frameStream.flush().length, 0);
 
   const plugin = {
     id: "plugin:double",

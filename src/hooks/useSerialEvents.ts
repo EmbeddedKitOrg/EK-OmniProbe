@@ -10,10 +10,7 @@ import {
 import { formatBytes } from "@/lib/formatters";
 import { publishAiSamples } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
-
-// 非超时模式下的"兜底"空闲刷新：即便选了按换行/自定义分隔符，
-// 残留数据静默这么久也强制刷出一行，杜绝无分隔符数据被永久卡住不显示。
-const SAFETY_IDLE_MS = 200;
+import { TEXT_FRAME_IDLE_MS } from "@/lib/dataFraming";
 
 /**
  * Hook to listen for serial events
@@ -103,7 +100,7 @@ export function useSerialEvents() {
         clearTimeout(idleFlushTimerRef.current);
       }
       const framing = useSerialStore.getState().rxFraming;
-      const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : SAFETY_IDLE_MS;
+      const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : TEXT_FRAME_IDLE_MS;
       idleFlushTimerRef.current = window.setTimeout(flushPendingLine, delay);
     };
 
@@ -128,7 +125,20 @@ export function useSerialEvents() {
     // Listen for serial status events
     const unlistenStatus = listen<SerialStatusEvent>("serial-status", (event) => {
       const { connected, running, error } = event.payload;
-      if (!connected) {
+      if (!running) {
+        if (idleFlushTimerRef.current !== null) {
+          clearTimeout(idleFlushTimerRef.current);
+          idleFlushTimerRef.current = null;
+        }
+        const state = useSerialStore.getState();
+        const pending = receivePipelineRef.current.flushPending({
+          framing: state.rxFraming,
+          chartConfig: state.chartConfig,
+        });
+        if (pending.lines.length > 0) {
+          batchResultsRef.current.push(pending);
+          scheduleBatchUpdate();
+        }
         receivePipelineRef.current.reset();
       }
       setConnected(connected);

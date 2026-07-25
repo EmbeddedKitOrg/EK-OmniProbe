@@ -22,6 +22,7 @@ interface SignalPlotCanvasProps {
   series: ChartSeries[];
   chartConfig: ChartConfig;
   domain: SignalDomain;
+  onChartConfigChange?: (config: ChartConfig) => void;
   className?: string;
 }
 
@@ -64,6 +65,7 @@ interface FftViewModel {
 }
 
 const MARGIN = { top: 20, right: 20, bottom: 28, left: 60 };
+const X_GRID_DIVISIONS = 6;
 
 const getRawSeriesColor = (color: string) => {
   const index = PRESET_COLORS.indexOf(color);
@@ -72,6 +74,12 @@ const getRawSeriesColor = (color: string) => {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 0.001) return `${(seconds * 1_000_000).toFixed(1)} μs`;
+  if (seconds < 1) return `${(seconds * 1000).toFixed(2)} ms`;
+  return `${seconds.toFixed(2)} s`;
 }
 
 interface SignalPathPoint {
@@ -136,6 +144,7 @@ export function SignalPlotCanvas({
   series,
   chartConfig,
   domain,
+  onChartConfigChange,
   className,
 }: SignalPlotCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -417,20 +426,22 @@ export function SignalPlotCanvas({
     visibleSeries,
   ]);
 
+  const updateXZoom = (nextZoom: number) => {
+    if (domain === "time" && timeView) {
+      const zoom = clamp(nextZoom, 1, 120);
+      setTimeZoom(zoom);
+      if (zoom <= 1.02) setTimePanSec(0);
+    } else if (domain === "fft" && fftView) {
+      setFftZoom(clamp(nextZoom, 1, 80));
+    }
+  };
+
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     const zoomFactor = event.deltaY < 0 ? 1.18 : 1 / 1.18;
 
     if (event.shiftKey) {
-      if (domain === "time" && timeView) {
-        const nextZoom = clamp(timeZoom * zoomFactor, 1, 120);
-        setTimeZoom(nextZoom);
-        if (nextZoom <= 1.02) {
-          setTimePanSec(0);
-        }
-      } else if (domain === "fft" && fftView) {
-        setFftZoom((value) => clamp(value * zoomFactor, 1, 80));
-      }
+      updateXZoom((domain === "time" ? timeZoom : fftZoom) * zoomFactor);
       return;
     }
 
@@ -488,102 +499,201 @@ export function SignalPlotCanvas({
     setYOffset(0);
   };
 
+  const sampleIntervalSec = 1 / Math.max(effectiveSampleRate ?? 1, 0.0001);
+  const fftBinWidth = fftView ? (fftView.series[0]?.bins[1]?.freq ?? 0) - (fftView.series[0]?.bins[0]?.freq ?? 0) : 0;
+  const xDivision =
+    domain === "time"
+      ? (timeView?.visibleDurationSec ?? 0) / X_GRID_DIVISIONS
+      : ((fftView?.visibleBinCount ?? 0) * fftBinWidth) / X_GRID_DIVISIONS;
+  const xZoom = domain === "time" ? timeZoom : fftZoom;
+  const xZoomMax = domain === "time" ? 120 : 80;
+  const autoRange =
+    yZoom === 1 &&
+    yOffset === 0 &&
+    (domain === "time" ? timeZoom === 1 && timePanSec === 0 : fftZoom === 1 && fftPanBins === 0);
+  const filterRateMismatch = Boolean(
+    chartConfig.dataFilter.sampleRateHz > 0 &&
+    effectiveSampleRate &&
+    Math.abs(effectiveSampleRate - chartConfig.dataFilter.sampleRateHz) / chartConfig.dataFilter.sampleRateHz > 0.05
+  );
+  const filterLabel =
+    chartConfig.dataFilter.kind === "sos"
+      ? "SOS"
+      : chartConfig.dataFilter.kind === "fir"
+        ? "FIR"
+        : chartConfig.dataFilter.kind === "cascade"
+          ? "参数级联"
+          : "中值";
+
+  const updateChartConfig = (patch: Partial<ChartConfig>) => {
+    onChartConfigChange?.({ ...chartConfig, ...patch });
+  };
+
   return (
     <div
-      ref={containerRef}
       className={cn(
-        "relative h-full min-h-[320px] overflow-hidden rounded-[28px] border border-border/60 bg-white/80",
+        "flex h-full min-h-[320px] flex-col overflow-hidden rounded-[28px] border border-border/60 bg-white/80",
         className
       )}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => {
-        dragStateRef.current.active = false;
-        setHoverPoint(null);
-      }}
-      onMouseUp={handleMouseUp}
-      onMouseOut={handleMouseUp}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        handleReset();
-      }}
-      role="presentation"
     >
-      <canvas ref={canvasRef} className="h-full w-full cursor-crosshair" />
-
-      {chartConfig.showLegend && (
-        <div className="pointer-events-none absolute left-4 right-28 top-4 flex flex-wrap gap-2">
-          {visibleSeries.map((item) => {
-            const latestValue = chartData[chartData.length - 1]?.values[item.key];
-            const latestRawValue = rawChartData?.[rawChartData.length - 1]?.values[item.key];
-            return (
-              <div
-                key={item.key}
-                className="rounded-full border border-white/80 bg-white/88 px-3 py-1 text-[11px] shadow-sm backdrop-blur"
-              >
-                <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="font-medium text-foreground">{item.name}</span>
-                {Number.isFinite(latestValue) && (
-                  <span className="ml-2">
-                    <span style={{ color: item.color }}>
-                      {filterActive ? "滤 " : ""}
-                      {formatChartNumber(latestValue as number)}
-                    </span>
-                    {rawChartData && Number.isFinite(latestRawValue) && (
-                      <span style={{ color: getRawSeriesColor(item.color) }}>
-                        {` · 原 ${formatChartNumber(latestRawValue as number)}`}
-                      </span>
-                    )}
-                    <span className="text-muted-foreground">{item.unit ? ` ${item.unit}` : ""}</span>
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <Button
-        size="sm"
-        variant="outline"
-        className="absolute right-3 top-3 z-10 h-8 gap-1 bg-white/90 shadow-sm backdrop-blur"
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={handleReset}
-        title="恢复 X/Y 自动范围"
-        aria-label="自适应显示全部曲线"
+      <div
+        ref={containerRef}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => {
+          dragStateRef.current.active = false;
+          setHoverPoint(null);
+        }}
+        onMouseUp={handleMouseUp}
+        onMouseOut={handleMouseUp}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          handleReset();
+        }}
+        role="presentation"
       >
-        <ScanLine className="h-3.5 w-3.5" />
-        自适应
-      </Button>
+        <canvas ref={canvasRef} className="h-full w-full cursor-crosshair" />
 
-      <div className="pointer-events-none absolute bottom-3 left-4 rounded-full bg-secondary/85 px-3 py-1 text-[11px] text-muted-foreground shadow-sm">
-        左键拖拽平移，滚轮缩放 Y，Shift + 滚轮缩放 X，右键或“自适应”重置
+        {chartConfig.showLegend && (
+          <div className="pointer-events-none absolute left-4 right-4 top-4 flex flex-wrap gap-2">
+            {visibleSeries.map((item) => {
+              const latestValue = chartData[chartData.length - 1]?.values[item.key];
+              const latestRawValue = rawChartData?.[rawChartData.length - 1]?.values[item.key];
+              return (
+                <div
+                  key={item.key}
+                  className="rounded-full border border-white/80 bg-white/88 px-3 py-1 text-[11px] shadow-sm backdrop-blur"
+                >
+                  <span
+                    className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="font-medium text-foreground">{item.name}</span>
+                  {Number.isFinite(latestValue) && (
+                    <span className="ml-2">
+                      <span style={{ color: item.color }}>
+                        {filterActive ? "滤 " : ""}
+                        {formatChartNumber(latestValue as number)}
+                      </span>
+                      {rawChartData && Number.isFinite(latestRawValue) && (
+                        <span style={{ color: getRawSeriesColor(item.color) }}>
+                          {` · 原 ${formatChartNumber(latestRawValue as number)}`}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">{item.unit ? ` ${item.unit}` : ""}</span>
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!onChartConfigChange && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="absolute right-3 top-3 z-10 h-8 gap-1 bg-white/90 shadow-sm backdrop-blur"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={handleReset}
+            title="恢复 X/Y 自动范围"
+            aria-label="自适应显示全部曲线"
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+            自适应
+          </Button>
+        )}
+
+        {!onChartConfigChange && filterActive && (
+          <span
+            className={cn(
+              "pointer-events-none absolute bottom-3 right-3 rounded-full px-3 py-1 text-[11px] shadow-sm",
+              filterRateMismatch ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+            )}
+          >
+            {filterLabel}
+          </span>
+        )}
       </div>
 
-      {filterActive && (
-        <div
-          className={cn(
-            "pointer-events-none absolute bottom-3 right-4 rounded-full px-3 py-1 text-[11px] shadow-sm",
-            chartConfig.dataFilter.sampleRateHz > 0 &&
-              effectiveSampleRate &&
-              Math.abs(effectiveSampleRate - chartConfig.dataFilter.sampleRateHz) /
-                chartConfig.dataFilter.sampleRateHz >
-                0.05
-              ? "bg-amber-100 text-amber-800"
-              : "bg-emerald-100 text-emerald-800"
-          )}
-        >
-          {chartConfig.dataFilter.kind === "sos"
-            ? "SOS"
-            : chartConfig.dataFilter.kind === "fir"
-              ? "FIR"
-              : chartConfig.dataFilter.kind === "cascade"
-                ? "参数级联"
-                : "中值"}
-          {chartConfig.dataFilter.sampleRateHz > 0 && effectiveSampleRate
-            ? ` · 参数 ${chartConfig.dataFilter.sampleRateHz} Hz / 当前 ${effectiveSampleRate.toFixed(1)} Hz`
-            : " · 滤波预览"}
+      {onChartConfigChange && (
+        <div className="shrink-0 border-t border-border/60 bg-secondary/70">
+          <div className="flex items-center gap-2 overflow-x-auto px-3 py-2 text-[11px] tabular-nums">
+            <span className="shrink-0 rounded-lg border border-border/60 bg-white/80 px-2.5 py-2">
+              <span className="text-muted-foreground">Δt </span>
+              {formatDuration(sampleIntervalSec)}
+            </span>
+            <Button
+              size="sm"
+              variant={chartConfig.sampleRateHz === 0 ? "default" : "outline"}
+              className="h-8 shrink-0 px-2.5 text-[11px]"
+              onClick={() => updateChartConfig({ sampleRateHz: 0 })}
+              title="按数据到达时间自动估算采样率"
+            >
+              采样 Auto
+            </Button>
+            <span className="shrink-0 rounded-lg border border-border/60 bg-white/80 px-2.5 py-2">
+              <span className="text-muted-foreground">缓冲 </span>
+              {chartData.length} / {chartConfig.maxDataPoints}
+            </span>
+            <span className="shrink-0 rounded-lg border border-border/60 bg-white/80 px-2.5 py-2">
+              <span className="text-muted-foreground">绘制 </span>
+              {domain === "time" ? (timeView?.points.length ?? 0) : (fftView?.visibleBinCount ?? 0)} /{" "}
+              {chartConfig.visiblePointLimit === 0 ? "全部" : chartConfig.visiblePointLimit}
+            </span>
+            {xDivision > 0 && (
+              <span className="shrink-0 rounded-lg border border-border/60 bg-white/80 px-2.5 py-2">
+                <span className="text-muted-foreground">{domain === "time" ? "X/div " : "F/div "}</span>
+                {domain === "time" ? formatDuration(xDivision) : `${formatChartNumber(xDivision)} Hz`}
+              </span>
+            )}
+            <div className="flex h-8 shrink-0 items-center gap-2 rounded-lg border border-border/60 bg-white/80 px-2.5">
+              {visibleSeries.map((item) => (
+                <span key={item.key} className="flex items-center gap-1 text-muted-foreground" title={item.name}>
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                  {item.name}
+                </span>
+              ))}
+            </div>
+            {filterActive && (
+              <span
+                className={cn(
+                  "h-8 shrink-0 rounded-lg px-2.5 py-2",
+                  filterRateMismatch ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                )}
+              >
+                {filterLabel}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant={autoRange ? "default" : "outline"}
+              className="ml-auto h-8 shrink-0 gap-1 px-2.5 text-[11px]"
+              onClick={handleReset}
+              title="恢复 X/Y 自动范围"
+              aria-label="自适应显示全部曲线"
+            >
+              <ScanLine className="h-3.5 w-3.5" />
+              自适应
+            </Button>
+          </div>
+          <div className="flex items-center gap-3 px-3 pb-2 text-[11px] text-muted-foreground">
+            <span className="shrink-0">X 轴缩放</span>
+            <input
+              type="range"
+              min={1}
+              max={xZoomMax}
+              step={0.1}
+              value={xZoom}
+              onChange={(event) => updateXZoom(Number(event.target.value))}
+              className="h-2 min-w-32 flex-1 cursor-ew-resize accent-primary"
+              aria-label="调整 X 轴缩放"
+              title="拖动调整 X 轴缩放，与 Shift + 滚轮作用相同"
+            />
+            <span className="w-12 shrink-0 text-right tabular-nums text-foreground">{xZoom.toFixed(1)}×</span>
+          </div>
         </div>
       )}
     </div>
@@ -791,7 +901,7 @@ function drawGrid(
   context.fillStyle = "rgba(94, 104, 121, 0.84)";
   context.font = "12px 'Segoe UI Variable', 'Noto Sans SC', sans-serif";
 
-  const verticalSteps = 6;
+  const verticalSteps = X_GRID_DIVISIONS;
   for (let step = 0; step <= verticalSteps; step += 1) {
     const ratio = step / verticalSteps;
     const x = MARGIN.left + ratio * plotWidth;

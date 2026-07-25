@@ -42,9 +42,13 @@ export interface BleStats {
   bytes_sent: number;
 }
 
-export interface BleDataEvent {
+export interface BleDataChunk {
   data: number[];
   timestamp: number;
+}
+
+export interface BleDataEvent {
+  chunks: BleDataChunk[];
   direction: "rx" | "tx";
 }
 

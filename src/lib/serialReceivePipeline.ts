@@ -1,11 +1,10 @@
 import { TelemetryIngestionBuffer } from "./chartIngestion";
 import type { Channel, TelemetryConfig } from "./chartTypes";
 import { PRESET_COLORS } from "./chartTypes";
-import { parseSerialData, type PendingTextData } from "./dataFraming";
+import { TextFrameStream } from "./dataFraming";
 import { parseJustFloatChunk } from "./parseJustFloat";
 import type { TelemetryBatch } from "./telemetry";
 import type { RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
-import { parseLogLevel } from "./utils";
 
 export interface SerialReceivePipelineConfig {
   framing: RxFramingSettings;
@@ -38,8 +37,6 @@ export function mergeSerialReceiveResults(results: SerialReceiveResult[]): Seria
   return { terminalText, lines, telemetryBatch: telemetryBuffer.drain(), bytesReceived, detectedChannels };
 }
 
-const emptyPending = (): PendingTextData => ({ text: "", rawData: [] });
-
 function createJustFloatChannels(count: number): Channel[] {
   return Array.from({ length: count }, (_, index) => ({
     key: `ch${index + 1}`,
@@ -63,8 +60,7 @@ function toJustFloatPoint(values: number[], config: TelemetryConfig, timestamp: 
 }
 
 export class SerialReceivePipeline {
-  private pending = emptyPending();
-  private pendingDirection: "rx" | "tx" = "rx";
+  private textFrames = new TextFrameStream();
   private terminalDecoder = new TextDecoder();
   private justFloatPending: number[] = [];
 
@@ -101,13 +97,11 @@ export class SerialReceivePipeline {
         this.justFloatPending = [];
       }
 
-      const framed = parseSerialData(data, timestamp, event.direction, this.pending, config.framing);
-      this.pending = framed.pending;
-      this.pendingDirection = event.direction;
-      lines.push(...framed.lines);
+      const framedLines = this.textFrames.ingest(data, timestamp, event.direction, config.framing);
+      lines.push(...framedLines);
 
-      if (framed.lines.length > 0 && chartConfig.enabled && chartConfig.parseMode !== "justfloat") {
-        telemetryBuffer.ingestLines(framed.lines, chartConfig);
+      if (framedLines.length > 0 && chartConfig.enabled && chartConfig.parseMode !== "justfloat") {
+        telemetryBuffer.ingestLines(framedLines, chartConfig);
       }
     }
 
@@ -121,36 +115,26 @@ export class SerialReceivePipeline {
   }
 
   flushPending(config: SerialReceivePipelineConfig, timestamp = Date.now()): SerialReceiveResult {
-    const pending = this.pending;
-    if (pending.rawData.length === 0 && pending.text.length === 0) {
+    const lines = this.textFrames.flush(timestamp);
+    if (lines.length === 0) {
       return { terminalText: "", lines: [], telemetryBatch: { points: [], success: 0, fail: 0 }, bytesReceived: 0 };
     }
 
-    const line: Omit<SerialLine, "id"> = {
-      timestamp: new Date(timestamp),
-      text: pending.text,
-      level: parseLogLevel(pending.text),
-      rawData: pending.rawData,
-      direction: this.pendingDirection,
-    };
-    this.pending = emptyPending();
-
     const telemetryBuffer = new TelemetryIngestionBuffer();
     if (config.chartConfig.enabled && config.chartConfig.parseMode !== "justfloat") {
-      telemetryBuffer.ingestLines([line], config.chartConfig);
+      telemetryBuffer.ingestLines(lines, config.chartConfig);
     }
 
     return {
       terminalText: "",
-      lines: [line],
+      lines,
       telemetryBatch: telemetryBuffer.drain(),
       bytesReceived: 0,
     };
   }
 
   reset(): void {
-    this.pending = emptyPending();
-    this.pendingDirection = "rx";
+    this.textFrames.reset();
     this.terminalDecoder = new TextDecoder();
     this.justFloatPending = [];
   }

@@ -21,9 +21,14 @@ use crate::state::AppState;
 // ============================================================================
 
 #[derive(Clone, Serialize)]
-struct BleDataEvent {
+struct BleDataChunk {
     data: Vec<u8>,
     timestamp: i64,
+}
+
+#[derive(Clone, Serialize)]
+struct BleDataEvent {
+    chunks: Vec<BleDataChunk>,
     direction: String,
 }
 
@@ -371,7 +376,8 @@ pub async fn ble_subscribe(
         const BATCH_SIZE_THRESHOLD: usize = 4096;
         const BATCH_TIMEOUT_MS: u64 = 10;
 
-        let mut batch: Vec<u8> = Vec::with_capacity(65536);
+        let mut batch: Vec<BleDataChunk> = Vec::new();
+        let mut batch_bytes = 0usize;
         let mut last_emit = Instant::now();
         let mut tick = tokio::time::interval(Duration::from_millis(BATCH_TIMEOUT_MS));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -384,13 +390,16 @@ pub async fn ble_subscribe(
                             if n.uuid == target_uuid {
                                 let len = n.value.len();
                                 ble_clone.add_rx(len as u64);
-                                batch.extend_from_slice(&n.value);
-                                if batch.len() >= BATCH_SIZE_THRESHOLD {
-                                    let payload = std::mem::take(&mut batch);
-                                    batch.reserve(65536);
+                                batch_bytes += len;
+                                batch.push(BleDataChunk {
+                                    data: n.value,
+                                    timestamp: chrono::Utc::now().timestamp_millis(),
+                                });
+                                if batch_bytes >= BATCH_SIZE_THRESHOLD {
+                                    let chunks = std::mem::take(&mut batch);
+                                    batch_bytes = 0;
                                     let _ = app_clone.emit("ble-data", BleDataEvent {
-                                        data: payload,
-                                        timestamp: chrono::Utc::now().timestamp_millis(),
+                                        chunks,
                                         direction: "rx".into(),
                                     });
                                     last_emit = Instant::now();
@@ -403,11 +412,10 @@ pub async fn ble_subscribe(
                 _ = tick.tick() => {
                     if !ble_clone.is_notify_running() { break; }
                     if !batch.is_empty() && last_emit.elapsed().as_millis() as u64 >= BATCH_TIMEOUT_MS {
-                        let payload = std::mem::take(&mut batch);
-                        batch.reserve(65536);
+                        let chunks = std::mem::take(&mut batch);
+                        batch_bytes = 0;
                         let _ = app_clone.emit("ble-data", BleDataEvent {
-                            data: payload,
-                            timestamp: chrono::Utc::now().timestamp_millis(),
+                            chunks,
                             direction: "rx".into(),
                         });
                         last_emit = Instant::now();
@@ -420,8 +428,7 @@ pub async fn ble_subscribe(
             let _ = app_clone.emit(
                 "ble-data",
                 BleDataEvent {
-                    data: batch,
-                    timestamp: chrono::Utc::now().timestamp_millis(),
+                    chunks: batch,
                     direction: "rx".into(),
                 },
             );

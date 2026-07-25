@@ -187,12 +187,6 @@ async fn rtt_polling_task(
     let mut consecutive_errors = 0u32;
     const MAX_CONSECUTIVE_ERRORS: u32 = 50;
 
-    // 批量发送缓冲区
-    let mut batch_events: Vec<RttDataEvent> = Vec::new();
-    let mut last_emit = std::time::Instant::now();
-    const BATCH_TIMEOUT_MS: u64 = 50; // 批量发送超时 50ms
-    const BATCH_SIZE_THRESHOLD: usize = 10; // 批量大小阈值 10 个事件
-
     // 获取保存的控制块地址
     let control_block_addr = *rtt_state.control_block_address.lock();
 
@@ -225,17 +219,10 @@ async fn rtt_polling_task(
 
         match poll_result {
             PollResult::Data(events) => {
-                // 累积事件到批量缓冲区
-                batch_events.extend(events);
-
-                // 如果批量缓冲区达到阈值，立即发送
-                if batch_events.len() >= BATCH_SIZE_THRESHOLD {
-                    for event in batch_events.drain(..) {
-                        if let Err(e) = app_handle.emit("rtt-data", &event) {
-                            log::error!("发送 RTT 数据事件失败: {}", e);
-                        }
+                for event in events {
+                    if let Err(e) = app_handle.emit("rtt-data", &event) {
+                        log::error!("发送 RTT 数据事件失败: {}", e);
                     }
-                    last_emit = std::time::Instant::now();
                 }
             }
             PollResult::NoData => {
@@ -252,21 +239,6 @@ async fn rtt_polling_task(
                 break;
             }
         }
-
-        // 如果有累积的事件且超过超时时间，发送
-        if !batch_events.is_empty() && last_emit.elapsed().as_millis() as u64 >= BATCH_TIMEOUT_MS {
-            for event in batch_events.drain(..) {
-                if let Err(e) = app_handle.emit("rtt-data", &event) {
-                    log::error!("发送 RTT 数据事件失败: {}", e);
-                }
-            }
-            last_emit = std::time::Instant::now();
-        }
-    }
-
-    // 发送剩余事件
-    for event in batch_events {
-        let _ = app_handle.emit("rtt-data", &event);
     }
 
     log::info!("RTT 轮询任务清理中...");

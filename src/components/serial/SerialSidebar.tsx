@@ -52,6 +52,7 @@ export function SerialSidebar() {
     setActiveSourceType,
     setSendSettings,
     setChartConfig,
+    clearChartData,
     setInspectorTab,
     getActiveConfig,
   } = useSerialStore(
@@ -79,6 +80,7 @@ export function SerialSidebar() {
       setActiveSourceType: state.setActiveSourceType,
       setSendSettings: state.setSendSettings,
       setChartConfig: state.setChartConfig,
+      clearChartData: state.clearChartData,
       setInspectorTab: state.setInspectorTab,
       getActiveConfig: state.getActiveConfig,
     }))
@@ -871,6 +873,7 @@ export function SerialSidebar() {
           allowJustFloat
           allowDataFilter
           setChartConfig={setChartConfig}
+          clearChartData={clearChartData}
           onClose={() => setInspectorTab("connection")}
         />
       </div>
