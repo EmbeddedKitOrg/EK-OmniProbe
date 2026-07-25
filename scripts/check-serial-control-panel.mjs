@@ -16,6 +16,7 @@ try {
     resolveSerialImuAngles,
     clampFloatingPanelPosition,
     createSerialControlWidget,
+    getSerialControlWidgetInputHelp,
     isSerialControlWidgetType,
     SERIAL_CONTROL_WIDGET_TYPES,
     SERIAL_CONTROL_WIDGET_DEFINITIONS,
@@ -56,9 +57,9 @@ try {
     widgetTypes
   );
   assert.equal(
-    SERIAL_CONTROL_WIDGET_DEFINITIONS.every(({ type, label }) => {
+    SERIAL_CONTROL_WIDGET_DEFINITIONS.every(({ type, label, inputHelp }) => {
       const widget = createSerialControlWidget(type);
-      return widget.type === type && widget.label === label;
+      return widget.type === type && widget.label === label && inputHelp.docId === type;
     }),
     true
   );
@@ -81,6 +82,12 @@ try {
     true
   );
   assert.equal(isSerialVisualizationWidget(createSerialControlWidget("button")), false);
+  const imuHelpWidget = createSerialControlWidget("imu-3d");
+  assert.equal(getSerialControlWidgetInputHelp(imuHelpWidget).example, '{"roll":10.2,"pitch":-3.1,"yaw":45}');
+  assert.equal(
+    getSerialControlWidgetInputHelp({ ...imuHelpWidget, sourceMode: "imu6" }).example,
+    '{"ax":0.01,"ay":0.02,"az":1,"gx":0.2,"gy":-0.1,"gz":0}'
+  );
   const importedDefaults = parseSerialControlPanel({
     version: 4,
     widgets: widgetTypes.map((type) => ({ type })),

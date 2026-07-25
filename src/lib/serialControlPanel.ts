@@ -206,6 +206,15 @@ export interface SerialControlWidgetDefinition {
   label: string;
   paletteLabel: string;
   group: "发送控制" | "数据显示" | "可视化";
+  inputHelp: SerialControlWidgetInputHelp;
+}
+
+export interface SerialControlWidgetInputHelp {
+  description: string;
+  sampleLabel: string;
+  example: string;
+  flow: string;
+  docId: SerialControlWidgetType;
 }
 
 interface InternalWidgetDefinition {
@@ -213,34 +222,85 @@ interface InternalWidgetDefinition {
   label: string;
   paletteLabel?: string;
   group: SerialControlWidgetDefinition["group"];
+  inputHelp: Omit<SerialControlWidgetInputHelp, "docId">;
   defaults: () => Record<string, unknown>;
 }
 
+function inputHelp(description: string, sampleLabel: string, example: string, flow: string) {
+  return { description, sampleLabel, example, flow };
+}
+
 const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
-  { type: "button", label: "发送按钮", group: "发送控制", defaults: () => ({ command: "PING" }) },
+  {
+    type: "button",
+    label: "发送按钮",
+    group: "发送控制",
+    inputHelp: inputHelp(
+      "点击后把命令原样发给设备。",
+      "设备默认收到（TEXT）",
+      "PING\\n",
+      "点击 → PING → UTF-8 编码 → 追加 LF → 设备"
+    ),
+    defaults: () => ({ command: "PING" }),
+  },
   {
     type: "toggle",
     label: "开关",
     group: "发送控制",
+    inputHelp: inputHelp(
+      "切换开关时分别发送开启或关闭命令。",
+      "设备默认收到（TEXT）",
+      "LED=1\\n  或  LED=0\\n",
+      "切换状态 → 选择命令 → 编码并追加换行 → 设备"
+    ),
     defaults: () => ({ onCommand: "LED=1", offCommand: "LED=0", value: false }),
   },
   {
     type: "slider",
     label: "滑块",
     group: "发送控制",
+    inputHelp: inputHelp(
+      "把当前数值替换模板中的 {value} 后发送。",
+      "设备默认收到（TEXT）",
+      "PWM=128\\n",
+      "0–255 的值 → PWM={value} → 松手发送"
+    ),
     defaults: () => ({ template: "PWM={value}", min: 0, max: 255, step: 1, value: 0, sendMode: "release" }),
   },
-  { type: "input", label: "参数输入", group: "发送控制", defaults: () => ({ template: "{value}", value: "" }) },
+  {
+    type: "input",
+    label: "参数输入",
+    group: "发送控制",
+    inputHelp: inputHelp(
+      "把输入内容替换模板中的 {value} 后发送。",
+      "设备默认收到（TEXT）",
+      "hello\\n",
+      "用户输入 → {value} → 按 Enter 或发送按钮 → 设备"
+    ),
+    defaults: () => ({ template: "{value}", value: "" }),
+  },
   {
     type: "stepper",
     label: "参数微调",
     group: "发送控制",
+    inputHelp: inputHelp(
+      "按步长调整数值并替换模板中的 {value}。",
+      "设备默认收到（TEXT）",
+      "PARAM=42\\n",
+      "0–100 的值 → PARAM={value} → 设备"
+    ),
     defaults: () => ({ template: "PARAM={value}", min: 0, max: 100, step: 1, value: 0 }),
   },
   {
     type: "joystick",
     label: "摇杆",
     group: "发送控制",
+    inputHelp: inputHelp(
+      "把二维坐标替换模板中的 {x}、{y} 后发送。",
+      "设备默认收到（TEXT）",
+      "X=25,Y=-40\\n",
+      "摇杆坐标 → X={x},Y={y} → 最快每 100ms 发送"
+    ),
     defaults: () => ({
       template: "X={x},Y={y}",
       xMin: -100,
@@ -258,20 +318,60 @@ const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
     type: "sequence",
     label: "命令序列",
     group: "发送控制",
+    inputHelp: inputHelp(
+      "按从上到下的顺序发送多行命令。",
+      "设备默认依次收到（TEXT）",
+      "AT\\n  然后  AT+GMR\\n",
+      "每个非空行 → 间隔 100ms → 编码并追加换行 → 设备"
+    ),
     defaults: () => ({ commands: "AT\nAT+GMR", intervalMs: 100 }),
   },
-  { type: "value", label: "接收数值", group: "数据显示", defaults: () => ({ channel: "", unit: "" }) },
-  { type: "indicator", label: "状态灯", group: "数据显示", defaults: () => ({ channel: "", threshold: 0.5 }) },
+  {
+    type: "value",
+    label: "接收数值",
+    group: "数据显示",
+    inputHelp: inputHelp(
+      "显示一个数值通道的最新值。",
+      "设备每行输出（JSON）",
+      '{"temp":25.3}',
+      "设备 → 解析为 temp → 接收通道 key 填 temp"
+    ),
+    defaults: () => ({ channel: "", unit: "" }),
+  },
+  {
+    type: "indicator",
+    label: "状态灯",
+    group: "数据显示",
+    inputHelp: inputHelp(
+      "通道值达到阈值时点亮状态灯。",
+      "设备每行输出（JSON）",
+      '{"ready":1}',
+      "设备 → 解析为 ready → 与阈值比较"
+    ),
+    defaults: () => ({ channel: "", threshold: 0.5 }),
+  },
   {
     type: "gauge",
     label: "能量槽",
     group: "数据显示",
+    inputHelp: inputHelp(
+      "把通道最新值映射到配置的上下限。",
+      "设备每行输出（JSON）",
+      '{"battery":78}',
+      "设备 → 解析为 battery → 映射到能量槽"
+    ),
     defaults: () => ({ channel: "", min: 0, max: 100, unit: "%", direction: "horizontal" }),
   },
   {
     type: "serial-log",
     label: "串口日志",
     group: "数据显示",
+    inputHelp: inputHelp(
+      "显示已经按接收分帧规则切出的原始 RX/TX 行。",
+      "设备可直接输出",
+      "boot ok\\ntemp=25.3\\n",
+      "设备字节 → 接收分帧 → 日志；不经过数值解析"
+    ),
     defaults: () => ({ direction: "all", width: 780, height: 348 }),
   },
   {
@@ -279,12 +379,24 @@ const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
     label: "YT 一维曲线",
     paletteLabel: "YT 实时波形",
     group: "可视化",
+    inputHelp: inputHelp(
+      "以接收时间为横轴显示最多 6 个数值通道。",
+      "设备每行输出（JSON）",
+      '{"ch1":1.2,"ch2":3.4}',
+      "设备 → 解析为 ch1/ch2 → Y 通道绑定"
+    ),
     defaults: () => ({ channels: [], pointLimit: 200, interpolation: "linear", width: 780, height: 348 }),
   },
   {
     type: "fft-chart",
     label: "FFT 频谱",
     group: "可视化",
+    inputHelp: inputHelp(
+      "对最多 6 个时域数值通道实时计算频谱。",
+      "设备连续逐行输出（JSON）",
+      '{"ch1":1.2,"ch2":3.4}',
+      "连续时域采样 → ch1/ch2 → FFT；不要输入频谱结果"
+    ),
     defaults: () => ({ channels: [], pointLimit: 1024, width: 780, height: 348 }),
   },
   {
@@ -292,6 +404,12 @@ const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
     label: "XY 二维曲线",
     paletteLabel: "XY 曲线",
     group: "可视化",
+    inputHelp: inputHelp(
+      "分别使用一个 X 通道和一个 Y 通道绘制轨迹。",
+      "设备每行输出（JSON）",
+      '{"x":0.3,"y":0.8}',
+      "同一采样帧 → x/y → 配对为一个轨迹点"
+    ),
     defaults: () => ({ xChannel: "", yChannel: "", pointLimit: 200, width: 780, height: 348 }),
   },
   {
@@ -299,6 +417,12 @@ const WIDGET_DEFINITIONS: readonly InternalWidgetDefinition[] = [
     label: "IMU 3D 姿态",
     paletteLabel: "IMU 3D",
     group: "可视化",
+    inputHelp: inputHelp(
+      "欧拉角直驱分别读取 Roll、Pitch、Yaw。",
+      "设备每行输出（JSON）",
+      '{"roll":10.2,"pitch":-3.1,"yaw":45}',
+      "同一采样帧 → roll/pitch/yaw → 3D 姿态"
+    ),
     defaults: () => ({
       sourceMode: "euler",
       rollChannel: "roll",
@@ -331,7 +455,13 @@ const WIDGET_BY_TYPE = Object.fromEntries(
 ) as Record<SerialControlWidgetType, InternalWidgetDefinition>;
 
 export const SERIAL_CONTROL_WIDGET_DEFINITIONS: readonly SerialControlWidgetDefinition[] = WIDGET_DEFINITIONS.map(
-  ({ type, label, paletteLabel, group }) => ({ type, label, paletteLabel: paletteLabel ?? label, group })
+  ({ type, label, paletteLabel, group, inputHelp }) => ({
+    type,
+    label,
+    paletteLabel: paletteLabel ?? label,
+    group,
+    inputHelp: { ...inputHelp, docId: type },
+  })
 );
 
 export const SERIAL_CONTROL_WIDGET_GROUPS = (["发送控制", "数据显示", "可视化"] as const).map((title) => ({
@@ -344,6 +474,21 @@ export const SERIAL_CONTROL_WIDGET_GROUPS = (["发送控制", "数据显示", "�
 
 export function isSerialControlWidgetType(value: unknown): value is SerialControlWidgetType {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(WIDGET_BY_TYPE, value);
+}
+
+export function getSerialControlWidgetInputHelp(widget: SerialControlWidget): SerialControlWidgetInputHelp {
+  if (widget.type === "imu-3d" && widget.sourceMode === "imu6") {
+    return {
+      ...inputHelp(
+        "六轴融合读取三轴加速度和三轴陀螺仪。",
+        "设备每行输出（JSON）",
+        '{"ax":0.01,"ay":0.02,"az":1,"gx":0.2,"gy":-0.1,"gz":0}',
+        "同一采样帧 → ax/ay/az/gx/gy/gz → 姿态融合"
+      ),
+      docId: widget.type,
+    };
+  }
+  return { ...WIDGET_BY_TYPE[widget.type].inputHelp, docId: widget.type };
 }
 
 function widgetId() {

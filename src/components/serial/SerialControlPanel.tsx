@@ -36,6 +36,7 @@ import { sendSerialPayload } from "@/lib/serialSend";
 import {
   createSerialControlWidget,
   clampFloatingPanelPosition,
+  getSerialControlWidgetInputHelp,
   loadSerialControlPanel,
   parseSerialCommandSequence,
   parseSerialControlPanel,
@@ -73,116 +74,6 @@ const CANVAS_GAP = 12;
 const MIN_WIDGET_WIDTH = 200;
 const MIN_WIDGET_HEIGHT = 96;
 const WIDGET_INPUT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/SERIAL_CONTROL_PANEL_GUIDE";
-const WIDGET_INPUT_HELP: Record<
-  SerialControlWidgetType,
-  { description: string; sampleLabel: string; example: string; flow: string; docId: string }
-> = {
-  button: {
-    description: "点击后把命令原样发给设备。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "PING\\n",
-    flow: "点击 → PING → UTF-8 编码 → 追加 LF → 设备",
-    docId: "button",
-  },
-  toggle: {
-    description: "切换开关时分别发送开启或关闭命令。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "LED=1\\n  或  LED=0\\n",
-    flow: "切换状态 → 选择命令 → 编码并追加换行 → 设备",
-    docId: "toggle",
-  },
-  slider: {
-    description: "把当前数值替换模板中的 {value} 后发送。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "PWM=128\\n",
-    flow: "0–255 的值 → PWM={value} → 松手发送",
-    docId: "slider",
-  },
-  input: {
-    description: "把输入内容替换模板中的 {value} 后发送。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "hello\\n",
-    flow: "用户输入 → {value} → 按 Enter 或发送按钮 → 设备",
-    docId: "input",
-  },
-  stepper: {
-    description: "按步长调整数值并替换模板中的 {value}。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "PARAM=42\\n",
-    flow: "0–100 的值 → PARAM={value} → 设备",
-    docId: "stepper",
-  },
-  joystick: {
-    description: "把二维坐标替换模板中的 {x}、{y} 后发送。",
-    sampleLabel: "设备默认收到（TEXT）",
-    example: "X=25,Y=-40\\n",
-    flow: "摇杆坐标 → X={x},Y={y} → 最快每 100ms 发送",
-    docId: "joystick",
-  },
-  sequence: {
-    description: "按从上到下的顺序发送多行命令。",
-    sampleLabel: "设备默认依次收到（TEXT）",
-    example: "AT\\n  然后  AT+GMR\\n",
-    flow: "每个非空行 → 间隔 100ms → 编码并追加换行 → 设备",
-    docId: "sequence",
-  },
-  value: {
-    description: "显示一个数值通道的最新值。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"temp":25.3}',
-    flow: "设备 → 解析为 temp → 接收通道 key 填 temp",
-    docId: "value",
-  },
-  indicator: {
-    description: "通道值达到阈值时点亮状态灯。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"ready":1}',
-    flow: "设备 → 解析为 ready → 与阈值比较",
-    docId: "indicator",
-  },
-  gauge: {
-    description: "把通道最新值映射到配置的上下限。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"battery":78}',
-    flow: "设备 → 解析为 battery → 映射到能量槽",
-    docId: "gauge",
-  },
-  "serial-log": {
-    description: "显示已经按接收分帧规则切出的原始 RX/TX 行。",
-    sampleLabel: "设备可直接输出",
-    example: "boot ok\\ntemp=25.3\\n",
-    flow: "设备字节 → 接收分帧 → 日志；不经过数值解析",
-    docId: "serial-log",
-  },
-  "yt-chart": {
-    description: "以接收时间为横轴显示最多 6 个数值通道。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"ch1":1.2,"ch2":3.4}',
-    flow: "设备 → 解析为 ch1/ch2 → Y 通道绑定",
-    docId: "yt-chart",
-  },
-  "fft-chart": {
-    description: "对最多 6 个时域数值通道实时计算频谱。",
-    sampleLabel: "设备连续逐行输出（JSON）",
-    example: '{"ch1":1.2,"ch2":3.4}',
-    flow: "连续时域采样 → ch1/ch2 → FFT；不要输入频谱结果",
-    docId: "fft-chart",
-  },
-  "xy-chart": {
-    description: "分别使用一个 X 通道和一个 Y 通道绘制轨迹。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"x":0.3,"y":0.8}',
-    flow: "同一采样帧 → x/y → 配对为一个轨迹点",
-    docId: "xy-chart",
-  },
-  "imu-3d": {
-    description: "欧拉角直驱分别读取 Roll、Pitch、Yaw。",
-    sampleLabel: "设备每行输出（JSON）",
-    example: '{"roll":10.2,"pitch":-3.1,"yaw":45}',
-    flow: "同一采样帧 → roll/pitch/yaw → 3D 姿态",
-    docId: "imu-3d",
-  },
-};
 
 export interface ControlPanelData extends SerialViewerData {
   chartData: ChartDataPoint[];
@@ -599,18 +490,7 @@ export function SerialControlPanel({
   };
 
   const selectedWidget = panel.widgets.find((widget) => widget.id === selectedWidgetId);
-  const widgetInputHelp =
-    selectedWidget?.type === "imu-3d" && selectedWidget.sourceMode === "imu6"
-      ? {
-          description: "六轴融合读取三轴加速度和三轴陀螺仪。",
-          sampleLabel: "设备每行输出（JSON）",
-          example: '{"ax":0.01,"ay":0.02,"az":1,"gx":0.2,"gy":-0.1,"gz":0}',
-          flow: "同一采样帧 → ax/ay/az/gx/gy/gz → 姿态融合",
-          docId: "imu-3d",
-        }
-      : selectedWidget
-        ? WIDGET_INPUT_HELP[selectedWidget.type]
-        : undefined;
+  const widgetInputHelp = selectedWidget ? getSerialControlWidgetInputHelp(selectedWidget) : undefined;
   const canvasWidth = Math.max(900, ...panel.widgets.map((widget) => widget.left + widget.width + CANVAS_GAP));
   const canvasHeight = Math.max(560, ...panel.widgets.map((widget) => widget.top + widget.height + CANVAS_GAP));
   const inspectorContent =
