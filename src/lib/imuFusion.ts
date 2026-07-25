@@ -1,21 +1,25 @@
-import type { ChartDataPoint } from "@/lib/chartTypes";
-import type { SerialImu3dWidget } from "@/lib/serialControlPanel";
+import type { TelemetrySample } from "@/lib/telemetry";
 
-export type Imu6FusionConfig = Pick<
-  SerialImu3dWidget,
-  | "accelXChannel"
-  | "accelYChannel"
-  | "accelZChannel"
-  | "gyroXChannel"
-  | "gyroYChannel"
-  | "gyroZChannel"
-  | "gyroUnit"
-  | "sampleRateHz"
-  | "filterAlpha"
-  | "gyroBiasX"
-  | "gyroBiasY"
-  | "gyroBiasZ"
->;
+export interface Imu6FusionConfig {
+  accelXChannel: string;
+  accelYChannel: string;
+  accelZChannel: string;
+  gyroXChannel: string;
+  gyroYChannel: string;
+  gyroZChannel: string;
+  gyroUnit: "dps" | "rad";
+  sampleRateHz: number;
+  filterAlpha: number;
+  gyroBiasX: number;
+  gyroBiasY: number;
+  gyroBiasZ: number;
+}
+
+export interface ImuOrientation {
+  roll: number;
+  pitch: number;
+  yaw: number;
+}
 
 export interface ImuFusionState {
   initialized: boolean;
@@ -35,7 +39,7 @@ function normalizeAngle(angle: number) {
 
 export function updateImuFusion(
   state: ImuFusionState,
-  point: ChartDataPoint,
+  point: TelemetrySample,
   config: Imu6FusionConfig
 ): ImuFusionState {
   const { values } = point;
@@ -84,7 +88,62 @@ export function updateImuFusion(
   };
 }
 
-export function estimateGyroBias(points: ChartDataPoint[], config: Imu6FusionConfig) {
+function getConfigSignature(config: Imu6FusionConfig) {
+  return JSON.stringify([
+    config.accelXChannel,
+    config.accelYChannel,
+    config.accelZChannel,
+    config.gyroXChannel,
+    config.gyroYChannel,
+    config.gyroZChannel,
+    config.gyroUnit,
+    config.sampleRateHz,
+    config.filterAlpha,
+    config.gyroBiasX,
+    config.gyroBiasY,
+    config.gyroBiasZ,
+  ]);
+}
+
+/** 增量消费有限遥测缓存；映射或融合参数变化时自动重放。 */
+export class ImuFusionProcessor {
+  private state = createImuFusionState();
+  private lastSample: TelemetrySample | null = null;
+  private configSignature = "";
+
+  process(samples: TelemetrySample[], config: Imu6FusionConfig): ImuOrientation | null {
+    if (samples.length === 0) {
+      this.reset();
+      return null;
+    }
+
+    const signature = getConfigSignature(config);
+    const previousIndex = this.lastSample ? samples.indexOf(this.lastSample) : -1;
+    if (signature !== this.configSignature || (this.lastSample && previousIndex < 0)) {
+      this.state = createImuFusionState();
+      this.lastSample = null;
+    }
+    this.configSignature = signature;
+
+    const startIndex = this.lastSample ? previousIndex + 1 : 0;
+    for (let index = startIndex; index < samples.length; index += 1) {
+      this.state = updateImuFusion(this.state, samples[index], config);
+    }
+    this.lastSample = samples[samples.length - 1];
+
+    return this.state.initialized
+      ? { roll: this.state.roll, pitch: this.state.pitch, yaw: this.state.yaw }
+      : null;
+  }
+
+  reset(): void {
+    this.state = createImuFusionState();
+    this.lastSample = null;
+    this.configSignature = "";
+  }
+}
+
+export function estimateGyroBias(points: TelemetrySample[], config: Imu6FusionConfig) {
   const valid = points.filter((point) =>
     [point.values[config.gyroXChannel], point.values[config.gyroYChannel], point.values[config.gyroZChannel]].every(
       Number.isFinite

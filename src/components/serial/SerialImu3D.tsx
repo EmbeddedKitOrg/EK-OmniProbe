@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ChartDataPoint } from "@/lib/chartTypes";
-import { createImuFusionState, estimateGyroBias, updateImuFusion } from "@/lib/imuFusion";
+import { estimateGyroBias, ImuFusionProcessor, type ImuOrientation } from "@/lib/imuFusion";
 import { applySerialImuOffsets, resolveSerialImuAngles, type SerialImu3dWidget } from "@/lib/serialControlPanel";
 import { cn } from "@/lib/utils";
 
@@ -22,52 +22,16 @@ const FACES = [
 ] as const;
 
 function useImu6Fusion(widget: SerialImu3dWidget, chartData: ChartDataPoint[]) {
-  const fusionRef = useRef(createImuFusionState());
-  const lastPointRef = useRef<ChartDataPoint | null>(null);
-  const signatureRef = useRef("");
-  const [orientation, setOrientation] = useState<{ roll: number; pitch: number; yaw: number } | null>(null);
+  const processorRef = useRef(new ImuFusionProcessor());
+  const [orientation, setOrientation] = useState<ImuOrientation | null>(null);
 
   useEffect(() => {
-    if (widget.sourceMode !== "imu6" || chartData.length === 0) {
-      fusionRef.current = createImuFusionState();
-      lastPointRef.current = null;
+    if (widget.sourceMode !== "imu6") {
+      processorRef.current.reset();
       setOrientation(null);
       return;
     }
-
-    const signature = [
-      widget.accelXChannel,
-      widget.accelYChannel,
-      widget.accelZChannel,
-      widget.gyroXChannel,
-      widget.gyroYChannel,
-      widget.gyroZChannel,
-      widget.gyroUnit,
-      widget.sampleRateHz,
-      widget.filterAlpha,
-      widget.gyroBiasX,
-      widget.gyroBiasY,
-      widget.gyroBiasZ,
-    ].join("|");
-    const previousIndex = lastPointRef.current ? chartData.indexOf(lastPointRef.current) : -1;
-    if (signatureRef.current !== signature || (lastPointRef.current && previousIndex < 0)) {
-      fusionRef.current = createImuFusionState();
-      lastPointRef.current = null;
-      signatureRef.current = signature;
-    }
-
-    const startIndex = lastPointRef.current ? previousIndex + 1 : 0;
-    for (let index = startIndex; index < chartData.length; index += 1) {
-      fusionRef.current = updateImuFusion(fusionRef.current, chartData[index], widget);
-    }
-    lastPointRef.current = chartData[chartData.length - 1];
-    if (fusionRef.current.initialized) {
-      setOrientation({
-        roll: fusionRef.current.roll,
-        pitch: fusionRef.current.pitch,
-        yaw: fusionRef.current.yaw,
-      });
-    }
+    setOrientation(processorRef.current.process(chartData, widget));
   }, [chartData, widget]);
 
   return orientation;
