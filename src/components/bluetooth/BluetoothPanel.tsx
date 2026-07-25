@@ -19,6 +19,7 @@ interface BluetoothPanelProps {
 function BleChartViewer() {
   const {
     chartData,
+    processedChartData,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -29,6 +30,7 @@ function BleChartViewer() {
   } = useBluetoothStore(
     useShallow((state) => ({
       chartData: state.chartData,
+      processedChartData: state.processedChartData,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -42,6 +44,7 @@ function BleChartViewer() {
   return (
     <ChartViewer
       chartData={chartData}
+      processedData={processedChartData}
       chartConfig={chartConfig}
       chartPaused={chartPaused}
       parseSuccessCount={parseSuccessCount}

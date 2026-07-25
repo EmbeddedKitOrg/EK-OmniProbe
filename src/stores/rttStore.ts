@@ -5,6 +5,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { appendChartData } from "@/lib/chartIngestion";
+import { resolveTelemetryProcessing } from "@/lib/telemetry";
 import {
   loadFromStorage,
   saveToStorage,
@@ -56,6 +57,7 @@ interface RttState {
 
   // 图表数据
   chartData: ChartDataPoint[]; // 图表数据点
+  processedChartData: ChartDataPoint[]; // 共享处理结果；chartData 始终保留原始数值
   chartConfig: ChartConfig; // 图表配置
   chartPaused: boolean; // 图表是否冻结显示（后台仍继续缓存）
 
@@ -127,6 +129,7 @@ export const useRttStore = create<RttState>((set) => ({
   splitRatio: loadNumberFromStorage(SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1), // 新增：从 localStorage 加载分屏比例
   splitOrientation: loadStringFromStorage(SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
   chartData: [], // 新增：图表数据
+  processedChartData: [],
   chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false, // 新增：图表冻结状态
   parseSuccessCount: 0, // 新增：解析成功计数
@@ -204,24 +207,48 @@ export const useRttStore = create<RttState>((set) => ({
   setChartConfig: (chartConfig) => {
     const normalizedConfig = migrateChartConfig(chartConfig);
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
-    set((state) => ({
-      chartConfig: normalizedConfig,
-      chartData: state.chartData.slice(-normalizedConfig.maxDataPoints),
-    }));
+    set((state) => {
+      const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);
+      return {
+        chartConfig: normalizedConfig,
+        chartData,
+        processedChartData: resolveTelemetryProcessing(
+          chartData,
+          normalizedConfig.channels,
+          normalizedConfig.dataFilter
+        ).processedData,
+      };
+    });
   },
 
   addChartData: (data) =>
     set((state) => {
-      return { chartData: appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints) };
+      const chartData = appendChartData(state.chartData, [data], state.chartConfig.maxDataPoints);
+      return {
+        chartData,
+        processedChartData: resolveTelemetryProcessing(
+          chartData,
+          state.chartConfig.channels,
+          state.chartConfig.dataFilter
+        ).processedData,
+      };
     }),
 
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      return { chartData: appendChartData(state.chartData, points, state.chartConfig.maxDataPoints) };
+      const chartData = appendChartData(state.chartData, points, state.chartConfig.maxDataPoints);
+      return {
+        chartData,
+        processedChartData: resolveTelemetryProcessing(
+          chartData,
+          state.chartConfig.channels,
+          state.chartConfig.dataFilter
+        ).processedData,
+      };
     }),
 
-  clearChartData: () => set({ chartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () => set({ chartData: [], processedChartData: [], parseSuccessCount: 0, parseFailCount: 0 }),
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 

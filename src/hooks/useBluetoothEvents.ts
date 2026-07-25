@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { parseSerialData } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
-import { ChartIngestionBuffer } from "@/lib/chartIngestion";
+import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -31,7 +31,7 @@ export function useBluetoothEvents() {
 
   const batchLinesRef = useRef<Omit<BleLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
-  const chartIngestionRef = useRef(new ChartIngestionBuffer());
+  const telemetryIngestionRef = useRef(new TelemetryIngestionBuffer());
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -40,9 +40,10 @@ export function useBluetoothEvents() {
         addLines(batchLinesRef.current);
         batchLinesRef.current = [];
       }
-      const chartBatch = chartIngestionRef.current.drain();
-      if (chartBatch.points.length > 0) addChartDataBatch(chartBatch.points);
-      if (chartBatch.success > 0 || chartBatch.fail > 0) incrementParseCounts(chartBatch.success, chartBatch.fail);
+      const telemetryBatch = telemetryIngestionRef.current.drain();
+      if (telemetryBatch.points.length > 0) addChartDataBatch(telemetryBatch.points);
+      if (telemetryBatch.success > 0 || telemetryBatch.fail > 0)
+        incrementParseCounts(telemetryBatch.success, telemetryBatch.fail);
       if (batchStatsRef.current.bytes_received > 0 || batchStatsRef.current.bytes_sent > 0) {
         const cur = useBluetoothStore.getState().stats;
         updateStats({
@@ -77,7 +78,7 @@ export function useBluetoothEvents() {
 
         const chartConfig = useBluetoothStore.getState().chartConfig;
         if (chartConfig.enabled) {
-          chartIngestionRef.current.ingestLines(lines, chartConfig);
+          telemetryIngestionRef.current.ingestLines(lines, chartConfig);
         }
       }
 

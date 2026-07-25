@@ -22,6 +22,8 @@ try {
     parseMatlabVector,
     resolveChartProcessing,
   } = await server.ssrLoadModule("/src/lib/chartFilter.ts");
+  const { appendTelemetrySamples, resolveTelemetryProcessing } =
+    await server.ssrLoadModule("/src/lib/telemetry.ts");
   const { traceSignalPath } = await server.ssrLoadModule("/src/components/rtt/SignalPlotCanvas.tsx");
   const { resolveChartDisplayData } = await server.ssrLoadModule("/src/components/rtt/ChartViewer.tsx");
 
@@ -72,6 +74,36 @@ try {
     [1, 3, 5]
   );
   assert.equal(resolveChartProcessing(samples, ["ch1"], DEFAULT_CHART_CONFIG.dataFilter).processedData, samples);
+
+  const telemetryRaw = appendTelemetrySamples(samples.slice(0, 1), samples.slice(1), 2);
+  assert.deepEqual(
+    telemetryRaw.map((point) => point.values.ch1),
+    [4, 6]
+  );
+  const telemetryProcessing = resolveTelemetryProcessing(
+    telemetryRaw,
+    [{ key: "ch1", name: "通道 1" }],
+    {
+      ...DEFAULT_CHART_CONFIG.dataFilter,
+      enabled: true,
+      kind: "fir",
+      firCoefficients: [0.5, 0.5],
+    }
+  );
+  assert.equal(telemetryProcessing.rawData, telemetryRaw);
+  assert.deepEqual(
+    telemetryProcessing.processedData.map((point) => point.values.ch1),
+    [2, 5]
+  );
+  assert.deepEqual(
+    telemetryRaw.map((point) => point.values.ch1),
+    [4, 6]
+  );
+  assert.equal(
+    resolveTelemetryProcessing(telemetryRaw, [{ key: "ch1", name: "通道 1" }], DEFAULT_CHART_CONFIG.dataFilter)
+      .processedData,
+    telemetryRaw
+  );
 
   const sosResult = applyDataFilter(samples, ["ch1"], {
     ...DEFAULT_CHART_CONFIG.dataFilter,

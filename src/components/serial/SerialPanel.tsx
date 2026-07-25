@@ -22,6 +22,7 @@ interface SerialPanelProps {
 function SerialChartViewer() {
   const {
     chartData,
+    processedChartData,
     chartConfig,
     chartPaused,
     parseSuccessCount,
@@ -32,6 +33,7 @@ function SerialChartViewer() {
   } = useSerialStore(
     useShallow((state) => ({
       chartData: state.chartData,
+      processedChartData: state.processedChartData,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
       parseSuccessCount: state.parseSuccessCount,
@@ -45,6 +47,7 @@ function SerialChartViewer() {
   return (
     <ChartViewer
       chartData={chartData}
+      processedData={processedChartData}
       chartConfig={chartConfig}
       chartPaused={chartPaused}
       parseSuccessCount={parseSuccessCount}

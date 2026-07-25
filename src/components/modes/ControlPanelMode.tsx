@@ -37,6 +37,7 @@ export function ControlPanelMode() {
       displayMode: state.displayMode,
       searchQuery: state.searchQuery,
       chartData: state.chartData,
+      processedChartData: state.processedChartData,
       chartConfig: state.chartConfig,
       setViewMode: state.setViewMode,
     }))
@@ -57,6 +58,7 @@ export function ControlPanelMode() {
       displayMode: rtt.displayMode,
       searchQuery: rtt.searchQuery,
       chartData: rtt.chartData,
+      processedChartData: rtt.processedChartData,
       chartConfig: rtt.chartConfig,
       sendSettings: serial.sendSettings,
     }),
