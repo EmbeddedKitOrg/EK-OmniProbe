@@ -131,9 +131,7 @@ export class ImuFusionProcessor {
     }
     this.lastSample = samples[samples.length - 1];
 
-    return this.state.initialized
-      ? { roll: this.state.roll, pitch: this.state.pitch, yaw: this.state.yaw }
-      : null;
+    return this.state.initialized ? { roll: this.state.roll, pitch: this.state.pitch, yaw: this.state.yaw } : null;
   }
 
   reset(): void {

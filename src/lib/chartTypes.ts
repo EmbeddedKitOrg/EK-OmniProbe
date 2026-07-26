@@ -110,7 +110,6 @@ export interface DataParseConfig {
   // 分隔符模式
   /** 分隔符，如 ",", "\t", " " */
   delimiter: string;
-
 }
 
 export interface DataProcessingConfig {
