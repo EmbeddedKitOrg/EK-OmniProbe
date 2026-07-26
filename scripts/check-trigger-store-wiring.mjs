@@ -191,6 +191,51 @@ try {
     console.log("  触发配置可从持久化恢复，非法值被收敛到合法范围");
   }
 
+  // ---- 8) 开启滤波时：两个缓冲区必须按同一窗口裁剪，且触发依据是滤波后的值 ----
+  //
+  // 图表在滤波开启时显示的是 processedChartData。若只裁 chartData，
+  // 窗口模式对开了滤波的用户就完全不生效——而这正是初版的实际行为。
+  {
+    for (const [name, store] of STORES) {
+      const base = chartConfigWith({
+        condition: "rising",
+        level: 50,
+        preSamples: 5,
+        postSamples: 3,
+        mode: "single",
+        view: "window",
+      });
+      // 均值滤波：两点平均，会让阶跃的到达时刻推迟，正好用来区分「按原始值判断」和「按显示值判断」
+      const config = {
+        ...base,
+        dataFilter: { ...base.dataFilter, enabled: true, kind: "fir", firCoefficients: [0.5, 0.5] },
+      };
+      resetStore(store, config);
+
+      store.getState().addChartDataBatch(Array.from({ length: 20 }, (_, i) => point(0, i)));
+      store.getState().addChartDataBatch([point(100, 20), point(100, 21), point(100, 22), point(100, 23)]);
+
+      const after = store.getState();
+      assert.equal(after.chartPaused, true, `${name}：开启滤波时也应能触发`);
+      assert.equal(
+        after.processedChartData.length,
+        after.chartData.length,
+        `${name}：原始与滤波后缓冲区长度必须一致，实际 ${after.chartData.length} vs ${after.processedChartData.length}`
+      );
+      assert.equal(after.chartData.length, 8, `${name}：窗口模式下两者都应被裁到 pre + post`);
+
+      // 时间戳应逐点对齐，否则图表把两条曲线画在错位的横坐标上
+      after.chartData.forEach((sample, index) => {
+        assert.equal(
+          after.processedChartData[index].timestamp,
+          sample.timestamp,
+          `${name}：第 ${index} 点的原始与滤波后时间戳应对齐`
+        );
+      });
+    }
+    console.log("  开启滤波时：原始与滤波后缓冲区按同一窗口裁剪且逐点对齐");
+  }
+
   console.log("触发捕获 store 接线检查通过");
 } finally {
   await server.close();
