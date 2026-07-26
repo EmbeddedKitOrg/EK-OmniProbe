@@ -109,18 +109,25 @@ export function calculateSosFrequencyResponse(
   });
 }
 
-/**
- * 从原始图表缓冲区派生滤波结果。输入点不会被修改。
- */
-export function applyDataFilter(
-  points: ChartDataPoint[],
-  channelKeys: string[],
-  config: DataFilterConfig
-): ChartDataPoint[] {
-  if (points.length === 0 || channelKeys.length === 0 || !isDataFilterReady(config)) return points;
+/** 每通道一份有状态处理器（FIR 历史、median 窗口、SOS 的 z1/z2 都存在闭包里）。 */
+export type ChannelProcessors = Map<string, (sample: number) => number>;
 
-  const processors = new Map<string, (sample: number) => number>();
+/**
+ * 为每个通道各建一份处理器。返回值带内部状态，只能顺序喂样本；
+ * 一旦通道集合或滤波配置变化就必须重建，否则滤波器状态与数据不匹配。
+ */
+export function createChannelProcessors(channelKeys: string[], config: DataFilterConfig): ChannelProcessors {
+  const processors: ChannelProcessors = new Map();
   for (const key of channelKeys) processors.set(key, createProcessor(config));
+  return processors;
+}
+
+/**
+ * 把样本按顺序喂给已有处理器。会推进处理器内部状态，
+ * 因此同一批数据不能重复调用。输入点不会被修改。
+ */
+export function runChannelProcessors(points: ChartDataPoint[], processors: ChannelProcessors): ChartDataPoint[] {
+  if (points.length === 0 || processors.size === 0) return points;
 
   return points.map((point) => {
     let nextValues: Record<string, number> | null = null;
@@ -132,6 +139,19 @@ export function applyDataFilter(
     }
     return nextValues ? { ...point, values: nextValues } : point;
   });
+}
+
+/**
+ * 从原始图表缓冲区一次性派生滤波结果（全量重算）。输入点不会被修改。
+ * 增量场景请用 telemetry.ts 的 TelemetryFilterState，避免每帧重放整个缓冲区。
+ */
+export function applyDataFilter(
+  points: ChartDataPoint[],
+  channelKeys: string[],
+  config: DataFilterConfig
+): ChartDataPoint[] {
+  if (points.length === 0 || channelKeys.length === 0 || !isDataFilterReady(config)) return points;
+  return runChannelProcessors(points, createChannelProcessors(channelKeys, config));
 }
 
 /** 为图表、FFT 和后续分析模块统一生成原始/处理后数据。 */
@@ -147,12 +167,19 @@ export function resolveChartProcessing(points: ChartDataPoint[], channelKeys: st
 function createProcessor(config: DataFilterConfig): (sample: number) => number {
   if (config.kind === "fir") {
     const coefficients = config.firCoefficients;
-    const history: number[] = [];
+    const taps = coefficients.length;
+    // 环形缓冲：原先用 unshift/pop，每个样本都要搬移整个 history 数组
+    const history = new Float64Array(taps);
+    let newest = 0; // 最新样本所在下标
+    let filled = 0;
     return (sample) => {
-      history.unshift(sample);
-      if (history.length > coefficients.length) history.pop();
+      newest = newest === 0 ? taps - 1 : newest - 1;
+      history[newest] = sample;
+      if (filled < taps) filled += 1;
       let output = 0;
-      for (let index = 0; index < history.length; index += 1) output += coefficients[index] * history[index];
+      for (let index = 0; index < filled; index += 1) {
+        output += coefficients[index] * history[(newest + index) % taps];
+      }
       return output;
     };
   }
