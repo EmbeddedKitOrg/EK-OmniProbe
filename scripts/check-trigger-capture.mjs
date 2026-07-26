@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const server = await createServer({ root, logLevel: "silent", server: { middlewareMode: true } });
 
 try {
-  const { TriggerDetector, matchesTrigger, sliceTriggerWindow, DEFAULT_TRIGGER_CONFIG } =
+  const { TriggerDetector, matchesTrigger, sliceTriggerWindow, resolveTriggerCapture, DEFAULT_TRIGGER_CONFIG } =
     await server.ssrLoadModule("/src/lib/triggerCapture.ts");
 
   const sample = (v) => ({ timestamp: 0, values: { v } });
@@ -160,6 +160,40 @@ try {
     d.push(samples(-1, 1, 1.1, 0.9, 1.2, 1.05), config);
     assert.equal(d.getStatus().captureCount, 1, `电平之上的抖动不应反复触发，实际 ${d.getStatus().captureCount} 次`);
     console.log("  电平之上的小幅抖动不会反复触发（边沿判定天然只在穿越时成立）");
+  }
+
+  // ---- 10) 触发点时间戳：用时间戳而非下标，滚动裁剪后仍然有效 ----
+  {
+    const d = new TriggerDetector();
+    const config = cfg({ mode: "single", condition: "rising", level: 3, postSamples: 3 });
+    assert.equal(d.getStatus().triggeredAt, null, "未触发时应为 null");
+
+    // 带真实时间戳的样本
+    const withTime = [0, 1, 5, 6, 7].map((v, i) => ({ timestamp: 1000 + i * 10, values: { v } }));
+    d.push(withTime, config);
+    assert.equal(d.getStatus().triggeredAt, 1020, "应记录触发那一刻样本的时间戳（值 5，第 3 个样本）");
+
+    d.reset();
+    assert.equal(d.getStatus().triggeredAt, null, "复位应清空触发时间戳");
+  }
+
+  // ---- 11) 两种视图模式：同一份数据，差别只在切不切 ----
+  {
+    const buffer = Array.from({ length: 1000 }, (_, i) => ({ timestamp: i, values: { v: i } }));
+
+    const windowed = resolveTriggerCapture(buffer, cfg({ view: "window", preSamples: 100, postSamples: 50 }), 850);
+    assert.equal(windowed.data.length, 150, "窗口模式应只返回触发窗口");
+    assert.equal(windowed.data[0].values.v, 850);
+    assert.equal(windowed.triggeredAt, 850, "窗口模式同样要给出触发点，供标记事件在窗口内的位置");
+
+    const full = resolveTriggerCapture(buffer, cfg({ view: "full", preSamples: 100, postSamples: 50 }), 850);
+    assert.equal(full.data.length, 1000, "全量模式应保留整个缓冲区");
+    assert.equal(full.triggeredAt, 850, "全量模式靠时间戳标记触发点");
+
+    // 两种模式都不应改动原缓冲区
+    assert.notEqual(full.data, buffer, "应返回副本而不是原数组引用");
+    assert.equal(buffer.length, 1000, "原缓冲区不应被修改");
+    console.log("  两种视图模式：窗口切取与全量保留，均给出触发点时间戳");
   }
 
   console.log("触发捕获检查通过");
