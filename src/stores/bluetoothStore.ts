@@ -13,6 +13,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
+import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -148,6 +149,10 @@ interface BluetoothState {
   setChartConfig: (cfg: ChartConfig) => void;
   addChartDataBatch: (points: ChartDataPoint[]) => void;
   clearChartData: () => void;
+
+  /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
+  sessionRecording: boolean;
+  setSessionRecording: (recording: boolean) => void;
   setChartPaused: (paused: boolean) => void;
   incrementParseCounts: (success: number, fail: number) => void;
 
@@ -327,6 +332,13 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
         filterActive: processing.filterActive,
       };
     }),
+  sessionRecording: false,
+  setSessionRecording: (recording) => {
+    if (recording) startSessionRecording("bluetooth");
+    else stopSessionRecording("bluetooth");
+    set({ sessionRecording: recording });
+  },
+
   clearChartData: () => {
     telemetryFilter.reset();
     set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 });

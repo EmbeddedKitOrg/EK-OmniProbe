@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
+import { SessionRecordControls } from "@/components/rtt/SessionRecordControls";
 import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
 import { detectChartConfig } from "@/lib/chartAnalysis";
 import {
@@ -41,6 +42,8 @@ export function BleToolbar() {
     setChartPaused,
     clearLines,
     clearChartData,
+    sessionRecording,
+    setSessionRecording,
   } = useBluetoothStore(
     useShallow((state) => ({
       autoScroll: state.autoScroll,
@@ -60,6 +63,8 @@ export function BleToolbar() {
       setChartPaused: state.setChartPaused,
       clearLines: state.clearLines,
       clearChartData: state.clearChartData,
+      sessionRecording: state.sessionRecording,
+      setSessionRecording: state.setSessionRecording,
     }))
   );
 
@@ -155,16 +160,31 @@ export function BleToolbar() {
                 setViewMode={setViewMode}
                 setSplitOrientation={setSplitOrientation}
                 leadingActions={
-                  <Button
-                    size="sm"
-                    variant={chartConfig.enabled ? "secondary" : "outline"}
-                    onClick={handleSmartEnableChart}
-                    disabled={lines.length === 0}
-                    className="gap-1"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    智能启用
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant={chartConfig.enabled ? "secondary" : "outline"}
+                      onClick={handleSmartEnableChart}
+                      disabled={lines.length === 0}
+                      className="gap-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      智能启用
+                    </Button>
+                    <SessionRecordControls
+                      source="bluetooth"
+                      recording={sessionRecording}
+                      setRecording={setSessionRecording}
+                      getChartConfig={() => useBluetoothStore.getState().chartConfig}
+                      onBeforeReplay={() => useBluetoothStore.getState().clearChartData()}
+                      onReplayed={(result, config) => {
+                        const state = useBluetoothStore.getState();
+                        state.setChartConfig(config);
+                        state.addChartDataBatch(result.telemetryBatch.points);
+                        state.incrementParseCounts(result.telemetryBatch.success, result.telemetryBatch.fail);
+                      }}
+                    />
+                  </>
                 }
                 onToggle={(domain, closing) =>
                   addLog(

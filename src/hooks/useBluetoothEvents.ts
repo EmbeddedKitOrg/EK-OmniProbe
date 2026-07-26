@@ -5,6 +5,7 @@ import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
 import { TelemetryIngestionBuffer, TelemetryParseDispatcher } from "@/lib/chartIngestion";
 import { getChartParser } from "@/lib/parseChartData";
+import { captureSessionChunk } from "@/lib/sessionCapture";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -114,7 +115,10 @@ export function useBluetoothEvents() {
           batchStatsRef.current.bytes_sent += data.length;
         }
         // 字节流解析只对接收方向有意义：发出去的内容不是设备上报的遥测
-        if (direction === "rx") ingestBytes(data, timestamp);
+        if (direction === "rx") {
+          if (useBluetoothStore.getState().sessionRecording) captureSessionChunk("bluetooth", data, timestamp);
+          ingestBytes(data, timestamp);
+        }
         queueLines(frameStreamRef.current.ingest(data, timestamp, direction));
       }
 

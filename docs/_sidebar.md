@@ -8,6 +8,7 @@
   - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)
   - [串口终端](SERIAL_TERMINAL_GUIDE.md)
   - [无线串口透传接入](WIRELESS_SERIAL_GUIDE.md)
+  - [会话录制与回放](SESSION_RECORD_GUIDE.md)
   - [AI 数据桥接](AI_TUNING_GUIDE.md)
 
 - RTT 与图表

@@ -1,5 +1,6 @@
 import { useRttStore } from "@/stores/rttStore";
 import type { RttLine } from "@/lib/types";
+import { SessionRecordControls } from "./SessionRecordControls";
 import { useLogStore } from "@/stores/logStore";
 import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
@@ -66,6 +67,8 @@ export function RttToolbar() {
     setChannels,
     clearLines,
     setChartConfig,
+    sessionRecording,
+    setSessionRecording,
   } = useRttStore(
     useShallow((state) => ({
       rttConnected: state.rttConnected,
@@ -93,6 +96,8 @@ export function RttToolbar() {
       setChannels: state.setChannels,
       clearLines: state.clearLines,
       setChartConfig: state.setChartConfig,
+      sessionRecording: state.sessionRecording,
+      setSessionRecording: state.setSessionRecording,
     }))
   );
 
@@ -431,6 +436,19 @@ export function RttToolbar() {
                         <Sparkles className="h-3.5 w-3.5" />
                         智能启用
                       </Button>
+                      <SessionRecordControls
+                        source="rtt"
+                        recording={sessionRecording}
+                        setRecording={setSessionRecording}
+                        getChartConfig={() => useRttStore.getState().chartConfig}
+                        onBeforeReplay={() => useRttStore.getState().clearChartData()}
+                        onReplayed={(result, config) => {
+                          const state = useRttStore.getState();
+                          state.setChartConfig(config);
+                          state.addChartDataBatch(result.telemetryBatch.points);
+                          state.incrementParseCounts(result.telemetryBatch.success, result.telemetryBatch.fail);
+                        }}
+                      />
                     </>
                   }
                   onToggle={(domain, closing) =>

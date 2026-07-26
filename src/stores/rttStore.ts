@@ -5,6 +5,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
+import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
 import {
   loadFromStorage,
   saveToStorage,
@@ -101,6 +102,10 @@ interface RttState {
   addChartData: (data: ChartDataPoint) => void; // 新增：添加图表数据
   addChartDataBatch: (points: ChartDataPoint[]) => void; // 批量添加图表数据，单次 setState
   clearChartData: () => void; // 新增：清空图表数据
+
+  /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
+  sessionRecording: boolean;
+  setSessionRecording: (recording: boolean) => void;
   setChartPaused: (paused: boolean) => void; // 新增：设置图表冻结状态
   incrementParseSuccess: () => void; // 新增：增加解析成功计数
   incrementParseFail: () => void; // 新增：增加解析失败计数
@@ -256,6 +261,13 @@ export const useRttStore = create<RttState>((set) => ({
         filterActive: processing.filterActive,
       };
     }),
+
+  sessionRecording: false,
+  setSessionRecording: (recording) => {
+    if (recording) startSessionRecording("rtt");
+    else stopSessionRecording("rtt");
+    set({ sessionRecording: recording });
+  },
 
   clearChartData: () => {
     telemetryFilter.reset();
