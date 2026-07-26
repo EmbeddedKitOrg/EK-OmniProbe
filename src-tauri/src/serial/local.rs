@@ -27,6 +27,9 @@ pub struct LocalSerial {
 }
 
 impl LocalSerial {
+    // 这些参数与 serialport 的配置项一一对应，硬凑成结构体反而多一层转换。
+    // 若后续要收敛，正确做法是直接接收 SerialConfig::Local 而不是新造参数对象。
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         port_name: String,
         baud_rate: u32,
