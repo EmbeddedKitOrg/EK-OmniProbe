@@ -110,8 +110,11 @@ export function ChartViewer({
 
   const chartDataFormatted = useMemo(() => {
     if (chartConfig.chartType === "waveform" || analysisData.length === 0) return [];
-    return buildChartDisplayRows(analysisData, chartConfig.visiblePointLimit);
-  }, [analysisData, chartConfig.chartType, chartConfig.visiblePointLimit]);
+    // 传入实际可见的通道，让包络只跟踪画出来的那几路的极值
+    const keys = visibleSeries.map((item) => item.key);
+    if (xChannel) keys.push(xChannel.key);
+    return buildChartDisplayRows(analysisData, chartConfig.visiblePointLimit, keys);
+  }, [analysisData, chartConfig.chartType, chartConfig.visiblePointLimit, visibleSeries, xChannel]);
 
   const yAxisDomain = useMemo(() => {
     if (chartConfig.chartType === "waveform" || analysisData.length === 0) return [0, 100];

@@ -8,7 +8,7 @@ import {
   type WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
-import { downsampleIndices, resolveTimeWindowIndices } from "@/lib/downsampling";
+import { downsampleEnvelopeIndices, resolveTimeWindowIndices } from "@/lib/downsampling";
 import { calculateSpectrum } from "@/lib/chartPresentation";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
@@ -220,10 +220,22 @@ export function SignalPlotCanvas({
       endSec
     );
 
-    const sampledPoints = downsampleIndices(
+    // 包络抽取：每个桶保留各通道的极值点，避免尖峰被跳过。
+    // 对比显示开启时原始数据也会画出来，因此把它算作额外的通道一并参与包络，
+    // 否则只在原始轨迹上出现的尖峰仍会丢失。
+    const hasRaw = rawChartData !== undefined;
+    const channelCount = visibleSeries.length * (hasRaw ? 2 : 1);
+    const sampledPoints = downsampleEnvelopeIndices(
       windowStart,
       windowCount,
-      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : windowCount
+      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : windowCount,
+      channelCount,
+      (index, channel) => {
+        const series = visibleSeries[channel % visibleSeries.length];
+        if (!series) return undefined;
+        const useRaw = hasRaw && channel >= visibleSeries.length;
+        return useRaw ? rawChartData?.[index]?.values[series.key] : chartData[index]?.values[series.key];
+      }
     ).map(buildPoint);
 
     let min = Number.POSITIVE_INFINITY;
@@ -272,8 +284,10 @@ export function SignalPlotCanvas({
   }, [
     buildPoint,
     chartConfig.visiblePointLimit,
+    chartData,
     domain,
     pointCount,
+    rawChartData,
     sampleRate,
     timePanSec,
     timeZoom,
