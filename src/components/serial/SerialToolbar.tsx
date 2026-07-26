@@ -30,6 +30,7 @@ import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
 import { SessionRecordControls } from "@/components/rtt/SessionRecordControls";
 import { RxFramingSettingsPanel } from "@/components/rtt/RxFramingSettingsPanel";
+import { TriggerSettingsPanel } from "@/components/rtt/TriggerSettingsPanel";
 import { detectChartConfig } from "@/lib/chartAnalysis";
 import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
 import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
@@ -68,6 +69,9 @@ export function SerialToolbar() {
     chartConfig,
     rxFraming,
     setRxFraming,
+    chartPaused,
+    triggeredAt,
+    rearmTrigger,
     setRunning,
     setAutoScroll,
     setShowTimestamp,
@@ -102,6 +106,9 @@ export function SerialToolbar() {
       chartConfig: state.chartConfig,
       rxFraming: state.rxFraming,
       setRxFraming: state.setRxFraming,
+      chartPaused: state.chartPaused,
+      triggeredAt: state.triggeredAt,
+      rearmTrigger: state.rearmTrigger,
       setRunning: state.setRunning,
       setAutoScroll: state.setAutoScroll,
       setShowTimestamp: state.setShowTimestamp,
@@ -546,6 +553,15 @@ export function SerialToolbar() {
                   hint="无固定换行的二进制/HEX 请求-应答用「空闲超时」；带特殊帧头帧尾用「自定义」。"
                 />
               )}
+
+              {/* 触发管的是图表，与文本视图模式无关，因此不受 textViewMode 限制 */}
+              <TriggerSettingsPanel
+                chartConfig={chartConfig}
+                setChartConfig={setChartConfig}
+                triggeredAt={triggeredAt}
+                chartPaused={chartPaused}
+                rearmTrigger={rearmTrigger}
+              />
 
               <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
                 <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>

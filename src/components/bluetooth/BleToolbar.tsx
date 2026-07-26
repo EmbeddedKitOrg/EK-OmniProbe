@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { SessionRecordControls } from "@/components/rtt/SessionRecordControls";
 import { RxFramingSettingsPanel } from "@/components/rtt/RxFramingSettingsPanel";
+import { TriggerSettingsPanel } from "@/components/rtt/TriggerSettingsPanel";
 import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
 import { detectChartConfig } from "@/lib/chartAnalysis";
 import {
@@ -47,6 +48,8 @@ export function BleToolbar() {
     setSessionRecording,
     rxFraming,
     setRxFraming,
+    triggeredAt,
+    rearmTrigger,
   } = useBluetoothStore(
     useShallow((state) => ({
       autoScroll: state.autoScroll,
@@ -70,6 +73,8 @@ export function BleToolbar() {
       setSessionRecording: state.setSessionRecording,
       rxFraming: state.rxFraming,
       setRxFraming: state.setRxFraming,
+      triggeredAt: state.triggeredAt,
+      rearmTrigger: state.rearmTrigger,
     }))
   );
 
@@ -242,6 +247,14 @@ export function BleToolbar() {
               framing={rxFraming}
               setFraming={setRxFraming}
               hint="Notify 包若没有换行符，用「空闲超时」或「自定义分隔符」按包断帧。"
+            />
+
+            <TriggerSettingsPanel
+              chartConfig={chartConfig}
+              setChartConfig={setChartConfig}
+              triggeredAt={triggeredAt}
+              chartPaused={chartPaused}
+              rearmTrigger={rearmTrigger}
             />
 
             <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">

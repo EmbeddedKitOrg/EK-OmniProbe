@@ -5,6 +5,7 @@ import {
   type ChartDataPoint,
   type ChartSeries,
   type SignalDomain,
+  type TriggerConfig,
   type WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ interface SignalPlotCanvasProps {
   chartConfig: ChartConfig;
   domain: SignalDomain;
   onChartConfigChange?: (config: ChartConfig) => void;
+  /** 最近一次触发点的时间戳，用于在波形上标出触发位置 */
+  triggeredAt?: number | null;
   className?: string;
 }
 
@@ -145,6 +148,7 @@ export function SignalPlotCanvas({
   chartConfig,
   domain,
   onChartConfigChange,
+  triggeredAt = null,
   className,
 }: SignalPlotCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -436,6 +440,8 @@ export function SignalPlotCanvas({
         interpolation: chartConfig.waveformInterpolation,
         showGrid: chartConfig.showGrid,
         showTooltip: chartConfig.showTooltip,
+        trigger: chartConfig.trigger,
+        triggeredAt,
       });
     } else if (domain === "fft" && fftView) {
       drawFftChart(context, {
@@ -751,10 +757,23 @@ function drawTimeChart(
     interpolation: WaveformInterpolation;
     showGrid: boolean;
     showTooltip: boolean;
+    trigger: TriggerConfig;
+    triggeredAt: number | null;
   }
 ) {
-  const { size, plotWidth, plotHeight, timeView, hoverPoint, visibleSeries, interpolation, showGrid, showTooltip } =
-    options;
+  const {
+    size,
+    plotWidth,
+    plotHeight,
+    timeView,
+    hoverPoint,
+    visibleSeries,
+    interpolation,
+    showGrid,
+    showTooltip,
+    trigger,
+    triggeredAt,
+  } = options;
   const { latestSec, visibleDurationSec, startSec, endSec, points, yMin, yMax } = timeView;
 
   if (showGrid) {
@@ -808,6 +827,52 @@ function drawTimeChart(
 
   if (points.some((point) => point.rawValues)) drawSeries(true);
   drawSeries(false);
+
+  // 触发电平线：横贯全图的虚线，让用户直观看到电平设在哪、波形有没有越过它
+  if (trigger.enabled && trigger.level >= yMin && trigger.level <= yMax) {
+    const y = MARGIN.top + (1 - (trigger.level - yMin) / (yMax - yMin || 1)) * plotHeight;
+    context.save();
+    context.strokeStyle = "#f59e0b";
+    context.lineWidth = 1;
+    context.setLineDash([6, 4]);
+    context.beginPath();
+    context.moveTo(MARGIN.left, y);
+    context.lineTo(MARGIN.left + plotWidth, y);
+    context.stroke();
+    context.restore();
+  }
+
+  // 触发点竖线：用时间戳在已抽样的点里定位。抽样后触发点本身可能被抽掉，
+  // 因此取时间戳最接近的那个点，而不是要求精确相等——否则标记会时有时无。
+  if (triggeredAt !== null && points.length > 0) {
+    let nearest = points[0];
+    let bestDelta = Math.abs(nearest.timestamp - triggeredAt);
+    for (const point of points) {
+      const delta = Math.abs(point.timestamp - triggeredAt);
+      if (delta < bestDelta) {
+        bestDelta = delta;
+        nearest = point;
+      }
+    }
+
+    const x = MARGIN.left + ((nearest.timeSec - startSec) / (endSec - startSec || 1)) * plotWidth;
+    if (x >= MARGIN.left && x <= MARGIN.left + plotWidth) {
+      context.save();
+      context.strokeStyle = "#f59e0b";
+      context.lineWidth = 1.5;
+      context.setLineDash([]);
+      context.beginPath();
+      context.moveTo(x, MARGIN.top);
+      context.lineTo(x, MARGIN.top + plotHeight);
+      context.stroke();
+
+      context.fillStyle = "#f59e0b";
+      context.font = "10px sans-serif";
+      context.textAlign = "left";
+      context.fillText("触发", x + 3, MARGIN.top + 10);
+      context.restore();
+    }
+  }
 
   if (
     showTooltip &&

@@ -23,6 +23,7 @@ function BleChartViewer() {
     filterActive,
     chartConfig,
     chartPaused,
+    triggeredAt,
     parseSuccessCount,
     parseFailCount,
     setChartPaused,
@@ -35,6 +36,7 @@ function BleChartViewer() {
       filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
+      triggeredAt: state.triggeredAt,
       parseSuccessCount: state.parseSuccessCount,
       parseFailCount: state.parseFailCount,
       setChartPaused: state.setChartPaused,
@@ -55,6 +57,7 @@ function BleChartViewer() {
       setChartPaused={setChartPaused}
       clearChartData={clearChartData}
       setChartConfig={setChartConfig}
+      triggeredAt={triggeredAt}
     />
   );
 }
