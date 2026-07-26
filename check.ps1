@@ -144,7 +144,9 @@ try {
         $escapedVersion = [regex]::Escape($resolvedVersion)
 
         Assert-PatternMatch -Label "README version badge" -Content $readmeContent -Pattern "version-$escapedVersion-blue"
-        Assert-PatternMatch -Label "README latest version section" -Content $readmeContent -Pattern "最新版本 v$escapedVersion"
+        # README 实际写的是「- 当前版本：`X.Y.Z`」，此前这里匹配的是从未在 README 出现过的
+        # 「最新版本 vX.Y.Z」，只要传 -ExpectedVersion 就会误报失败。
+        Assert-PatternMatch -Label "README current version line" -Content $readmeContent -Pattern "当前版本：``$escapedVersion``"
         Assert-PatternMatch -Label "CHANGELOG entry" -Content $changelogContent -Pattern "## \[$escapedVersion\]"
     }
 
