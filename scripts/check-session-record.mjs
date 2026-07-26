@@ -242,6 +242,54 @@ try {
     console.log(`  流式读取：${streamed.chunks.length} 块与一次性解析完全一致`);
   }
 
+  // ---- 9) replaySession：串口回放入口 ----
+  {
+    const { replaySession } = await server.ssrLoadModule("/src/lib/serialSession.ts");
+    const chartConfig = {
+      ...DEFAULT_CHART_CONFIG,
+      enabled: true,
+      parseMode: "json",
+      channels: [{ key: "v", name: "V", color: "#333", visible: true, role: "y" }],
+    };
+
+    // 末尾故意不带换行：靠 flushPending 刷出，否则最后一行会丢
+    const recorder = new SessionRecorder();
+    recorder.start(0);
+    recorder.record(Array.from(encoder.encode('{"v":1}\n{"v":2}\n{"v":3}')), 0);
+    const text = recorder.serialize({ source: "serial", chartConfig, framing: DEFAULT_RX_FRAMING });
+
+    const replayed = replaySession(text);
+    assert.deepEqual(
+      replayed.result.telemetryBatch.points.map((p) => p.values.v),
+      [1, 2, 3],
+      "末尾无换行的那一行也应通过 flushPending 刷出"
+    );
+    assert.equal(replayed.chunkCount, 1);
+    assert.equal(replayed.header.source, "serial");
+
+    // 用不同配置回放同一份字节——这正是该功能存在的意义
+    const overridden = replaySession(text, {
+      ...chartConfig,
+      channels: [{ key: "v", name: "重命名", color: "#999", visible: true, role: "y" }],
+    });
+    assert.deepEqual(
+      overridden.result.telemetryBatch.points.map((p) => p.values.v),
+      [1, 2, 3],
+      "换配置回放应仍能解析出同样的原始数值"
+    );
+
+    // 二进制会话回放：通道要在首帧推断后沿用到后续块
+    const binConfig = { ...DEFAULT_CHART_CONFIG, enabled: true, parseMode: "justfloat", channels: [] };
+    const binRecorder = new SessionRecorder();
+    binRecorder.start(0);
+    const binStream = [justFloatFrame(1.5, 2.5), justFloatFrame(3.5, 4.5), justFloatFrame(5.5, 6.5)];
+    binStream.forEach((f, i) => binRecorder.record(f, i * 10));
+    const binReplayed = replaySession(binRecorder.serialize({ source: "serial", chartConfig: binConfig }));
+    assert.equal(binReplayed.result.telemetryBatch.points.length, 3, "三帧二进制都应回放出来");
+    assert.deepEqual(binReplayed.result.telemetryBatch.points[2].values, { ch1: 5.5, ch2: 6.5 });
+    console.log("  replaySession：末尾残帧刷出、换配置回放、二进制通道沿用均正确");
+  }
+
   console.log("会话录制与回放检查通过");
 } finally {
   await server.close();

@@ -1,8 +1,13 @@
 use crate::error::{AppError, AppResult};
 use std::path::Path;
 
-/// 允许导出的文本扩展名（小写比较）。
-const TEXT_EXTENSIONS: &[&str] = &["txt", "csv", "log", "json", "yaml", "yml", "md"];
+/// 允许导出的文本扩展名（小写比较）。ekrec 是采集会话记录（NDJSON）。
+const TEXT_EXTENSIONS: &[&str] = &["txt", "csv", "log", "json", "yaml", "yml", "md", "ekrec"];
+
+/// 读取文本文件的大小上限。会话录制器本身限制在 32MB 原始字节，
+/// base64 加 JSON 开销后约 50-60MB；这里留出余量并封顶，
+/// 避免误选一个超大文件把整个应用内存打满。
+const MAX_READ_BYTES: u64 = 128 * 1024 * 1024;
 /// 允许导出的二进制扩展名。
 const BINARY_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bin", "hex"];
 
@@ -41,6 +46,26 @@ pub fn write_text_file(path: String, content: String) -> AppResult<()> {
     validate_export_path(&path, TEXT_EXTENSIONS)?;
     std::fs::write(&path, content.as_bytes())?;
     Ok(())
+}
+
+/// 读取文本文件 (UTF-8)。前端通过打开对话框拿到路径后调用此命令。
+///
+/// 与写入共用扩展名白名单：路径虽来自系统对话框（用户主动选择），
+/// 仍限制类型并封顶大小，避免被诱导读取任意文件或耗尽内存。
+#[tauri::command]
+pub fn read_text_file(path: String) -> AppResult<String> {
+    validate_export_path(&path, TEXT_EXTENSIONS)?;
+
+    let metadata = std::fs::metadata(&path)?;
+    if metadata.len() > MAX_READ_BYTES {
+        return Err(AppError::InvalidInput(format!(
+            "文件过大（{} MB），上限 {} MB",
+            metadata.len() / 1024 / 1024,
+            MAX_READ_BYTES / 1024 / 1024
+        )));
+    }
+
+    Ok(std::fs::read_to_string(&path)?)
 }
 
 /// 写入二进制文件。content 是 base64 编码的字节数据，主要用于 PNG/二进制导出。

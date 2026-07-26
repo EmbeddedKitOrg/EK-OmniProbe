@@ -16,7 +16,7 @@
 // 字节用 base64 而不是数字数组：后者在 JSON 里约 4 倍膨胀，base64 只有约 1.33 倍。
 
 import type { RxFramingSettings } from "./serialTypes";
-import type { TelemetryConfig } from "./chartTypes";
+import type { ChartConfig } from "./chartTypes";
 
 export const SESSION_SCHEMA = "ek.session/v1";
 
@@ -28,7 +28,7 @@ export interface SessionHeader {
   /** ISO 时间串，仅用于展示 */
   createdAt: string;
   /** 录制时的图表解析配置，回放时据此还原 */
-  chartConfig: TelemetryConfig;
+  chartConfig: ChartConfig;
   /** 录制时的接收分帧设置；RTT/BLE 目前不可配，故为可选 */
   framing?: RxFramingSettings;
   /** 用户备注，便于事后辨认 */

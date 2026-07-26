@@ -76,6 +76,7 @@ pub fn run() {
             config::set_custom_packs_directory,
             // 导出命令
             export::write_text_file,
+            export::read_text_file,
             export::write_binary_file,
             // 串口命令
             serial_cmd::list_serial_ports_cmd,
