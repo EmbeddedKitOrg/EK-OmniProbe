@@ -154,7 +154,9 @@ try {
     Write-Host "Running integration checks (scripts/check-*)..." -ForegroundColor Green
     Invoke-PackageManager -PackageManager $packageManager -Arguments @("test")
 
-    Write-Host "Running clippy..." -ForegroundColor Green
+    # 注意：clippy 只检查当前平台。udev.rs 等 #[cfg(target_os = "...")] 门控的代码
+    # 在别的平台上不会被编译，本机全绿不代表 CI 全绿。跨平台由 CI 的双平台矩阵兜底。
+    Write-Host "Running clippy (current platform only)..." -ForegroundColor Green
     cargo clippy --manifest-path "src-tauri/Cargo.toml" --all-targets -- -D warnings
     if ($LASTEXITCODE -ne 0) {
         throw "cargo clippy failed."

@@ -55,12 +55,24 @@ jobs:
         run: pnpm test
 
   backend:
-    name: Rust 检查 (clippy / test)
-    runs-on: ubuntu-latest
+    # 必须双平台：udev.rs 是 #[cfg(target_os = "linux")] 门控的，Windows 上根本不编译；
+    # 反过来 Windows 专属分支在 Linux 上也看不见。只跑单平台会让另一边的 cfg 代码
+    # 一路裸奔到发版构建才暴露。
+    name: Rust 检查 (${{ matrix.os_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_name: linux
+          - os: windows-latest
+            os_name: windows
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Linux dependencies
+        if: matrix.os_name == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -80,9 +92,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+          key: ${{ matrix.os_name }}
 
-      # tauri build 需要 frontendDist 存在，cargo check/clippy 也会读 tauri.conf.json
+      # tauri 读 tauri.conf.json 时要求 frontendDist 指向的目录存在
       - name: Create placeholder frontend dist
+        shell: bash
         run: mkdir -p dist && echo '<!doctype html><title>ci</title>' > dist/index.html
 
       - name: Clippy

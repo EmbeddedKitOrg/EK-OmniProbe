@@ -70,7 +70,7 @@ pub fn install_udev_rules() -> AppResult<()> {
     let temp_rules_file = temp_dir.join(UDEV_RULES_FILE);
 
     std::fs::write(&temp_rules_file, UDEV_RULES_CONTENT)
-        .map_err(|e| AppError::IoError(e))?;
+        .map_err(AppError::IoError)?;
 
     log::info!("临时规则文件: {:?}", temp_rules_file);
 
@@ -87,7 +87,7 @@ pub fn install_udev_rules() -> AppResult<()> {
             install_path
         ))
         .output()
-        .map_err(|e| AppError::IoError(e))?;
+        .map_err(AppError::IoError)?;
 
     // 清理临时文件
     let _ = std::fs::remove_file(&temp_rules_file);
@@ -114,8 +114,7 @@ pub fn install_udev_rules() -> AppResult<()> {
 pub fn get_manual_install_instructions() -> String {
     #[cfg(target_os = "linux")]
     {
-        format!(
-            "请手动安装 udev 规则：\n\n\
+        "请手动安装 udev 规则：\n\n\
             1. 在项目根目录运行:\n\
             sudo ./install-udev-rules.sh\n\n\
             2. 或者手动复制规则文件:\n\
@@ -123,7 +122,7 @@ pub fn get_manual_install_instructions() -> String {
             sudo udevadm control --reload-rules\n\
             sudo udevadm trigger\n\n\
             3. 重新插拔调试器"
-        )
+            .to_string()
     }
 
     #[cfg(not(target_os = "linux"))]
