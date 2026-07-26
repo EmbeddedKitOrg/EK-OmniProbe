@@ -106,6 +106,12 @@ try {
     Write-Host "Checking TypeScript..." -ForegroundColor Green
     Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "tsc", "--noEmit")
 
+    Write-Host "Running ESLint..." -ForegroundColor Green
+    Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "eslint", ".")
+
+    Write-Host "Checking Prettier formatting..." -ForegroundColor Green
+    Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "prettier", "--check", "src/**/*.{ts,tsx,css}")
+
     Write-Host "Checking package.json syntax..." -ForegroundColor Green
     $packageJson = Get-Content "package.json" -Raw | ConvertFrom-Json
 
@@ -145,10 +151,19 @@ try {
     Write-Host "Running frontend production build..." -ForegroundColor Green
     Invoke-PackageManager -PackageManager $packageManager -Arguments @("build")
 
-    Write-Host "Running cargo check..." -ForegroundColor Green
-    cargo check --manifest-path "src-tauri/Cargo.toml"
+    Write-Host "Running integration checks (scripts/check-*)..." -ForegroundColor Green
+    Invoke-PackageManager -PackageManager $packageManager -Arguments @("test")
+
+    Write-Host "Running clippy..." -ForegroundColor Green
+    cargo clippy --manifest-path "src-tauri/Cargo.toml" --all-targets -- -D warnings
     if ($LASTEXITCODE -ne 0) {
-        throw "cargo check failed."
+        throw "cargo clippy failed."
+    }
+
+    Write-Host "Running cargo test..." -ForegroundColor Green
+    cargo test --manifest-path "src-tauri/Cargo.toml"
+    if ($LASTEXITCODE -ne 0) {
+        throw "cargo test failed."
     }
 
     if ($ReleaseLike) {

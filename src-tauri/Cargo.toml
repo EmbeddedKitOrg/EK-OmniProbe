@@ -45,3 +45,13 @@ futures = "0.3"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+# 数据链路（RTT 轮询、串口分帧、烧录）对速度敏感，优先选 3 而不是体积档 "s"/"z"
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+# 刻意不设 panic = "abort"：当前 RTT / 串口 / BLE 采集都跑在独立任务里，
+# 单个任务 panic 只会终止该任务；改成 abort 会让一次探针异常直接杀掉整个进程，
+# 连带丢掉用户尚未导出的采集数据。省下的体积不值这个代价。

@@ -279,7 +279,7 @@ export function ChartConfigDialog({
   const addChannel = () => {
     setLocalConfig((current) => {
       const usedKeys = new Set(current.channels.map((c) => c.key));
-      let baseKey = "ch";
+      const baseKey = "ch";
       let suffix = current.channels.length + 1;
       while (usedKeys.has(`${baseKey}${suffix}`)) suffix += 1;
       const key = `${baseKey}${suffix}`;
