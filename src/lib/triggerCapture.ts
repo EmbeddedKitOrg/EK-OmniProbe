@@ -21,6 +21,14 @@ export const TRIGGER_MODES = ["single", "normal"] as const;
 /** single：触发一次后停住等用户手动重新武装；normal：捕获完自动继续等下一次 */
 export type TriggerMode = (typeof TRIGGER_MODES)[number];
 
+export const TRIGGER_VIEWS = ["window", "full"] as const;
+/**
+ * 捕获完成后如何呈现：
+ * - window：只显示触发窗口，聚焦事件本身（示波器的心智模型）
+ * - full：仍显示整个缓冲区，在触发点画标记，保留上下文便于看趋势
+ */
+export type TriggerView = (typeof TRIGGER_VIEWS)[number];
+
 export interface TriggerConfig {
   enabled: boolean;
   /** 监视哪一路通道的 key */
@@ -33,6 +41,8 @@ export interface TriggerConfig {
   /** 触发点之后再采多少个样本 */
   postSamples: number;
   mode: TriggerMode;
+  /** 捕获完成后的呈现方式 */
+  view: TriggerView;
 }
 
 export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
@@ -43,6 +53,7 @@ export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
   preSamples: 200,
   postSamples: 200,
   mode: "single",
+  view: "window",
 };
 
 export type TriggerState = "idle" | "armed" | "capturing" | "triggered";
@@ -53,6 +64,11 @@ export interface TriggerStatus {
   remainingPostSamples: number;
   /** 已完成的捕获次数 */
   captureCount: number;
+  /**
+   * 触发那一刻样本的时间戳；尚未触发过时为 null。
+   * 用时间戳而非下标标记触发点，因为滚动缓冲区会从头部裁剪，下标会失效。
+   */
+  triggeredAt: number | null;
 }
 
 /**
@@ -85,11 +101,6 @@ export function matchesTrigger(
   }
 }
 
-export interface TriggerFireResult {
-  /** 本批次中触发发生在第几个样本（批内下标） */
-  firedAtIndex: number;
-}
-
 /**
  * 触发检测状态机。只负责「什么时候该冻结」，不持有数据本身——
  * 数据从调用方的滚动缓冲区里取，避免重复保存一份。
@@ -100,12 +111,15 @@ export class TriggerDetector {
   private captureCount = 0;
   /** 上一个样本在触发通道上的值，用于边沿判定 */
   private previousValue: number | undefined;
+  /** 触发那一刻样本的时间戳 */
+  private triggeredAt: number | null = null;
 
   getStatus(): TriggerStatus {
     return {
       state: this.state,
       remainingPostSamples: this.remainingPost,
       captureCount: this.captureCount,
+      triggeredAt: this.triggeredAt,
     };
   }
 
@@ -122,6 +136,7 @@ export class TriggerDetector {
     this.remainingPost = 0;
     this.captureCount = 0;
     this.previousValue = undefined;
+    this.triggeredAt = null;
   }
 
   /**
@@ -148,6 +163,7 @@ export class TriggerDetector {
       if (this.state === "armed") {
         if (value !== undefined && matchesTrigger(this.previousValue, value, config.condition, config.level)) {
           this.state = "capturing";
+          this.triggeredAt = sample.timestamp;
           // 触发点本身算作已采到的第一个后置样本
           this.remainingPost = Math.max(0, config.postSamples - 1);
           if (this.remainingPost === 0) {
@@ -197,4 +213,31 @@ export class TriggerDetector {
 export function sliceTriggerWindow(buffer: TelemetrySample[], config: TriggerConfig): TelemetrySample[] {
   const windowSize = Math.max(1, config.preSamples + config.postSamples);
   return buffer.length <= windowSize ? buffer.slice() : buffer.slice(-windowSize);
+}
+
+export interface TriggerCaptureResult {
+  /** 捕获完成后应当显示的数据 */
+  data: TelemetrySample[];
+  /**
+   * 触发点时间戳，供绘制标记。
+   * 两种视图下都给出——窗口模式同样需要知道事件落在窗口的哪个位置。
+   */
+  triggeredAt: number | null;
+}
+
+/**
+ * 按用户选择的视图模式解析捕获结果。
+ *
+ * window 与 full 是两种真实用法：抓瞬态时想聚焦事件本身，看趋势时想保留上下文。
+ * 两者用的是同一份缓冲区数据，差别只在切不切。
+ */
+export function resolveTriggerCapture(
+  buffer: TelemetrySample[],
+  config: TriggerConfig,
+  triggeredAt: number | null
+): TriggerCaptureResult {
+  return {
+    data: config.view === "window" ? sliceTriggerWindow(buffer, config) : buffer.slice(),
+    triggeredAt,
+  };
 }
