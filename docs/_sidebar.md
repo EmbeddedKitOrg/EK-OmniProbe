@@ -7,6 +7,7 @@
   - [数据滤波与 MATLAB](MATLAB_FILTER_GUIDE.md)
   - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)
   - [串口终端](SERIAL_TERMINAL_GUIDE.md)
+  - [无线串口透传接入](WIRELESS_SERIAL_GUIDE.md)
   - [AI 数据桥接](AI_TUNING_GUIDE.md)
 
 - RTT 与图表
