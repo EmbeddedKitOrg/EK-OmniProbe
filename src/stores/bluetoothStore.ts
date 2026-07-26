@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import type { RxFramingSettings } from "@/lib/serialTypes";
+import { DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
 import type {
   BleCharacteristic,
   BleDeviceInfo,
@@ -34,6 +36,7 @@ const BLE_AUTO_SCROLL_KEY = "ble_auto_scroll";
 const BLE_SHOW_TIMESTAMP_KEY = "ble_show_timestamp";
 const BLE_DISPLAY_MODE_KEY = "ble_display_mode";
 const BLE_CONNECTION_MODE_KEY = "ble_connection_mode";
+const BLE_RX_FRAMING_KEY = "ble_rx_framing";
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 // 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
@@ -151,6 +154,10 @@ interface BluetoothState {
   clearChartData: () => void;
 
   /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
+  /** 接收分帧设置：决定字节流如何被切成文本行 */
+  rxFraming: RxFramingSettings;
+  setRxFraming: (settings: Partial<RxFramingSettings>) => void;
+
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
   setChartPaused: (paused: boolean) => void;
@@ -332,6 +339,14 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
         filterActive: processing.filterActive,
       };
     }),
+  rxFraming: loadFromStorage(BLE_RX_FRAMING_KEY, DEFAULT_RX_FRAMING),
+  setRxFraming: (settings) =>
+    set((state) => {
+      const next = { ...state.rxFraming, ...settings };
+      saveToStorage(BLE_RX_FRAMING_KEY, next);
+      return { rxFraming: next };
+    }),
+
   sessionRecording: false,
   setSessionRecording: (recording) => {
     if (recording) startSessionRecording("bluetooth");

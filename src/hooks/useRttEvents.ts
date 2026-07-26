@@ -117,9 +117,12 @@ export function useRttEvents() {
 
     const scheduleIdleFlush = (channel: number) => {
       clearIdleFlush(channel);
+      // 超时分帧模式下，空闲时长由用户配置决定；其余模式用固定兜底值刷出无换行残帧
+      const framing = useRttStore.getState().rxFraming;
+      const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : TEXT_FRAME_IDLE_MS;
       idleFlushTimersRef.current.set(
         channel,
-        window.setTimeout(() => flushPendingChannel(channel), TEXT_FRAME_IDLE_MS)
+        window.setTimeout(() => flushPendingChannel(channel), delay)
       );
     };
 
@@ -149,7 +152,7 @@ export function useRttEvents() {
         stream = new TextFrameStream();
         frameStreamsRef.current.set(channel, stream);
       }
-      const lines = stream.ingest(data, timestamp, "rx").map((line) => ({
+      const lines = stream.ingest(data, timestamp, "rx", useRttStore.getState().rxFraming).map((line) => ({
         channel,
         timestamp: line.timestamp,
         text: line.text,
