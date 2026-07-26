@@ -1,5 +1,5 @@
 import type { ChartDataPoint, ChartSeries } from "./chartTypes";
-import { downsamplePoints } from "./downsampling";
+import { downsampleEnvelopeIndices } from "./downsampling";
 
 export type ChartDisplayRow = Record<string, number | string>;
 
@@ -10,16 +10,40 @@ export interface ChartStatistics {
   latest: number;
 }
 
-export function buildChartDisplayRows(data: ChartDataPoint[], visiblePointLimit: number): ChartDisplayRow[] {
+/**
+ * 生成图表展示行。
+ *
+ * 用 min/max 包络抽取而不是等距抽取，否则落在采样点之间的尖峰会整个消失。
+ * 同时按下标构造：先算出要保留的下标，只为这些点建对象，
+ * 而不是先把整个缓冲区展开成行再丢掉绝大部分。
+ *
+ * @param channelKeys 参与包络的通道键；为空时从数据里推断
+ */
+export function buildChartDisplayRows(
+  data: ChartDataPoint[],
+  visiblePointLimit: number,
+  channelKeys?: string[]
+): ChartDisplayRow[] {
   if (data.length === 0) return [];
+
+  const keys = channelKeys?.length ? channelKeys : Object.keys(data[data.length - 1]?.values ?? {});
   const firstTimestamp = data[0].timestamp;
-  const rows = data.map((point, index) => ({
-    index,
-    timestamp: point.timestamp,
-    time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
-    ...point.values,
-  }));
-  return downsamplePoints(rows, visiblePointLimit > 0 ? visiblePointLimit : rows.length);
+
+  return downsampleEnvelopeIndices(
+    0,
+    data.length,
+    visiblePointLimit > 0 ? visiblePointLimit : data.length,
+    keys.length,
+    (index, channel) => data[index]?.values[keys[channel]]
+  ).map((index) => {
+    const point = data[index];
+    return {
+      index,
+      timestamp: point.timestamp,
+      time: ((point.timestamp - firstTimestamp) / 1000).toFixed(3),
+      ...point.values,
+    };
+  });
 }
 
 export function calculateChartStatistics(

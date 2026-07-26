@@ -31,14 +31,29 @@ try {
   const processing = resolveTelemetryProcessing(rawData, chartConfig.channels, chartConfig.dataFilter);
   assert.equal(processing.filterActive, true);
 
+  // buildChartDisplayRows 现在用 min/max 包络而非等距抽取，契约是
+  // 「点数不超过 limit，且极值必定保留」——不再保证正好返回 limit 个点。
+  // 此前这里锁死的是等距抽取选出的具体下标 [0, 2, 3]，那是实现细节；
+  // 真正需要守住的是极值不丢（丢了会让波形和纵轴一起失真）。
   const rows = buildChartDisplayRows(processing.processedData, 3);
+  assert.ok(rows.length <= 3, `点数应不超过 limit，实际 ${rows.length}`);
+  assert.ok(rows.length >= 2, "至少应保留首尾两点");
+
+  const signals = rows.map((row) => row.signal);
+  assert.ok(signals.includes(0.5), `最小值 0.5 应被保留，实际 ${JSON.stringify(signals)}`);
+  assert.ok(signals.includes(6), `最大值 6 应被保留，实际 ${JSON.stringify(signals)}`);
+
+  // 下标升序、字段结构与时间格式仍需正确
+  for (let i = 1; i < rows.length; i += 1) {
+    assert.ok(rows[i].index > rows[i - 1].index, "下标应严格升序");
+  }
   assert.deepEqual(
-    rows.map(({ index, time, signal }) => ({ index, time, signal })),
-    [
-      { index: 0, time: "0.000", signal: 0.5 },
-      { index: 2, time: "0.020", signal: 4 },
-      { index: 3, time: "0.030", signal: 6 },
-    ]
+    { index: rows[0].index, time: rows[0].time, signal: rows[0].signal },
+    { index: 0, time: "0.000", signal: 0.5 }
+  );
+  assert.deepEqual(
+    { index: rows[rows.length - 1].index, time: rows[rows.length - 1].time, signal: rows[rows.length - 1].signal },
+    { index: 3, time: "0.030", signal: 6 }
   );
   assert.deepEqual(calculateChartStatistics(processing.processedData, [channel]), {
     signal: { min: 0.5, max: 6, avg: 3.125, latest: 6 },
