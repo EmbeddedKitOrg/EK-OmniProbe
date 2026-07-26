@@ -22,7 +22,7 @@ import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorPars
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
-import { startSessionRecording, stopSessionRecording } from "@/lib/serialSession";
+import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
 import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
@@ -218,7 +218,7 @@ interface SerialState {
   updateStats: (stats: SerialStats) => void;
   commitSerialReceiveBatch: (batch: SerialReceiveResult) => void;
 
-  /** 会话录制开关。录制器本身在 lib/serialSession.ts 的模块作用域里。 */
+  /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
 
@@ -654,8 +654,8 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   sessionRecording: false,
   setSessionRecording: (recording) => {
-    if (recording) startSessionRecording();
-    else stopSessionRecording();
+    if (recording) startSessionRecording("serial");
+    else stopSessionRecording("serial");
     set({ sessionRecording: recording });
   },
 

@@ -5,6 +5,7 @@ import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
 import { TelemetryIngestionBuffer, TelemetryParseDispatcher } from "@/lib/chartIngestion";
 import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
 import { getChartParser } from "@/lib/parseChartData";
+import { captureSessionChunk } from "@/lib/sessionCapture";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -135,6 +136,12 @@ export function useRttEvents() {
       }
 
       batchBytesRef.current += data.length;
+
+      // 录制原始字节，带上通道号——回放时必须按通道分别拼帧
+      if (useRttStore.getState().sessionRecording) {
+        captureSessionChunk("rtt", data, timestamp, channel);
+      }
+
       ingestChannelBytes(channel, data, timestamp);
 
       let stream = frameStreamsRef.current.get(channel);

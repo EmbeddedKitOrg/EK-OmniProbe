@@ -244,7 +244,7 @@ try {
 
   // ---- 9) replaySession：串口回放入口 ----
   {
-    const { replaySession } = await server.ssrLoadModule("/src/lib/serialSession.ts");
+    const { replaySession } = await server.ssrLoadModule("/src/lib/sessionCapture.ts");
     const chartConfig = {
       ...DEFAULT_CHART_CONFIG,
       enabled: true,
@@ -288,6 +288,35 @@ try {
     assert.equal(binReplayed.result.telemetryBatch.points.length, 3, "三帧二进制都应回放出来");
     assert.deepEqual(binReplayed.result.telemetryBatch.points[2].values, { ch1: 5.5, ch2: 6.5 });
     console.log("  replaySession：末尾残帧刷出、换配置回放、二进制通道沿用均正确");
+  }
+
+  // ---- 10) RTT 会话按通道分别回放：跨通道的半帧不能被接成一帧 ----
+  {
+    const { replaySession } = await server.ssrLoadModule("/src/lib/sessionCapture.ts");
+    const chartConfig = {
+      ...DEFAULT_CHART_CONFIG,
+      enabled: true,
+      parseMode: "json",
+      channels: [{ key: "v", name: "V", color: "#333", visible: true, role: "y" }],
+    };
+
+    // 两个 RTT 通道交错到达，且各自都被切成半行。
+    // 若回放时不按通道分组，通道 0 的 '{"v":1' 会和通道 1 的 '{"v":9' 拼在一起，
+    // 解析出完全错误的结果或直接失败。
+    const recorder = new SessionRecorder();
+    recorder.start(0);
+    recorder.record(Array.from(encoder.encode('{"v":1')), 0, 0);
+    recorder.record(Array.from(encoder.encode('{"v":9')), 1, 1);
+    recorder.record(Array.from(encoder.encode("}\n")), 2, 0);
+    recorder.record(Array.from(encoder.encode("}\n")), 3, 1);
+
+    const replayed = replaySession(recorder.serialize({ source: "rtt", chartConfig }));
+    assert.deepEqual(replayed.channels, [0, 1], "应识别出会话里出现过的两个通道");
+
+    const values = replayed.result.telemetryBatch.points.map((p) => p.values.v).sort((a, b) => a - b);
+    assert.deepEqual(values, [1, 9], `跨通道半帧应各自拼回，实际 ${JSON.stringify(values)}`);
+    assert.equal(replayed.result.telemetryBatch.fail, 0, "不应出现解析失败");
+    console.log("  RTT 按通道回放：两通道交错半帧各自拼回，未串流");
   }
 
   console.log("会话录制与回放检查通过");
