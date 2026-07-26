@@ -13,48 +13,7 @@
 //      +------------ 正常模式自动重新待触发 ---------+
 
 import type { TelemetrySample } from "./telemetry";
-
-export const TRIGGER_CONDITIONS = ["rising", "falling", "above", "below"] as const;
-export type TriggerCondition = (typeof TRIGGER_CONDITIONS)[number];
-
-export const TRIGGER_MODES = ["single", "normal"] as const;
-/** single：触发一次后停住等用户手动重新武装；normal：捕获完自动继续等下一次 */
-export type TriggerMode = (typeof TRIGGER_MODES)[number];
-
-export const TRIGGER_VIEWS = ["window", "full"] as const;
-/**
- * 捕获完成后如何呈现：
- * - window：只显示触发窗口，聚焦事件本身（示波器的心智模型）
- * - full：仍显示整个缓冲区，在触发点画标记，保留上下文便于看趋势
- */
-export type TriggerView = (typeof TRIGGER_VIEWS)[number];
-
-export interface TriggerConfig {
-  enabled: boolean;
-  /** 监视哪一路通道的 key */
-  channelKey: string;
-  condition: TriggerCondition;
-  /** 触发电平 */
-  level: number;
-  /** 触发点之前保留多少个样本 */
-  preSamples: number;
-  /** 触发点之后再采多少个样本 */
-  postSamples: number;
-  mode: TriggerMode;
-  /** 捕获完成后的呈现方式 */
-  view: TriggerView;
-}
-
-export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
-  enabled: false,
-  channelKey: "",
-  condition: "rising",
-  level: 0,
-  preSamples: 200,
-  postSamples: 200,
-  mode: "single",
-  view: "window",
-};
+import type { TriggerCondition, TriggerConfig } from "./chartTypes";
 
 export type TriggerState = "idle" | "armed" | "capturing" | "triggered";
 
@@ -239,5 +198,37 @@ export function resolveTriggerCapture(
   return {
     data: config.view === "window" ? sliceTriggerWindow(buffer, config) : buffer.slice(),
     triggeredAt,
+  };
+}
+
+/** 供 store 直接展开进 setState 的补丁；无事发生时为 null。 */
+export interface TriggerStorePatch {
+  chartData: TelemetrySample[];
+  chartPaused: boolean;
+  triggeredAt: number | null;
+}
+
+/**
+ * 把「喂样本 → 判断是否捕获完成 → 按视图模式取数据」串成一步，
+ * 供三条来源的 store 各调一次，避免同样的二十行在三处各写一遍。
+ *
+ * @param buffer 追加新样本之后的完整缓冲区
+ * @param incoming 本批新增的样本
+ * @returns 需要写入 store 的补丁；未完成捕获时返回 null，调用方保持原状
+ */
+export function stepTriggerCapture(
+  detector: TriggerDetector,
+  buffer: TelemetrySample[],
+  incoming: TelemetrySample[],
+  config: TriggerConfig
+): TriggerStorePatch | null {
+  if (!detector.push(incoming, config)) return null;
+
+  const capture = resolveTriggerCapture(buffer, config, detector.getStatus().triggeredAt);
+  return {
+    chartData: capture.data,
+    // 捕获完成即冻结，复用图表既有的暂停机制
+    chartPaused: true,
+    triggeredAt: capture.triggeredAt,
   };
 }

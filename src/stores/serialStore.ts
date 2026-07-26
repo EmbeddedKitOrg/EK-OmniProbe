@@ -23,6 +23,7 @@ import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
 import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
+import { TriggerDetector, stepTriggerCapture } from "@/lib/triggerCapture";
 import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
@@ -52,6 +53,9 @@ let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 // 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
 const telemetryFilter = new TelemetryFilterState();
+
+// 触发检测状态机。同为可变采集状态，不参与渲染，故与滤波器一样放模块作用域。
+const triggerDetector = new TriggerDetector();
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -219,6 +223,11 @@ interface SerialState {
   commitSerialReceiveBatch: (batch: SerialReceiveResult) => void;
 
   /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
+  /** 最近一次触发点的时间戳；供波形标记触发位置。未触发过为 null。 */
+  triggeredAt: number | null;
+  /** 重新武装触发器：清除冻结状态，回到待触发 */
+  rearmTrigger: () => void;
+
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
 
@@ -652,6 +661,12 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   updateStats: (stats) => set({ stats }),
 
+  triggeredAt: null,
+  rearmTrigger: () => {
+    triggerDetector.arm();
+    set({ chartPaused: false, triggeredAt: null });
+  },
+
   sessionRecording: false,
   setSessionRecording: (recording) => {
     if (recording) startSessionRecording("serial");
@@ -801,10 +816,14 @@ export const useSerialStore = create<SerialState>((set, get) => ({
         state.chartConfig.channels,
         state.chartConfig.dataFilter
       );
+      // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
+      const triggerPatch = stepTriggerCapture(triggerDetector, processing.rawData, [data], state.chartConfig.trigger);
+
       return {
-        chartData: processing.rawData,
+        chartData: triggerPatch?.chartData ?? processing.rawData,
         processedChartData: processing.processedData,
         filterActive: processing.filterActive,
+        ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
       };
     }),
 
@@ -818,16 +837,28 @@ export const useSerialStore = create<SerialState>((set, get) => ({
         state.chartConfig.channels,
         state.chartConfig.dataFilter
       );
+      // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
+      const triggerPatch = stepTriggerCapture(triggerDetector, processing.rawData, points, state.chartConfig.trigger);
+
       return {
-        chartData: processing.rawData,
+        chartData: triggerPatch?.chartData ?? processing.rawData,
         processedChartData: processing.processedData,
         filterActive: processing.filterActive,
+        ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
       };
     }),
 
   clearChartData: () => {
     telemetryFilter.reset();
-    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 });
+    triggerDetector.reset();
+    set({
+      chartData: [],
+      processedChartData: [],
+      filterActive: false,
+      parseSuccessCount: 0,
+      parseFailCount: 0,
+      triggeredAt: null,
+    });
   },
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
