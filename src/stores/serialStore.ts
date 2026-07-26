@@ -1,3 +1,4 @@
+import { createTelemetryChartSlice, type TelemetryChartState } from "./telemetryChartSlice";
 import { create } from "zustand";
 import type {
   SerialConfig,
@@ -19,11 +20,11 @@ import type {
 import { DEFAULT_AI_BRIDGE_STATUS, DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
-import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
-import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
+import type { ViewMode, SplitOrientation } from "@/lib/chartTypes";
+import { migrateChartConfig } from "@/lib/chartTypes";
+
 import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
-import { TriggerDetector, stepTriggerCapture } from "@/lib/triggerCapture";
+
 import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
@@ -50,12 +51,6 @@ const SERIAL_RX_FRAMING_KEY = "serial_rx_framing";
 const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
 const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
-
-// 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
-const telemetryFilter = new TelemetryFilterState();
-
-// 触发检测状态机。同为可变采集状态，不参与渲染，故与滤波器一样放模块作用域。
-const triggerDetector = new TriggerDetector();
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -135,7 +130,7 @@ const defaultTerminalSettings: SerialTerminalSettings = {
 
 export type SerialInspectorTab = "connection" | "data" | "widget";
 
-interface SerialState {
+interface SerialState extends TelemetryChartState {
   // Connection state
   connected: boolean;
   connecting: boolean;
@@ -182,17 +177,6 @@ interface SerialState {
   splitRatio: number;
   splitOrientation: SplitOrientation;
 
-  // Chart data
-  chartData: ChartDataPoint[];
-  processedChartData: ChartDataPoint[];
-  filterActive: boolean;
-  chartConfig: ChartConfig;
-  chartPaused: boolean;
-
-  // Parse stats
-  parseSuccessCount: number;
-  parseFailCount: number;
-
   // Send settings
   sendSettings: SendSettings;
 
@@ -223,11 +207,6 @@ interface SerialState {
   commitSerialReceiveBatch: (batch: SerialReceiveResult) => void;
 
   /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
-  /** 最近一次触发点的时间戳；供波形标记触发位置。未触发过为 null。 */
-  triggeredAt: number | null;
-  /** 重新武装触发器：清除冻结状态，回到待触发 */
-  rearmTrigger: () => void;
-
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
 
@@ -249,16 +228,6 @@ interface SerialState {
   setViewMode: (mode: ViewMode) => void;
   setSplitRatio: (ratio: number) => void;
   setSplitOrientation: (orientation: SplitOrientation) => void;
-
-  setChartConfig: (config: ChartConfig) => void;
-  addChartData: (data: ChartDataPoint) => void;
-  addChartDataBatch: (points: ChartDataPoint[]) => void;
-  clearChartData: () => void;
-  setChartPaused: (paused: boolean) => void;
-
-  incrementParseSuccess: () => void;
-  incrementParseFail: () => void;
-  incrementParseCounts: (success: number, fail: number) => void;
 
   setSendSettings: (settings: Partial<SendSettings>) => void;
   setRxFraming: (settings: Partial<RxFramingSettings>) => void;
@@ -499,425 +468,314 @@ function appendSerialLines(
   };
 }
 
-export const useSerialStore = create<SerialState>((set, get) => ({
-  // Initial state
-  connected: false,
-  connecting: false,
-  running: false,
-  error: null,
-  aiBridgeStatus: DEFAULT_AI_BRIDGE_STATUS,
+export const useSerialStore = create<SerialState>((set, get) => {
+  const chartSlice = createTelemetryChartSlice(set, { storageKey: SERIAL_CHART_CONFIG_KEY });
 
-  localConfig: savedConfig.local,
-  tcpConfig: savedConfig.tcp,
-  udpConfig: savedConfig.udp ?? defaultUdpConfig,
-  simulationConfig: savedConfig.simulation ?? defaultSimulationConfig,
-  activeSourceType: savedConfig.activeType,
+  return {
+    ...chartSlice.state,
 
-  lines: [],
-  maxLines: 10000,
-  stats: { bytes_received: 0, bytes_sent: 0 },
+    // Initial state
+    connected: false,
+    connecting: false,
+    running: false,
+    error: null,
+    aiBridgeStatus: DEFAULT_AI_BRIDGE_STATUS,
 
-  autoScroll: true,
-  showTimestamp: savedTimestampSettings.show,
-  timestampFormat: savedTimestampSettings.format,
-  showDirectionPrefix: loadBooleanFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
-  splitByDirection: false,
-  searchQuery: "",
-  displayMode: "text",
-  colorParserConfig: loadColorParserConfig(),
-  textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
-  inspectorTab: "connection",
+    localConfig: savedConfig.local,
+    tcpConfig: savedConfig.tcp,
+    udpConfig: savedConfig.udp ?? defaultUdpConfig,
+    simulationConfig: savedConfig.simulation ?? defaultSimulationConfig,
+    activeSourceType: savedConfig.activeType,
 
-  terminalLines: [],
-  terminalActiveLine: "",
-  terminalActiveUnits: [],
-  terminalCursorColumn: 0,
-  terminalPendingEscape: "",
-  terminalLineCounter: 0,
-  maxTerminalLines: 4000,
-  terminalSettings: savedTerminalSettings,
+    lines: [],
+    maxLines: 10000,
+    stats: { bytes_received: 0, bytes_sent: 0 },
 
-  viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
-  splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
-  splitOrientation: loadStringFromStorage(SERIAL_SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
+    autoScroll: true,
+    showTimestamp: savedTimestampSettings.show,
+    timestampFormat: savedTimestampSettings.format,
+    showDirectionPrefix: loadBooleanFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
+    splitByDirection: false,
+    searchQuery: "",
+    displayMode: "text",
+    colorParserConfig: loadColorParserConfig(),
+    textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
+    inspectorTab: "connection",
 
-  chartData: [],
-  processedChartData: [],
-  filterActive: false,
-  chartConfig: migrateChartConfig(loadFromStorage(SERIAL_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
-  chartPaused: false,
+    terminalLines: [],
+    terminalActiveLine: "",
+    terminalActiveUnits: [],
+    terminalCursorColumn: 0,
+    terminalPendingEscape: "",
+    terminalLineCounter: 0,
+    maxTerminalLines: 4000,
+    terminalSettings: savedTerminalSettings,
 
-  parseSuccessCount: 0,
-  parseFailCount: 0,
+    viewMode: loadStringFromStorage(SERIAL_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
+    splitRatio: loadNumberFromStorage(SERIAL_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
+    splitOrientation: loadStringFromStorage(SERIAL_SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
 
-  sendSettings: savedSendSettings,
-  rxFraming: savedRxFraming,
+    sendSettings: savedSendSettings,
+    rxFraming: savedRxFraming,
 
-  lineIdCounter: 0,
+    lineIdCounter: 0,
 
-  // Actions
-  setConnected: (connected) => set({ connected }),
-  setConnecting: (connecting) => set({ connecting }),
-  setRunning: (running) => set({ running, error: null }),
-  setError: (error) => set({ error, running: false }),
-  setAiBridgeStatus: (aiBridgeStatus) => set({ aiBridgeStatus }),
+    // Actions
+    setConnected: (connected) => set({ connected }),
+    setConnecting: (connecting) => set({ connecting }),
+    setRunning: (running) => set({ running, error: null }),
+    setError: (error) => set({ error, running: false }),
+    setAiBridgeStatus: (aiBridgeStatus) => set({ aiBridgeStatus }),
 
-  setLocalConfig: (config) => {
-    set((state) => {
-      const newLocal = { ...state.localConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, {
-        local: newLocal,
-        tcp: state.tcpConfig,
-        udp: state.udpConfig,
-        simulation: state.simulationConfig,
-        activeType: state.activeSourceType,
+    setLocalConfig: (config) => {
+      set((state) => {
+        const newLocal = { ...state.localConfig, ...config };
+        saveToStorage(SERIAL_CONFIG_KEY, {
+          local: newLocal,
+          tcp: state.tcpConfig,
+          udp: state.udpConfig,
+          simulation: state.simulationConfig,
+          activeType: state.activeSourceType,
+        });
+        return { localConfig: newLocal };
       });
-      return { localConfig: newLocal };
-    });
-  },
+    },
 
-  setTcpConfig: (config) => {
-    set((state) => {
-      const newTcp = { ...state.tcpConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, {
-        local: state.localConfig,
-        tcp: newTcp,
-        udp: state.udpConfig,
-        simulation: state.simulationConfig,
-        activeType: state.activeSourceType,
+    setTcpConfig: (config) => {
+      set((state) => {
+        const newTcp = { ...state.tcpConfig, ...config };
+        saveToStorage(SERIAL_CONFIG_KEY, {
+          local: state.localConfig,
+          tcp: newTcp,
+          udp: state.udpConfig,
+          simulation: state.simulationConfig,
+          activeType: state.activeSourceType,
+        });
+        return { tcpConfig: newTcp };
       });
-      return { tcpConfig: newTcp };
-    });
-  },
+    },
 
-  setUdpConfig: (config) => {
-    set((state) => {
-      const newUdp = { ...state.udpConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, {
-        local: state.localConfig,
-        tcp: state.tcpConfig,
-        udp: newUdp,
-        simulation: state.simulationConfig,
-        activeType: state.activeSourceType,
+    setUdpConfig: (config) => {
+      set((state) => {
+        const newUdp = { ...state.udpConfig, ...config };
+        saveToStorage(SERIAL_CONFIG_KEY, {
+          local: state.localConfig,
+          tcp: state.tcpConfig,
+          udp: newUdp,
+          simulation: state.simulationConfig,
+          activeType: state.activeSourceType,
+        });
+        return { udpConfig: newUdp };
       });
-      return { udpConfig: newUdp };
-    });
-  },
+    },
 
-  setSimulationConfig: (config) => {
-    set((state) => {
-      const simulation = { ...state.simulationConfig, ...config };
-      saveToStorage(SERIAL_CONFIG_KEY, {
-        local: state.localConfig,
-        tcp: state.tcpConfig,
-        udp: state.udpConfig,
-        simulation,
-        activeType: state.activeSourceType,
+    setSimulationConfig: (config) => {
+      set((state) => {
+        const simulation = { ...state.simulationConfig, ...config };
+        saveToStorage(SERIAL_CONFIG_KEY, {
+          local: state.localConfig,
+          tcp: state.tcpConfig,
+          udp: state.udpConfig,
+          simulation,
+          activeType: state.activeSourceType,
+        });
+        return { simulationConfig: simulation };
       });
-      return { simulationConfig: simulation };
-    });
-  },
+    },
 
-  setActiveSourceType: (type) => {
-    set((state) => {
-      saveToStorage(SERIAL_CONFIG_KEY, {
-        local: state.localConfig,
-        tcp: state.tcpConfig,
-        udp: state.udpConfig,
-        simulation: state.simulationConfig,
-        activeType: type,
+    setActiveSourceType: (type) => {
+      set((state) => {
+        saveToStorage(SERIAL_CONFIG_KEY, {
+          local: state.localConfig,
+          tcp: state.tcpConfig,
+          udp: state.udpConfig,
+          simulation: state.simulationConfig,
+          activeType: type,
+        });
+        return { activeSourceType: type };
       });
-      return { activeSourceType: type };
-    });
-  },
+    },
 
-  getActiveConfig: () => {
-    const state = get();
-    if (state.activeSourceType === "tcp") {
-      return state.tcpConfig;
-    }
-    if (state.activeSourceType === "udp") {
-      return state.udpConfig;
-    }
-    return state.localConfig;
-  },
-
-  addLine: (line) => set((state) => appendSerialLines(state, [line])),
-
-  addLines: (newLines) => set((state) => appendSerialLines(state, newLines)),
-
-  clearLines: () =>
-    set({
-      lines: [],
-      lineIdCounter: 0,
-      stats: { bytes_received: 0, bytes_sent: 0 },
-      terminalLines: [],
-      terminalActiveLine: "",
-      terminalActiveUnits: [],
-      terminalCursorColumn: 0,
-      terminalPendingEscape: "",
-      terminalLineCounter: 0,
-    }),
-
-  updateStats: (stats) => set({ stats }),
-
-  triggeredAt: null,
-  rearmTrigger: () => {
-    triggerDetector.arm();
-    set({ chartPaused: false, triggeredAt: null });
-  },
-
-  sessionRecording: false,
-  setSessionRecording: (recording) => {
-    if (recording) startSessionRecording("serial");
-    else stopSessionRecording("serial");
-    set({ sessionRecording: recording });
-  },
-
-  commitSerialReceiveBatch: (batch) =>
-    set((state) => {
-      const { telemetryBatch } = batch;
-      const detectedChannels =
-        state.chartConfig.parseMode === "justfloat" && state.chartConfig.channels.length === 0
-          ? batch.detectedChannels
-          : undefined;
-      if (
-        !batch.terminalText &&
-        batch.lines.length === 0 &&
-        telemetryBatch.points.length === 0 &&
-        telemetryBatch.success === 0 &&
-        telemetryBatch.fail === 0 &&
-        batch.bytesReceived === 0 &&
-        !detectedChannels
-      ) {
-        return state;
+    getActiveConfig: () => {
+      const state = get();
+      if (state.activeSourceType === "tcp") {
+        return state.tcpConfig;
       }
-
-      const next: Partial<SerialState> = {};
-      if (batch.terminalText) Object.assign(next, processTerminalChunk(batch.terminalText, state));
-      if (batch.lines.length > 0) Object.assign(next, appendSerialLines(state, batch.lines));
-
-      let chartConfig = state.chartConfig;
-      if (detectedChannels) {
-        chartConfig = migrateChartConfig({ ...chartConfig, channels: detectedChannels });
-        saveToStorage(SERIAL_CHART_CONFIG_KEY, chartConfig);
-        next.chartConfig = chartConfig;
+      if (state.activeSourceType === "udp") {
+        return state.udpConfig;
       }
-      if (telemetryBatch.points.length > 0) {
-        const processing = telemetryFilter.append(
-          state.chartData,
-          telemetryBatch.points,
-          chartConfig.maxDataPoints,
-          chartConfig.channels,
-          chartConfig.dataFilter
-        );
-        next.chartData = processing.rawData;
-        next.processedChartData = processing.processedData;
-        next.filterActive = processing.filterActive;
-      }
-      if (telemetryBatch.success > 0 || telemetryBatch.fail > 0) {
-        next.parseSuccessCount = state.parseSuccessCount + telemetryBatch.success;
-        next.parseFailCount = state.parseFailCount + telemetryBatch.fail;
-      }
-      if (batch.bytesReceived > 0) {
-        next.stats = { ...state.stats, bytes_received: state.stats.bytes_received + batch.bytesReceived };
-      }
-      return next;
-    }),
+      return state.localConfig;
+    },
 
-  setAutoScroll: (autoScroll) => set({ autoScroll }),
-  setShowTimestamp: (showTimestamp) =>
-    set((state) => {
-      saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: showTimestamp, format: state.timestampFormat });
-      return { showTimestamp };
-    }),
-  setTimestampFormat: (timestampFormat) =>
-    set((state) => {
-      const format = timestampFormat.slice(0, 80);
-      saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: state.showTimestamp, format });
-      return { timestampFormat: format };
-    }),
-  setShowDirectionPrefix: (showDirectionPrefix) => {
-    saveToStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, showDirectionPrefix);
-    set({ showDirectionPrefix });
-  },
-  setSplitByDirection: (splitByDirection) => set({ splitByDirection }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setDisplayMode: (displayMode) => set({ displayMode }),
+    addLine: (line) => set((state) => appendSerialLines(state, [line])),
 
-  setColorParserConfig: (colorParserConfig) => {
-    saveColorParserConfig(colorParserConfig);
-    set({ colorParserConfig });
-  },
+    addLines: (newLines) => set((state) => appendSerialLines(state, newLines)),
 
-  setTextViewMode: (textViewMode) => {
-    saveToStorage(SERIAL_TEXT_VIEW_MODE_KEY, textViewMode);
-    set({ textViewMode });
-  },
-  setInspectorTab: (inspectorTab) => set({ inspectorTab }),
+    clearLines: () =>
+      set({
+        lines: [],
+        lineIdCounter: 0,
+        stats: { bytes_received: 0, bytes_sent: 0 },
+        terminalLines: [],
+        terminalActiveLine: "",
+        terminalActiveUnits: [],
+        terminalCursorColumn: 0,
+        terminalPendingEscape: "",
+        terminalLineCounter: 0,
+      }),
 
-  appendTerminalChunk: (text) => set((state) => processTerminalChunk(text, state)),
+    updateStats: (stats) => set({ stats }),
 
-  clearTerminalBuffer: () =>
-    set({
-      terminalLines: [],
-      terminalActiveLine: "",
-      terminalActiveUnits: [],
-      terminalCursorColumn: 0,
-      terminalPendingEscape: "",
-      terminalLineCounter: 0,
-    }),
+    sessionRecording: false,
+    setSessionRecording: (recording) => {
+      if (recording) startSessionRecording("serial");
+      else stopSessionRecording("serial");
+      set({ sessionRecording: recording });
+    },
 
-  setTerminalSettings: (settings) => {
-    set((state) => {
-      const nextSettings = { ...state.terminalSettings, ...settings };
-      saveToStorage(SERIAL_TERMINAL_SETTINGS_KEY, nextSettings);
-      return { terminalSettings: nextSettings };
-    });
-  },
+    commitSerialReceiveBatch: (batch) =>
+      set((state) => {
+        const { telemetryBatch } = batch;
+        const detectedChannels =
+          state.chartConfig.parseMode === "justfloat" && state.chartConfig.channels.length === 0
+            ? batch.detectedChannels
+            : undefined;
+        if (
+          !batch.terminalText &&
+          batch.lines.length === 0 &&
+          telemetryBatch.points.length === 0 &&
+          telemetryBatch.success === 0 &&
+          telemetryBatch.fail === 0 &&
+          batch.bytesReceived === 0 &&
+          !detectedChannels
+        ) {
+          return state;
+        }
 
-  setViewMode: (viewMode) => {
-    saveToStorage(SERIAL_VIEW_MODE_KEY, viewMode);
-    set({ viewMode });
-  },
+        const next: Partial<SerialState> = {};
+        if (batch.terminalText) Object.assign(next, processTerminalChunk(batch.terminalText, state));
+        if (batch.lines.length > 0) Object.assign(next, appendSerialLines(state, batch.lines));
 
-  setSplitRatio: (splitRatio) => {
-    set({ splitRatio });
-    clearTimeout(splitRatioSaveTimer);
-    splitRatioSaveTimer = setTimeout(() => saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio), 150);
-  },
+        let chartConfig = state.chartConfig;
+        if (detectedChannels) {
+          chartConfig = migrateChartConfig({ ...chartConfig, channels: detectedChannels });
+          saveToStorage(SERIAL_CHART_CONFIG_KEY, chartConfig);
+          next.chartConfig = chartConfig;
+        }
+        if (telemetryBatch.points.length > 0) {
+          // 走与 addChartDataBatch 相同的追加逻辑：滤波 + 触发状态机。
+          // 此前这里是单独写的一份，只做了滤波——导致触发捕获在串口实时数据上
+          // 完全不生效（实时数据走的是本函数，不是 addChartDataBatch）。
+          Object.assign(next, chartSlice.appendSamples(state, telemetryBatch.points, chartConfig));
+        }
+        if (telemetryBatch.success > 0 || telemetryBatch.fail > 0) {
+          next.parseSuccessCount = state.parseSuccessCount + telemetryBatch.success;
+          next.parseFailCount = state.parseFailCount + telemetryBatch.fail;
+        }
+        if (batch.bytesReceived > 0) {
+          next.stats = { ...state.stats, bytes_received: state.stats.bytes_received + batch.bytesReceived };
+        }
+        return next;
+      }),
 
-  setSplitOrientation: (splitOrientation) => {
-    saveToStorage(SERIAL_SPLIT_ORIENTATION_KEY, splitOrientation);
-    set({ splitOrientation });
-  },
+    setAutoScroll: (autoScroll) => set({ autoScroll }),
+    setShowTimestamp: (showTimestamp) =>
+      set((state) => {
+        saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: showTimestamp, format: state.timestampFormat });
+        return { showTimestamp };
+      }),
+    setTimestampFormat: (timestampFormat) =>
+      set((state) => {
+        const format = timestampFormat.slice(0, 80);
+        saveToStorage(SERIAL_TIMESTAMP_SETTINGS_KEY, { show: state.showTimestamp, format });
+        return { timestampFormat: format };
+      }),
+    setShowDirectionPrefix: (showDirectionPrefix) => {
+      saveToStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, showDirectionPrefix);
+      set({ showDirectionPrefix });
+    },
+    setSplitByDirection: (splitByDirection) => set({ splitByDirection }),
+    setSearchQuery: (searchQuery) => set({ searchQuery }),
+    setDisplayMode: (displayMode) => set({ displayMode }),
 
-  setChartConfig: (chartConfig) => {
-    const normalizedConfig = migrateChartConfig(chartConfig);
-    saveToStorage(SERIAL_CHART_CONFIG_KEY, normalizedConfig);
-    set((state) => {
-      const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);
-      const processing = resolveTelemetryProcessing(chartData, normalizedConfig.channels, normalizedConfig.dataFilter);
-      return {
-        chartConfig: normalizedConfig,
-        chartData: processing.rawData,
-        processedChartData: processing.processedData,
-        filterActive: processing.filterActive,
-      };
-    });
-  },
+    setColorParserConfig: (colorParserConfig) => {
+      saveColorParserConfig(colorParserConfig);
+      set({ colorParserConfig });
+    },
 
-  addChartData: (data) =>
-    set((state) => {
-      const processing = telemetryFilter.append(
-        state.chartData,
-        [data],
-        state.chartConfig.maxDataPoints,
-        state.chartConfig.channels,
-        state.chartConfig.dataFilter
-      );
-      // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
-      const triggerPatch = stepTriggerCapture(
-        triggerDetector,
-        processing.rawData,
-        processing.processedData,
-        1,
-        state.chartConfig.trigger
-      );
+    setTextViewMode: (textViewMode) => {
+      saveToStorage(SERIAL_TEXT_VIEW_MODE_KEY, textViewMode);
+      set({ textViewMode });
+    },
+    setInspectorTab: (inspectorTab) => set({ inspectorTab }),
 
-      return {
-        chartData: triggerPatch?.chartData ?? processing.rawData,
-        processedChartData: triggerPatch?.processedChartData ?? processing.processedData,
-        filterActive: processing.filterActive,
-        ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
-      };
-    }),
+    appendTerminalChunk: (text) => set((state) => processTerminalChunk(text, state)),
 
-  addChartDataBatch: (points) =>
-    set((state) => {
-      if (points.length === 0) return state;
-      const processing = telemetryFilter.append(
-        state.chartData,
-        points,
-        state.chartConfig.maxDataPoints,
-        state.chartConfig.channels,
-        state.chartConfig.dataFilter
-      );
-      // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
-      const triggerPatch = stepTriggerCapture(
-        triggerDetector,
-        processing.rawData,
-        processing.processedData,
-        points.length,
-        state.chartConfig.trigger
-      );
+    clearTerminalBuffer: () =>
+      set({
+        terminalLines: [],
+        terminalActiveLine: "",
+        terminalActiveUnits: [],
+        terminalCursorColumn: 0,
+        terminalPendingEscape: "",
+        terminalLineCounter: 0,
+      }),
 
-      return {
-        chartData: triggerPatch?.chartData ?? processing.rawData,
-        processedChartData: triggerPatch?.processedChartData ?? processing.processedData,
-        filterActive: processing.filterActive,
-        ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
-      };
-    }),
+    setTerminalSettings: (settings) => {
+      set((state) => {
+        const nextSettings = { ...state.terminalSettings, ...settings };
+        saveToStorage(SERIAL_TERMINAL_SETTINGS_KEY, nextSettings);
+        return { terminalSettings: nextSettings };
+      });
+    },
 
-  clearChartData: () => {
-    telemetryFilter.reset();
-    triggerDetector.reset();
-    set({
-      chartData: [],
-      processedChartData: [],
-      filterActive: false,
-      parseSuccessCount: 0,
-      parseFailCount: 0,
-      triggeredAt: null,
-    });
-  },
+    setViewMode: (viewMode) => {
+      saveToStorage(SERIAL_VIEW_MODE_KEY, viewMode);
+      set({ viewMode });
+    },
 
-  setChartPaused: (chartPaused) => set({ chartPaused }),
+    setSplitRatio: (splitRatio) => {
+      set({ splitRatio });
+      clearTimeout(splitRatioSaveTimer);
+      splitRatioSaveTimer = setTimeout(() => saveNumberToStorage(SERIAL_SPLIT_RATIO_KEY, splitRatio), 150);
+    },
 
-  incrementParseSuccess: () => set((state) => ({ parseSuccessCount: state.parseSuccessCount + 1 })),
+    setSplitOrientation: (splitOrientation) => {
+      saveToStorage(SERIAL_SPLIT_ORIENTATION_KEY, splitOrientation);
+      set({ splitOrientation });
+    },
 
-  incrementParseFail: () => set((state) => ({ parseFailCount: state.parseFailCount + 1 })),
+    setSendSettings: (settings) => {
+      set((state) => {
+        const newSettings = { ...state.sendSettings, ...settings };
+        saveToStorage(SERIAL_SEND_SETTINGS_KEY, newSettings);
+        return { sendSettings: newSettings };
+      });
+    },
 
-  incrementParseCounts: (success, fail) =>
-    set((state) => {
-      if (success === 0 && fail === 0) return state;
-      return {
-        parseSuccessCount: state.parseSuccessCount + success,
-        parseFailCount: state.parseFailCount + fail,
-      };
-    }),
+    setRxFraming: (settings) => {
+      set((state) => {
+        const newFraming = { ...state.rxFraming, ...settings };
+        saveToStorage(SERIAL_RX_FRAMING_KEY, newFraming);
+        return { rxFraming: newFraming };
+      });
+    },
 
-  setSendSettings: (settings) => {
-    set((state) => {
-      const newSettings = { ...state.sendSettings, ...settings };
-      saveToStorage(SERIAL_SEND_SETTINGS_KEY, newSettings);
-      return { sendSettings: newSettings };
-    });
-  },
-
-  setRxFraming: (settings) => {
-    set((state) => {
-      const newFraming = { ...state.rxFraming, ...settings };
-      saveToStorage(SERIAL_RX_FRAMING_KEY, newFraming);
-      return { rxFraming: newFraming };
-    });
-  },
-
-  reset: () =>
-    set({
-      connected: false,
-      connecting: false,
-      running: false,
-      error: null,
-      lines: [],
-      stats: { bytes_received: 0, bytes_sent: 0 },
-      lineIdCounter: 0,
-      terminalLines: [],
-      terminalActiveLine: "",
-      terminalActiveUnits: [],
-      terminalCursorColumn: 0,
-      terminalPendingEscape: "",
-      terminalLineCounter: 0,
-    }),
-}));
+    reset: () =>
+      set({
+        connected: false,
+        connecting: false,
+        running: false,
+        error: null,
+        lines: [],
+        stats: { bytes_received: 0, bytes_sent: 0 },
+        lineIdCounter: 0,
+        terminalLines: [],
+        terminalActiveLine: "",
+        terminalActiveUnits: [],
+        terminalCursorColumn: 0,
+        terminalPendingEscape: "",
+        terminalLineCounter: 0,
+      }),
+  };
+});
