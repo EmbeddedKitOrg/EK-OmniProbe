@@ -19,11 +19,15 @@ import {
   type SimulationPreset,
   type SimulationWaveform,
   type SimulationXyPattern,
+  type SerialLine,
 } from "@/lib/serialTypes";
 import { createSimulationSample, startSerialSimulation, stopSerialSimulation } from "@/lib/serialSimulation";
 import { useShallow } from "zustand/react/shallow";
 import { ChartParserPanel } from "@/components/rtt/ChartParserPanel";
 import { cn } from "@/lib/utils";
+
+/** 稳定的空数组引用：解析面板不可见时用它替代 lines，避免订阅到每帧都换 identity 的大数组。 */
+const NO_SAMPLE_LINES: SerialLine[] = [];
 
 const parsePort = (value: string) => Math.min(65535, Math.max(0, parseInt(value) || 0));
 
@@ -38,7 +42,6 @@ export function SerialSidebar() {
     simulationConfig,
     activeSourceType,
     sendSettings,
-    lines,
     chartConfig,
     inspectorTab,
     setConnected,
@@ -66,7 +69,6 @@ export function SerialSidebar() {
       simulationConfig: state.simulationConfig,
       activeSourceType: state.activeSourceType,
       sendSettings: state.sendSettings,
-      lines: state.lines,
       chartConfig: state.chartConfig,
       inspectorTab: state.inspectorTab,
       setConnected: state.setConnected,
@@ -85,6 +87,8 @@ export function SerialSidebar() {
       getActiveConfig: state.getActiveConfig,
     }))
   );
+
+  const chartSampleLines = useSerialStore((state) => (inspectorTab === "data" ? state.lines : NO_SAMPLE_LINES));
 
   const stats = useSerialStats();
   const addLog = useLogStore((state) => state.addLog);
@@ -210,7 +214,9 @@ export function SerialSidebar() {
   const simulationPreview = JSON.stringify(
     createSimulationSample(simulationConfig, simulationConfig.preset === "filter-demo" ? 0.05 : 0.5, () => 0.5)
   );
-  const chartSamples = lines
+  // 解析面板只在「数据」页签下可见（其余情况仅用 CSS 隐藏，组件仍挂载）。
+  // 只在可见时订阅 lines，否则整个侧边栏会跟着每批数据重渲染。
+  const chartSamples = chartSampleLines
     .slice(-100)
     .filter((line) => line.direction === "rx")
     .slice(-20)
