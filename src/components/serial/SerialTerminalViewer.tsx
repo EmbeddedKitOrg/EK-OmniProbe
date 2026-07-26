@@ -16,6 +16,15 @@ interface SerialTerminalViewerProps {
   title?: string;
 }
 
+interface TerminalDisplayLine {
+  id: number;
+  text: string;
+  isActive: boolean;
+}
+
+/** 稳定的空引用，避免无活动行时每次渲染都生成新数组。 */
+const EMPTY_TAIL_LINES: TerminalDisplayLine[] = [];
+
 const ARROW_KEY_BYTES: Record<string, number[]> = {
   ArrowUp: [0x1b, 0x5b, 0x41],
   ArrowDown: [0x1b, 0x5b, 0x42],
@@ -81,61 +90,66 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
     }
   }, [lineMode]);
 
-  const displayLines = useMemo(() => {
-    const committedLines = terminalLines.map((line) => ({
-      ...line,
-      isActive: false,
-    }));
-
+  // 只有末尾这 0~2 行会随按键和活动行变化，已提交的行原样取用。
+  // 此前是把整个 terminalLines（可达数千行）map 成新对象，
+  // 而 editBuffer / terminalActiveLine / focused 每次按键和每个到达字符都在变，
+  // 于是敲一个字符就要重建整个终端缓冲。
+  const tailLines = useMemo<TerminalDisplayLine[]>(() => {
     if (lineMode) {
       // 行编辑模式：显示设备已经回显的行 + 本地编辑缓冲（带 > 提示符）
-      const promptLine = {
-        id: -2,
-        text: `> ${editBuffer}`,
-        isActive: true,
-      };
+      const promptLine = { id: -2, text: `> ${editBuffer}`, isActive: true };
       if (terminalActiveLine.length > 0) {
-        return [...committedLines, { id: -1, text: terminalActiveLine, isActive: false }, promptLine];
+        return [{ id: -1, text: terminalActiveLine, isActive: false }, promptLine];
       }
-      return [...committedLines, promptLine];
+      return [promptLine];
     }
 
     if (terminalActiveLine.length > 0 || focused) {
-      return [
-        ...committedLines,
-        {
-          id: -1,
-          text: terminalActiveLine,
-          isActive: true,
-        },
-      ];
+      return [{ id: -1, text: terminalActiveLine, isActive: true }];
     }
 
-    return committedLines;
-  }, [editBuffer, focused, lineMode, terminalActiveLine, terminalLines]);
+    return EMPTY_TAIL_LINES;
+  }, [editBuffer, focused, lineMode, terminalActiveLine]);
+
+  const displayLineCount = terminalLines.length + tailLines.length;
+
+  // 按下标取行：虚拟列表只会问可见的那几十行，不需要把整表物化出来。
+  const getDisplayLine = useCallback(
+    (index: number): TerminalDisplayLine => {
+      const committed = terminalLines[index];
+      if (committed) return { id: committed.id, text: committed.text, isActive: false };
+      return tailLines[index - terminalLines.length];
+    },
+    [tailLines, terminalLines]
+  );
 
   const handleSave = useCallback(async () => {
     try {
-      const path = await exportTextAsTxt(displayLines.map((line) => line.text).join("\n"), "serial-terminal");
-      if (path) addLog("success", `已保存当前终端 ${displayLines.length} 行到 ${path}`);
+      // 导出是用户主动触发的一次性操作，这里才需要把全部行物化出来
+      const text = terminalLines
+        .map((line) => line.text)
+        .concat(tailLines.map((line) => line.text))
+        .join("\n");
+      const path = await exportTextAsTxt(text, "serial-terminal");
+      if (path) addLog("success", `已保存当前终端 ${terminalLines.length + tailLines.length} 行到 ${path}`);
     } catch (error) {
       addLog("error", `保存当前终端失败: ${error}`);
     }
-  }, [addLog, displayLines]);
+  }, [addLog, tailLines, terminalLines]);
   const { onContextMenu, contextMenu } = useSaveTxtContextMenu(handleSave);
 
   const rowVirtualizer = useVirtualizer({
-    count: displayLines.length,
+    count: displayLineCount,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 22,
     overscan: 15,
   });
 
   useEffect(() => {
-    if (autoScroll && displayLines.length > 0) {
-      rowVirtualizer.scrollToIndex(displayLines.length - 1, { align: "end" });
+    if (autoScroll && displayLineCount > 0) {
+      rowVirtualizer.scrollToIndex(displayLineCount - 1, { align: "end" });
     }
-  }, [autoScroll, displayLines.length, rowVirtualizer]);
+  }, [autoScroll, displayLineCount, rowVirtualizer]);
 
   const focusTerminal = useCallback(() => {
     // 用户正在选择文本时不要夺焦，否则一松手选区就丢
@@ -455,7 +469,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
         onClick={focusTerminal}
         onContextMenu={onContextMenu}
       >
-        {displayLines.length === 0 ? (
+        {displayLineCount === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{emptyMessage}</div>
         ) : (
           <div
@@ -466,7 +480,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
             }}
           >
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const line = displayLines[virtualRow.index];
+              const line = getDisplayLine(virtualRow.index);
               return (
                 <div
                   key={`${line.id}-${virtualRow.key}`}
