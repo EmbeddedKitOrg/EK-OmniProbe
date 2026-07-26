@@ -1,7 +1,7 @@
 // src/lib/exporters.ts
 // 通用数据导出工具：保存对话框 + 写文件 + 各类数据序列化
 
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import type { LogEntry, RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
@@ -27,6 +27,21 @@ async function saveTextFile(content: string, defaultName: string, filters: Dialo
 
 export async function exportTextAsTxt(content: string, prefix = "output"): Promise<string | null> {
   return saveTextFile(content, `${prefix}-${timestampSuffix()}.txt`, TEXT_FILTERS);
+}
+
+const SESSION_FILTERS: DialogFilter[] = [{ name: "EK 会话记录", extensions: ["ekrec"] }];
+
+/** 保存采集会话（NDJSON，见 lib/sessionRecord.ts）。 */
+export async function exportSessionFile(content: string, prefix = "session"): Promise<string | null> {
+  return saveTextFile(content, `${prefix}-${timestampSuffix()}.ekrec`, SESSION_FILTERS);
+}
+
+/** 选择并读取一个会话文件；用户取消时返回 null。 */
+export async function importSessionFile(): Promise<{ path: string; content: string } | null> {
+  const path = await open({ multiple: false, filters: SESSION_FILTERS });
+  if (typeof path !== "string") return null;
+  const content = await invoke<string>("read_text_file", { path });
+  return { path, content };
 }
 
 export async function exportJson(content: string, defaultName: string): Promise<string | null> {

@@ -25,11 +25,16 @@ import {
   Columns,
   Binary,
   Tags,
+  Circle,
+  History,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { ColorSettingsDialog } from "@/components/rtt/ColorSettingsDialog";
 import { detectChartConfig } from "@/lib/chartAnalysis";
-import { exportSerialLinesAsTxt, exportSerialLinesAsCsv } from "@/lib/exporters";
+import { exportSerialLinesAsTxt, exportSerialLinesAsCsv, exportSessionFile, importSessionFile } from "@/lib/exporters";
+import { getSessionStats, serializeSession, replaySession } from "@/lib/serialSession";
+import { formatBytes } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import { copyAllLines, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
 import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
@@ -80,6 +85,8 @@ export function SerialToolbar() {
     setSplitOrientation,
     clearLines,
     setChartConfig,
+    sessionRecording,
+    setSessionRecording,
   } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
@@ -112,6 +119,8 @@ export function SerialToolbar() {
       setSplitOrientation: state.setSplitOrientation,
       clearLines: state.clearLines,
       setChartConfig: state.setChartConfig,
+      sessionRecording: state.sessionRecording,
+      setSessionRecording: state.setSessionRecording,
     }))
   );
 
@@ -203,6 +212,61 @@ export function SerialToolbar() {
   };
 
   // Smart enable chart
+  // 录制的是原始字节流，因此回放时可以换一套解析或滤波配置重新跑
+  const handleToggleSessionRecording = async () => {
+    if (!sessionRecording) {
+      setSessionRecording(true);
+      addLog("info", "已开始录制会话，停止时可保存为 .ekrec 文件");
+      return;
+    }
+
+    const stats = getSessionStats();
+    const { chartConfig: currentChart, rxFraming: currentFraming } = useSerialStore.getState();
+    setSessionRecording(false);
+
+    if (stats.empty) {
+      addLog("warn", "本次录制没有收到任何数据，未保存");
+      return;
+    }
+
+    try {
+      const path = await exportSessionFile(serializeSession(currentChart, currentFraming));
+      if (!path) return;
+      const size = `${stats.chunkCount} 块 / ${formatBytes(stats.byteCount)}`;
+      addLog("success", `会话已保存到 ${path}（${size}）`);
+      if (stats.truncated) {
+        addLog("warn", "录制超出容量上限，文件只包含前一部分数据");
+      }
+    } catch (error) {
+      addLog("error", `保存会话失败: ${error}`);
+    }
+  };
+
+  const handleReplaySession = async () => {
+    try {
+      const file = await importSessionFile();
+      if (!file) return;
+
+      // 用文件里记录的解析配置回放，并先清空当前图表，避免与实时数据混在一起
+      const { result, header, chunkCount } = replaySession(file.content);
+      const state = useSerialStore.getState();
+      state.clearChartData();
+      state.setChartConfig(header.chartConfig);
+      state.commitSerialReceiveBatch(result);
+
+      addLog(
+        "success",
+        `已回放 ${chunkCount} 个数据块，解析出 ${result.telemetryBatch.points.length} 个数据点` +
+          `（录制于 ${header.createdAt}）`
+      );
+      if (result.telemetryBatch.fail > 0) {
+        addLog("warn", `其中 ${result.telemetryBatch.fail} 帧解析失败`);
+      }
+    } catch (error) {
+      addLog("error", `回放会话失败: ${error}`);
+    }
+  };
+
   const handleSmartEnableChart = () => {
     const { lines } = useSerialStore.getState();
     if (lines.length === 0) {
@@ -356,6 +420,20 @@ export function SerialToolbar() {
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     智能启用
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={sessionRecording ? "secondary" : "outline"}
+                    onClick={handleToggleSessionRecording}
+                    className="gap-1"
+                    title="录制原始字节流，之后可回放并重新解析"
+                  >
+                    <Circle className={cn("h-3.5 w-3.5", sessionRecording && "fill-red-500 text-red-500")} />
+                    {sessionRecording ? "停止并保存" : "录制会话"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleReplaySession} className="gap-1">
+                    <History className="h-3.5 w-3.5" />
+                    回放会话
                   </Button>
                   <AiBridgeControl />
                   <AiSkillLink />

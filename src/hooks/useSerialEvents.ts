@@ -11,6 +11,7 @@ import { formatBytes } from "@/lib/formatters";
 import { publishAiSamples } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
 import { TEXT_FRAME_IDLE_MS } from "@/lib/dataFraming";
+import { captureSessionChunk } from "@/lib/serialSession";
 
 /**
  * Hook to listen for serial events
@@ -107,6 +108,12 @@ export function useSerialEvents() {
     // Listen for serial data events
     const unlistenData = listen<SerialDataEvent>("serial-data", (event) => {
       const state = useSerialStore.getState();
+
+      // 录制的是原始字节，与解析配置无关；只录接收方向
+      if (state.sessionRecording && event.payload.direction === "rx") {
+        for (const chunk of event.payload.chunks) captureSessionChunk(chunk.data, chunk.timestamp);
+      }
+
       batchResultsRef.current.push(
         receivePipelineRef.current.ingest(event.payload, {
           framing: state.rxFraming,
