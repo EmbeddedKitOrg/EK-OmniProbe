@@ -4,7 +4,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
+import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
 import {
   loadFromStorage,
   saveToStorage,
@@ -19,6 +19,10 @@ const VIEW_MODE_KEY = "rtt_view_mode";
 const SPLIT_RATIO_KEY = "rtt_split_ratio";
 const SPLIT_ORIENTATION_KEY = "rtt_split_orientation";
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+// 增量滤波状态。挂在模块作用域而不是 store state 里：它是可变的处理器状态，
+// 不参与渲染，放进 state 只会让每次 set 都被当成变更。
+const telemetryFilter = new TelemetryFilterState();
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
@@ -222,7 +226,7 @@ export const useRttStore = create<RttState>((set) => ({
 
   addChartData: (data) =>
     set((state) => {
-      const processing = appendTelemetryProcessing(
+      const processing = telemetryFilter.append(
         state.chartData,
         [data],
         state.chartConfig.maxDataPoints,
@@ -239,7 +243,7 @@ export const useRttStore = create<RttState>((set) => ({
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const processing = appendTelemetryProcessing(
+      const processing = telemetryFilter.append(
         state.chartData,
         points,
         state.chartConfig.maxDataPoints,
@@ -253,8 +257,10 @@ export const useRttStore = create<RttState>((set) => ({
       };
     }),
 
-  clearChartData: () =>
-    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () => {
+    telemetryFilter.reset();
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 });
+  },
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 

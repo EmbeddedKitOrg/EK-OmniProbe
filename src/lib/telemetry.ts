@@ -1,5 +1,11 @@
 import type { DataFilterConfig } from "./chartTypes";
-import { resolveChartProcessing } from "./chartFilter";
+import {
+  createChannelProcessors,
+  isDataFilterReady,
+  resolveChartProcessing,
+  runChannelProcessors,
+  type ChannelProcessors,
+} from "./chartFilter";
 
 /** 与具体展示无关的内部数值采样。 */
 export interface TelemetrySample {
@@ -46,9 +52,7 @@ export function resolveTelemetryProcessing(
   channels: TelemetryChannelDescriptor[],
   config: DataFilterConfig
 ): TelemetryProcessingResult {
-  const keys = new Set(channels.map(({ key }) => key));
-  Object.keys(rawData[rawData.length - 1]?.values ?? {}).forEach((key) => keys.add(key));
-  const processing = resolveChartProcessing(rawData, [...keys], config);
+  const processing = resolveChartProcessing(rawData, resolveChannelKeys(rawData, channels), config);
 
   return {
     rawData,
@@ -65,4 +69,75 @@ export function appendTelemetryProcessing(
   config: DataFilterConfig
 ): TelemetryProcessingResult {
   return resolveTelemetryProcessing(appendTelemetrySamples(current, incoming, maxDataPoints), channels, config);
+}
+
+function resolveChannelKeys(rawData: TelemetrySample[], channels: TelemetryChannelDescriptor[]): string[] {
+  const keys = new Set(channels.map(({ key }) => key));
+  Object.keys(rawData[rawData.length - 1]?.values ?? {}).forEach((key) => keys.add(key));
+  return [...keys];
+}
+
+/**
+ * 增量滤波状态。滤波器本身是有状态的（FIR 历史 / median 窗口 / SOS 的 z1z2），
+ * 原先每来一批样本就重建处理器并重放整个缓冲区，代价是 O(缓冲区长度) × 每帧；
+ * 这里把处理器留下来，稳态下只处理新到的样本。
+ *
+ * 判断能否走增量只看一件事：传入的 current 是否就是上次返回的 rawData（引用相等）。
+ * 清空数据、切换配置、外部直接改写 chartData 都会让引用不同，从而自动退回全量重算，
+ * 不依赖长度之类的启发式判断。
+ */
+export class TelemetryFilterState {
+  private processors: ChannelProcessors | null = null;
+  private signature = "";
+  private lastRaw: TelemetrySample[] | null = null;
+  private lastProcessed: TelemetrySample[] = [];
+
+  reset(): void {
+    this.processors = null;
+    this.signature = "";
+    this.lastRaw = null;
+    this.lastProcessed = [];
+  }
+
+  append(
+    current: TelemetrySample[],
+    incoming: TelemetrySample[],
+    maxDataPoints: number,
+    channels: TelemetryChannelDescriptor[],
+    config: DataFilterConfig
+  ): TelemetryProcessingResult {
+    const rawData = appendTelemetrySamples(current, incoming, maxDataPoints);
+    const keys = resolveChannelKeys(rawData, channels);
+    const filterActive = rawData.length > 0 && keys.length > 0 && isDataFilterReady(config);
+
+    if (!filterActive) {
+      this.reset();
+      this.lastRaw = rawData;
+      this.lastProcessed = rawData;
+      return { rawData, processedData: rawData, filterActive: false };
+    }
+
+    const signature = JSON.stringify([keys, config]);
+    const canAppend =
+      this.processors !== null &&
+      this.signature === signature &&
+      this.lastRaw === current &&
+      this.lastProcessed.length === current.length;
+
+    let processed: TelemetrySample[];
+    if (canAppend) {
+      const added = runChannelProcessors(incoming, this.processors!);
+      processed = this.lastProcessed.concat(added);
+      if (processed.length > rawData.length) processed = processed.slice(-rawData.length);
+    } else {
+      // 配置变了 / 缓冲区被外部替换 / 首次运行：重建处理器并重放整个缓冲区
+      this.processors = createChannelProcessors(keys, config);
+      this.signature = signature;
+      processed = runChannelProcessors(rawData, this.processors);
+    }
+
+    this.lastRaw = rawData;
+    this.lastProcessed = processed;
+    return { rawData, processedData: processed, filterActive: true };
+  }
 }

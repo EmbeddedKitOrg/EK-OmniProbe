@@ -12,7 +12,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
+import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -34,6 +34,9 @@ const BLE_SHOW_TIMESTAMP_KEY = "ble_show_timestamp";
 const BLE_DISPLAY_MODE_KEY = "ble_display_mode";
 const BLE_CONNECTION_MODE_KEY = "ble_connection_mode";
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+// 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
+const telemetryFilter = new TelemetryFilterState();
 
 const CONNECTION_MODE_VALUES = ["ble", "spp"] as const;
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
@@ -311,7 +314,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const processing = appendTelemetryProcessing(
+      const processing = telemetryFilter.append(
         state.chartData,
         points,
         state.chartConfig.maxDataPoints,
@@ -324,8 +327,10 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
         filterActive: processing.filterActive,
       };
     }),
-  clearChartData: () =>
-    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () => {
+    telemetryFilter.reset();
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 });
+  },
   setChartPaused: (paused) => set({ chartPaused: paused }),
   incrementParseCounts: (success, fail) =>
     set((state) => {

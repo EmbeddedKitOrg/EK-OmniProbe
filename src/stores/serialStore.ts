@@ -21,7 +21,7 @@ import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
 import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { appendTelemetryProcessing, resolveTelemetryProcessing } from "@/lib/telemetry";
+import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
 import type { SerialReceiveResult } from "@/lib/serialReceivePipeline";
 import { DEFAULT_TIMESTAMP_FORMAT } from "@/lib/formatters";
 import {
@@ -48,6 +48,9 @@ const SERIAL_RX_FRAMING_KEY = "serial_rx_framing";
 const SERIAL_TERMINAL_SETTINGS_VERSION_KEY = "serial_terminal_settings_version";
 const SERIAL_TERMINAL_SETTINGS_VERSION = 3;
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+// 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
+const telemetryFilter = new TelemetryFilterState();
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
@@ -674,7 +677,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
         next.chartConfig = chartConfig;
       }
       if (telemetryBatch.points.length > 0) {
-        const processing = appendTelemetryProcessing(
+        const processing = telemetryFilter.append(
           state.chartData,
           telemetryBatch.points,
           chartConfig.maxDataPoints,
@@ -779,7 +782,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
 
   addChartData: (data) =>
     set((state) => {
-      const processing = appendTelemetryProcessing(
+      const processing = telemetryFilter.append(
         state.chartData,
         [data],
         state.chartConfig.maxDataPoints,
@@ -796,7 +799,7 @@ export const useSerialStore = create<SerialState>((set, get) => ({
   addChartDataBatch: (points) =>
     set((state) => {
       if (points.length === 0) return state;
-      const processing = appendTelemetryProcessing(
+      const processing = telemetryFilter.append(
         state.chartData,
         points,
         state.chartConfig.maxDataPoints,
@@ -810,8 +813,10 @@ export const useSerialStore = create<SerialState>((set, get) => ({
       };
     }),
 
-  clearChartData: () =>
-    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 }),
+  clearChartData: () => {
+    telemetryFilter.reset();
+    set({ chartData: [], processedChartData: [], filterActive: false, parseSuccessCount: 0, parseFailCount: 0 });
+  },
 
   setChartPaused: (chartPaused) => set({ chartPaused }),
 
