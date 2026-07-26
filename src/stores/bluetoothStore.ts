@@ -203,7 +203,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   chartData: [],
   processedChartData: [],
   filterActive: false,
-  chartConfig: migrateChartConfig(loadFromStorage(BLE_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), false),
+  chartConfig: migrateChartConfig(loadFromStorage(BLE_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false,
   parseSuccessCount: 0,
   parseFailCount: 0,
@@ -298,7 +298,7 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   },
 
   setChartConfig: (cfg) => {
-    const normalized = migrateChartConfig(cfg, false);
+    const normalized = migrateChartConfig(cfg);
     saveToStorage(BLE_CHART_CONFIG_KEY, normalized);
     set((state) => {
       const chartData = state.chartData.slice(-normalized.maxDataPoints);

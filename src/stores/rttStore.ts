@@ -135,7 +135,7 @@ export const useRttStore = create<RttState>((set) => ({
   chartData: [], // 新增：图表数据
   processedChartData: [],
   filterActive: false,
-  chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG), false),
+  chartConfig: migrateChartConfig(loadFromStorage(CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
   chartPaused: false, // 新增：图表冻结状态
   parseSuccessCount: 0, // 新增：解析成功计数
   parseFailCount: 0, // 新增：解析失败计数
@@ -210,7 +210,7 @@ export const useRttStore = create<RttState>((set) => ({
   },
 
   setChartConfig: (chartConfig) => {
-    const normalizedConfig = migrateChartConfig(chartConfig, false);
+    const normalizedConfig = migrateChartConfig(chartConfig);
     saveToStorage(CHART_CONFIG_KEY, normalizedConfig);
     set((state) => {
       const chartData = state.chartData.slice(-normalizedConfig.maxDataPoints);

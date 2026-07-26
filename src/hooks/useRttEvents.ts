@@ -2,8 +2,9 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useRttStore } from "@/stores/rttStore";
 import type { RttDataEvent, RttStatusEvent, RttLine } from "@/lib/types";
-import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
+import { TelemetryIngestionBuffer, TelemetryParseDispatcher } from "@/lib/chartIngestion";
 import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
+import { getChartParser } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -24,6 +25,8 @@ export function useRttEvents() {
   );
   const frameStreamsRef = useRef(new Map<number, TextFrameStream>());
   const idleFlushTimersRef = useRef(new Map<number, number>());
+  // 字节流解析按通道各持一份：不同 RTT 通道的二进制残包不能互相污染
+  const parseDispatchersRef = useRef(new Map<number, TelemetryParseDispatcher>());
 
   // 批量处理缓冲区：所有高频更新统一到 requestAnimationFrame 节流
   const batchLinesRef = useRef<Omit<RttLine, "id">[]>([]);
@@ -63,7 +66,31 @@ export function useRttEvents() {
       if (lines.length === 0) return;
       batchLinesRef.current.push(...lines);
       const chartConfig = useRttStore.getState().chartConfig;
-      if (chartConfig.enabled) telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+      // 字节流模式下文本行只用于日志显示，遥测数值由 ingestChannelBytes 产出
+      if (chartConfig.enabled && getChartParser(chartConfig.parseMode)?.kind !== "bytes") {
+        telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+      }
+    };
+
+    /** 字节流解析：仅在选用字节流解析器时有产出，返回是否已消费。 */
+    const ingestChannelBytes = (channel: number, data: number[], timestamp: number) => {
+      const chartConfig = useRttStore.getState().chartConfig;
+      let dispatcher = parseDispatchersRef.current.get(channel);
+      if (!dispatcher) {
+        dispatcher = new TelemetryParseDispatcher();
+        parseDispatchersRef.current.set(channel, dispatcher);
+      }
+      const parsed = dispatcher.ingestBytes(data, chartConfig, timestamp);
+      if (!parsed) return;
+
+      if (parsed.detectedChannels) {
+        useRttStore.getState().setChartConfig({ ...chartConfig, channels: parsed.detectedChannels });
+      }
+      telemetryIngestionRef.current.ingestBatch({
+        points: parsed.points,
+        success: parsed.success,
+        fail: parsed.fail,
+      });
     };
 
     const clearIdleFlush = (channel: number) => {
@@ -102,11 +129,14 @@ export function useRttEvents() {
       // 如果暂停，不处理数据
       if (useRttStore.getState().isPaused) {
         frameStreamsRef.current.get(channel)?.reset();
+        parseDispatchersRef.current.get(channel)?.reset();
         clearIdleFlush(channel);
         return;
       }
 
       batchBytesRef.current += data.length;
+      ingestChannelBytes(channel, data, timestamp);
+
       let stream = frameStreamsRef.current.get(channel);
       if (!stream) {
         stream = new TextFrameStream();
@@ -130,6 +160,8 @@ export function useRttEvents() {
       if (!running) {
         for (const channel of frameStreamsRef.current.keys()) flushPendingChannel(channel, false);
         frameStreamsRef.current.clear();
+        for (const dispatcher of parseDispatchersRef.current.values()) dispatcher.reset();
+        parseDispatchersRef.current.clear();
         scheduleBatchUpdate();
       }
       setRunning(running);

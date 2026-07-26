@@ -205,6 +205,79 @@ try {
     assert.equal(getChartParser("justfloat").kind, "bytes");
   }
 
+  // ---- 6) TelemetryParseDispatcher：三条来源共用的解析分派器 ----
+  {
+    const { TelemetryParseDispatcher } = await server.ssrLoadModule("/src/lib/chartIngestion.ts");
+    const bytesConfig = { ...DEFAULT_CHART_CONFIG, enabled: true, parseMode: "justfloat", channels: [] };
+    const textConfig = { ...DEFAULT_CHART_CONFIG, enabled: true, parseMode: "json", channels: [] };
+
+    // 6a) 模式判别
+    {
+      const d = new TelemetryParseDispatcher();
+      assert.equal(d.usesBytesParser(bytesConfig), true);
+      assert.equal(d.usesBytesParser(textConfig), false);
+      assert.equal(d.usesBytesParser({ ...bytesConfig, enabled: false }), false, "未启用图表时不应走字节流");
+      assert.equal(d.ingestBytes([1, 2, 3], textConfig, 0), null, "文本模式应返回 null 让调用方走文本路径");
+    }
+
+    // 6b) 按通道隔离：这是 RTT 最关键的性质。
+    //     两个通道各自收到半帧，若共用一个解析器，残包会串在一起解出错误数值。
+    {
+      const chA = new TelemetryParseDispatcher();
+      const chB = new TelemetryParseDispatcher();
+      const frameA = frame(11.5, 22.5);
+      const frameB = frame(-33.5, -44.5);
+      const cfg = { ...bytesConfig, channels: [] };
+
+      // 交错喂入两条流的前半段
+      assert.equal(chA.ingestBytes(frameA.slice(0, 3), cfg, 100).points.length, 0);
+      assert.equal(chB.ingestBytes(frameB.slice(0, 5), cfg, 100).points.length, 0);
+
+      // 再各自补完后半段
+      const restA = chA.ingestBytes(frameA.slice(3), cfg, 200);
+      const restB = chB.ingestBytes(frameB.slice(5), cfg, 200);
+
+      assert.equal(restA.points.length, 1, "通道 A 应解出 1 帧");
+      assert.equal(restB.points.length, 1, "通道 B 应解出 1 帧");
+
+      const cfgA = { ...cfg, channels: restA.detectedChannels };
+      const cfgB = { ...cfg, channels: restB.detectedChannels };
+      assert.equal(cfgA.channels.length, 2);
+      assert.equal(cfgB.channels.length, 2);
+
+      // 数值必须各归各的，没有串流
+      const reA = new TelemetryParseDispatcher().ingestBytes(frameA, cfgA, 300);
+      const reB = new TelemetryParseDispatcher().ingestBytes(frameB, cfgB, 300);
+      assert.deepEqual(reA.points[0].values, { ch1: asF32(11.5), ch2: asF32(22.5) });
+      assert.deepEqual(reB.points[0].values, { ch1: asF32(-33.5), ch2: asF32(-44.5) });
+      console.log("  按通道隔离：交错半帧不串流，数值各归各");
+    }
+
+    // 6c) 切换解析模式后残包必须丢弃，不能带进新解析器
+    {
+      const d = new TelemetryParseDispatcher();
+      d.ingestBytes(frame(1, 2).slice(0, 4), bytesConfig, 100); // 留半帧
+      assert.equal(d.ingestBytes([], textConfig, 200), null, "切到文本模式应返回 null");
+      // 切回字节流：应是全新解析器，之前的半帧不该再冒出来
+      const after = d.ingestBytes(frame(7.5, 8.5), { ...bytesConfig, channels: [] }, 300);
+      assert.equal(after.points.length, 1, "切回后应只解出新喂入的那一帧");
+      const cfg = { ...bytesConfig, channels: after.detectedChannels };
+      const verify = new TelemetryParseDispatcher().ingestBytes(frame(7.5, 8.5), cfg, 400);
+      assert.deepEqual(verify.points[0].values, { ch1: asF32(7.5), ch2: asF32(8.5) });
+    }
+
+    // 6d) reset 清空残包
+    {
+      const d = new TelemetryParseDispatcher();
+      const f = frame(5.5, 6.5);
+      d.ingestBytes(f.slice(0, 6), bytesConfig, 100);
+      d.reset();
+      const after = d.ingestBytes(f.slice(6), { ...bytesConfig, channels: [] }, 200);
+      assert.equal(after.points.length, 0, "reset 后残包应被丢弃，半帧尾巴不该拼出完整帧");
+    }
+    console.log("  分派器：模式判别 / 通道隔离 / 切换重建 / reset 均正确");
+  }
+
   console.log("字节流解析器注册表检查通过");
 } finally {
   await server.close();

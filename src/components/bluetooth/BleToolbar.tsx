@@ -235,6 +235,7 @@ export function BleToolbar() {
         chartConfig={chartConfig}
         setChartConfig={setChartConfig}
         title="BLE 图表配置"
+        allowBytesParsers
         samples={lines
           .filter((line) => line.direction === "rx")
           .slice(-20)
