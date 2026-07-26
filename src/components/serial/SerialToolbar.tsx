@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { RxFramingMode } from "@/lib/serialTypes";
+import type { RxFramingMode, SerialLine } from "@/lib/serialTypes";
 import {
   Play,
   Square,
@@ -36,6 +36,9 @@ import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 import { useState } from "react";
 import { formatTimestamp } from "@/lib/formatters";
 
+/** 稳定的空数组引用：配置对话框关闭时用它替代 lines，避免订阅到每帧都换 identity 的大数组。 */
+const NO_SAMPLE_LINES: SerialLine[] = [];
+
 const TIMESTAMP_FORMAT_PRESETS = [
   ["YYYY-MM-DD HH:mm:ss.SSS", "年月日 + 时分秒毫秒"],
   ["YYYY-MM-DD HH:mm:ss", "年月日 + 时分秒"],
@@ -60,7 +63,6 @@ export function SerialToolbar() {
     terminalSettings,
     viewMode,
     splitOrientation,
-    lines,
     chartConfig,
     rxFraming,
     setRxFraming,
@@ -93,7 +95,6 @@ export function SerialToolbar() {
       terminalSettings: state.terminalSettings,
       viewMode: state.viewMode,
       splitOrientation: state.splitOrientation,
-      lines: state.lines,
       chartConfig: state.chartConfig,
       rxFraming: state.rxFraming,
       setRxFraming: state.setRxFraming,
@@ -117,6 +118,12 @@ export function SerialToolbar() {
   const addLog = useLogStore((state) => state.addLog);
   const [moreOpen, setMoreOpen] = useState(false);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
+
+  // 工具栏渲染时只需要「有没有数据」。订阅整个 lines 会让它每帧重渲染一次
+  // （lines 每批都换 identity，useShallow 也挡不住），而工具栏是个很大的树。
+  const lineCount = useSerialStore((state) => state.lines.length);
+  // 只有图表配置对话框打开时才需要实时样本；关闭时返回稳定空引用。
+  const chartSampleLines = useSerialStore((state) => (chartConfigOpen ? state.lines : NO_SAMPLE_LINES));
 
   // Start serial polling
   const handleStart = async () => {
@@ -197,6 +204,7 @@ export function SerialToolbar() {
 
   // Smart enable chart
   const handleSmartEnableChart = () => {
+    const { lines } = useSerialStore.getState();
     if (lines.length === 0) {
       addLog("warn", "没有数据可分析，请先接收一些数据");
       return;
@@ -343,7 +351,7 @@ export function SerialToolbar() {
                     size="sm"
                     variant={chartConfig.enabled ? "secondary" : "outline"}
                     onClick={handleSmartEnableChart}
-                    disabled={lines.length === 0}
+                    disabled={lineCount === 0}
                     className="gap-1"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -631,7 +639,7 @@ export function SerialToolbar() {
           allowJustFloat
           allowDataFilter
           allowParserConfig={false}
-          samples={lines
+          samples={chartSampleLines
             .filter((line) => line.direction === "rx")
             .slice(-20)
             .map(({ text, rawData }) => ({ text, rawData }))}

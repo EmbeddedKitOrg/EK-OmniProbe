@@ -1,4 +1,5 @@
 import { useRttStore } from "@/stores/rttStore";
+import type { RttLine } from "@/lib/types";
 import { useLogStore } from "@/stores/logStore";
 import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
@@ -35,6 +36,9 @@ import { copyAllLines, formatRttLineForCopy } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
 import { SignalWorkspaceControls } from "./SignalWorkspaceControls";
 
+/** 稳定的空数组引用：配置对话框关闭时用它替代 lines，避免订阅到每帧都换 identity 的大数组。 */
+const NO_SAMPLE_LINES: RttLine[] = [];
+
 export function RttToolbar() {
   const {
     rttConnected,
@@ -49,7 +53,6 @@ export function RttToolbar() {
     scanMode,
     scanAddress,
     pollInterval,
-    lines,
     chartConfig,
     setRttConnected,
     setRttConnecting,
@@ -77,7 +80,6 @@ export function RttToolbar() {
       scanMode: state.scanMode,
       scanAddress: state.scanAddress,
       pollInterval: state.pollInterval,
-      lines: state.lines,
       chartConfig: state.chartConfig,
       setRttConnected: state.setRttConnected,
       setRttConnecting: state.setRttConnecting,
@@ -97,6 +99,11 @@ export function RttToolbar() {
   const addLog = useLogStore((state) => state.addLog);
   const [moreOpen, setMoreOpen] = useState(false);
   const [chartConfigOpen, setChartConfigOpen] = useState(false);
+
+  // 渲染时只需要「有没有数据」；订阅整个 lines 会让工具栏每帧重渲染一次。
+  const lineCount = useRttStore((state) => state.lines.length);
+  // 仅在图表配置对话框打开时才需要实时样本，关闭时用稳定空引用。
+  const chartSampleLines = useRttStore((state) => (chartConfigOpen ? state.lines : NO_SAMPLE_LINES));
   const { selectedProbe, selectedChipName, settings } = useProbeStore(
     useShallow((state) => ({
       selectedProbe: state.selectedProbe,
@@ -264,6 +271,7 @@ export function RttToolbar() {
 
   // 智能启用图表
   const handleSmartEnableChart = () => {
+    const { lines } = useRttStore.getState();
     if (lines.length === 0) {
       addLog("warn", "没有数据可分析，请先启动 RTT 并接收一些数据");
       return;
@@ -417,7 +425,7 @@ export function RttToolbar() {
                         size="sm"
                         variant={chartConfig.enabled ? "secondary" : "outline"}
                         onClick={handleSmartEnableChart}
-                        disabled={lines.length === 0}
+                        disabled={lineCount === 0}
                         className="gap-1"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
@@ -511,7 +519,7 @@ export function RttToolbar() {
           chartConfig={chartConfig}
           setChartConfig={setChartConfig}
           title="RTT 图表配置"
-          samples={lines.slice(-20).map(({ text, rawData }) => ({ text, rawData }))}
+          samples={chartSampleLines.slice(-20).map(({ text, rawData }) => ({ text, rawData }))}
           open={chartConfigOpen}
           onOpenChange={setChartConfigOpen}
           trigger={null}
