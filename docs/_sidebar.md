@@ -9,6 +9,7 @@
   - [串口终端](SERIAL_TERMINAL_GUIDE.md)
   - [无线串口透传接入](WIRELESS_SERIAL_GUIDE.md)
   - [会话录制与回放](SESSION_RECORD_GUIDE.md)
+  - [触发捕获](TRIGGER_CAPTURE_GUIDE.md)
   - [AI 数据桥接](AI_TUNING_GUIDE.md)
 
 - RTT 与图表

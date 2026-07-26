@@ -343,11 +343,17 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
         state.chartConfig.dataFilter
       );
       // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
-      const triggerPatch = stepTriggerCapture(triggerDetector, processing.rawData, points, state.chartConfig.trigger);
+      const triggerPatch = stepTriggerCapture(
+        triggerDetector,
+        processing.rawData,
+        processing.processedData,
+        points.length,
+        state.chartConfig.trigger
+      );
 
       return {
         chartData: triggerPatch?.chartData ?? processing.rawData,
-        processedChartData: processing.processedData,
+        processedChartData: triggerPatch?.processedChartData ?? processing.processedData,
         filterActive: processing.filterActive,
         ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
       };

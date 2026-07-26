@@ -204,6 +204,7 @@ export function resolveTriggerCapture(
 /** 供 store 直接展开进 setState 的补丁；无事发生时为 null。 */
 export interface TriggerStorePatch {
   chartData: TelemetrySample[];
+  processedChartData: TelemetrySample[];
   chartPaused: boolean;
   triggeredAt: number | null;
 }
@@ -212,23 +213,38 @@ export interface TriggerStorePatch {
  * 把「喂样本 → 判断是否捕获完成 → 按视图模式取数据」串成一步，
  * 供三条来源的 store 各调一次，避免同样的二十行在三处各写一遍。
  *
- * @param buffer 追加新样本之后的完整缓冲区
- * @param incoming 本批新增的样本
+ * 触发判断用的是**滤波后**的数值：用户是对着图上显示的波形设触发电平的，
+ * 若拿原始值判断，开了滤波之后就会在"看起来还没越过电平"的时刻触发。
+ *
+ * 原始与滤波后两个缓冲区必须按同样的窗口裁剪。只裁其中一个会让两者错位，
+ * 而图表在滤波开启时显示的是滤波后那份——只裁 chartData 的话窗口模式
+ * 对开了滤波的用户根本不生效。
+ *
+ * @param rawBuffer 追加新样本之后的原始缓冲区
+ * @param processedBuffer 与 rawBuffer 等长的滤波后缓冲区
+ * @param incomingCount 本批新增的样本数
  * @returns 需要写入 store 的补丁；未完成捕获时返回 null，调用方保持原状
  */
 export function stepTriggerCapture(
   detector: TriggerDetector,
-  buffer: TelemetrySample[],
-  incoming: TelemetrySample[],
+  rawBuffer: TelemetrySample[],
+  processedBuffer: TelemetrySample[],
+  incomingCount: number,
   config: TriggerConfig
 ): TriggerStorePatch | null {
+  // 取滤波后缓冲区的尾部作为本批样本，保证判断依据与显示一致
+  const incoming = incomingCount > 0 ? processedBuffer.slice(-incomingCount) : [];
   if (!detector.push(incoming, config)) return null;
 
-  const capture = resolveTriggerCapture(buffer, config, detector.getStatus().triggeredAt);
+  const triggeredAt = detector.getStatus().triggeredAt;
+  const raw = resolveTriggerCapture(rawBuffer, config, triggeredAt);
+  const processed = resolveTriggerCapture(processedBuffer, config, triggeredAt);
+
   return {
-    chartData: capture.data,
+    chartData: raw.data,
+    processedChartData: processed.data,
     // 捕获完成即冻结，复用图表既有的暂停机制
     chartPaused: true,
-    triggeredAt: capture.triggeredAt,
+    triggeredAt,
   };
 }
