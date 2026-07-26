@@ -204,7 +204,7 @@ async fn rtt_polling_task(
         interval_timer.tick().await;
         poll_count += 1;
 
-        if poll_count % 100 == 0 {
+        if poll_count.is_multiple_of(100) {
             log::debug!("RTT 轮询计数: {}", poll_count);
         }
 
@@ -297,7 +297,7 @@ fn poll_rtt_once(
                 log::error!("RTT 连续 {} 次获取 core 失败: {}", consecutive_errors, e);
                 return PollResult::Error(format!("无法访问目标芯片: {}", e));
             }
-            if *consecutive_errors % 10 == 0 {
+            if consecutive_errors.is_multiple_of(10) {
                 log::warn!("获取 core 失败 (第 {} 次): {}", consecutive_errors, e);
             }
             return PollResult::NoData;

@@ -129,7 +129,7 @@ impl PackScanReport {
             .collect();
 
         // 按设备数量降序排序
-        self.algorithm_stats.sort_by(|a, b| b.device_count.cmp(&a.device_count));
+        self.algorithm_stats.sort_by_key(|stat| std::cmp::Reverse(stat.device_count));
     }
 
     /// 获取有问题的设备列表

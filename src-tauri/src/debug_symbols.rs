@@ -134,7 +134,8 @@ impl DebugSymbols {
 
         // 函数名：优先从 addr2line 取（带 demangle），找不到再回退到符号表
         if let Ok(mut frames) = self.loader.find_frames(pc) {
-            while let Ok(Some(frame)) = frames.next() {
+            // 只取第一帧（最内层 / 最具体的位置）；此处刻意不遍历后续内联帧
+            if let Ok(Some(frame)) = frames.next() {
                 if let Some(func) = frame.function.as_ref() {
                     if let Ok(name) = func.demangle() {
                         loc.function = Some(name.into_owned());
@@ -146,8 +147,6 @@ impl DebugSymbols {
                     }
                     loc.line = location.line;
                 }
-                // 只取第一帧（最内层 / 最具体的位置）
-                break;
             }
         }
 
@@ -229,10 +228,7 @@ fn build_line_index(obj: &object::File<'_>) -> Option<HashMap<(String, u32), u64
             Ok(u) => u,
             Err(_) => continue,
         };
-        let comp_dir: Option<String> = unit
-            .comp_dir
-            .as_ref()
-            .and_then(|s| reader_to_string(s));
+        let comp_dir: Option<String> = unit.comp_dir.as_ref().and_then(reader_to_string);
 
         let line_program = match unit.line_program.clone() {
             Some(lp) => lp,

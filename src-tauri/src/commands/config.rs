@@ -3,7 +3,7 @@ use crate::pack::manager::{PackManager, PackInfo};
 use crate::pack::target_gen;
 use probe_rs::config::Registry;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use parking_lot::Mutex;
 use tauri::Emitter;
 
@@ -236,7 +236,7 @@ fn get_fallback_chip(chip_name: &str) -> Option<String> {
 
 /// 从 Pack 目录注册设备到 probe-rs
 fn register_pack_devices(
-    pack_dir: &PathBuf,
+    pack_dir: &Path,
     pack_name: &str,
     progress_callback: Option<&crate::pack::progress::ProgressCallback>,
 ) -> AppResult<usize> {
