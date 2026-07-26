@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import type { RxFramingSettings } from "@/lib/serialTypes";
+import { DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
 import type { RttChannel, RttLine, RttScanMode } from "@/lib/types";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
@@ -19,6 +21,7 @@ const CHART_CONFIG_KEY = "rtt_chart_config";
 const VIEW_MODE_KEY = "rtt_view_mode";
 const SPLIT_RATIO_KEY = "rtt_split_ratio";
 const SPLIT_ORIENTATION_KEY = "rtt_split_orientation";
+const RTT_RX_FRAMING_KEY = "rtt_rx_framing";
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 // 增量滤波状态。挂在模块作用域而不是 store state 里：它是可变的处理器状态，
@@ -104,6 +107,10 @@ interface RttState {
   clearChartData: () => void; // 新增：清空图表数据
 
   /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
+  /** 接收分帧设置：决定字节流如何被切成文本行 */
+  rxFraming: RxFramingSettings;
+  setRxFraming: (settings: Partial<RxFramingSettings>) => void;
+
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
   setChartPaused: (paused: boolean) => void; // 新增：设置图表冻结状态
@@ -260,6 +267,14 @@ export const useRttStore = create<RttState>((set) => ({
         processedChartData: processing.processedData,
         filterActive: processing.filterActive,
       };
+    }),
+
+  rxFraming: loadFromStorage(RTT_RX_FRAMING_KEY, DEFAULT_RX_FRAMING),
+  setRxFraming: (settings) =>
+    set((state) => {
+      const next = { ...state.rxFraming, ...settings };
+      saveToStorage(RTT_RX_FRAMING_KEY, next);
+      return { rxFraming: next };
     }),
 
   sessionRecording: false,

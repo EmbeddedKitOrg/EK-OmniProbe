@@ -102,7 +102,10 @@ export function useBluetoothEvents() {
 
     const scheduleIdleFlush = () => {
       clearIdleFlush();
-      idleFlushTimerRef.current = window.setTimeout(flushPending, TEXT_FRAME_IDLE_MS);
+      // 超时分帧模式下，空闲时长由用户配置决定；其余模式用固定兜底值刷出无换行残帧
+      const framing = useBluetoothStore.getState().rxFraming;
+      const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : TEXT_FRAME_IDLE_MS;
+      idleFlushTimerRef.current = window.setTimeout(flushPending, delay);
     };
 
     const unlistenData = listen<BleDataEvent>("ble-data", (event) => {
@@ -119,7 +122,7 @@ export function useBluetoothEvents() {
           if (useBluetoothStore.getState().sessionRecording) captureSessionChunk("bluetooth", data, timestamp);
           ingestBytes(data, timestamp);
         }
-        queueLines(frameStreamRef.current.ingest(data, timestamp, direction));
+        queueLines(frameStreamRef.current.ingest(data, timestamp, direction, useBluetoothStore.getState().rxFraming));
       }
 
       scheduleBatchUpdate();

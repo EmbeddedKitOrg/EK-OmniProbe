@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { SessionRecordControls } from "@/components/rtt/SessionRecordControls";
+import { RxFramingSettingsPanel } from "@/components/rtt/RxFramingSettingsPanel";
 import { SignalWorkspaceControls } from "@/components/rtt/SignalWorkspaceControls";
 import { detectChartConfig } from "@/lib/chartAnalysis";
 import {
@@ -44,6 +45,8 @@ export function BleToolbar() {
     clearChartData,
     sessionRecording,
     setSessionRecording,
+    rxFraming,
+    setRxFraming,
   } = useBluetoothStore(
     useShallow((state) => ({
       autoScroll: state.autoScroll,
@@ -65,6 +68,8 @@ export function BleToolbar() {
       clearChartData: state.clearChartData,
       sessionRecording: state.sessionRecording,
       setSessionRecording: state.setSessionRecording,
+      rxFraming: state.rxFraming,
+      setRxFraming: state.setRxFraming,
     }))
   );
 
@@ -232,6 +237,12 @@ export function BleToolbar() {
                 </Button>
               </div>
             </div>
+
+            <RxFramingSettingsPanel
+              framing={rxFraming}
+              setFraming={setRxFraming}
+              hint="Notify 包若没有换行符，用「空闲超时」或「自定义分隔符」按包断帧。"
+            />
 
             <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">
               <div className="text-xs font-medium tracking-[0.08em] text-muted-foreground">配置</div>
