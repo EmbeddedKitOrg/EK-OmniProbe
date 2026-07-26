@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-blue" alt="Version 2.1.0" />
+  <img src="https://img.shields.io/badge/version-2.2.0-blue" alt="Version 2.2.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,13 +37,12 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.1.0 更新重点
+## 2.2.0 更新重点
 
-- 七个工作台改为按需加载，首屏体积减少约三分之二，启动更快
-- 遥测滤波、文本分帧、波形绘制和日志搜索改为增量处理，高速数据下不再随缓冲区长度反复重算
-- 修复蓝牙图表弹出为独立窗口后收不到数据的问题
-- 数据滤波器状态改为对全部历史连续，预热瞬态只在开始接收时出现一次，不再随数据滚动反复出现
-- 补齐 CI 质量门禁与 CodeQL 扫描，推送和 PR 会自动校验双平台构建、静态检查与集成测试
+- 新增采集会话录制与回放：录制原始字节流保存为 `.ekrec`，之后可换一套解析或滤波配置重跑同一份数据
+- RTT 与蓝牙支持 JustFloat 等字节流解析器，带宽最高的 RTT 通道不再局限于文本格式
+- 波形降采样改用 min/max 包络，缩略显示时不再丢失毛刺、过冲等尖峰
+- 新增无线串口透传接入文档，覆盖 Zigbee、LoRa、蓝牙透传模块的接入与常见问题
 
 当前界面采用统一的 IDE 式布局：
 
@@ -284,7 +283,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.1.0`
+- 当前版本：`2.2.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
