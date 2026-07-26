@@ -126,9 +126,53 @@ export interface DataParseConfig {
   delimiter: string;
 }
 
+export const TRIGGER_CONDITIONS = ["rising", "falling", "above", "below"] as const;
+export type TriggerCondition = (typeof TRIGGER_CONDITIONS)[number];
+
+export const TRIGGER_MODES = ["single", "normal"] as const;
+/** single：触发一次后停住等用户手动重新武装；normal：捕获完自动继续等下一次 */
+export type TriggerMode = (typeof TRIGGER_MODES)[number];
+
+export const TRIGGER_VIEWS = ["window", "full"] as const;
+/**
+ * 捕获完成后如何呈现：
+ * - window：只显示触发窗口，聚焦事件本身（示波器的心智模型）
+ * - full：仍显示整个缓冲区，在触发点画标记，保留上下文便于看趋势
+ */
+export type TriggerView = (typeof TRIGGER_VIEWS)[number];
+
+export interface TriggerConfig {
+  enabled: boolean;
+  /** 监视哪一路通道的 key */
+  channelKey: string;
+  condition: TriggerCondition;
+  /** 触发电平 */
+  level: number;
+  /** 触发点之前保留多少个样本 */
+  preSamples: number;
+  /** 触发点之后再采多少个样本 */
+  postSamples: number;
+  mode: TriggerMode;
+  /** 捕获完成后的呈现方式 */
+  view: TriggerView;
+}
+
+export const DEFAULT_TRIGGER_CONFIG: TriggerConfig = {
+  enabled: false,
+  channelKey: "",
+  condition: "rising",
+  level: 0,
+  preSamples: 200,
+  postSamples: 200,
+  mode: "single",
+  view: "window",
+};
+
 export interface DataProcessingConfig {
   /** 图表、FFT、统计和控制面板共享的数据滤波配置 */
   dataFilter: DataFilterConfig;
+  /** 触发捕获配置 */
+  trigger: TriggerConfig;
 }
 
 export interface ChartViewConfig {
@@ -204,6 +248,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   signalDomain: "time",
   waveformInterpolation: "linear",
   dataFilter: DEFAULT_DATA_FILTER_CONFIG,
+  trigger: DEFAULT_TRIGGER_CONFIG,
 
   showGrid: true,
   showLegend: true,
@@ -319,10 +364,31 @@ export function migrateChartConfig(raw: unknown, allowBytesParsers = true): Char
     signalDomain,
     waveformInterpolation: source.waveformInterpolation === "smooth" ? "smooth" : "linear",
     dataFilter: sanitizeDataFilter(source.dataFilter),
+    trigger: sanitizeTrigger(source.trigger),
     showGrid: source.showGrid !== false,
     showLegend: source.showLegend !== false,
     showTooltip: source.showTooltip !== false,
     animationEnabled: source.animationEnabled !== false,
+  };
+}
+
+/** 触发配置来自持久化存储，逐字段收敛到合法范围，避免旧版本或手改的配置让状态机跑飞。 */
+function sanitizeTrigger(raw: unknown): TriggerConfig {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_TRIGGER_CONFIG };
+  const source = raw as Record<string, unknown>;
+  const condition = TRIGGER_CONDITIONS.find((item) => item === source.condition) ?? DEFAULT_TRIGGER_CONFIG.condition;
+  const mode = TRIGGER_MODES.find((item) => item === source.mode) ?? DEFAULT_TRIGGER_CONFIG.mode;
+  const view = TRIGGER_VIEWS.find((item) => item === source.view) ?? DEFAULT_TRIGGER_CONFIG.view;
+  return {
+    enabled: source.enabled === true,
+    channelKey: typeof source.channelKey === "string" ? source.channelKey : "",
+    condition,
+    mode,
+    view,
+    level: clampNumber(source.level, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, DEFAULT_TRIGGER_CONFIG.level),
+    // 前后置样本数至少各 1：都为 0 会让窗口为空，捕获等于没捕到
+    preSamples: clampInt(source.preSamples, 1, 100000, DEFAULT_TRIGGER_CONFIG.preSamples),
+    postSamples: clampInt(source.postSamples, 1, 100000, DEFAULT_TRIGGER_CONFIG.postSamples),
   };
 }
 
