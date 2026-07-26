@@ -30,6 +30,20 @@ export type ChartSeries = Channel;
 
 /** 解析模式。第三方文本解析器使用 plugin: 前缀，避免与内置模式冲突。 */
 export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "auto";
+
+/**
+ * 需要原始字节流的内置解析模式。文本行已经过分帧和解码，还原不回字节，
+ * 因此只能提供文本的数据源必须排除这些模式。
+ *
+ * 这里没有直接查解析器注册表，是因为 parseChartData.ts 依赖本文件，
+ * 反向 import 会形成循环。两处定义可能漂移，故由
+ * scripts/check-bytes-parser-registry.mjs 断言二者一致。
+ */
+const BYTES_PARSE_MODES = new Set<string>(["justfloat"]);
+
+export function isBytesParseMode(value: string): boolean {
+  return BYTES_PARSE_MODES.has(value);
+}
 export type PluginParseMode = `plugin:${string}`;
 export type ParseMode = BuiltInParseMode | PluginParseMode;
 
@@ -256,9 +270,10 @@ export function getXChannel(config: ChartConfig): Channel | undefined {
  * 折叠成新版 ChartConfig 的 channels 模型。
  *
  * 幂等：传入新版 shape（已含 channels 数组）时仅做字段补齐。
- * allowJustFloat=false 用于只支持文本解析的 RTT/BLE 来源。
+ * allowBytesParsers=false 用于只能提供文本行的数据源，会把持久化下来的
+ * 字节流解析模式回退成默认值，避免选中一个该源根本喂不了数据的解析器。
  */
-export function migrateChartConfig(raw: unknown, allowJustFloat = true): ChartConfig {
+export function migrateChartConfig(raw: unknown, allowBytesParsers = true): ChartConfig {
   if (!raw || typeof raw !== "object") {
     return { ...DEFAULT_CHART_CONFIG };
   }
@@ -267,7 +282,7 @@ export function migrateChartConfig(raw: unknown, allowJustFloat = true): ChartCo
 
   const enabled = typeof source.enabled === "boolean" ? source.enabled : DEFAULT_CHART_CONFIG.enabled;
   const parsedMode = isParseMode(source.parseMode) ? source.parseMode : DEFAULT_CHART_CONFIG.parseMode;
-  const parseMode = !allowJustFloat && parsedMode === "justfloat" ? DEFAULT_CHART_CONFIG.parseMode : parsedMode;
+  const parseMode = !allowBytesParsers && isBytesParseMode(parsedMode) ? DEFAULT_CHART_CONFIG.parseMode : parsedMode;
   const chartType = isChartType(source.chartType) ? source.chartType : DEFAULT_CHART_CONFIG.chartType;
   const signalDomain = source.signalDomain === "fft" ? "fft" : DEFAULT_CHART_CONFIG.signalDomain;
 

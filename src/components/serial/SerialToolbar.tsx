@@ -636,7 +636,7 @@ export function SerialToolbar() {
           chartConfig={chartConfig}
           setChartConfig={setChartConfig}
           title="串口图表配置"
-          allowJustFloat
+          allowBytesParsers
           allowDataFilter
           allowParserConfig={false}
           samples={chartSampleLines

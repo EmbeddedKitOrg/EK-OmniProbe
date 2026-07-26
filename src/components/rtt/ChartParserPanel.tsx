@@ -21,7 +21,8 @@ const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DAT
 interface ChartParserPanelProps {
   chartConfig: ChartConfig;
   samples: ChartSample[];
-  allowJustFloat?: boolean;
+  /** 数据源能否提供原始字节流。为 false 时隐藏字节流解析器——文本行已过分帧解码，还原不回字节。 */
+  allowBytesParsers?: boolean;
   allowDataFilter?: boolean;
   setChartConfig: (config: ChartConfig) => void;
   clearChartData?: () => void;
@@ -31,7 +32,7 @@ interface ChartParserPanelProps {
 export function ChartParserPanel({
   chartConfig,
   samples,
-  allowJustFloat = false,
+  allowBytesParsers = false,
   allowDataFilter = false,
   setChartConfig,
   clearChartData,
@@ -166,12 +167,13 @@ export function ChartParserPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="auto">自动识别</SelectItem>
-              {listChartParsers().map((parser) => (
-                <SelectItem key={parser.id} value={parser.id}>
-                  {parser.label}
-                </SelectItem>
-              ))}
-              {allowJustFloat && <SelectItem value="justfloat">JustFloat / VOFA RawData</SelectItem>}
+              {listChartParsers()
+                .filter((parser) => parser.kind === "text" || allowBytesParsers)
+                .map((parser) => (
+                  <SelectItem key={parser.id} value={parser.id}>
+                    {parser.label}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>

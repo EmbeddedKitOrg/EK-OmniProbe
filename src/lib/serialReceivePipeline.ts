@@ -1,8 +1,7 @@
 import { TelemetryIngestionBuffer } from "./chartIngestion";
-import type { Channel, TelemetryConfig } from "./chartTypes";
-import { PRESET_COLORS } from "./chartTypes";
+import type { Channel, ParseMode, TelemetryConfig } from "./chartTypes";
 import { TextFrameStream } from "./dataFraming";
-import { parseJustFloatChunk } from "./parseJustFloat";
+import { getChartParser, type BytesParserStream } from "./parseChartData";
 import type { TelemetryBatch } from "./telemetry";
 import type { RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
 
@@ -37,32 +36,27 @@ export function mergeSerialReceiveResults(results: SerialReceiveResult[]): Seria
   return { terminalText, lines, telemetryBatch: telemetryBuffer.drain(), bytesReceived, detectedChannels };
 }
 
-function createJustFloatChannels(count: number): Channel[] {
-  return Array.from({ length: count }, (_, index) => ({
-    key: `ch${index + 1}`,
-    sourceIndex: index,
-    name: `通道 ${index + 1}`,
-    color: PRESET_COLORS[index % PRESET_COLORS.length],
-    visible: true,
-    role: "y",
-  }));
-}
-
-function toJustFloatPoint(values: number[], config: TelemetryConfig, timestamp: number) {
-  const mappedValues: Record<string, number> = {};
-  config.channels.forEach((channel, index) => {
-    const sourceIndex = channel.sourceIndex ?? index;
-    if (sourceIndex >= 0 && sourceIndex < values.length) {
-      mappedValues[channel.key] = values[sourceIndex];
-    }
-  });
-  return { timestamp, values: mappedValues };
-}
-
 export class SerialReceivePipeline {
   private textFrames = new TextFrameStream();
   private terminalDecoder = new TextDecoder();
-  private justFloatPending: number[] = [];
+  /** 当前 parseMode 对应的字节流解析实例；换解析器时重建。 */
+  private bytesStream: BytesParserStream | null = null;
+  private bytesStreamMode: ParseMode | null = null;
+
+  /** 取当前配置对应的字节流解析器实例；不是字节流模式时返回 null。 */
+  private resolveBytesStream(parseMode: ParseMode): BytesParserStream | null {
+    const parser = getChartParser(parseMode);
+    if (parser?.kind !== "bytes") {
+      this.bytesStream = null;
+      this.bytesStreamMode = null;
+      return null;
+    }
+    if (this.bytesStreamMode !== parseMode || !this.bytesStream) {
+      this.bytesStream = parser.createStream();
+      this.bytesStreamMode = parseMode;
+    }
+    return this.bytesStream;
+  }
 
   ingest(event: SerialDataEvent, config: SerialReceivePipelineConfig): SerialReceiveResult {
     const lines: Omit<SerialLine, "id">[] = [];
@@ -72,35 +66,27 @@ export class SerialReceivePipeline {
     let detectedChannels: Channel[] | undefined;
     let chartConfig = config.chartConfig;
 
+    const bytesStream = chartConfig.enabled ? this.resolveBytesStream(chartConfig.parseMode) : null;
+
     for (const { data, timestamp } of event.chunks) {
       terminalText += this.terminalDecoder.decode(new Uint8Array(data), { stream: true });
       bytesReceived += data.length;
 
-      if (chartConfig.enabled && chartConfig.parseMode === "justfloat" && event.direction === "rx") {
-        const parsed = parseJustFloatChunk(data, this.justFloatPending);
-        this.justFloatPending = parsed.pending;
-        let fail = parsed.invalidFrames;
-
-        if (parsed.frames.length > 0 && chartConfig.channels.length === 0) {
-          detectedChannels = createJustFloatChannels(parsed.frames[0].length);
-          chartConfig = { ...chartConfig, channels: detectedChannels };
+      // 字节流解析只对接收方向有意义：发出去的内容不是设备上报的遥测
+      if (bytesStream && event.direction === "rx") {
+        const parsed = bytesStream.ingest(data, chartConfig, timestamp);
+        if (parsed.detectedChannels) {
+          detectedChannels = parsed.detectedChannels;
+          chartConfig = { ...chartConfig, channels: parsed.detectedChannels };
         }
-
-        const points = parsed.frames.flatMap((frame) => {
-          const point = toJustFloatPoint(frame, chartConfig, timestamp);
-          if (Object.keys(point.values).length > 0) return [point];
-          fail += 1;
-          return [];
-        });
-        telemetryBuffer.ingestBatch({ points, success: points.length, fail });
-      } else {
-        this.justFloatPending = [];
+        telemetryBuffer.ingestBatch({ points: parsed.points, success: parsed.success, fail: parsed.fail });
       }
 
       const framedLines = this.textFrames.ingest(data, timestamp, event.direction, config.framing);
       lines.push(...framedLines);
 
-      if (framedLines.length > 0 && chartConfig.enabled && chartConfig.parseMode !== "justfloat") {
+      // 字节流模式下文本行只用于终端显示，不再走一遍文本解析
+      if (framedLines.length > 0 && chartConfig.enabled && !bytesStream) {
         telemetryBuffer.ingestLines(framedLines, chartConfig);
       }
     }
@@ -121,7 +107,9 @@ export class SerialReceivePipeline {
     }
 
     const telemetryBuffer = new TelemetryIngestionBuffer();
-    if (config.chartConfig.enabled && config.chartConfig.parseMode !== "justfloat") {
+    // 字节流模式下残帧只是终端文本，不参与遥测解析
+    const usesBytesParser = getChartParser(config.chartConfig.parseMode)?.kind === "bytes";
+    if (config.chartConfig.enabled && !usesBytesParser) {
       telemetryBuffer.ingestLines(lines, config.chartConfig);
     }
 
@@ -136,6 +124,8 @@ export class SerialReceivePipeline {
   reset(): void {
     this.textFrames.reset();
     this.terminalDecoder = new TextDecoder();
-    this.justFloatPending = [];
+    this.bytesStream?.reset();
+    this.bytesStream = null;
+    this.bytesStreamMode = null;
   }
 }
