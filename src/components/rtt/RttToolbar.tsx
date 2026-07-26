@@ -2,6 +2,7 @@ import { useRttStore } from "@/stores/rttStore";
 import type { RttLine } from "@/lib/types";
 import { SessionRecordControls } from "./SessionRecordControls";
 import { RxFramingSettingsPanel } from "./RxFramingSettingsPanel";
+import { TriggerSettingsPanel } from "./TriggerSettingsPanel";
 import { useLogStore } from "@/stores/logStore";
 import { useProbeStore } from "@/stores/probeStore";
 import { useChipStore } from "@/stores/chipStore";
@@ -72,6 +73,9 @@ export function RttToolbar() {
     setSessionRecording,
     rxFraming,
     setRxFraming,
+    chartPaused,
+    triggeredAt,
+    rearmTrigger,
   } = useRttStore(
     useShallow((state) => ({
       rttConnected: state.rttConnected,
@@ -103,6 +107,9 @@ export function RttToolbar() {
       setSessionRecording: state.setSessionRecording,
       rxFraming: state.rxFraming,
       setRxFraming: state.setRxFraming,
+      chartPaused: state.chartPaused,
+      triggeredAt: state.triggeredAt,
+      rearmTrigger: state.rearmTrigger,
     }))
   );
 
@@ -496,6 +503,14 @@ export function RttToolbar() {
                 framing={rxFraming}
                 setFraming={setRxFraming}
                 hint="RTT 通常是 printf 输出，保持「换行」即可；传二进制或定长包时用「空闲超时」。"
+              />
+
+              <TriggerSettingsPanel
+                chartConfig={chartConfig}
+                setChartConfig={setChartConfig}
+                triggeredAt={triggeredAt}
+                chartPaused={chartPaused}
+                rearmTrigger={rearmTrigger}
               />
 
               <div className="space-y-2.5 rounded-[16px] border border-border/60 bg-muted/20 p-3">

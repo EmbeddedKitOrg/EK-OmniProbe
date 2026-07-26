@@ -14,6 +14,7 @@ export function RttChartViewer() {
     filterActive,
     chartConfig,
     chartPaused,
+    triggeredAt,
     parseSuccessCount,
     parseFailCount,
     setChartPaused,
@@ -26,6 +27,7 @@ export function RttChartViewer() {
       filterActive: state.filterActive,
       chartConfig: state.chartConfig,
       chartPaused: state.chartPaused,
+      triggeredAt: state.triggeredAt,
       parseSuccessCount: state.parseSuccessCount,
       parseFailCount: state.parseFailCount,
       setChartPaused: state.setChartPaused,
@@ -46,6 +48,7 @@ export function RttChartViewer() {
       setChartPaused={setChartPaused}
       clearChartData={clearChartData}
       setChartConfig={setChartConfig}
+      triggeredAt={triggeredAt}
     />
   );
 }

@@ -69,6 +69,8 @@ export interface ChartViewerProps {
   setChartPaused: (paused: boolean) => void;
   clearChartData: () => void;
   setChartConfig: (config: ChartConfig) => void;
+  /** 最近一次触发点时间戳，透传给波形画布用于标记 */
+  triggeredAt?: number | null;
 }
 
 export function ChartViewer({
@@ -82,6 +84,7 @@ export function ChartViewer({
   setChartPaused,
   clearChartData,
   setChartConfig,
+  triggeredAt = null,
 }: ChartViewerProps) {
   const [zoomDomain, setZoomDomain] = useState<BrushDomain>({});
   const signalDomain = chartConfig.signalDomain ?? "time";
@@ -712,6 +715,7 @@ export function ChartViewer({
             chartConfig={chartConfig}
             domain={signalDomain}
             onChartConfigChange={setChartConfig}
+            triggeredAt={triggeredAt}
           />
         ) : (
           <div className="h-full min-h-[320px] rounded-[28px] border border-border/60 bg-white/80 p-3">
