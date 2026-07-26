@@ -10,6 +10,7 @@ import { exportTextAsTxt } from "@/lib/exporters";
 import { formatDataAsHex, formatSerialLineForCopy } from "@/lib/viewerCopy";
 import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
+import { lineMatchesQuery } from "@/lib/lineSearch";
 
 export function BleViewer() {
   const { autoScroll, showTimestamp, showDirectionPrefix, running, displayMode, connected, lines, searchQuery } =
@@ -28,8 +29,9 @@ export function BleViewer() {
 
   const filteredLines = useMemo(() => {
     if (!searchQuery.trim()) return lines;
+    // 行文本的小写形式按行对象缓存，避免每批数据重算整个缓冲区
     const q = searchQuery.toLowerCase();
-    return lines.filter((line) => line.text.toLowerCase().includes(q));
+    return lines.filter((line) => lineMatchesQuery(line, q));
   }, [lines, searchQuery]);
   const addLog = useLogStore((state) => state.addLog);
 
