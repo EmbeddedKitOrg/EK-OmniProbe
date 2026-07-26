@@ -1,3 +1,4 @@
+import { createTelemetryChartSlice, type TelemetryChartState } from "./telemetryChartSlice";
 import { create } from "zustand";
 import type { RxFramingSettings } from "@/lib/serialTypes";
 import { DEFAULT_RX_FRAMING } from "@/lib/serialTypes";
@@ -12,11 +13,10 @@ import type {
 import type { Encoding, LineEnding, SerialPortInfo } from "@/lib/serialTypes";
 import type { ColorParserConfig } from "@/lib/rttColorParser";
 import { loadColorParserConfig, saveColorParserConfig } from "@/lib/rttColorParser";
-import type { ChartConfig, ChartDataPoint, ViewMode, SplitOrientation } from "@/lib/chartTypes";
-import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
-import { TelemetryFilterState, resolveTelemetryProcessing } from "@/lib/telemetry";
+import type { ViewMode, SplitOrientation } from "@/lib/chartTypes";
+
 import { startSessionRecording, stopSessionRecording } from "@/lib/sessionCapture";
-import { TriggerDetector, stepTriggerCapture } from "@/lib/triggerCapture";
+
 import {
   loadBooleanFromStorage,
   loadFromStorage,
@@ -40,12 +40,6 @@ const BLE_CONNECTION_MODE_KEY = "ble_connection_mode";
 const BLE_RX_FRAMING_KEY = "ble_rx_framing";
 let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
-// 增量滤波状态，见 lib/telemetry.ts 的 TelemetryFilterState
-const telemetryFilter = new TelemetryFilterState();
-
-// 触发检测状态机。同为可变采集状态，不参与渲染，故与滤波器一样放模块作用域。
-const triggerDetector = new TriggerDetector();
-
 const CONNECTION_MODE_VALUES = ["ble", "spp"] as const;
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
@@ -65,7 +59,7 @@ const defaultSendSettings: SendSettings = {
   withResponse: "auto",
 };
 
-interface BluetoothState {
+interface BluetoothState extends TelemetryChartState {
   // 工作模式（BLE / SPP）
   connectionMode: BluetoothConnectionMode;
 
@@ -109,13 +103,6 @@ interface BluetoothState {
   splitOrientation: SplitOrientation;
 
   // 图表
-  chartData: ChartDataPoint[];
-  processedChartData: ChartDataPoint[];
-  filterActive: boolean;
-  chartConfig: ChartConfig;
-  chartPaused: boolean;
-  parseSuccessCount: number;
-  parseFailCount: number;
 
   // 发送
   sendSettings: SendSettings;
@@ -153,24 +140,13 @@ interface BluetoothState {
   setSplitRatio: (ratio: number) => void;
   setSplitOrientation: (orientation: SplitOrientation) => void;
 
-  setChartConfig: (cfg: ChartConfig) => void;
-  addChartDataBatch: (points: ChartDataPoint[]) => void;
-  clearChartData: () => void;
-
   /** 会话录制开关。录制器本身在 lib/sessionCapture.ts 的模块作用域里。 */
   /** 接收分帧设置：决定字节流如何被切成文本行 */
   rxFraming: RxFramingSettings;
   setRxFraming: (settings: Partial<RxFramingSettings>) => void;
 
-  /** 最近一次触发点的时间戳；供波形标记触发位置。未触发过为 null。 */
-  triggeredAt: number | null;
-  /** 重新武装触发器：清除冻结状态，回到待触发 */
-  rearmTrigger: () => void;
-
   sessionRecording: boolean;
   setSessionRecording: (recording: boolean) => void;
-  setChartPaused: (paused: boolean) => void;
-  incrementParseCounts: (success: number, fail: number) => void;
 
   setSendSettings: (settings: Partial<SendSettings>) => void;
 
@@ -187,6 +163,8 @@ function findCharByProps(services: BleService[], pred: (c: BleCharacteristic) =>
 }
 
 export const useBluetoothStore = create<BluetoothState>((set, get) => ({
+  ...createTelemetryChartSlice(set, { storageKey: BLE_CHART_CONFIG_KEY }).state,
+
   connectionMode: loadStringFromStorage(BLE_CONNECTION_MODE_KEY, CONNECTION_MODE_VALUES, "ble"),
 
   sppPorts: [],
@@ -220,14 +198,6 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
   viewMode: loadStringFromStorage(BLE_VIEW_MODE_KEY, VIEW_MODE_VALUES, "text"),
   splitRatio: loadNumberFromStorage(BLE_SPLIT_RATIO_KEY, 0.4, (n) => n >= 0 && n <= 1),
   splitOrientation: loadStringFromStorage(BLE_SPLIT_ORIENTATION_KEY, SPLIT_ORIENTATION_VALUES, "vertical"),
-
-  chartData: [],
-  processedChartData: [],
-  filterActive: false,
-  chartConfig: migrateChartConfig(loadFromStorage(BLE_CHART_CONFIG_KEY, DEFAULT_CHART_CONFIG)),
-  chartPaused: false,
-  parseSuccessCount: 0,
-  parseFailCount: 0,
 
   sendSettings: loadFromStorage(BLE_SEND_SETTINGS_KEY, defaultSendSettings),
 
@@ -318,46 +288,6 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
     set({ splitOrientation: orientation });
   },
 
-  setChartConfig: (cfg) => {
-    const normalized = migrateChartConfig(cfg);
-    saveToStorage(BLE_CHART_CONFIG_KEY, normalized);
-    set((state) => {
-      const chartData = state.chartData.slice(-normalized.maxDataPoints);
-      const processing = resolveTelemetryProcessing(chartData, normalized.channels, normalized.dataFilter);
-      return {
-        chartConfig: normalized,
-        chartData: processing.rawData,
-        processedChartData: processing.processedData,
-        filterActive: processing.filterActive,
-      };
-    });
-  },
-  addChartDataBatch: (points) =>
-    set((state) => {
-      if (points.length === 0) return state;
-      const processing = telemetryFilter.append(
-        state.chartData,
-        points,
-        state.chartConfig.maxDataPoints,
-        state.chartConfig.channels,
-        state.chartConfig.dataFilter
-      );
-      // 触发捕获：条件成立并凑够后置样本时冻结图表并按视图模式取数据
-      const triggerPatch = stepTriggerCapture(
-        triggerDetector,
-        processing.rawData,
-        processing.processedData,
-        points.length,
-        state.chartConfig.trigger
-      );
-
-      return {
-        chartData: triggerPatch?.chartData ?? processing.rawData,
-        processedChartData: triggerPatch?.processedChartData ?? processing.processedData,
-        filterActive: processing.filterActive,
-        ...(triggerPatch ? { chartPaused: true, triggeredAt: triggerPatch.triggeredAt } : {}),
-      };
-    }),
   rxFraming: loadFromStorage(BLE_RX_FRAMING_KEY, DEFAULT_RX_FRAMING),
   setRxFraming: (settings) =>
     set((state) => {
@@ -366,40 +296,12 @@ export const useBluetoothStore = create<BluetoothState>((set, get) => ({
       return { rxFraming: next };
     }),
 
-  triggeredAt: null,
-  rearmTrigger: () => {
-    triggerDetector.arm();
-    set({ chartPaused: false, triggeredAt: null });
-  },
-
   sessionRecording: false,
   setSessionRecording: (recording) => {
     if (recording) startSessionRecording("bluetooth");
     else stopSessionRecording("bluetooth");
     set({ sessionRecording: recording });
   },
-
-  clearChartData: () => {
-    telemetryFilter.reset();
-    triggerDetector.reset();
-    set({
-      chartData: [],
-      processedChartData: [],
-      filterActive: false,
-      parseSuccessCount: 0,
-      parseFailCount: 0,
-      triggeredAt: null,
-    });
-  },
-  setChartPaused: (paused) => set({ chartPaused: paused }),
-  incrementParseCounts: (success, fail) =>
-    set((state) => {
-      if (success === 0 && fail === 0) return state;
-      return {
-        parseSuccessCount: state.parseSuccessCount + success,
-        parseFailCount: state.parseFailCount + fail,
-      };
-    }),
 
   setSendSettings: (settings) =>
     set((state) => {

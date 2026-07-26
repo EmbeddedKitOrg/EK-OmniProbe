@@ -236,6 +236,43 @@ try {
     console.log("  开启滤波时：原始与滤波后缓冲区按同一窗口裁剪且逐点对齐");
   }
 
+  // ---- 9) 串口的真实数据路径：commitSerialReceiveBatch ----
+  //
+  // 串口实时数据走的是 commitSerialReceiveBatch（要同时处理终端文本、日志行、
+  // 字节统计和自动建通道），不是 addChartDataBatch。触发最初只接在后者上，
+  // 于是「串口开触发完全不生效」——而上面所有用例走的都是 addChartDataBatch，
+  // 正好避开了这个盲区。这一组专门覆盖真实路径。
+  {
+    const config = chartConfigWith({
+      condition: "rising",
+      level: 50,
+      preSamples: 5,
+      postSamples: 2,
+      mode: "single",
+      view: "window",
+    });
+    resetStore(useSerialStore, config);
+
+    const commit = (points) =>
+      useSerialStore.getState().commitSerialReceiveBatch({
+        terminalText: "",
+        lines: [],
+        telemetryBatch: { points, success: points.length, fail: 0 },
+        bytesReceived: 0,
+      });
+
+    commit(Array.from({ length: 20 }, (_, i) => point(0, i)));
+    assert.equal(useSerialStore.getState().chartPaused, false, "未穿越时不应冻结");
+
+    commit([point(100, 20), point(100, 21)]);
+    const after = useSerialStore.getState();
+    assert.equal(after.chartPaused, true, "串口真实路径上触发也必须生效");
+    assert.equal(after.triggeredAt, 20, "触发点时间戳应正确");
+    assert.equal(after.chartData.length, 7, `窗口应为 pre + post = 7，实际 ${after.chartData.length}`);
+    assert.equal(after.processedChartData.length, after.chartData.length, "两个缓冲区长度应一致");
+    console.log("  串口真实路径 commitSerialReceiveBatch 上触发同样生效");
+  }
+
   console.log("触发捕获 store 接线检查通过");
 } finally {
   await server.close();
