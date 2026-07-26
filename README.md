@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="Version 2.0.0" />
+  <img src="https://img.shields.io/badge/version-2.1.0-blue" alt="Version 2.1.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,13 +37,13 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.0.0 更新重点
+## 2.1.0 更新重点
 
-- 串口、RTT 和 BLE 的采集保持独立，文本分帧、数值解析、滤波处理与图表展示收敛为统一数据链路
-- 三种来源统一使用有状态文本分帧，支持空闲残帧刷出和停止、断开时重置，避免无换行数据丢失或重连串帧
-- BLE 保留每个 Notify 数据块的接收时间，RTT 移除无效批处理，减少延迟并让采样时间更准确
-- 图表工作台新增底部状态栏和 X 轴缩放条，解析配置应用后会同步更新通道并清理不兼容的旧图表数据
-- README 使用 Mermaid 展示从采集、解析、处理到图像与分析展示的完整数据流
+- 七个工作台改为按需加载，首屏体积减少约三分之二，启动更快
+- 遥测滤波、文本分帧、波形绘制和日志搜索改为增量处理，高速数据下不再随缓冲区长度反复重算
+- 修复蓝牙图表弹出为独立窗口后收不到数据的问题
+- 数据滤波器状态改为对全部历史连续，预热瞬态只在开始接收时出现一次，不再随数据滚动反复出现
+- 补齐 CI 质量门禁与 CodeQL 扫描，推送和 PR 会自动校验双平台构建、静态检查与集成测试
 
 当前界面采用统一的 IDE 式布局：
 
@@ -284,7 +284,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.0.0`
+- 当前版本：`2.1.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

@@ -30,6 +30,14 @@ const checks = [
     ok: new RegExp(`version-${badgeVersion}-blue`).test(readme),
   },
   {
+    label: "README.md 更新重点标题",
+    ok: new RegExp(`^## ${escaped} 更新重点`, "m").test(readme),
+  },
+  {
+    label: "README.md 当前版本行",
+    ok: new RegExp(`当前版本：\`${escaped}\``).test(readme),
+  },
+  {
     label: "CHANGELOG.md 版本条目",
     ok: new RegExp(`##\\s*\\[${escaped}\\]`).test(changelog),
   },
@@ -49,4 +57,4 @@ if (failed > 0) {
   console.error(`\n${failed} 处版本号与 package.json (${expected}) 不一致`);
   process.exit(1);
 }
-console.log("\n5 处版本号一致");
+console.log(`\n${checks.length} 处版本号一致`);
