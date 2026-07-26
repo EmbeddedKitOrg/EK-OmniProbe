@@ -5,7 +5,7 @@ import { WORKSPACE_BY_MODE } from "./components/modes";
 import { SerialSidebar } from "./components/serial";
 import { BleSidebar } from "./components/bluetooth";
 import { UdevPermissionDialog } from "./components/dialogs/UdevPermissionDialog";
-import { useEffect, useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useCallback, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
 import { useLogStore } from "./stores/logStore";
 import { useProbeStore } from "./stores/probeStore";
 import { useRttStore } from "./stores/rttStore";
@@ -19,7 +19,11 @@ import { applyThemeSchemeToDocument } from "./lib/themeSchemes";
 import { useThemeStore } from "./stores/themeStore";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useUiPreferencesStore } from "./stores/uiPreferencesStore";
-import { ChartWorkspaceWindowPage } from "./components/rtt/ChartWorkspaceWindowPage";
+// 弹出图表窗口的整页组件只在带 ?chart_workspace= 的独立窗口里用到，
+// 主窗口永远不渲染它。静态 import 会把 recharts 拉进首屏 chunk，故改为按需加载。
+const ChartWorkspaceWindowPage = lazy(() =>
+  import("./components/rtt/ChartWorkspaceWindowPage").then((m) => ({ default: m.ChartWorkspaceWindowPage }))
+);
 import { isChartWorkspaceSource, type ChartWorkspaceSource } from "./lib/chartWorkspace";
 import { Cpu } from "lucide-react";
 import { useRttEvents } from "./hooks/useRttEvents";
@@ -270,7 +274,9 @@ function MainApp() {
         >
           <div className="mode-stack relative min-w-0 overflow-hidden rounded-[14px]">
             <div key={mode} className="mode-stage h-full">
-              <WorkspaceView />
+              <Suspense fallback={<WorkspaceLoading />}>
+                <WorkspaceView />
+              </Suspense>
             </div>
           </div>
 
@@ -307,6 +313,15 @@ function MainApp() {
 
       {/* USB 权限检查对话框 (仅 Linux) */}
       <UdevPermissionDialog />
+    </div>
+  );
+}
+
+/** 工作台按需加载时的占位。本地磁盘读取通常几十毫秒内完成，保持极简避免闪屏。 */
+function WorkspaceLoading() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Cpu className="h-5 w-5 animate-pulse text-[var(--text-muted)]" aria-label="加载工作台" />
     </div>
   );
 }
@@ -466,7 +481,11 @@ function ChartWorkspacePopupApp({ source }: { source: ChartWorkspaceSource }) {
     applyThemeSchemeToDocument(schemeId);
   }, [schemeId]);
 
-  return <ChartWorkspaceWindowPage source={source} />;
+  return (
+    <Suspense fallback={<WorkspaceLoading />}>
+      <ChartWorkspaceWindowPage source={source} />
+    </Suspense>
+  );
 }
 
 export default App;

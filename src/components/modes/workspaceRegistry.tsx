@@ -1,4 +1,7 @@
-import type { ComponentType } from "react";
+// 本文件是工作台注册表而非组件模块：导出的是 WORKSPACE_REGISTRY / WORKSPACE_BY_MODE 数据，
+// 里面的 lazy() 只是表项的值，对它做 fast refresh 没有意义。
+/* eslint-disable react-refresh/only-export-components */
+import { lazy, type ComponentType } from "react";
 import {
   Bluetooth,
   Bug,
@@ -13,13 +16,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { WORKSPACES, type AppMode } from "@/lib/workspaces";
-import { BluetoothMode } from "./BluetoothMode";
-import { ControlPanelMode } from "./ControlPanelMode";
-import { DebugMode } from "./DebugMode";
-import { FlashMode } from "./FlashMode";
-import { LogAnalysisMode } from "./LogAnalysisMode";
-import { RttMode } from "./RttMode";
-import { SerialMode } from "./SerialMode";
+
+// 七个工作台改为按需加载：图标仍需同步（模式轨道和顶栏要立即渲染），
+// 只有工作区本体延迟到实际切换过去时才拉取。
+// 调试工作台独占 CodeMirror + dockview，串口/RTT 独占 recharts，
+// 全部静态 import 会把它们塞进首屏 chunk。
+const FlashMode = lazy(() => import("./FlashMode").then((m) => ({ default: m.FlashMode })));
+const RttMode = lazy(() => import("./RttMode").then((m) => ({ default: m.RttMode })));
+const SerialMode = lazy(() => import("./SerialMode").then((m) => ({ default: m.SerialMode })));
+const LogAnalysisMode = lazy(() => import("./LogAnalysisMode").then((m) => ({ default: m.LogAnalysisMode })));
+const BluetoothMode = lazy(() => import("./BluetoothMode").then((m) => ({ default: m.BluetoothMode })));
+const ControlPanelMode = lazy(() => import("./ControlPanelMode").then((m) => ({ default: m.ControlPanelMode })));
+const DebugMode = lazy(() => import("./DebugMode").then((m) => ({ default: m.DebugMode })));
 
 interface WorkspaceUi {
   navigationIcon: LucideIcon;
