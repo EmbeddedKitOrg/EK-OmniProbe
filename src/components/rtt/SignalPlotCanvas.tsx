@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
 import {
   PRESET_COLORS,
   type ChartConfig,
@@ -8,7 +8,7 @@ import {
   type WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { cn } from "@/lib/utils";
-import { downsamplePoints } from "@/lib/downsampling";
+import { downsampleIndices, resolveTimeWindowIndices } from "@/lib/downsampling";
 import { calculateSpectrum } from "@/lib/chartPresentation";
 import { formatChartNumber } from "@/lib/formatters";
 import { useSmoothedSampleRate } from "@/hooks/useSmoothedSampleRate";
@@ -179,25 +179,29 @@ export function SignalPlotCanvas({
   // 会跟着来回轻微缩放，看起来像“画面一直在抖”。用共享的 EMA 平滑 hook 处理。
   const effectiveSampleRate = useSmoothedSampleRate(chartData, chartConfig.sampleRateHz, 200);
 
-  const normalizedData = useMemo<NormalizedPoint[]>(() => {
-    if (chartData.length === 0) return [];
-    const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate) ? effectiveSampleRate : 1;
+  const sampleRate = effectiveSampleRate && Number.isFinite(effectiveSampleRate) ? effectiveSampleRate : 1;
+  const pointCount = chartData.length;
 
-    return chartData.map((point, index) => ({
+  // 按下标构造展示点。此前是把整个 chartData（默认上限 4000）map 成新对象，
+  // 而实际画出去的最多只有 visiblePointLimit（默认 600）个，
+  // 且 chartData 每批数据都换引用，等于每帧白白分配数千个对象。
+  // 波形横轴用均匀采样间隔而非主机接收时间戳：串口/RTT 常常成批到达，
+  // 用 Date.now() 定位会让 X 轴来回折返。
+  const buildPoint = useCallback(
+    (index: number): NormalizedPoint => ({
       index,
-      timestamp: point.timestamp,
-      // Waveform should use uniformly spaced samples instead of host receive timestamps.
-      // Serial/RTT data often arrives in batches, which makes Date.now()-based X positions fold back.
+      timestamp: chartData[index].timestamp,
       timeSec: index / sampleRate,
-      values: point.values,
+      values: chartData[index].values,
       rawValues: rawChartData?.[index]?.values,
-    }));
-  }, [chartData, effectiveSampleRate, rawChartData]);
+    }),
+    [chartData, rawChartData, sampleRate]
+  );
 
   const timeView = useMemo<TimeViewModel | null>(() => {
-    if (domain !== "time" || normalizedData.length === 0 || visibleSeries.length === 0) return null;
+    if (domain !== "time" || pointCount === 0 || visibleSeries.length === 0) return null;
 
-    const latestSec = normalizedData[normalizedData.length - 1].timeSec;
+    const latestSec = (pointCount - 1) / sampleRate;
     const totalDurationSec = Math.max(latestSec, 0.001);
     const baseVisibleDurationSec = Math.max(totalDurationSec * 1.05, 0.05);
     const visibleDurationSec = clamp(
@@ -209,12 +213,18 @@ export function SignalPlotCanvas({
     const clampedPanSec = clamp(timePanSec, 0, maxPanSec);
     const startSec = Math.max(latestSec - clampedPanSec - visibleDurationSec, 0);
     const endSec = startSec + visibleDurationSec;
-    const points = normalizedData.filter((point) => point.timeSec >= startSec && point.timeSec <= endSec);
-    const sourcePoints = points.length > 0 ? points : normalizedData;
-    const sampledPoints = downsamplePoints(
-      sourcePoints,
-      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : sourcePoints.length
+    const { start: windowStart, count: windowCount } = resolveTimeWindowIndices(
+      pointCount,
+      sampleRate,
+      startSec,
+      endSec
     );
+
+    const sampledPoints = downsampleIndices(
+      windowStart,
+      windowCount,
+      chartConfig.visiblePointLimit > 0 ? chartConfig.visiblePointLimit : windowCount
+    ).map(buildPoint);
 
     let min = Number.POSITIVE_INFINITY;
     let max = Number.NEGATIVE_INFINITY;
@@ -259,13 +269,27 @@ export function SignalPlotCanvas({
       yMin: center - range / 2,
       yMax: center + range / 2,
     };
-  }, [chartConfig.visiblePointLimit, domain, normalizedData, timePanSec, timeZoom, visibleSeries, yOffset, yZoom]);
+  }, [
+    buildPoint,
+    chartConfig.visiblePointLimit,
+    domain,
+    pointCount,
+    sampleRate,
+    timePanSec,
+    timeZoom,
+    visibleSeries,
+    yOffset,
+    yZoom,
+  ]);
 
   const fftView = useMemo<FftViewModel | null>(() => {
-    if (domain !== "fft" || normalizedData.length < 4 || visibleSeries.length === 0) return null;
+    if (domain !== "fft" || pointCount < 4 || visibleSeries.length === 0) return null;
 
     const windowSize = clamp(chartConfig.fftWindowSize || 1024, 32, 4096);
-    const slice = normalizedData.slice(-windowSize);
+    // 只物化 FFT 窗口内的点（最多 4096），而不是整个缓冲区
+    const sliceStart = Math.max(pointCount - windowSize, 0);
+    const slice: NormalizedPoint[] = [];
+    for (let index = sliceStart; index < pointCount; index += 1) slice.push(buildPoint(index));
     const durationSec = Math.max((slice[slice.length - 1].timestamp - slice[0].timestamp) / 1000, 0.001);
     const sampleRateHz = Math.max(effectiveSampleRate ?? Math.max((slice.length - 1) / durationSec, 1), 1);
 
@@ -336,7 +360,8 @@ export function SignalPlotCanvas({
     effectiveSampleRate,
     fftPanBins,
     fftZoom,
-    normalizedData,
+    buildPoint,
+    pointCount,
     visibleSeries,
     yOffset,
     yZoom,
