@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.2.0-blue" alt="Version 2.2.0" />
+  <img src="https://img.shields.io/badge/version-2.3.0-blue" alt="Version 2.3.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,12 +37,12 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.2.0 更新重点
+## 2.3.0 更新重点
 
-- 新增采集会话录制与回放：录制原始字节流保存为 `.ekrec`，之后可换一套解析或滤波配置重跑同一份数据
-- RTT 与蓝牙支持 JustFloat 等字节流解析器，带宽最高的 RTT 通道不再局限于文本格式
-- 波形降采样改用 min/max 包络，缩略显示时不再丢失毛刺、过冲等尖峰
-- 新增无线串口透传接入文档，覆盖 Zigbee、LoRa、蓝牙透传模块的接入与常见问题
+- 新增触发捕获：条件成立时自动冻结图表，留住事件发生前后的数据，不必再一直盯着屏幕等瞬时现象
+- 会话录制与回放扩展到 RTT 与蓝牙，RTT 按通道分别记录与回放
+- RTT 与蓝牙支持接收分帧配置，可按空闲超时或自定义分隔符断帧
+- 三条数据来源共用同一套图表状态实现，新增功能不再需要在三处各写一遍
 
 当前界面采用统一的 IDE 式布局：
 
@@ -143,7 +143,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - JSON / KV：按字段生成通道
 - XY 数据：XY 散点图
 - 数据帧前缀：混合日志中只解析带指定前缀的文本行
-- JustFloat / VOFA RawData：串口二进制浮点流
+- JustFloat / VOFA RawData：二进制浮点流，串口、RTT 与蓝牙均可使用
 - 时域 / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
 ### 实时数据流向
@@ -169,13 +169,16 @@ flowchart TB
   FRAME --> LOG["原始文本 / HEX 日志"]
   LOG --> TEXT_VIEW["文本窗口"]
   FRAME --> PARSE["JSON / KV / CSV / Regex 解析"]
-  SERIAL_RX --> JUST_FLOAT["JustFloat / VOFA RawData 解析"]
+  SERIAL_RX --> BYTES["字节流解析<br/>JustFloat / VOFA RawData"]
+  RTT_RX --> BYTES
+  BLE_RX --> BYTES
 
   PARSE --> SAMPLE["统一多通道数值采样"]
-  JUST_FLOAT --> SAMPLE
+  BYTES --> SAMPLE
   SAMPLE --> RAW["原始缓存"]
   RAW --> PROCESS["滤波与分析"]
-  PROCESS --> DISPLAY["波形 / FFT / 趋势与 XY 图 / 统计 / IMU 3D"]
+  PROCESS --> TRIGGER["触发捕获<br/>条件成立时冻结前后窗口"]
+  TRIGGER --> DISPLAY["波形 / FFT / 趋势与 XY 图 / 统计 / IMU 3D"]
   RAW --> CSV["原始 / 处理后 CSV 导出"]
   PROCESS --> CSV
   DISPLAY --> PNG["PNG 导出"]
@@ -240,6 +243,9 @@ flowchart TB
 | [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md) | BLE、NUS、GATT、Notify / Write 和 SPP    |
 | [设置中心](docs/SETTINGS_GUIDE.md)            | 主题、背景、默认工作台和日志偏好         |
 | [AI 数据桥接](docs/AI_TUNING_GUIDE.md)        | 将串口数值流交给本地 AI 客户端分析和调参 |
+| [触发捕获](docs/TRIGGER_CAPTURE_GUIDE.md)     | 抓瞬时现象：条件成立时冻结前后数据       |
+| [会话录制与回放](docs/SESSION_RECORD_GUIDE.md) | 录下原始数据，换配置反复重放分析         |
+| [无线串口透传](docs/WIRELESS_SERIAL_GUIDE.md) | Zigbee / LoRa / 蓝牙透传模块接入         |
 
 全部用户文档见 [`docs/README.md`](docs/README.md)。
 
@@ -283,7 +289,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.2.0`
+- 当前版本：`2.3.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
