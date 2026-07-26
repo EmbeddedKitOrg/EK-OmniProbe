@@ -4,13 +4,25 @@ import { DEFAULT_RX_FRAMING } from "./serialTypes";
 import { parseLogLevel } from "./utils";
 
 export interface PendingTextData {
-  text: string;
   rawData: number[];
 }
 
 export const TEXT_FRAME_IDLE_MS = 200;
 
-const emptyPendingTextData = (): PendingTextData => ({ text: "", rawData: [] });
+/**
+ * 残帧字节数上限。正常文本行远小于此值；只有在「数据里始终不出现分隔符」
+ * （例如按 LF 分帧却收到连续二进制流）时才会触达。没有上限的话，残帧会一直
+ * 增长，而每个新分片都要把它整个重扫一遍，退化成 O(n²) 并吃光内存。
+ * 触达上限时把已有字节当作一行刷出，宁可多切一刀也不要卡死。
+ */
+const MAX_PENDING_BYTES = 1 << 20;
+
+const emptyPendingTextData = (): PendingTextData => ({ rawData: [] });
+
+// 解码器无状态，模块级复用即可，不必每次调用新建
+const textDecoder = new TextDecoder();
+
+const decodeBytes = (bytes: number[]): string => textDecoder.decode(new Uint8Array(bytes));
 
 function parseHexDelimiter(input: string): number[] {
   const hex = input.replace(/[^0-9a-fA-F]/g, "");
@@ -21,10 +33,19 @@ function parseHexDelimiter(input: string): number[] {
   return bytes;
 }
 
-function splitBytesByDelimiter(bytes: number[], delimiter: number[]): { frames: number[][]; rest: number[] } {
+/**
+ * @param searchFrom 起始扫描位置。此位置之前的字节在上一分片里已经扫过且未命中分隔符，
+ *   只有跨分片边界的那 delimiter.length-1 个字节需要重扫，其余无需重复扫描。
+ *   注意只有扫描游标从这里开始，帧的起点仍然是 0。
+ */
+function splitBytesByDelimiter(
+  bytes: number[],
+  delimiter: number[],
+  searchFrom = 0
+): { frames: number[][]; rest: number[] } {
   const frames: number[][] = [];
   let start = 0;
-  let index = 0;
+  let index = Math.max(0, searchFrom);
 
   while (index + delimiter.length <= bytes.length) {
     const matched = delimiter.every((value, offset) => bytes[index + offset] === value);
@@ -70,29 +91,23 @@ export function parseSerialData(
   pendingBuffer: PendingTextData,
   framing: RxFramingSettings = DEFAULT_RX_FRAMING
 ): { lines: Omit<SerialLine, "id">[]; pending: PendingTextData } {
-  const fullRawData = pendingBuffer.rawData.concat(data);
+  const previousLength = pendingBuffer.rawData.length;
+  const fullRawData = previousLength === 0 ? data : pendingBuffer.rawData.concat(data);
   const resolved = resolveDelimiter(framing);
-  const decoder = new TextDecoder();
 
+  // timeout 模式不按分隔符切分，交给空闲刷出；此处不解码，text 只在 flush 时才需要
   if (resolved === null) {
-    return {
-      lines: [],
-      pending: { text: decoder.decode(new Uint8Array(fullRawData)), rawData: fullRawData },
-    };
+    return { lines: [], pending: { rawData: fullRawData } };
   }
 
-  const { frames, rest } = splitBytesByDelimiter(fullRawData, resolved.delimiter);
+  // 已扫描过的部分不必重扫，只需回退 delimiter.length-1 个字节覆盖跨分片的分隔符
+  const searchFrom = previousLength - resolved.delimiter.length + 1;
+  const { frames, rest } = splitBytesByDelimiter(fullRawData, resolved.delimiter, searchFrom);
   const lines: Omit<SerialLine, "id">[] = [];
 
-  for (let frameBytes of frames) {
-    if (resolved.stripTrailingCr && frameBytes[frameBytes.length - 1] === 0x0d) {
-      frameBytes = frameBytes.slice(0, -1);
-    }
-    if (frameBytes.length === 0) continue;
-
-    const text = decoder.decode(new Uint8Array(frameBytes));
-    if (!text.trim()) continue;
-
+  const pushFrame = (frameBytes: number[]) => {
+    const text = decodeBytes(frameBytes);
+    if (!text.trim()) return;
     lines.push({
       timestamp: new Date(timestamp),
       text,
@@ -100,12 +115,23 @@ export function parseSerialData(
       rawData: frameBytes,
       direction,
     });
+  };
+
+  for (let frameBytes of frames) {
+    if (resolved.stripTrailingCr && frameBytes[frameBytes.length - 1] === 0x0d) {
+      frameBytes = frameBytes.slice(0, -1);
+    }
+    if (frameBytes.length === 0) continue;
+    pushFrame(frameBytes);
   }
 
-  return {
-    lines,
-    pending: { text: decoder.decode(new Uint8Array(rest)), rawData: rest },
-  };
+  // 残帧超限：当作一行刷出，避免无上限增长与反复重扫
+  if (rest.length > MAX_PENDING_BYTES) {
+    pushFrame(rest);
+    return { lines, pending: emptyPendingTextData() };
+  }
+
+  return { lines, pending: { rawData: rest } };
 }
 
 /** 持有单路文本字节流的残帧，并统一提供接收、空闲刷出和会话重置。 */
@@ -126,15 +152,19 @@ export class TextFrameStream {
   }
 
   flush(timestamp = Date.now()): Omit<SerialLine, "id">[] {
-    if (this.pending.rawData.length === 0 && this.pending.text.length === 0) return [];
+    // 与原实现一致：只要还有残留字节就刷出，即便解码结果全是空白也不过滤
+    // （过滤是分帧时的行为，flush 面对的是「已经确定不会再有更多数据」的收尾）
+    if (this.pending.rawData.length === 0) return [];
 
     const pending = this.pending;
     this.pending = emptyPendingTextData();
+    const text = decodeBytes(pending.rawData);
+
     return [
       {
         timestamp: new Date(timestamp),
-        text: pending.text,
-        level: parseLogLevel(pending.text),
+        text,
+        level: parseLogLevel(text),
         rawData: pending.rawData,
         direction: this.direction,
       },
@@ -158,7 +188,7 @@ export function parseRttData(
     data,
     timestamp,
     "rx",
-    pendingBuffers.get(channel) ?? { text: "", rawData: [] }
+    pendingBuffers.get(channel) ?? emptyPendingTextData()
   );
   pendingBuffers.set(channel, pending);
 

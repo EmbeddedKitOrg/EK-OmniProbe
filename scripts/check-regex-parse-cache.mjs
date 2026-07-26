@@ -54,7 +54,11 @@ try {
     const result = parseWithRegex(`v${i}=${i}`, `v${i}=(?<v>\\d+)`, undefined);
     assert.equal(result.success, true, `第 ${i} 个不同 pattern 应解析成功`);
   }
-  assert.deepEqual(parseWithRegex("x=1,y=2", pattern, "g").dataPoint.values, { x: 1, y: 2 }, "缓存清空后应重新编译并正确");
+  assert.deepEqual(
+    parseWithRegex("x=1,y=2", pattern, "g").dataPoint.values,
+    { x: 1, y: 2 },
+    "缓存清空后应重新编译并正确"
+  );
 
   console.log("正则解析缓存检查通过");
 } finally {

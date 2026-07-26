@@ -48,10 +48,13 @@ try {
     simulationChartConfig.channels.map(({ key }) => key),
     ["ch1", "ch2"]
   );
-  assert.deepEqual(parseChartData(simulationSamples[0].text, { ...simulationChartConfig, enabled: true }).dataPoint?.values, {
-    ch1: 0,
-    ch2: 1,
-  });
+  assert.deepEqual(
+    parseChartData(simulationSamples[0].text, { ...simulationChartConfig, enabled: true }).dataPoint?.values,
+    {
+      ch1: 0,
+      ch2: 1,
+    }
+  );
 
   for await (const batch of streamLogLines(log, { batchSize: 2, fallbackTimestamp })) {
     batches.push(batch);

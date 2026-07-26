@@ -238,10 +238,7 @@ try {
   assert.ok(Math.abs(firstOrientation.roll - 0.9) < 1e-9);
   assert.ok(Math.abs(firstOrientation.yaw - 0.45) < 1e-9);
   assert.deepEqual(imuProcessor.process(imuPoints, fusionConfig), firstOrientation);
-  assert.equal(
-    imuProcessor.process(imuPoints, { ...fusionConfig, gyroBiasX: 90 }).roll,
-    0
-  );
+  assert.equal(imuProcessor.process(imuPoints, { ...fusionConfig, gyroBiasX: 90 }).roll, 0);
   assert.deepEqual(
     estimateGyroBias(
       [
