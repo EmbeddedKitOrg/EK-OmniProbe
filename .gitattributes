@@ -1,0 +1,31 @@
+# 统一使用 LF 检出。
+#
+# 此前没有这个文件时，Windows 上 core.autocrlf=true 会把工作区转成 CRLF，
+# 而 .prettierrc.json 配置的是 endOfLine: "lf"，于是 `pnpm format:check`
+# 在 Windows 本地必然失败、在 Linux CI 上却通过——本地检查和 CI 结论不一致。
+# 仓库内容本来就以 LF 存储，这里只是让检出行为与之对齐。
+* text=auto eol=lf
+
+# 明确标记为二进制，避免被当作文本做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pack binary
+*.zip binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.elf binary
+*.bin binary
+*.hex binary
+*.axf binary
+
+# Windows 专用脚本保持 CRLF，避免某些环境下解析异常
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
