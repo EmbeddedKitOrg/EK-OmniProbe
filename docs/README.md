@@ -25,6 +25,7 @@
 - [数据滤波与 MATLAB 参数](MATLAB_FILTER_GUIDE.md)：图形化级联低通、高通、带通，预览和导出参数，或导入 FIR 与 SOS/ScaleValues。
 - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。
 - [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志和终端交互。
+- [无线串口透传接入](WIRELESS_SERIAL_GUIDE.md)：Zigbee、LoRa、蓝牙透传等模块按串口接入，以及吞吐、分帧和二进制透传注意事项。
 - [AI 数据桥接](AI_TUNING_GUIDE.md)：把已经解析的数值通道提供给本机 AI 工具。
 
 ### RTT 与图表
