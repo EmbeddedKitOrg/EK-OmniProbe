@@ -14,7 +14,10 @@ try {
   const { TelemetryFilterState, resolveTelemetryProcessing } = await server.ssrLoadModule("/src/lib/telemetry.ts");
   const { applyDataFilter } = await server.ssrLoadModule("/src/lib/chartFilter.ts");
 
-  const channels = [{ key: "a", name: "a" }, { key: "b", name: "b" }];
+  const channels = [
+    { key: "a", name: "a" },
+    { key: "b", name: "b" },
+  ];
 
   // 两路信号：一路正弦，一路带尖峰的方波（尖峰用来暴露 median 窗口的状态错误）
   const makeSamples = (count) =>

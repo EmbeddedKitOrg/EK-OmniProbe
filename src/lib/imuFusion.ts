@@ -118,7 +118,9 @@ export class ImuFusionProcessor {
     }
 
     const signature = getConfigSignature(config);
-    const previousIndex = this.lastSample ? samples.indexOf(this.lastSample) : -1;
+    // 从尾部往回找：lastSample 通常就在数组末尾附近（上一批的最后一个样本），
+    // 用 indexOf 会从头扫过整个缓冲区。样本对象唯一，两者结果一致。
+    const previousIndex = this.lastSample ? samples.lastIndexOf(this.lastSample) : -1;
     if (signature !== this.configSignature || (this.lastSample && previousIndex < 0)) {
       this.state = createImuFusionState();
       this.lastSample = null;

@@ -8,9 +8,7 @@ import path from "node:path";
 const scriptsDir = fileURLToPath(new URL(".", import.meta.url));
 const root = path.resolve(scriptsDir, "..");
 
-const entries = (await readdir(scriptsDir))
-  .filter((name) => /^check-.+\.m[jt]s$/.test(name))
-  .sort();
+const entries = (await readdir(scriptsDir)).filter((name) => /^check-.+\.m[jt]s$/.test(name)).sort();
 
 if (entries.length === 0) {
   console.error("没有找到任何 check-*.mjs / check-*.mts 脚本");
