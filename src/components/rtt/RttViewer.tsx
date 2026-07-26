@@ -8,6 +8,7 @@ import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
 import { useViewerSelection, formatRttLineForCopy, copyTextToClipboard, formatDataAsHex } from "@/lib/viewerCopy";
 import { exportTextAsTxt } from "@/lib/exporters";
+import { lineMatchesQuery } from "@/lib/lineSearch";
 import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
 import { useShallow } from "zustand/react/shallow";
 
@@ -34,10 +35,10 @@ export function RttViewer() {
       filtered = filtered.filter((line) => line.channel === selectedChannel);
     }
 
-    // 按搜索词过滤
+    // 按搜索词过滤（行文本的小写形式按行对象缓存，避免每批数据重算整个缓冲区）
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((line) => line.text.toLowerCase().includes(query));
+      filtered = filtered.filter((line) => lineMatchesQuery(line, query));
     }
 
     return filtered;

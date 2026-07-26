@@ -56,6 +56,24 @@ export function extractChartPayload(text: string, framePrefix: string): string |
   return text.startsWith(framePrefix) ? text.slice(framePrefix.length) : null;
 }
 
+// 解析配置在两次修改之间是固定的，而 parseWithRegex 是按行调用的。
+// 每行都 new RegExp 会在高速数据下反复构造同一个正则，这里按 pattern+flags 缓存。
+const regexCache = new Map<string, RegExp>();
+const REGEX_CACHE_LIMIT = 32;
+
+function getCachedRegex(pattern: string, flags?: string): RegExp {
+  const key = `${flags ?? ""}/${pattern}`;
+  const cached = regexCache.get(key);
+  if (cached) return cached;
+
+  // 非法表达式会在这里抛出，由调用方的 try/catch 处理；抛出时不会写入缓存
+  const regex = new RegExp(pattern, flags);
+  // 用户可能反复调整表达式，简单封顶避免无限增长
+  if (regexCache.size >= REGEX_CACHE_LIMIT) regexCache.clear();
+  regexCache.set(key, regex);
+  return regex;
+}
+
 /**
  * 使用正则表达式解析数据
  *
@@ -70,7 +88,10 @@ export function parseWithRegex(
   timestamp = Date.now()
 ): ParseResult {
   try {
-    const regex = new RegExp(pattern, flags);
+    const regex = getCachedRegex(pattern, flags);
+    // 缓存下来的正则若带 g / y 标志会保留 lastIndex，必须复位后再用，
+    // 否则第二行开始会从上一次匹配的位置继续找。
+    regex.lastIndex = 0;
     const match = regex.exec(text);
 
     if (!match || !match.groups) {

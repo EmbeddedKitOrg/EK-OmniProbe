@@ -10,6 +10,7 @@ import { useViewerSelection, formatSerialLineForCopy, formatDataAsHex } from "@/
 import { exportTextAsTxt } from "@/lib/exporters";
 import { useShallow } from "zustand/react/shallow";
 import { formatTimestamp } from "@/lib/formatters";
+import { lineMatchesQuery } from "@/lib/lineSearch";
 
 interface SerialViewerProps {
   direction?: "rx" | "tx";
@@ -80,10 +81,10 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
       filtered = filtered.filter((line) => line.direction === direction);
     }
 
-    // Filter by search query
+    // Filter by search query（行文本的小写形式按行对象缓存，避免每批数据重算整个缓冲区）
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((line) => line.text.toLowerCase().includes(query));
+      filtered = filtered.filter((line) => lineMatchesQuery(line, query));
     }
 
     return filtered;
