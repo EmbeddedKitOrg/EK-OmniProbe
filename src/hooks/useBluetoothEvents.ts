@@ -3,7 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { useBluetoothStore } from "@/stores/bluetoothStore";
 import { TEXT_FRAME_IDLE_MS, TextFrameStream } from "@/lib/dataFraming";
 import type { BleDataEvent, BleStatusEvent, BleLine } from "@/lib/bleTypes";
-import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
+import { TelemetryIngestionBuffer, TelemetryParseDispatcher } from "@/lib/chartIngestion";
+import { getChartParser } from "@/lib/parseChartData";
 import { formatBytes } from "@/lib/formatters";
 import { useShallow } from "zustand/react/shallow";
 
@@ -25,6 +26,7 @@ export function useBluetoothEvents() {
     );
 
   const frameStreamRef = useRef(new TextFrameStream());
+  const parseDispatcherRef = useRef(new TelemetryParseDispatcher());
 
   const batchLinesRef = useRef<Omit<BleLine, "id">[]>([]);
   const batchStatsRef = useRef({ bytes_received: 0, bytes_sent: 0 });
@@ -63,7 +65,26 @@ export function useBluetoothEvents() {
       if (lines.length === 0) return;
       batchLinesRef.current.push(...lines);
       const chartConfig = useBluetoothStore.getState().chartConfig;
-      if (chartConfig.enabled) telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+      // 字节流模式下文本行只用于日志显示，遥测数值由 ingestBytes 产出
+      if (chartConfig.enabled && getChartParser(chartConfig.parseMode)?.kind !== "bytes") {
+        telemetryIngestionRef.current.ingestLines(lines, chartConfig);
+      }
+    };
+
+    /** 字节流解析：仅在选用字节流解析器时有产出。 */
+    const ingestBytes = (data: number[], timestamp: number) => {
+      const chartConfig = useBluetoothStore.getState().chartConfig;
+      const parsed = parseDispatcherRef.current.ingestBytes(data, chartConfig, timestamp);
+      if (!parsed) return;
+
+      if (parsed.detectedChannels) {
+        useBluetoothStore.getState().setChartConfig({ ...chartConfig, channels: parsed.detectedChannels });
+      }
+      telemetryIngestionRef.current.ingestBatch({
+        points: parsed.points,
+        success: parsed.success,
+        fail: parsed.fail,
+      });
     };
 
     const clearIdleFlush = () => {
@@ -92,6 +113,8 @@ export function useBluetoothEvents() {
         } else {
           batchStatsRef.current.bytes_sent += data.length;
         }
+        // 字节流解析只对接收方向有意义：发出去的内容不是设备上报的遥测
+        if (direction === "rx") ingestBytes(data, timestamp);
         queueLines(frameStreamRef.current.ingest(data, timestamp, direction));
       }
 
@@ -104,6 +127,7 @@ export function useBluetoothEvents() {
       if (!running) {
         flushPending(false);
         frameStreamRef.current.reset();
+        parseDispatcherRef.current.reset();
         scheduleBatchUpdate();
       }
       setConnected(connected);
@@ -114,6 +138,7 @@ export function useBluetoothEvents() {
     return () => {
       flushPending(false);
       frameStreamRef.current.reset();
+      parseDispatcherRef.current.reset();
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
       }

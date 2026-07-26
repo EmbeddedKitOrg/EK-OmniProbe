@@ -519,6 +519,7 @@ export function RttToolbar() {
           chartConfig={chartConfig}
           setChartConfig={setChartConfig}
           title="RTT 图表配置"
+          allowBytesParsers
           samples={chartSampleLines.slice(-20).map(({ text, rawData }) => ({ text, rawData }))}
           open={chartConfigOpen}
           onOpenChange={setChartConfigOpen}

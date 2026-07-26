@@ -1,7 +1,7 @@
-import { TelemetryIngestionBuffer } from "./chartIngestion";
-import type { Channel, ParseMode, TelemetryConfig } from "./chartTypes";
+import { TelemetryIngestionBuffer, TelemetryParseDispatcher } from "./chartIngestion";
+import type { Channel, TelemetryConfig } from "./chartTypes";
 import { TextFrameStream } from "./dataFraming";
-import { getChartParser, type BytesParserStream } from "./parseChartData";
+import { getChartParser } from "./parseChartData";
 import type { TelemetryBatch } from "./telemetry";
 import type { RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
 
@@ -39,24 +39,7 @@ export function mergeSerialReceiveResults(results: SerialReceiveResult[]): Seria
 export class SerialReceivePipeline {
   private textFrames = new TextFrameStream();
   private terminalDecoder = new TextDecoder();
-  /** 当前 parseMode 对应的字节流解析实例；换解析器时重建。 */
-  private bytesStream: BytesParserStream | null = null;
-  private bytesStreamMode: ParseMode | null = null;
-
-  /** 取当前配置对应的字节流解析器实例；不是字节流模式时返回 null。 */
-  private resolveBytesStream(parseMode: ParseMode): BytesParserStream | null {
-    const parser = getChartParser(parseMode);
-    if (parser?.kind !== "bytes") {
-      this.bytesStream = null;
-      this.bytesStreamMode = null;
-      return null;
-    }
-    if (this.bytesStreamMode !== parseMode || !this.bytesStream) {
-      this.bytesStream = parser.createStream();
-      this.bytesStreamMode = parseMode;
-    }
-    return this.bytesStream;
-  }
+  private parseDispatcher = new TelemetryParseDispatcher();
 
   ingest(event: SerialDataEvent, config: SerialReceivePipelineConfig): SerialReceiveResult {
     const lines: Omit<SerialLine, "id">[] = [];
@@ -66,27 +49,29 @@ export class SerialReceivePipeline {
     let detectedChannels: Channel[] | undefined;
     let chartConfig = config.chartConfig;
 
-    const bytesStream = chartConfig.enabled ? this.resolveBytesStream(chartConfig.parseMode) : null;
+    const usesBytesParser = this.parseDispatcher.usesBytesParser(chartConfig);
 
     for (const { data, timestamp } of event.chunks) {
       terminalText += this.terminalDecoder.decode(new Uint8Array(data), { stream: true });
       bytesReceived += data.length;
 
       // 字节流解析只对接收方向有意义：发出去的内容不是设备上报的遥测
-      if (bytesStream && event.direction === "rx") {
-        const parsed = bytesStream.ingest(data, chartConfig, timestamp);
-        if (parsed.detectedChannels) {
-          detectedChannels = parsed.detectedChannels;
-          chartConfig = { ...chartConfig, channels: parsed.detectedChannels };
+      if (usesBytesParser && event.direction === "rx") {
+        const parsed = this.parseDispatcher.ingestBytes(data, chartConfig, timestamp);
+        if (parsed) {
+          if (parsed.detectedChannels) {
+            detectedChannels = parsed.detectedChannels;
+            chartConfig = { ...chartConfig, channels: parsed.detectedChannels };
+          }
+          telemetryBuffer.ingestBatch({ points: parsed.points, success: parsed.success, fail: parsed.fail });
         }
-        telemetryBuffer.ingestBatch({ points: parsed.points, success: parsed.success, fail: parsed.fail });
       }
 
       const framedLines = this.textFrames.ingest(data, timestamp, event.direction, config.framing);
       lines.push(...framedLines);
 
       // 字节流模式下文本行只用于终端显示，不再走一遍文本解析
-      if (framedLines.length > 0 && chartConfig.enabled && !bytesStream) {
+      if (framedLines.length > 0 && chartConfig.enabled && !usesBytesParser) {
         telemetryBuffer.ingestLines(framedLines, chartConfig);
       }
     }
@@ -124,8 +109,6 @@ export class SerialReceivePipeline {
   reset(): void {
     this.textFrames.reset();
     this.terminalDecoder = new TextDecoder();
-    this.bytesStream?.reset();
-    this.bytesStream = null;
-    this.bytesStreamMode = null;
+    this.parseDispatcher.reset();
   }
 }
