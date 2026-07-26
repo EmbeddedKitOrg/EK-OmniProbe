@@ -4,7 +4,8 @@
 
 import type { ChartDataPoint, Channel, ParseMode, PluginParseMode, TelemetryConfig } from "./chartTypes";
 import type { TelemetryBatch } from "./telemetry";
-import { isPluginParseMode } from "./chartTypes";
+import { isPluginParseMode, PRESET_COLORS } from "./chartTypes";
+import { parseJustFloatChunk } from "./parseJustFloat";
 
 /**
  * 解析结果
@@ -29,11 +30,44 @@ export interface ChartInputLine {
 
 export type ChartLineParser = (text: string, config: TelemetryConfig, timestamp: number) => ParseResult;
 
-export interface ChartParserPlugin {
-  id: Exclude<ParseMode, "auto" | "justfloat">;
+/** 字节流解析器一次分片的产出。 */
+export interface BytesParseResult {
+  points: ChartDataPoint[];
+  success: number;
+  fail: number;
+  /** 解析器首次确定通道布局时给出，由调用方写回图表配置。 */
+  detectedChannels?: Channel[];
+}
+
+/**
+ * 字节流解析实例。与文本解析器不同，它跨分片持有残包状态，
+ * 因此必须由 createStream() 为每条数据流单独创建，不能共享。
+ */
+export interface BytesParserStream {
+  ingest(bytes: number[], config: TelemetryConfig, timestamp: number): BytesParseResult;
+  reset(): void;
+}
+
+/** 按行解析文本，无状态。 */
+export interface TextChartParser {
+  kind: "text";
+  id: Exclude<ParseMode, "auto">;
   label: string;
   parse: ChartLineParser;
 }
+
+/**
+ * 直接吃原始字节，有跨分片状态。
+ * 只有能把原始字节交出来的数据源才可用——文本行已经过分帧，还原不回字节流。
+ */
+export interface BytesChartParser {
+  kind: "bytes";
+  id: Exclude<ParseMode, "auto">;
+  label: string;
+  createStream(): BytesParserStream;
+}
+
+export type ChartParserPlugin = TextChartParser | BytesChartParser;
 
 export type ChartParseBatch = TelemetryBatch;
 
@@ -272,10 +306,75 @@ export function parseWithKv(text: string, channels?: Channel[], timestamp = Date
   };
 }
 
+/** JustFloat 未配置通道时按帧宽自动建通道。 */
+function createJustFloatChannels(count: number): Channel[] {
+  return Array.from({ length: count }, (_, index) => ({
+    key: `ch${index + 1}`,
+    sourceIndex: index,
+    name: `通道 ${index + 1}`,
+    color: PRESET_COLORS[index % PRESET_COLORS.length],
+    visible: true,
+    role: "y" as const,
+  }));
+}
+
+function toJustFloatPoint(values: number[], config: TelemetryConfig, timestamp: number): ChartDataPoint {
+  const mappedValues: Record<string, number> = {};
+  config.channels.forEach((channel, index) => {
+    const sourceIndex = channel.sourceIndex ?? index;
+    if (sourceIndex >= 0 && sourceIndex < values.length) {
+      mappedValues[channel.key] = values[sourceIndex];
+    }
+  });
+  return { timestamp, values: mappedValues };
+}
+
+/**
+ * JustFloat / VOFA RawData：小端 float32 序列 + 4 字节帧尾。
+ * 此前这段逻辑焊死在 SerialReceivePipeline 里，导致只有串口能用；
+ * 收进注册表后，任何能提供原始字节的数据源都可以选用。
+ */
+const justFloatParser: BytesChartParser = {
+  kind: "bytes",
+  id: "justfloat",
+  label: "JustFloat / VOFA RawData",
+  createStream(): BytesParserStream {
+    let pending: number[] = [];
+    return {
+      ingest(bytes, config, timestamp) {
+        const parsed = parseJustFloatChunk(bytes, pending);
+        pending = parsed.pending;
+
+        let fail = parsed.invalidFrames;
+        let detectedChannels: Channel[] | undefined;
+        let effectiveConfig = config;
+
+        if (parsed.frames.length > 0 && config.channels.length === 0) {
+          detectedChannels = createJustFloatChannels(parsed.frames[0].length);
+          effectiveConfig = { ...config, channels: detectedChannels };
+        }
+
+        const points: ChartDataPoint[] = [];
+        for (const frame of parsed.frames) {
+          const point = toJustFloatPoint(frame, effectiveConfig, timestamp);
+          if (Object.keys(point.values).length > 0) points.push(point);
+          else fail += 1;
+        }
+
+        return { points, success: points.length, fail, detectedChannels };
+      },
+      reset() {
+        pending = [];
+      },
+    };
+  },
+};
+
 const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
   [
     "delimiter",
     {
+      kind: "text",
       id: "delimiter",
       label: "分隔符",
       parse: (text, config, timestamp) =>
@@ -286,11 +385,17 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
   ],
   [
     "json",
-    { id: "json", label: "JSON", parse: (text, config, timestamp) => parseWithJson(text, config.channels, timestamp) },
+    {
+      kind: "text",
+      id: "json",
+      label: "JSON",
+      parse: (text, config, timestamp) => parseWithJson(text, config.channels, timestamp),
+    },
   ],
   [
     "kv",
     {
+      kind: "text",
       id: "kv",
       label: "KV (key=value / key:value)",
       parse: (text, config, timestamp) => parseWithKv(text, config.channels, timestamp),
@@ -299,6 +404,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
   [
     "regex",
     {
+      kind: "text",
       id: "regex",
       label: "正则表达式",
       parse: (text, config, timestamp) =>
@@ -307,9 +413,15 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
           : { success: false, error: "正则表达式未配置" },
     },
   ],
+  [justFloatParser.id, justFloatParser],
 ]);
 
-/** 注册文本解析插件；返回的函数仅卸载本次注册，便于测试和插件生命周期清理。 */
+/** 按 parseMode 取解析器；调用方需自行判别 kind。 */
+export function getChartParser(parseMode: ParseMode): ChartParserPlugin | undefined {
+  return chartParsers.get(parseMode as ChartParserPlugin["id"]);
+}
+
+/** 注册解析插件（文本或字节流）；返回的函数仅卸载本次注册，便于测试和插件生命周期清理。 */
 export function registerChartParser(plugin: ChartParserPlugin & { id: PluginParseMode }): () => void {
   if (!isPluginParseMode(plugin.id)) {
     throw new Error("解析插件 ID 必须使用 plugin: 前缀，且只能包含字母、数字、点、下划线和连字符");
@@ -377,12 +489,14 @@ export function parseChartData(text: string, config: TelemetryConfig, timestamp 
   }
 
   if (config.parseMode === "auto") return parseAuto(payload, config, timestamp);
-  if (config.parseMode === "justfloat") {
-    return { success: false, error: "JustFloat 需要从串口原始字节流解析" };
-  }
 
   const parser = chartParsers.get(config.parseMode);
   if (!parser) return { success: false, error: `解析器未注册: ${config.parseMode}` };
+
+  // 字节流解析器走不了这条按行的路径：文本已经过分帧和解码，还原不回原始字节
+  if (parser.kind === "bytes") {
+    return { success: false, error: `${parser.label} 需要从原始字节流解析，当前数据源只能提供文本行` };
+  }
 
   try {
     return parser.parse(payload, config, timestamp);

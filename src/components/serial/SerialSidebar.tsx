@@ -876,7 +876,7 @@ export function SerialSidebar() {
         <ChartParserPanel
           chartConfig={chartConfig}
           samples={chartSamples}
-          allowJustFloat
+          allowBytesParsers
           allowDataFilter
           setChartConfig={setChartConfig}
           clearChartData={clearChartData}
