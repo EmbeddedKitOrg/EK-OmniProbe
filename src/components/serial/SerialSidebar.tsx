@@ -124,8 +124,6 @@ export function SerialSidebar() {
     refreshPorts();
   }, []);
 
-  useEffect(() => () => stopSerialSimulation(), []);
-
   // Connect/Disconnect
   const handleConnect = async () => {
     try {
