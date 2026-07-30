@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   Channel,
   ChartConfig,
@@ -437,192 +437,192 @@ export function ChartConfigDialog({
 
       {localConfig.dataFilter.kind === "cascade" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-medium">滤波器链</div>
               <p className="text-xs text-muted-foreground">
-                从左到右依次执行；点击节点编辑，拖动节点排序，点击 ＋ 插入
+                从上到下依次执行；点击滤波级编辑，拖动滤波级排序
                 {localConfig.dataFilter.sampleRateHz > 0
                   ? `；频率必须低于 ${(localConfig.dataFilter.sampleRateHz / 2).toFixed(2)} Hz`
                   : ""}
                 。
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={exportParametricStages}
-              disabled={localConfig.dataFilter.parametricStages.length === 0}
-              className="shrink-0 gap-1"
-            >
-              <Download className="h-3.5 w-3.5" />
-              导出参数
-            </Button>
-          </div>
-
-          <div className="overflow-x-auto rounded-[18px] border border-border/60 bg-muted/10 p-3">
-            <div className="flex min-w-max items-center gap-2">
-              <span className="rounded-full border border-border/70 bg-background px-3 py-2 text-xs font-medium">
-                输入
-              </span>
+            <div className="flex shrink-0 flex-wrap gap-2">
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-8 w-8 shrink-0 rounded-full p-0"
-                onClick={() => addParametricStage(-1)}
-                aria-label="在开头添加滤波级"
+                variant="outline"
+                onClick={exportParametricStages}
+                disabled={localConfig.dataFilter.parametricStages.length === 0}
+                className="gap-1"
               >
-                <Plus className="h-4 w-4" />
+                <Download className="h-3.5 w-3.5" />
+                导出参数
               </Button>
-              {localConfig.dataFilter.parametricStages.map((stage, index) => (
-                <Fragment key={stage.id}>
-                  <span className="text-muted-foreground">→</span>
-                  <button
-                    type="button"
-                    draggable
-                    onDragStart={(event) => {
-                      draggedStageId.current = stage.id;
-                      event.dataTransfer.effectAllowed = "move";
-                    }}
-                    onDragEnd={() => {
-                      draggedStageId.current = null;
-                    }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      if (draggedStageId.current) moveParametricStageTo(draggedStageId.current, index);
-                    }}
-                    onClick={() => setSelectedStageId(stage.id)}
-                    className={`flex min-w-36 items-center gap-2 rounded-[16px] border px-3 py-2 text-left transition-colors ${
-                      selectedStageId === stage.id
-                        ? "border-primary bg-primary/10"
-                        : "border-border/70 bg-background hover:border-primary/50"
-                    } ${stage.enabled ? "" : "opacity-50"}`}
-                    aria-pressed={selectedStageId === stage.id}
-                  >
-                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-medium">{parametricTypeLabel(stage.type)}</span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {formatFrequency(stage.frequencyHz)} · Q {stage.q.toFixed(2)}
-                      </span>
-                    </span>
-                    {stage.enabled ? (
-                      <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                  </button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 shrink-0 rounded-full p-0"
-                    onClick={() => addParametricStage(index)}
-                    aria-label={`在第 ${index + 1} 级后添加滤波级`}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </Fragment>
-              ))}
-              <span className="text-muted-foreground">→</span>
-              <span className="rounded-full border border-border/70 bg-background px-3 py-2 text-xs font-medium">
-                输出
-              </span>
+              <Button
+                size="sm"
+                onClick={() =>
+                  addParametricStage(
+                    selectedStageIndex >= 0 ? selectedStageIndex : localConfig.dataFilter.parametricStages.length - 1
+                  )
+                }
+                className="gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                添加滤波级
+              </Button>
             </div>
           </div>
 
-          {selectedStage ? (
-            <div className="rounded-[18px] border border-border/60 p-3">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">第 {selectedStageIndex + 1} 级参数</span>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={selectedStage.enabled}
-                      onCheckedChange={(enabled) => updateParametricStage(selectedStageIndex, { enabled })}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {selectedStage.enabled ? "参与级联" : "已旁路"}
-                    </span>
-                  </div>
+          <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              {localConfig.dataFilter.parametricStages.length > 0 ? (
+                <div className="max-h-[22rem] space-y-2 overflow-y-auto rounded-[18px] border border-border/60 bg-muted/10 p-2">
+                  {localConfig.dataFilter.parametricStages.map((stage, index) => (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      draggable
+                      onDragStart={(event) => {
+                        draggedStageId.current = stage.id;
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => {
+                        draggedStageId.current = null;
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (draggedStageId.current) moveParametricStageTo(draggedStageId.current, index);
+                      }}
+                      onClick={() => setSelectedStageId(stage.id)}
+                      className={`flex w-full min-w-0 items-center gap-2 rounded-[14px] border px-3 py-2 text-left transition-colors ${
+                        selectedStageId === stage.id
+                          ? "border-primary bg-primary/10"
+                          : "border-border/70 bg-background hover:border-primary/50"
+                      } ${stage.enabled ? "" : "opacity-50"}`}
+                      aria-pressed={selectedStageId === stage.id}
+                    >
+                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-medium">{parametricTypeLabel(stage.type)}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {formatFrequency(stage.frequencyHz)} · Q {stage.q.toFixed(2)}
+                        </span>
+                      </span>
+                      {stage.enabled ? (
+                        <Eye className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    disabled={selectedStageIndex === 0}
-                    onClick={() => moveParametricStage(selectedStageIndex, -1)}
-                    aria-label="左移滤波级"
-                  >
-                    ←
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    disabled={selectedStageIndex === localConfig.dataFilter.parametricStages.length - 1}
-                    onClick={() => moveParametricStage(selectedStageIndex, 1)}
-                    aria-label="右移滤波级"
-                  >
-                    →
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0"
-                    onClick={() => removeParametricStage(selectedStageIndex)}
-                    aria-label="删除滤波级"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+              ) : (
+                <div className="rounded-[18px] border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">
+                  还没有滤波级，点击“添加滤波级”开始配置。
                 </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>类型</Label>
-                  <Select
-                    value={selectedStage.type}
-                    onValueChange={(type: ParametricFilterType) => updateParametricStage(selectedStageIndex, { type })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lowpass">低通</SelectItem>
-                      <SelectItem value="highpass">高通</SelectItem>
-                      <SelectItem value="bandpass">带通</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <NumberField
-                  id={`parametric-frequency-${selectedStage.id}`}
-                  label={selectedStage.type === "bandpass" ? "中心频率 (Hz)" : "截止频率 (Hz)"}
-                  value={selectedStage.frequencyHz}
-                  min={0.001}
-                  onChange={(frequencyHz) => updateParametricStage(selectedStageIndex, { frequencyHz })}
-                />
-                <NumberField
-                  id={`parametric-q-${selectedStage.id}`}
-                  label="Q 值"
-                  value={selectedStage.q}
-                  min={0.001}
-                  step={0.01}
-                  onChange={(q) => updateParametricStage(selectedStageIndex, { q })}
-                />
-              </div>
-              {selectedStage.type === "bandpass" && selectedStage.q > 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  近似带宽 {(selectedStage.frequencyHz / selectedStage.q).toFixed(2)} Hz；Q 越大，通带越窄。
-                </p>
               )}
             </div>
-          ) : (
-            <div className="rounded-[18px] border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">
-              点击 ＋ 添加第一级滤波器。
-            </div>
-          )}
+
+            {selectedStage ? (
+              <div className="min-w-0 rounded-[18px] border border-border/60 p-3">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium">第 {selectedStageIndex + 1} 级参数</span>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={selectedStage.enabled}
+                        onCheckedChange={(enabled) => updateParametricStage(selectedStageIndex, { enabled })}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {selectedStage.enabled ? "参与级联" : "已旁路"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      disabled={selectedStageIndex === 0}
+                      onClick={() => moveParametricStage(selectedStageIndex, -1)}
+                      aria-label="上移滤波级"
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      disabled={selectedStageIndex === localConfig.dataFilter.parametricStages.length - 1}
+                      onClick={() => moveParametricStage(selectedStageIndex, 1)}
+                      aria-label="下移滤波级"
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      onClick={() => removeParametricStage(selectedStageIndex)}
+                      aria-label="删除滤波级"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>类型</Label>
+                    <Select
+                      value={selectedStage.type}
+                      onValueChange={(type: ParametricFilterType) =>
+                        updateParametricStage(selectedStageIndex, { type })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lowpass">低通</SelectItem>
+                        <SelectItem value="highpass">高通</SelectItem>
+                        <SelectItem value="bandpass">带通</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <NumberField
+                    id={`parametric-frequency-${selectedStage.id}`}
+                    label={selectedStage.type === "bandpass" ? "中心频率 (Hz)" : "截止频率 (Hz)"}
+                    value={selectedStage.frequencyHz}
+                    min={0.001}
+                    onChange={(frequencyHz) => updateParametricStage(selectedStageIndex, { frequencyHz })}
+                  />
+                  <NumberField
+                    id={`parametric-q-${selectedStage.id}`}
+                    label="Q 值"
+                    value={selectedStage.q}
+                    min={0.001}
+                    step={0.01}
+                    onChange={(q) => updateParametricStage(selectedStageIndex, { q })}
+                  />
+                </div>
+                {selectedStage.type === "bandpass" && selectedStage.q > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    近似带宽 {(selectedStage.frequencyHz / selectedStage.q).toFixed(2)} Hz；Q 越大，通带越窄。
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-[18px] border border-dashed border-border/70 p-4 text-center text-sm text-muted-foreground">
+                添加或选择一个滤波级后编辑参数。
+              </div>
+            )}
+          </div>
 
           <FrequencyResponsePreview
             stages={localConfig.dataFilter.parametricStages}
@@ -666,7 +666,7 @@ export function ChartConfigDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="flex flex-wrap gap-2 rounded-[20px] border border-border/60 bg-muted/20 p-2">
             {(
               [
