@@ -8,10 +8,14 @@ on:
     inputs:
       version:
         description: 'Version tag (e.g., v0.1.0)'
+        required: true
+      commit_sha:
+        description: 'Commit SHA to build (defaults to the selected branch HEAD)'
         required: false
         default: ''
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -19,7 +23,24 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
+  dispatch-release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch release build on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          gh workflow run release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f version="$VERSION" \
+            -f commit_sha="$COMMIT_SHA"
+
   build:
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +71,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.sha }}
 
       # 提取版本号
       - name: Extract version
@@ -283,6 +306,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || github.sha }}
 
       - name: Wait for Release assets to be accessible
         # needs: build 已确保所有构建完成，这里只等待 GitHub API 缓冲
