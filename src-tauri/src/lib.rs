@@ -93,6 +93,7 @@ pub fn run() {
             ai_bridge::get_ai_bridge_status,
             ai_bridge::set_ai_bridge_write_enabled,
             ai_bridge::publish_ai_samples,
+            ai_bridge::publish_ai_text_lines,
             // 调试命令
             debug_cmd::debug_attach,
             debug_cmd::debug_detach,

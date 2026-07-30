@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from collections import deque
 import json
 import math
 import select
@@ -10,6 +11,7 @@ import time
 import uuid
 
 HOST = "127.0.0.1"
+MAX_SNAPSHOT_TEXT_LINES = 200
 
 
 def connect(port):
@@ -38,7 +40,14 @@ def summarize(messages, duration):
     units = {}
     sample_rate = 0
     sample_count = 0
+    text_line_count = 0
+    text_lines = deque(maxlen=MAX_SNAPSHOT_TEXT_LINES)
     for message in messages:
+        if message.get("type") == "text":
+            for line in message.get("lines", []):
+                text_line_count += 1
+                text_lines.append(line)
+            continue
         if message.get("type") != "samples":
             continue
         sample_rate = message.get("sampleRateHz") or sample_rate
@@ -64,6 +73,8 @@ def summarize(messages, duration):
         "sampleCount": sample_count,
         "sampleRateHz": sample_rate,
         "channels": channels,
+        "textLineCount": text_line_count,
+        "textLines": list(text_lines),
     }
 
 
@@ -85,7 +96,7 @@ def snapshot(args):
     try:
         result = summarize(read_messages(sock, stream, args.seconds), args.seconds)
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0 if result["sampleCount"] else 2
+        return 0 if result["sampleCount"] or result["textLineCount"] else 2
     finally:
         stream.close()
         sock.close()
@@ -115,11 +126,26 @@ def write(args):
 
 def self_test(_args):
     result = summarize(
-        [{"type": "samples", "sampleRateHz": 10, "samples": [{"values": {"x": 1}}, {"values": {"x": 3}}]}],
+        [
+            {"type": "samples", "sampleRateHz": 10, "samples": [{"values": {"x": 1}}, {"values": {"x": 3}}]},
+            {
+                "type": "text",
+                "lines": [
+                    {
+                        "timestamp": 1234,
+                        "direction": "rx",
+                        "text": "measurement_state=no_signal",
+                        "truncated": False,
+                    }
+                ],
+            },
+        ],
         1,
     )
     assert result["sampleCount"] == 2
     assert result["channels"]["x"]["mean"] == 2
+    assert result["textLineCount"] == 1
+    assert result["textLines"][0]["text"] == "measurement_state=no_signal"
     print("ok")
 
 

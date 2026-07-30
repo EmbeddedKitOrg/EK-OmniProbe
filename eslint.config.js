@@ -4,19 +4,26 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 
-// eslint-plugin-react-hooks v7 带入了 React Compiler 系列规则。它们默认是 error，
-// 但本项目在遥测热路径上有意使用「渲染期写 ref」「effect 内 setState」等模式来避免重渲染。
-// 一次性全部当错误会直接卡死 CI，因此统一降为 warn：保持可见、可逐步收敛，
-// 而不是逼着为了过 lint 去改动最敏感的代码。rules-of-hooks 保持 error（那是硬性规则）。
+// 本项目未启用 React Compiler。关闭只影响 Compiler 优化、且会误报现有遥测热路径的规则；
+// purity / immutability 仍保留，rules-of-hooks 继续作为硬错误。
 const REACT_COMPILER_RULES = {
-  "react-hooks/refs": "warn",
+  "react-hooks/refs": "off",
   "react-hooks/purity": "warn",
   "react-hooks/immutability": "warn",
-  "react-hooks/set-state-in-effect": "warn",
-  "react-hooks/preserve-manual-memoization": "warn",
-  "react-hooks/incompatible-library": "warn",
+  "react-hooks/set-state-in-effect": "off",
+  "react-hooks/preserve-manual-memoization": "off",
+  "react-hooks/incompatible-library": "off",
   "react-hooks/rules-of-hooks": "error",
 };
+
+const FAST_REFRESH_TEST_EXPORTS = [
+  "resolveChartDisplayData",
+  "traceSignalPath",
+  "buildSerialControlChartData",
+  "isSerialDisplayWidget",
+  "isSerialSendWidget",
+  "isSerialVisualizationWidget",
+];
 
 export default tseslint.config(
   {
@@ -49,7 +56,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       ...REACT_COMPILER_RULES,
       "react-hooks/exhaustive-deps": "warn",
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: FAST_REFRESH_TEST_EXPORTS },
+      ],
 
       // tsconfig 已开 noUnusedLocals / noUnusedParameters，交给 tsc 报，避免重复
       "no-unused-vars": "off",

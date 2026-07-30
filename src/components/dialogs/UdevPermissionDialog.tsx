@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   Dialog,
@@ -21,19 +21,7 @@ export function UdevPermissionDialog() {
   const [installResult, setInstallResult] = useState<string | null>(null);
   const [instructions, setInstructions] = useState<string>("");
 
-  useEffect(() => {
-    // 监听后端发送的 udev 规则缺失事件
-    const unlisten = listen("udev-rules-missing", async () => {
-      await checkPermissions();
-      setOpen(true);
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
-  const checkPermissions = async () => {
+  const checkPermissions = useCallback(async () => {
     try {
       const result = await checkUsbPermissions();
       setStatus(result);
@@ -44,7 +32,19 @@ export function UdevPermissionDialog() {
     } catch (error) {
       console.error("检查权限失败:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // 监听后端发送的 udev 规则缺失事件
+    const unlisten = listen("udev-rules-missing", async () => {
+      await checkPermissions();
+      setOpen(true);
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [checkPermissions]);
 
   const handleInstall = async () => {
     setInstalling(true);

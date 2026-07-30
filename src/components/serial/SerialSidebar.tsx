@@ -121,8 +121,8 @@ export function SerialSidebar() {
   }, [localConfig.port, setLocalConfig, addLog]);
 
   useEffect(() => {
-    refreshPorts();
-  }, []);
+    void refreshPorts();
+  }, [refreshPorts]);
 
   // Connect/Disconnect
   const handleConnect = async () => {

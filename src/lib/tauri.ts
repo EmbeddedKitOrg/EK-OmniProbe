@@ -113,7 +113,7 @@ export async function getPackScanReport(packName: string): Promise<PackScanRepor
 }
 
 // 串口命令
-import type { AiBridgeStatus, AiTelemetryBatch, SerialPortInfo, SerialConfig } from "./serialTypes";
+import type { AiBridgeStatus, AiTelemetryBatch, AiTextBatch, SerialPortInfo, SerialConfig } from "./serialTypes";
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   return await invoke<SerialPortInfo[]>("list_serial_ports_cmd");
@@ -165,6 +165,10 @@ export async function setAiBridgeWriteEnabled(allowWrite: boolean): Promise<AiBr
 
 export async function publishAiSamples(batch: AiTelemetryBatch): Promise<void> {
   return await invoke("publish_ai_samples", { batch });
+}
+
+export async function publishAiTextLines(batch: AiTextBatch): Promise<void> {
+  return await invoke("publish_ai_text_lines", { batch });
 }
 
 // USB 权限检查命令

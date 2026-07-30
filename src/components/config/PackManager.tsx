@@ -68,19 +68,19 @@ export function PackManager() {
   const [showDirectorySettings, setShowDirectorySettings] = useState(false);
   const addLog = useLogStore((state) => state.addLog);
 
-  // Load Pack directory
-  useEffect(() => {
-    loadPacksDirectory();
-  }, []);
-
-  const loadPacksDirectory = async () => {
+  const loadPacksDirectory = useCallback(async () => {
     try {
       const dir = await getPacksDirectory();
       setPacksDirectory(dir);
     } catch (error) {
       addLog("error", `获取Pack目录失败: ${error}`);
     }
-  };
+  }, [addLog]);
+
+  // Load Pack directory
+  useEffect(() => {
+    void loadPacksDirectory();
+  }, [loadPacksDirectory]);
 
   const handleChangeDirectory = async () => {
     try {
@@ -112,11 +112,6 @@ export function PackManager() {
     }
   };
 
-  // Load imported Pack list
-  useEffect(() => {
-    loadPacks();
-  }, []);
-
   // Listen for pack scan progress events
   useEffect(() => {
     const unlisten = listen<PackScanProgress>("pack-scan-progress", (event) => {
@@ -134,6 +129,55 @@ export function PackManager() {
       unlisten.then((fn) => fn());
     };
   }, []);
+
+  const loadPacks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const packList = await listImportedPacks();
+      setPacks(packList);
+    } catch (error) {
+      addLog("error", `加载Pack列表失败: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [addLog]);
+
+  // Load imported Pack list
+  useEffect(() => {
+    void loadPacks();
+  }, [loadPacks]);
+
+  // Import multiple Pack files
+  const importMultiplePacks = useCallback(
+    async (filePaths: string[]) => {
+      if (filePaths.length === 0) return;
+
+      setImporting(true);
+      addLog("info", `开始导入 ${filePaths.length} 个Pack文件...`);
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const filePath of filePaths) {
+        try {
+          const packInfo = await importPack(filePath);
+          addLog("success", `成功导入: ${packInfo.name} v${packInfo.version}`);
+          successCount++;
+        } catch (error) {
+          addLog("error", `导入失败 ${filePath.split(/[\\/]/).pop()}: ${error}`);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        addLog("info", `导入完成: ${successCount} 成功, ${failCount} 失败`);
+        await loadPacks();
+      }
+
+      setImporting(false);
+    },
+    [addLog, loadPacks]
+  );
 
   // Listen for file drag-drop events
   useEffect(() => {
@@ -165,51 +209,7 @@ export function PackManager() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
-
-  const loadPacks = async () => {
-    try {
-      setLoading(true);
-      const packList = await listImportedPacks();
-      setPacks(packList);
-    } catch (error) {
-      addLog("error", `加载Pack列表失败: ${error}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Import multiple Pack files
-  const importMultiplePacks = useCallback(
-    async (filePaths: string[]) => {
-      if (filePaths.length === 0) return;
-
-      setImporting(true);
-      addLog("info", `开始导入 ${filePaths.length} 个Pack文件...`);
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const filePath of filePaths) {
-        try {
-          const packInfo = await importPack(filePath);
-          addLog("success", `成功导入: ${packInfo.name} v${packInfo.version}`);
-          successCount++;
-        } catch (error) {
-          addLog("error", `导入失败 ${filePath.split(/[\\/]/).pop()}: ${error}`);
-          failCount++;
-        }
-      }
-
-      if (successCount > 0) {
-        addLog("info", `导入完成: ${successCount} 成功, ${failCount} 失败`);
-        await loadPacks();
-      }
-
-      setImporting(false);
-    },
-    [addLog]
-  );
+  }, [importMultiplePacks]);
 
   // Import Pack file via dialog (supports multiple files)
   const handleImport = async () => {

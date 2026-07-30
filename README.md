@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.3.2-blue" alt="Version 2.3.2" />
+  <img src="https://img.shields.io/badge/version-2.4.0-blue" alt="Version 2.4.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,14 +37,11 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.3.2 更新重点
+## 2.4.0 更新重点
 
-- 参数化级联改为纵向可排序滤波级列表，滤波级较多时不再撑宽图表设置弹窗
-- 修复模拟数据运行时进入控制面板会停止生成数据，但界面仍显示运行中的问题
-- 新增触发捕获：条件成立时自动冻结图表，留住事件发生前后的数据，不必再一直盯着屏幕等瞬时现象
-- 会话录制与回放扩展到 RTT 与蓝牙，RTT 按通道分别记录与回放
-- RTT 与蓝牙支持接收分帧配置，可按空闲超时或自定义分隔符断帧
-- 三条数据来源共用同一套图表状态实现，新增功能不再需要在三处各写一遍
+- AI 数据桥接新增串口文本消息，状态、错误原因和结论等非数值内容也能交给本机 AI 分析
+- 文本消息保留时间戳及 RX/TX 方向；快照摘要保留最近 200 行文本
+- 数值样本桥接、波形分析和受控串口写入保持原有行为
 
 当前界面采用统一的 IDE 式布局：
 
@@ -291,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.3.2`
+- 当前版本：`2.4.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

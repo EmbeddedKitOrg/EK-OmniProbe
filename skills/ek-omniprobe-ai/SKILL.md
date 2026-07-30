@@ -1,6 +1,6 @@
 ---
 name: ek-omniprobe-ai
-description: 通过 EK-OmniProbe 本机 TCP/NDJSON 桥接读取串口标准样本、分析波形和安全调节设备参数。用户要求观察串口数据、分析传感器或控制波形、评估调参效果、建议 PID 等参数、自动或半自动调参时使用。
+description: 通过 EK-OmniProbe 本机 TCP/NDJSON 桥接读取串口文本与标准样本、分析日志和波形，并安全调节设备参数。用户要求观察串口数据、分析诊断输出、传感器或控制波形、评估调参效果、建议 PID 等参数、自动或半自动调参时使用。
 ---
 
 # EK-OmniProbe AI 调参
@@ -12,10 +12,10 @@ description: 通过 EK-OmniProbe 本机 TCP/NDJSON 桥接读取串口标准样�
 要求用户在 EK-OmniProbe 串口工作台中：
 
 1. 连接设备并开始接收。
-2. 启用图表解析，确认波形字段正确。
+2. 如需分析波形，启用图表解析并确认字段正确；只分析文本时可跳过。
 3. 打开“AI”并启动本机桥接；默认端口为 `8765`。
 
-不要要求关闭图表；AI 数据与图表来自同一批解析样本。
+不要要求关闭图表；AI 文本与文本区来自同一批串口行，数值数据与图表来自同一批解析样本。
 
 ## 观察
 
@@ -24,6 +24,8 @@ description: 通过 EK-OmniProbe 本机 TCP/NDJSON 桥接读取串口标准样�
 ```bash
 python <skill-dir>/scripts/client.py snapshot --port 8765 --seconds 5
 ```
+
+摘要的 `textLines` 包含最近 200 行串口文本。`direction` 表示 `rx` 或 `tx`；`truncated: true` 表示原始行过长，只提供了前 16384 个字符。即使 `sampleCount` 为 `0`，也应先检查 `textLineCount` 和 `textLines` 中的状态、错误与结论。
 
 需要原始实时数据时：
 
@@ -52,7 +54,7 @@ python <skill-dir>/scripts/client.py write --port 8765 --text "kp=0.20" --line-e
 
 ## 协议
 
-服务端逐行输出 `ek.telemetry/v1` JSON。样本消息包含 `seq`、`source`、`sampleRateHz`、`channels` 和 `samples`。写命令格式：
+服务端逐行输出 `ek.telemetry/v1` JSON。`samples` 消息包含 `seq`、`source`、`sampleRateHz`、`channels` 和 `samples`；`text` 消息包含 `seq`、`source` 和 `lines`，每行带 `timestamp`、`direction`、`text`、`truncated`。写命令格式：
 
 ```json
 {"type":"serial.write","id":"唯一 ID","text":"kp=0.20","lineEnding":"lf"}

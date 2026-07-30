@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 export function useUserActivity(timeoutMs: number = 10000) {
   const [isActive, setIsActive] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(timeoutMs);
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 更新活动时间
@@ -18,6 +18,7 @@ export function useUserActivity(timeoutMs: number = 10000) {
   }, [timeoutMs]);
 
   useEffect(() => {
+    lastActivityRef.current = Date.now();
     // 监听的事件类型
     const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click", "wheel"];
 

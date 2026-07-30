@@ -15,6 +15,9 @@ use tauri::State;
 const SCHEMA: &str = "ek.telemetry/v1";
 const MAX_COMMAND_BYTES: usize = 1024;
 const MAX_CLIENT_LINE_BYTES: usize = 8192;
+const MAX_TEXT_LINES_PER_BATCH: usize = 256;
+const MAX_TEXT_LINE_BYTES: usize = 64 * 1024;
+const MAX_TEXT_BATCH_BYTES: usize = 256 * 1024;
 const CLIENT_QUEUE_CAPACITY: usize = 32;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -40,6 +43,29 @@ pub struct AiTelemetryBatch {
     pub samples: Vec<AiTelemetrySample>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AiTextDirection {
+    Rx,
+    Tx,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiTextLine {
+    pub timestamp: i64,
+    pub direction: AiTextDirection,
+    pub text: String,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiTextBatch {
+    pub source: String,
+    pub lines: Vec<AiTextLine>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiBridgeStatus {
@@ -59,6 +85,17 @@ struct TelemetryEnvelope<'a> {
     seq: u64,
     #[serde(flatten)]
     batch: &'a AiTelemetryBatch,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TextEnvelope<'a> {
+    schema: &'static str,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    seq: u64,
+    #[serde(flatten)]
+    batch: &'a AiTextBatch,
 }
 
 struct BridgeClient {
@@ -194,6 +231,30 @@ impl AiBridgeState {
         })
         .map_err(|error| format!("无法编码 AI 样本: {error}"))?;
 
+        self.broadcast(line);
+        Ok(())
+    }
+
+    pub fn publish_text(&self, batch: AiTextBatch) -> Result<(), String> {
+        validate_text_batch(&batch)?;
+        if !self.running.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+
+        let seq = self.next_sequence.fetch_add(1, Ordering::Relaxed);
+        let line = serde_json::to_string(&TextEnvelope {
+            schema: SCHEMA,
+            kind: "text",
+            seq,
+            batch: &batch,
+        })
+        .map_err(|error| format!("无法编码 AI 文本: {error}"))?;
+
+        self.broadcast(line);
+        Ok(())
+    }
+
+    fn broadcast(&self, line: String) {
         let mut dropped = 0u64;
         self.clients
             .lock()
@@ -208,7 +269,6 @@ impl AiBridgeState {
         if dropped > 0 {
             self.dropped_batches.fetch_add(dropped, Ordering::Relaxed);
         }
-        Ok(())
     }
 
     fn attach_client(self: &Arc<Self>, stream: TcpStream, serial_state: Arc<SerialState>) {
@@ -330,6 +390,26 @@ fn validate_batch(batch: &AiTelemetryBatch) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_text_batch(batch: &AiTextBatch) -> Result<(), String> {
+    if batch.source != "serial" {
+        return Err("AI 数据桥接当前仅支持 serial 数据源".to_string());
+    }
+    if batch.lines.len() > MAX_TEXT_LINES_PER_BATCH {
+        return Err("单批最多包含 256 行文本".to_string());
+    }
+    if batch
+        .lines
+        .iter()
+        .any(|line| line.text.len() > MAX_TEXT_LINE_BYTES)
+    {
+        return Err("单行文本不能超过 65536 字节".to_string());
+    }
+    if batch.lines.iter().map(|line| line.text.len()).sum::<usize>() > MAX_TEXT_BATCH_BYTES {
+        return Err("单批文本不能超过 262144 字节".to_string());
+    }
+    Ok(())
+}
+
 fn read_line_limited<R: BufRead>(
     reader: &mut R,
     bytes: &mut Vec<u8>,
@@ -415,6 +495,14 @@ pub fn publish_ai_samples(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     state.ai_bridge_state.publish(batch)
+}
+
+#[tauri::command]
+pub fn publish_ai_text_lines(
+    batch: AiTextBatch,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.ai_bridge_state.publish_text(batch)
 }
 
 #[derive(Deserialize)]
@@ -552,6 +640,45 @@ mod tests {
         let samples: serde_json::Value = serde_json::from_str(&samples).unwrap();
         assert_eq!(samples["schema"], "ek.telemetry/v1");
         assert_eq!(samples["samples"][0]["values"]["speed"], 1200.0);
+
+        bridge.stop();
+    }
+
+    #[test]
+    fn client_receives_serial_text_lines() {
+        let bridge = Arc::new(AiBridgeState::default());
+        let status = bridge
+            .start(0, false, Arc::new(SerialState::default()))
+            .unwrap();
+        let stream = TcpStream::connect(("127.0.0.1", status.port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+            .unwrap();
+        let mut reader = BufReader::new(stream);
+
+        let mut hello = String::new();
+        reader.read_line(&mut hello).unwrap();
+
+        bridge
+            .publish_text(AiTextBatch {
+                source: "serial".to_string(),
+                lines: vec![AiTextLine {
+                    timestamp: 1234,
+                    direction: AiTextDirection::Rx,
+                    text: "measurement_state=no_signal".to_string(),
+                    truncated: false,
+                }],
+            })
+            .unwrap();
+
+        let mut text = String::new();
+        reader.read_line(&mut text).unwrap();
+        let text: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(text["schema"], "ek.telemetry/v1");
+        assert_eq!(text["type"], "text");
+        assert_eq!(text["lines"][0]["direction"], "rx");
+        assert_eq!(text["lines"][0]["text"], "measurement_state=no_signal");
+        assert_eq!(text["lines"][0]["truncated"], false);
 
         bridge.stop();
     }

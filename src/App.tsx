@@ -223,19 +223,17 @@ function MainApp() {
 
     // If user is inactive, perform auto-disconnect
     if (!isActive) {
-      handleAutoDisconnect();
+      void (async () => {
+        try {
+          await disconnect();
+          setConnected(false);
+          addLog("info", `检测到 ${autoDisconnectTimeout / 1000} 秒无操作，已自动断开连接`);
+        } catch (error) {
+          addLog("error", `自动断开失败: ${error}`);
+        }
+      })();
     }
-  }, [isActive, autoDisconnect, connected, rttRunning]);
-
-  const handleAutoDisconnect = async () => {
-    try {
-      await disconnect();
-      setConnected(false);
-      addLog("info", `检测到 ${autoDisconnectTimeout / 1000} 秒无操作，已自动断开连接`);
-    } catch (error) {
-      addLog("error", `自动断开失败: ${error}`);
-    }
-  };
+  }, [addLog, autoDisconnect, autoDisconnectTimeout, connected, isActive, rttRunning, setConnected]);
 
   // Show countdown hint (last 5 seconds)
   useEffect(() => {

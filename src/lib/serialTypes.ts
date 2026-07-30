@@ -131,6 +131,18 @@ export interface AiTelemetryBatch {
   samples: AiTelemetrySample[];
 }
 
+export interface AiTextLine {
+  timestamp: number;
+  direction: "rx" | "tx";
+  text: string;
+  truncated: boolean;
+}
+
+export interface AiTextBatch {
+  source: "serial";
+  lines: AiTextLine[];
+}
+
 export const DEFAULT_AI_BRIDGE_STATUS: AiBridgeStatus = {
   running: false,
   port: 0,

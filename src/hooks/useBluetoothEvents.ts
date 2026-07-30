@@ -36,6 +36,8 @@ export function useBluetoothEvents() {
   const idleFlushTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const frameStream = frameStreamRef.current;
+    const parseDispatcher = parseDispatcherRef.current;
     const flushBatch = () => {
       if (batchLinesRef.current.length > 0) {
         addLines(batchLinesRef.current);
@@ -75,7 +77,7 @@ export function useBluetoothEvents() {
     /** 字节流解析：仅在选用字节流解析器时有产出。 */
     const ingestBytes = (data: number[], timestamp: number) => {
       const chartConfig = useBluetoothStore.getState().chartConfig;
-      const parsed = parseDispatcherRef.current.ingestBytes(data, chartConfig, timestamp);
+      const parsed = parseDispatcher.ingestBytes(data, chartConfig, timestamp);
       if (!parsed) return;
 
       if (parsed.detectedChannels) {
@@ -95,7 +97,7 @@ export function useBluetoothEvents() {
 
     const flushPending = (schedule = true) => {
       clearIdleFlush();
-      const lines = frameStreamRef.current.flush();
+      const lines = frameStream.flush();
       queueLines(lines);
       if (schedule && lines.length > 0) scheduleBatchUpdate();
     };
@@ -122,7 +124,7 @@ export function useBluetoothEvents() {
           if (useBluetoothStore.getState().sessionRecording) captureSessionChunk("bluetooth", data, timestamp);
           ingestBytes(data, timestamp);
         }
-        queueLines(frameStreamRef.current.ingest(data, timestamp, direction, useBluetoothStore.getState().rxFraming));
+        queueLines(frameStream.ingest(data, timestamp, direction, useBluetoothStore.getState().rxFraming));
       }
 
       scheduleBatchUpdate();
@@ -133,8 +135,8 @@ export function useBluetoothEvents() {
       const { connected, running, error } = event.payload;
       if (!running) {
         flushPending(false);
-        frameStreamRef.current.reset();
-        parseDispatcherRef.current.reset();
+        frameStream.reset();
+        parseDispatcher.reset();
         scheduleBatchUpdate();
       }
       setConnected(connected);
@@ -144,8 +146,8 @@ export function useBluetoothEvents() {
 
     return () => {
       flushPending(false);
-      frameStreamRef.current.reset();
-      parseDispatcherRef.current.reset();
+      frameStream.reset();
+      parseDispatcher.reset();
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
       }

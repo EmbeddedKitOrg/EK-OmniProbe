@@ -36,6 +36,9 @@ export function useRttEvents() {
   const updateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const frameStreams = frameStreamsRef.current;
+    const idleFlushTimers = idleFlushTimersRef.current;
+    const parseDispatchers = parseDispatchersRef.current;
     // 批量更新函数 - 在每帧最多触发一次 setState
     const flushBatch = () => {
       if (batchLinesRef.current.length > 0) {
@@ -76,10 +79,10 @@ export function useRttEvents() {
     /** 字节流解析：仅在选用字节流解析器时有产出，返回是否已消费。 */
     const ingestChannelBytes = (channel: number, data: number[], timestamp: number) => {
       const chartConfig = useRttStore.getState().chartConfig;
-      let dispatcher = parseDispatchersRef.current.get(channel);
+      let dispatcher = parseDispatchers.get(channel);
       if (!dispatcher) {
         dispatcher = new TelemetryParseDispatcher();
-        parseDispatchersRef.current.set(channel, dispatcher);
+        parseDispatchers.set(channel, dispatcher);
       }
       const parsed = dispatcher.ingestBytes(data, chartConfig, timestamp);
       if (!parsed) return;
@@ -95,14 +98,14 @@ export function useRttEvents() {
     };
 
     const clearIdleFlush = (channel: number) => {
-      const timer = idleFlushTimersRef.current.get(channel);
+      const timer = idleFlushTimers.get(channel);
       if (timer !== undefined) window.clearTimeout(timer);
-      idleFlushTimersRef.current.delete(channel);
+      idleFlushTimers.delete(channel);
     };
 
     const flushPendingChannel = (channel: number, schedule = true) => {
       clearIdleFlush(channel);
-      const stream = frameStreamsRef.current.get(channel);
+      const stream = frameStreams.get(channel);
       if (!stream) return;
       const lines = stream.flush().map((line) => ({
         channel,
@@ -120,7 +123,7 @@ export function useRttEvents() {
       // 超时分帧模式下，空闲时长由用户配置决定；其余模式用固定兜底值刷出无换行残帧
       const framing = useRttStore.getState().rxFraming;
       const delay = framing.mode === "timeout" ? Math.max(5, framing.idleMs) : TEXT_FRAME_IDLE_MS;
-      idleFlushTimersRef.current.set(
+      idleFlushTimers.set(
         channel,
         window.setTimeout(() => flushPendingChannel(channel), delay)
       );
@@ -132,8 +135,8 @@ export function useRttEvents() {
 
       // 如果暂停，不处理数据
       if (useRttStore.getState().isPaused) {
-        frameStreamsRef.current.get(channel)?.reset();
-        parseDispatchersRef.current.get(channel)?.reset();
+        frameStreams.get(channel)?.reset();
+        parseDispatchers.get(channel)?.reset();
         clearIdleFlush(channel);
         return;
       }
@@ -147,10 +150,10 @@ export function useRttEvents() {
 
       ingestChannelBytes(channel, data, timestamp);
 
-      let stream = frameStreamsRef.current.get(channel);
+      let stream = frameStreams.get(channel);
       if (!stream) {
         stream = new TextFrameStream();
-        frameStreamsRef.current.set(channel, stream);
+        frameStreams.set(channel, stream);
       }
       const lines = stream.ingest(data, timestamp, "rx", useRttStore.getState().rxFraming).map((line) => ({
         channel,
@@ -168,10 +171,10 @@ export function useRttEvents() {
     const unlistenStatus = listen<RttStatusEvent>("rtt-status", (event) => {
       const { running, error } = event.payload;
       if (!running) {
-        for (const channel of frameStreamsRef.current.keys()) flushPendingChannel(channel, false);
-        frameStreamsRef.current.clear();
-        for (const dispatcher of parseDispatchersRef.current.values()) dispatcher.reset();
-        parseDispatchersRef.current.clear();
+        for (const channel of frameStreams.keys()) flushPendingChannel(channel, false);
+        frameStreams.clear();
+        for (const dispatcher of parseDispatchers.values()) dispatcher.reset();
+        parseDispatchers.clear();
         scheduleBatchUpdate();
       }
       setRunning(running);
@@ -182,10 +185,10 @@ export function useRttEvents() {
 
     // 清理
     return () => {
-      for (const channel of frameStreamsRef.current.keys()) flushPendingChannel(channel, false);
-      frameStreamsRef.current.clear();
-      for (const timer of idleFlushTimersRef.current.values()) window.clearTimeout(timer);
-      idleFlushTimersRef.current.clear();
+      for (const channel of frameStreams.keys()) flushPendingChannel(channel, false);
+      frameStreams.clear();
+      for (const timer of idleFlushTimers.values()) window.clearTimeout(timer);
+      idleFlushTimers.clear();
       if (updateTimerRef.current !== null) {
         cancelAnimationFrame(updateTimerRef.current);
       }

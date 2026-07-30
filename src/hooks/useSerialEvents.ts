@@ -1,17 +1,22 @@
 import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSerialStore } from "@/stores/serialStore";
-import type { SerialDataEvent, SerialStatusEvent } from "@/lib/serialTypes";
+import type { AiTextLine, SerialDataEvent, SerialStatusEvent } from "@/lib/serialTypes";
 import {
   mergeSerialReceiveResults,
   SerialReceivePipeline,
   type SerialReceiveResult,
 } from "@/lib/serialReceivePipeline";
 import { formatBytes } from "@/lib/formatters";
-import { publishAiSamples } from "@/lib/tauri";
+import { publishAiSamples, publishAiTextLines } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
 import { TEXT_FRAME_IDLE_MS } from "@/lib/dataFraming";
 import { captureSessionChunk } from "@/lib/sessionCapture";
+
+const MAX_AI_TEXT_CHARS = 16 * 1024;
+const MAX_AI_TEXT_LINES_PER_BATCH = 256;
+const MAX_AI_TEXT_BYTES_PER_BATCH = 256 * 1024;
+const textEncoder = new TextEncoder();
 
 /**
  * Hook to listen for serial events
@@ -36,6 +41,7 @@ export function useSerialEvents() {
   const bridgeErrorReportedRef = useRef(false);
 
   useEffect(() => {
+    const receivePipeline = receivePipelineRef.current;
     // 批量更新函数 - 在每帧最多触发一次 setState
     const flushBatch = () => {
       const batch = mergeSerialReceiveResults(batchResultsRef.current);
@@ -43,31 +49,63 @@ export function useSerialEvents() {
       commitSerialReceiveBatch(batch);
 
       const telemetryBatch = batch.telemetryBatch;
-      if (telemetryBatch.points.length > 0) {
+      const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
+      if (aiBridgeStatus.running) {
+        const publications: Promise<void>[] = [];
         const points = telemetryBatch.points;
-        const { aiBridgeStatus, chartConfig } = useSerialStore.getState();
-        if (aiBridgeStatus.running) {
+        if (points.length > 0) {
           const channels =
             chartConfig.channels.length > 0
               ? chartConfig.channels.map(({ key, name, unit }) => ({ key, name, unit: unit ?? null }))
               : Object.keys(points[0]?.values ?? {}).map((key) => ({ key, name: key, unit: null }));
           for (let index = 0; index < points.length; index += 2048) {
-            void publishAiSamples({
-              source: "serial",
-              sampleRateHz: chartConfig.sampleRateHz,
-              channels,
-              samples: points.slice(index, index + 2048),
-            })
-              .then(() => {
-                bridgeErrorReportedRef.current = false;
+            publications.push(
+              publishAiSamples({
+                source: "serial",
+                sampleRateHz: chartConfig.sampleRateHz,
+                channels,
+                samples: points.slice(index, index + 2048),
               })
-              .catch((error) => {
-                if (!bridgeErrorReportedRef.current) {
-                  console.warn("AI 数据桥接发布失败", error);
-                  bridgeErrorReportedRef.current = true;
-                }
-              });
+            );
           }
+        }
+
+        let textLines: AiTextLine[] = [];
+        let textBytes = 0;
+        for (const line of batch.lines) {
+          const text = line.text.slice(0, MAX_AI_TEXT_CHARS);
+          const bytes = textEncoder.encode(text).byteLength;
+          if (
+            textLines.length > 0 &&
+            (textLines.length >= MAX_AI_TEXT_LINES_PER_BATCH || textBytes + bytes > MAX_AI_TEXT_BYTES_PER_BATCH)
+          ) {
+            publications.push(publishAiTextLines({ source: "serial", lines: textLines }));
+            textLines = [];
+            textBytes = 0;
+          }
+          textLines.push({
+            timestamp: line.timestamp.getTime(),
+            direction: line.direction,
+            text,
+            truncated: line.text.length > MAX_AI_TEXT_CHARS,
+          });
+          textBytes += bytes;
+        }
+        if (textLines.length > 0) {
+          publications.push(publishAiTextLines({ source: "serial", lines: textLines }));
+        }
+
+        if (publications.length > 0) {
+          void Promise.all(publications)
+            .then(() => {
+              bridgeErrorReportedRef.current = false;
+            })
+            .catch((error) => {
+              if (!bridgeErrorReportedRef.current) {
+                console.warn("AI 数据桥接发布失败", error);
+                bridgeErrorReportedRef.current = true;
+              }
+            });
         }
       }
 
@@ -85,7 +123,7 @@ export function useSerialEvents() {
     const flushPendingLine = () => {
       idleFlushTimerRef.current = null;
       const state = useSerialStore.getState();
-      const result = receivePipelineRef.current.flushPending({
+      const result = receivePipeline.flushPending({
         framing: state.rxFraming,
         chartConfig: state.chartConfig,
       });
@@ -115,7 +153,7 @@ export function useSerialEvents() {
       }
 
       batchResultsRef.current.push(
-        receivePipelineRef.current.ingest(event.payload, {
+        receivePipeline.ingest(event.payload, {
           framing: state.rxFraming,
           chartConfig: state.chartConfig,
         })
@@ -138,7 +176,7 @@ export function useSerialEvents() {
           idleFlushTimerRef.current = null;
         }
         const state = useSerialStore.getState();
-        const pending = receivePipelineRef.current.flushPending({
+        const pending = receivePipeline.flushPending({
           framing: state.rxFraming,
           chartConfig: state.chartConfig,
         });
@@ -146,7 +184,7 @@ export function useSerialEvents() {
           batchResultsRef.current.push(pending);
           scheduleBatchUpdate();
         }
-        receivePipelineRef.current.reset();
+        receivePipeline.reset();
       }
       setConnected(connected);
       setRunning(running);
@@ -166,7 +204,7 @@ export function useSerialEvents() {
         cancelAnimationFrame(updateTimerRef.current);
         flushBatch(); // 确保剩余数据被处理
       }
-      receivePipelineRef.current.reset();
+      receivePipeline.reset();
 
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
