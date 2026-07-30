@@ -65,7 +65,6 @@ export function useChartWorkspaceHost({
   const debugLog = useCallback(
     (message: string) => {
       const text = `[图表窗口:${source}] ${message}`;
-      console.info(text);
       addLog("info", text);
     },
     [addLog, source]

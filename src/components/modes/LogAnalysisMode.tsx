@@ -8,7 +8,7 @@ import { SerialViewer } from "@/components/serial/SerialViewer";
 import { ChartViewer } from "@/components/rtt/ChartViewer";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import type { SerialLine } from "@/lib/serialTypes";
-import type { ChartDataPoint, ViewMode } from "@/lib/chartTypes";
+import type { ChartDataPoint, TelemetryConfig, ViewMode } from "@/lib/chartTypes";
 import { DEFAULT_CHART_CONFIG, migrateChartConfig } from "@/lib/chartTypes";
 import { populateEmptyChannelsFromSamples, type ChartSample } from "@/lib/chartAnalysis";
 import { TelemetryIngestionBuffer } from "@/lib/chartIngestion";
@@ -62,10 +62,23 @@ export function LogAnalysisMode() {
     () => selectedPrefixSummary?.samples ?? lines.slice(0, 200).map((line) => ({ text: line.text })),
     [lines, selectedPrefixSummary]
   );
-  const parsingConfig = useMemo(
-    () => chartConfig,
+  const parsingConfig = useMemo<TelemetryConfig>(
+    () => ({
+      enabled: chartConfig.enabled,
+      parseMode: chartConfig.parseMode,
+      framePrefix: chartConfig.framePrefix,
+      regexPattern: chartConfig.regexPattern,
+      regexFlags: chartConfig.regexFlags,
+      delimiter: chartConfig.delimiter,
+      channels: chartConfig.channels,
+      maxDataPoints: chartConfig.maxDataPoints,
+      sampleRateHz: chartConfig.sampleRateHz,
+      dataFilter: chartConfig.dataFilter,
+      trigger: chartConfig.trigger,
+    }),
     [
       chartConfig.channels,
+      chartConfig.dataFilter,
       chartConfig.delimiter,
       chartConfig.enabled,
       chartConfig.framePrefix,
@@ -73,6 +86,8 @@ export function LogAnalysisMode() {
       chartConfig.parseMode,
       chartConfig.regexFlags,
       chartConfig.regexPattern,
+      chartConfig.sampleRateHz,
+      chartConfig.trigger,
     ]
   );
   const viewerData = useMemo(

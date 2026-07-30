@@ -107,7 +107,7 @@ try {
     Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "tsc", "--noEmit")
 
     Write-Host "Running ESLint..." -ForegroundColor Green
-    Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "eslint", ".")
+    Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "eslint", ".", "--max-warnings", "0")
 
     Write-Host "Checking Prettier formatting..." -ForegroundColor Green
     Invoke-PackageManager -PackageManager $packageManager -Arguments @("exec", "prettier", "--check", "src/**/*.{ts,tsx,css}")

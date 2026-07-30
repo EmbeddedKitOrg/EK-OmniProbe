@@ -462,12 +462,14 @@ export function SignalPlotCanvas({
   }, [
     chartConfig.showGrid,
     chartConfig.showTooltip,
+    chartConfig.trigger,
     chartConfig.waveformInterpolation,
     domain,
     fftView,
     hoverPoint,
     size,
     timeView,
+    triggeredAt,
     visibleSeries,
   ]);
 

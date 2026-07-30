@@ -39,6 +39,8 @@ import { AiBridgeControl, AiSkillLink } from "./AiBridgeControl";
 import { useState } from "react";
 import { formatTimestamp } from "@/lib/formatters";
 
+const TIMESTAMP_PREVIEW_TIME = Date.UTC(2024, 0, 2, 3, 4, 5, 678);
+
 /** 稳定的空数组引用：配置对话框关闭时用它替代 lines，避免订阅到每帧都换 identity 的大数组。 */
 const NO_SAMPLE_LINES: SerialLine[] = [];
 
@@ -509,7 +511,7 @@ export function SerialToolbar() {
                     <div className="flex items-center justify-between gap-2 text-xs">
                       <span className="font-medium text-foreground">时间格式</span>
                       <code className="text-[11px] text-muted-foreground">
-                        {formatTimestamp(Date.now(), timestampFormat)}
+                        {formatTimestamp(TIMESTAMP_PREVIEW_TIME, timestampFormat)}
                       </code>
                     </div>
                     <Select

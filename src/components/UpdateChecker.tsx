@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useState, useEffect, useRef } from "react";
+import { cloneElement, isValidElement, useCallback, useState, useEffect, useRef } from "react";
 import { check, type Update, type DownloadEvent } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { Button } from "@/components/ui/button";
@@ -59,40 +59,41 @@ export function UpdateChecker({ autoCheck = true, showTrigger = true, trigger }:
   const addLog = useLogStore((state) => state.addLog);
   const downloadedBytesRef = useRef(0);
 
+  const checkForUpdates = useCallback(
+    async (silent = false) => {
+      try {
+        setChecking(true);
+        if (!silent) {
+          addLog("info", "正在检查更新...");
+        }
+
+        const update = await check();
+
+        if (update) {
+          setUpdateInfo(update);
+          setDialogOpen(true);
+          addLog("success", `发现新版本: ${update.version}`);
+        } else if (!silent) {
+          addLog("info", "当前已是最新版本");
+        }
+      } catch (error) {
+        // 静默模式下不显示错误(启动时检查)
+        if (!silent) {
+          addLog("error", `检查更新失败: ${error}`);
+        }
+      } finally {
+        setChecking(false);
+      }
+    },
+    [addLog]
+  );
+
   // 启动时自动检查更新(静默模式)
   useEffect(() => {
     if (autoCheck) {
-      checkForUpdates(true);
+      void checkForUpdates(true);
     }
-  }, [autoCheck]);
-
-  const checkForUpdates = async (silent = false) => {
-    try {
-      setChecking(true);
-      if (!silent) {
-        addLog("info", "正在检查更新...");
-      }
-
-      const update = await check();
-
-      if (update) {
-        setUpdateInfo(update);
-        setDialogOpen(true);
-        addLog("success", `发现新版本: ${update.version}`);
-      } else {
-        if (!silent) {
-          addLog("info", "当前已是最新版本");
-        }
-      }
-    } catch (error) {
-      // 静默模式下不显示错误(启动时检查)
-      if (!silent) {
-        addLog("error", `检查更新失败: ${error}`);
-      }
-    } finally {
-      setChecking(false);
-    }
-  };
+  }, [autoCheck, checkForUpdates]);
 
   const downloadAndInstall = async () => {
     if (!updateInfo) return;
