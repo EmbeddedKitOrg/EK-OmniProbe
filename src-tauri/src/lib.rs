@@ -12,8 +12,9 @@ pub mod udev;
 use commands::{
     ble as ble_cmd, config, debug as debug_cmd, export, flash, probe, rtt, serial as serial_cmd,
 };
+use futures::StreamExt;
 use state::AppState;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -27,6 +28,18 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             app.manage(AppState::new());
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match nusb::watch_devices() {
+                    Ok(mut events) => {
+                        while events.next().await.is_some() {
+                            let _ = app_handle.emit("usb-device-changed", ());
+                        }
+                    }
+                    Err(error) => log::warn!("USB 热插拔监听启动失败: {error}"),
+                }
+            });
 
             // Linux 系统启动时检查 udev 规则
             #[cfg(target_os = "linux")]
@@ -134,8 +147,6 @@ pub fn run() {
 /// Linux 启动时检查 udev 规则
 #[cfg(target_os = "linux")]
 async fn check_udev_on_startup(app: tauri::AppHandle) {
-    use tauri::Emitter;
-
     log::info!("检查 udev 规则...");
 
     // 延迟 2 秒，等待窗口完全加载
