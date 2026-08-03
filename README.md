@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.4.0-blue" alt="Version 2.4.0" />
+  <img src="https://img.shields.io/badge/version-2.4.1-blue" alt="Version 2.4.1" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,11 +37,11 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.4.0 更新重点
+## 2.4.1 更新重点
 
-- AI 数据桥接新增串口文本消息，状态、错误原因和结论等非数值内容也能交给本机 AI 分析
-- 文本消息保留时间戳及 RX/TX 方向；快照摘要保留最近 200 行文本
-- 数值样本桥接、波形分析和受控串口写入保持原有行为
+- USB 串口插入或拔出后自动刷新端口列表，无需再手动点击刷新
+- 设备变化事件会经过短暂防抖，避免复合 USB 设备触发重复刷新
+- 手动刷新入口保持不变
 
 当前界面采用统一的 IDE 式布局：
 
@@ -288,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.4.0`
+- 当前版本：`2.4.1`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { RefreshCw, ChevronDown, ChevronRight, Plug2, Wifi, Radio, Waves, Braces } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 /** 稳定的空数组引用：解析面板不可见时用它替代 lines，避免订阅到每帧都换 identity 的大数组。 */
 const NO_SAMPLE_LINES: SerialLine[] = [];
+const USB_REFRESH_DELAY_MS = 500;
 
 const parsePort = (value: string) => Math.min(65535, Math.max(0, parseInt(value) || 0));
 
@@ -122,6 +124,19 @@ export function SerialSidebar() {
 
   useEffect(() => {
     void refreshPorts();
+  }, [refreshPorts]);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    const unlisten = listen("usb-device-changed", () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void refreshPorts(), USB_REFRESH_DELAY_MS);
+    });
+
+    return () => {
+      window.clearTimeout(timer);
+      void unlisten.then((fn) => fn());
+    };
   }, [refreshPorts]);
 
   // Connect/Disconnect
