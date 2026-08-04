@@ -1,6 +1,6 @@
 [package]
 name = "ek-omniprobe"
-version = "2.4.1"
+version = "2.5.0"
 description = "EK-OmniProbe - 嵌入式调试工作台（烧录 / RTT / 串口 / 蓝牙）"
 authors = ["zuolan"]
 edition = "2021"
@@ -38,6 +38,7 @@ addr2line = "0.24"
 gimli = "0.31"
 base64 = "0.22"
 serialport = "4.3"
+zmodem2 = "0.7.1"
 btleplug = "0.11"
 uuid = { version = "1", features = ["serde", "v4"] }
 futures = "0.3"

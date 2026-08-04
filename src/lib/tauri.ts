@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
   ProbeInfo,
   ConnectOptions,
@@ -113,7 +113,16 @@ export async function getPackScanReport(packName: string): Promise<PackScanRepor
 }
 
 // 串口命令
-import type { AiBridgeStatus, AiTelemetryBatch, AiTextBatch, SerialPortInfo, SerialConfig } from "./serialTypes";
+import type {
+  AiBridgeStatus,
+  AiTelemetryBatch,
+  AiTextBatch,
+  SerialConfig,
+  SerialFileTransferOptions,
+  SerialFileTransferProgress,
+  SerialFileTransferResult,
+  SerialPortInfo,
+} from "./serialTypes";
 
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   return await invoke<SerialPortInfo[]>("list_serial_ports_cmd");
@@ -133,6 +142,19 @@ export async function writeSerial(data: number[]): Promise<number> {
 
 export async function writeSerialString(text: string, encoding: string, lineEnding: string): Promise<number> {
   return await invoke<number>("write_serial_string", { text, encoding, lineEnding });
+}
+
+export async function sendSerialFile(
+  options: SerialFileTransferOptions,
+  onProgress: (progress: SerialFileTransferProgress) => void
+): Promise<SerialFileTransferResult> {
+  const channel = new Channel<SerialFileTransferProgress>();
+  channel.onmessage = onProgress;
+  return await invoke<SerialFileTransferResult>("send_serial_file", { options, onProgress: channel });
+}
+
+export async function cancelSerialFileTransfer(): Promise<boolean> {
+  return await invoke<boolean>("cancel_serial_file_transfer");
 }
 
 export async function startSerial(pollInterval?: number): Promise<void> {

@@ -61,6 +61,11 @@ function recordTx(text: string, rawData: number[]) {
   }
 }
 
+export function recordSerialFileTx(name: string, byteLength: number, simulation: boolean) {
+  if (simulation) recordSimulationTx(byteLength);
+  recordTx(`文件: ${name} (${byteLength} 字节)`, []);
+}
+
 export async function sendSerialBytes(bytes: number[], label: string): Promise<void> {
   if (!useSerialStore.getState().connected) throw new Error("串口未连接");
   await writeSerialData(bytes);

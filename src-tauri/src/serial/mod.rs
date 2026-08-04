@@ -1,3 +1,4 @@
+pub mod file_transfer;
 pub mod local;
 pub mod tcp;
 pub mod udp;

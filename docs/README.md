@@ -24,7 +24,7 @@
 - [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则和 JustFloat。
 - [数据滤波与 MATLAB 参数](MATLAB_FILTER_GUIDE.md)：图形化级联低通、高通、带通，预览和导出参数，或导入 FIR 与 SOS/ScaleValues。
 - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。
-- [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志和终端交互。
+- [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志、终端交互和文件发送。
 - [无线串口透传接入](WIRELESS_SERIAL_GUIDE.md)：Zigbee、LoRa、蓝牙透传等模块按串口接入，以及吞吐、分帧和二进制透传注意事项。
 - [采集会话录制与回放](SESSION_RECORD_GUIDE.md)：把一段采集录成 .ekrec 文件，之后换一套解析或滤波配置重新跑同一份数据。
 - [触发捕获](TRIGGER_CAPTURE_GUIDE.md)：条件成立时自动冻结图表，留住事件发生前后的数据。

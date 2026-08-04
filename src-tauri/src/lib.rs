@@ -97,6 +97,8 @@ pub fn run() {
             serial_cmd::disconnect_serial,
             serial_cmd::write_serial,
             serial_cmd::write_serial_string,
+            serial_cmd::send_serial_file,
+            serial_cmd::cancel_serial_file_transfer,
             serial_cmd::start_serial,
             serial_cmd::stop_serial,
             serial_cmd::clear_serial_buffer,

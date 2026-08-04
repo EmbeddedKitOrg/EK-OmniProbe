@@ -1,10 +1,15 @@
 use crate::serial::{
+    file_transfer::{
+        send_protocol_file, send_raw_file, simulate_file, FileTransferProtocol,
+        SerialFileTransferOptions, SerialFileTransferProgress, SerialFileTransferResult,
+    },
     list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo, TcpSerial, UdpSerial,
 };
-use crate::state::{AppState, DataSource};
+use crate::state::{AppState, DataSource, SerialState};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, State};
 
 /// Serial data event payload
@@ -39,6 +44,7 @@ pub fn list_serial_ports_cmd() -> Result<Vec<SerialPortInfo>, String> {
 pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Result<(), String> {
     // Stop any existing polling first
     state.serial_state.set_running(false);
+    state.serial_state.cancel_file_transfer();
 
     // Disconnect existing connection
     {
@@ -105,6 +111,7 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
 pub fn disconnect_serial(state: State<'_, AppState>) -> Result<(), String> {
     // Stop polling first
     state.serial_state.set_running(false);
+    state.serial_state.cancel_file_transfer();
 
     // Disconnect
     {
@@ -123,10 +130,16 @@ pub fn disconnect_serial(state: State<'_, AppState>) -> Result<(), String> {
 /// Write data to serial port
 #[tauri::command]
 pub async fn write_serial(data: Vec<u8>, state: State<'_, AppState>) -> Result<usize, String> {
+    if state.serial_state.is_file_transferring() {
+        return Err("文件传输中，暂不能发送其他数据".to_string());
+    }
     // 克隆 Arc 以便在 spawn_blocking 中使用
     let serial_state = Arc::clone(&state.serial_state);
 
     tokio::task::spawn_blocking(move || {
+        if serial_state.is_file_transferring() {
+            return Err("文件传输中，暂不能发送其他数据".to_string());
+        }
         let mut guard = serial_state.datasource.lock();
         let ds = guard
             .as_mut()
@@ -146,6 +159,9 @@ pub async fn write_serial_string(
     line_ending: String,
     state: State<'_, AppState>,
 ) -> Result<usize, String> {
+    if state.serial_state.is_file_transferring() {
+        return Err("文件传输中，暂不能发送其他数据".to_string());
+    }
     // Apply line ending
     let text_with_ending = match line_ending.as_str() {
         "lf" => format!("{}\n", text),
@@ -169,6 +185,9 @@ pub async fn write_serial_string(
     let serial_state = Arc::clone(&state.serial_state);
 
     tokio::task::spawn_blocking(move || {
+        if serial_state.is_file_transferring() {
+            return Err("文件传输中，暂不能发送其他数据".to_string());
+        }
         let mut guard = serial_state.datasource.lock();
         let ds = guard
             .as_mut()
@@ -178,6 +197,62 @@ pub async fn write_serial_string(
     })
     .await
     .map_err(|e| format!("Task join error: {}", e))?
+}
+
+struct FileTransferGuard(Arc<SerialState>);
+
+impl Drop for FileTransferGuard {
+    fn drop(&mut self) {
+        self.0.finish_file_transfer();
+    }
+}
+
+#[tauri::command]
+pub async fn send_serial_file(
+    options: SerialFileTransferOptions,
+    on_progress: Channel<SerialFileTransferProgress>,
+    state: State<'_, AppState>,
+) -> Result<SerialFileTransferResult, String> {
+    if !options.simulation && !state.serial_state.is_connected() {
+        return Err("串口未连接".to_string());
+    }
+    if options.simulation && options.protocol != FileTransferProtocol::Raw {
+        return Err("模拟数据源仅支持原始字节文件发送".to_string());
+    }
+
+    let serial_state = Arc::clone(&state.serial_state);
+    serial_state.begin_file_transfer(options.protocol.is_exclusive())?;
+    let transfer_guard = FileTransferGuard(Arc::clone(&serial_state));
+
+    tokio::task::spawn_blocking(move || {
+        let _transfer_guard = transfer_guard;
+        let mut report = |progress| {
+            let _ = on_progress.send(progress);
+        };
+
+        if options.simulation {
+            return simulate_file(&options.path, &mut report);
+        }
+        if options.protocol == FileTransferProtocol::Raw {
+            return send_raw_file(&serial_state, &options, &mut report);
+        }
+
+        let mut guard = serial_state.datasource.lock();
+        let source = guard
+            .as_mut()
+            .ok_or_else(|| "串口未连接".to_string())?;
+        if source.name().starts_with("udp://") {
+            return Err("UDP 数据源仅支持原始字节文件发送".to_string());
+        }
+        send_protocol_file(source.as_mut(), &serial_state, &options, &mut report)
+    })
+    .await
+    .map_err(|error| format!("文件传输任务异常: {error}"))?
+}
+
+#[tauri::command]
+pub fn cancel_serial_file_transfer(state: State<'_, AppState>) -> bool {
+    state.serial_state.cancel_file_transfer()
 }
 
 /// Start serial polling
@@ -219,6 +294,11 @@ pub async fn start_serial(
             'outer: loop {
                 if !reader_state.is_running() {
                     break;
+                }
+
+                if reader_state.is_file_transfer_exclusive() {
+                    std::thread::sleep(Duration::from_millis(10));
+                    continue;
                 }
 
                 // 进入临界区只为这一次 read，结束就解锁，避免长时间挡 write/disconnect。

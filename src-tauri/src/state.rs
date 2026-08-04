@@ -93,6 +93,11 @@ pub struct SerialState {
     pub datasource: Mutex<Option<Box<dyn DataSource>>>,
     /// Line buffer for incomplete lines
     pub line_buffer: Mutex<Vec<u8>>,
+    /// 文件发送期间阻止普通写入，避免协议帧与用户命令交错。
+    file_transfer_active: AtomicBool,
+    /// X/Y/ZMODEM 需要独占接收控制字节；原始发送仍允许普通 RX。
+    file_transfer_exclusive: AtomicBool,
+    file_transfer_cancelled: AtomicBool,
 }
 
 impl Default for SerialState {
@@ -102,6 +107,9 @@ impl Default for SerialState {
             poll_interval_ms: Mutex::new(10),
             datasource: Mutex::new(None),
             line_buffer: Mutex::new(Vec::new()),
+            file_transfer_active: AtomicBool::new(false),
+            file_transfer_exclusive: AtomicBool::new(false),
+            file_transfer_cancelled: AtomicBool::new(false),
         }
     }
 }
@@ -123,6 +131,41 @@ impl SerialState {
             .unwrap_or(false)
     }
 
+    pub fn begin_file_transfer(&self, exclusive: bool) -> Result<(), String> {
+        self.file_transfer_active
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| "已有文件正在发送".to_string())?;
+        self.file_transfer_cancelled.store(false, Ordering::SeqCst);
+        self.file_transfer_exclusive.store(exclusive, Ordering::SeqCst);
+        Ok(())
+    }
+
+    pub fn finish_file_transfer(&self) {
+        self.file_transfer_exclusive.store(false, Ordering::SeqCst);
+        self.file_transfer_active.store(false, Ordering::SeqCst);
+        self.file_transfer_cancelled.store(false, Ordering::SeqCst);
+    }
+
+    pub fn cancel_file_transfer(&self) -> bool {
+        if !self.is_file_transferring() {
+            return false;
+        }
+        self.file_transfer_cancelled.store(true, Ordering::SeqCst);
+        true
+    }
+
+    pub fn is_file_transferring(&self) -> bool {
+        self.file_transfer_active.load(Ordering::SeqCst)
+    }
+
+    pub fn is_file_transfer_exclusive(&self) -> bool {
+        self.file_transfer_exclusive.load(Ordering::SeqCst)
+    }
+
+    pub fn file_transfer_cancelled(&self) -> bool {
+        self.file_transfer_cancelled.load(Ordering::SeqCst)
+    }
+
     pub fn get_stats(&self) -> SerialStats {
         self.datasource
             .lock()
@@ -133,6 +176,7 @@ impl SerialState {
 
     pub fn reset(&self) {
         self.running.store(false, Ordering::SeqCst);
+        self.cancel_file_transfer();
         *self.datasource.lock() = None;
         self.line_buffer.lock().clear();
     }

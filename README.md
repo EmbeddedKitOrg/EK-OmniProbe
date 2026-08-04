@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.4.1-blue" alt="Version 2.4.1" />
+  <img src="https://img.shields.io/badge/version-2.5.0-blue" alt="Version 2.5.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -31,17 +31,17 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP/模拟数据，日志、终端与文本/HEX 收发           |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP/模拟数据，日志、终端、文本/HEX 与文件发送      |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.4.1 更新重点
+## 2.5.0 更新重点
 
-- USB 串口插入或拔出后自动刷新端口列表，无需再手动点击刷新
-- 设备变化事件会经过短暂防抖，避免复合 USB 设备触发重复刷新
-- 手动刷新入口保持不变
+- 串口发送栏支持选择文件并按原始字节发送，默认 1024 字节分块，可调整分块大小和间隔
+- 支持 XMODEM、XMODEM-1K、YMODEM 和 ZMODEM，显示传输进度、速度并可随时取消
+- 协议传输期间自动接管控制字节并阻止普通命令穿插，结束后恢复正常接收
 
 当前界面采用统一的 IDE 式布局：
 
@@ -101,7 +101,7 @@ sudo ./install-udev-rules.sh
 1. 在右侧选择本地串口、TCP 客户端或 UDP 数据接口。
 2. 配置连接参数并点击“连接”，然后开始接收。
 3. “日志”适合持续观察和筛选，“终端”适合 CLI / shell 式交互。
-4. 数值流可以直接进入分屏、波形或 FFT；发送栏支持历史、换行和 HEX。
+4. 数值流可以直接进入分屏、波形或 FFT；发送栏支持历史、换行、HEX 和文件发送。
 5. 没有硬件时可选择“模拟数据”，生成通用波形、XY 轨迹或 IMU 数据验证完整流程。
 6. 需要集中操作设备时进入左侧“面板”，选择串口数据来源，再把常用命令和数据显示组件自由排布在画布上。
 
@@ -237,7 +237,7 @@ flowchart TB
 | [RTT 用户手册](docs/RTT_USER_MANUAL.md)       | RTT 接入、连接、通道和常见问题           |
 | [图表与 FFT](docs/RTT_CHART_GUIDE.md)         | 数值格式、波形、FFT、字段和性能参数      |
 | [XY 散点图](docs/RTT_XY_SCATTER_GUIDE.md)     | 绘制真正的 XY 数据和参数曲线             |
-| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)     | 数据源、日志、终端、控制面板和波形       |
+| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)     | 数据源、日志、终端、文件发送和波形       |
 | [日志分析](docs/LOG_ANALYSIS_GUIDE.md)        | 导入大日志、搜索、时间戳和数值图表       |
 | [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md) | BLE、NUS、GATT、Notify / Write 和 SPP    |
 | [设置中心](docs/SETTINGS_GUIDE.md)            | 主题、背景、默认工作台和日志偏好         |
@@ -288,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.4.1`
+- 当前版本：`2.5.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
