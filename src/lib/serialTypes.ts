@@ -188,6 +188,28 @@ export type LineEnding = "none" | "lf" | "crlf" | "cr";
  */
 export type Encoding = "utf-8" | "ascii" | "gbk";
 
+export type SerialFileTransferProtocol = "raw" | "xmodem" | "xmodem-1k" | "ymodem" | "zmodem";
+
+export interface SerialFileTransferOptions {
+  path: string;
+  protocol: SerialFileTransferProtocol;
+  rawChunkSize: number;
+  rawIntervalMs: number;
+  simulation: boolean;
+}
+
+export interface SerialFileTransferProgress {
+  phase: "waiting" | "sending" | "finishing" | "completed";
+  bytesSent: number;
+  totalBytes: number;
+  elapsedMs: number;
+}
+
+export interface SerialFileTransferResult {
+  bytesSent: number;
+  elapsedMs: number;
+}
+
 /**
  * 接收分帧模式：决定如何把收到的字节切成一行显示
  * - auto: 按 \n 或 \r\n 断行（兼容两者）

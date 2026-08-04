@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from "react";
-import { Send, Binary, Trash2, Settings2, History } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Send, Binary, Trash2, Settings2, History, FileUp, X } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -7,12 +8,16 @@ import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
 import { loadSendHistory, pushSendHistory, saveSendHistory } from "@/lib/serialHistory";
 import { useShallow } from "zustand/react/shallow";
-import { sendSerialBytes, sendSerialPayload } from "@/lib/serialSend";
+import { recordSerialFileTx, sendSerialBytes, sendSerialPayload } from "@/lib/serialSend";
+import { cancelSerialFileTransfer, sendSerialFile } from "@/lib/tauri";
+import type { SerialFileTransferProgress, SerialFileTransferProtocol } from "@/lib/serialTypes";
+import { formatBytes } from "@/lib/formatters";
 
 export function SerialSendBar() {
-  const { connected, sendSettings, terminalSettings, textViewMode, setSendSettings } = useSerialStore(
+  const { connected, activeSourceType, sendSettings, terminalSettings, textViewMode, setSendSettings } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
+      activeSourceType: state.activeSourceType,
       sendSettings: state.sendSettings,
       terminalSettings: state.terminalSettings,
       textViewMode: state.textViewMode,
@@ -24,7 +29,25 @@ export function SerialSendBar() {
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState<string[]>(loadSendHistory);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [fileProtocol, setFileProtocol] = useState<SerialFileTransferProtocol>("raw");
+  const [rawChunkSize, setRawChunkSize] = useState(1024);
+  const [rawIntervalMs, setRawIntervalMs] = useState(0);
+  const [fileSending, setFileSending] = useState(false);
+  const [fileProgress, setFileProgress] = useState<SerialFileTransferProgress | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if ((activeSourceType === "udp" || activeSourceType === "simulation") && fileProtocol !== "raw") {
+      setFileProtocol("raw");
+    }
+  }, [activeSourceType, fileProtocol]);
+
+  useEffect(
+    () => () => {
+      void cancelSerialFileTransfer();
+    },
+    []
+  );
 
   const moveHistory = useCallback(
     (direction: "older" | "newer") => {
@@ -77,6 +100,7 @@ export function SerialSendBar() {
       return;
     }
 
+    if (fileSending) return;
     if (!connected) {
       addLog("error", "串口未连接");
       return;
@@ -97,7 +121,65 @@ export function SerialSendBar() {
     } finally {
       setSending(false);
     }
-  }, [inputText, connected, sendSettings, addLog]);
+  }, [inputText, connected, fileSending, sendSettings, addLog]);
+
+  const handleSendFile = useCallback(async () => {
+    if (fileSending) {
+      try {
+        await cancelSerialFileTransfer();
+        addLog("warn", "正在取消文件传输");
+      } catch (error) {
+        addLog("error", `取消文件传输失败: ${error}`);
+      }
+      return;
+    }
+    if (!connected) {
+      addLog("error", "串口未连接");
+      return;
+    }
+
+    let path: string | string[] | null;
+    try {
+      path = await open({ multiple: false, directory: false });
+    } catch (error) {
+      addLog("error", `打开文件失败: ${error}`);
+      return;
+    }
+    if (typeof path !== "string") return;
+
+    const name = path.split(/[\\/]/).pop() || path;
+    setFileSending(true);
+    setFileProgress({
+      phase: fileProtocol === "raw" ? "sending" : "waiting",
+      bytesSent: 0,
+      totalBytes: 0,
+      elapsedMs: 0,
+    });
+    try {
+      const result = await sendSerialFile(
+        {
+          path,
+          protocol: fileProtocol,
+          rawChunkSize,
+          rawIntervalMs,
+          simulation: activeSourceType === "simulation",
+        },
+        setFileProgress
+      );
+      recordSerialFileTx(name, result.bytesSent, activeSourceType === "simulation");
+      const seconds = Math.max(result.elapsedMs / 1000, 0.001);
+      addLog(
+        "success",
+        `${name} 发送完成：${formatBytes(result.bytesSent)}，${formatBytes(result.bytesSent / seconds)}/s`
+      );
+    } catch (error) {
+      const message = String(error);
+      addLog(message.includes("取消") ? "warn" : "error", `文件发送失败: ${message}`);
+    } finally {
+      setFileSending(false);
+      setFileProgress(null);
+    }
+  }, [activeSourceType, addLog, connected, fileProtocol, fileSending, rawChunkSize, rawIntervalMs]);
 
   // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -146,6 +228,11 @@ export function SerialSendBar() {
     saveSendHistory([]);
     setHistoryIndex(-1);
   };
+
+  const fileSpeed =
+    fileProgress && fileProgress.elapsedMs > 0
+      ? formatBytes(fileProgress.bytesSent / (fileProgress.elapsedMs / 1000)) + "/s"
+      : null;
 
   return (
     <div className="border-t border-border bg-muted/20 px-3 py-2">
@@ -207,6 +294,66 @@ export function SerialSendBar() {
                 </div>
               </div>
 
+              <div className="space-y-2 rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
+                <label htmlFor="serial-file-protocol" className="text-xs font-medium text-foreground">
+                  文件发送协议
+                </label>
+                <select
+                  id="serial-file-protocol"
+                  value={fileProtocol}
+                  disabled={fileSending}
+                  onChange={(event) => setFileProtocol(event.target.value as SerialFileTransferProtocol)}
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="raw">原始字节（默认）</option>
+                  <option value="xmodem" disabled={activeSourceType === "udp" || activeSourceType === "simulation"}>
+                    XMODEM
+                  </option>
+                  <option value="xmodem-1k" disabled={activeSourceType === "udp" || activeSourceType === "simulation"}>
+                    XMODEM-1K
+                  </option>
+                  <option value="ymodem" disabled={activeSourceType === "udp" || activeSourceType === "simulation"}>
+                    YMODEM
+                  </option>
+                  <option value="zmodem" disabled={activeSourceType === "udp" || activeSourceType === "simulation"}>
+                    ZMODEM
+                  </option>
+                </select>
+                {fileProtocol === "raw" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1 text-[11px] text-muted-foreground">
+                      <span>分块字节数</span>
+                      <Input
+                        type="number"
+                        min={64}
+                        max={65536}
+                        value={rawChunkSize}
+                        disabled={fileSending}
+                        onChange={(event) => setRawChunkSize(Number(event.target.value))}
+                        className="h-8"
+                      />
+                    </label>
+                    <label className="space-y-1 text-[11px] text-muted-foreground">
+                      <span>分块间隔 (ms)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={60000}
+                        value={rawIntervalMs}
+                        disabled={fileSending}
+                        onChange={(event) => setRawIntervalMs(Number(event.target.value))}
+                        className="h-8"
+                      />
+                    </label>
+                  </div>
+                )}
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  {fileProtocol === "raw"
+                    ? "文件内容原样发送，不追加编码或换行。"
+                    : "请先让设备进入对应协议的接收模式。协议传输期间普通接收显示会暂停。"}
+                </p>
+              </div>
+
               {textViewMode === "terminal" && (
                 <div className="rounded-[20px] border border-border/60 bg-muted/20 p-2.5">
                   <div className="mb-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
@@ -245,6 +392,18 @@ export function SerialSendBar() {
           </span>
         )}
 
+        {fileSending && fileProgress && (
+          <span className="max-w-56 truncate rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+            {fileProgress.phase === "waiting"
+              ? "等待接收端"
+              : fileProgress.totalBytes > 0
+                ? `${Math.round((fileProgress.bytesSent / fileProgress.totalBytes) * 100)}% · ${formatBytes(
+                    fileProgress.bytesSent
+                  )}/${formatBytes(fileProgress.totalBytes)}${fileSpeed ? ` · ${fileSpeed}` : ""}`
+                : "准备发送"}
+          </span>
+        )}
+
         <div className="flex-1">
           <Input
             ref={inputRef}
@@ -258,15 +417,27 @@ export function SerialSendBar() {
                   ? "输入命令后回车发送，上下键可切换历史"
                   : "输入发送内容... Enter 发送"
             }
-            disabled={!connected}
+            disabled={!connected || fileSending}
             className="h-8 text-sm font-mono"
           />
         </div>
 
         <Button
           size="sm"
+          variant="outline"
+          onClick={() => void handleSendFile()}
+          disabled={sending || (!connected && !fileSending)}
+          className="gap-1"
+          title={fileSending ? "取消文件传输" : "发送文件"}
+        >
+          {fileSending ? <X className="h-3.5 w-3.5" /> : <FileUp className="h-3.5 w-3.5" />}
+          {fileSending ? "取消" : "文件"}
+        </Button>
+
+        <Button
+          size="sm"
           onClick={handleSend}
-          disabled={!connected || sending || (!inputText.trim() && !sendSettings.hexMode)}
+          disabled={!connected || sending || fileSending || (!inputText.trim() && !sendSettings.hexMode)}
           className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
         >
           <Send className="h-3.5 w-3.5" />

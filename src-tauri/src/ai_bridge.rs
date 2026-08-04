@@ -352,12 +352,16 @@ impl AiBridgeState {
         };
 
         let ClientCommand::SerialWrite { id, data } = command;
-        let result = serial_state
-            .datasource
-            .lock()
-            .as_mut()
-            .ok_or_else(|| "串口未连接".to_string())
-            .and_then(|source| source.write(&data));
+        let result = if serial_state.is_file_transferring() {
+            Err("文件传输中，暂不能发送 AI 串口命令".to_string())
+        } else {
+            serial_state
+                .datasource
+                .lock()
+                .as_mut()
+                .ok_or_else(|| "串口未连接".to_string())
+                .and_then(|source| source.write(&data))
+        };
         match result {
             Ok(written) => json!({
                 "schema": SCHEMA,

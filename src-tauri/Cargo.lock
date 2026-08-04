@@ -1176,7 +1176,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "ek-omniprobe"
-version = "2.4.1"
+version = "2.5.0"
 dependencies = [
  "addr2line",
  "base64 0.22.1",
@@ -1207,6 +1207,7 @@ dependencies = [
  "tokio",
  "uuid",
  "zip 2.4.2",
+ "zmodem2",
 ]
 
 [[package]]
@@ -6925,6 +6926,17 @@ name = "zmij"
 version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfcd145825aace48cff44a8844de64bf75feec3080e0aa5cdbde72961ae51a65"
+
+[[package]]
+name = "zmodem2"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "150fc94907268863d0b20d505210665e600b016f16a5abc2f4fd233cc4ac6681"
+dependencies = [
+ "bitflags 2.10.0",
+ "hex",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "zopfli"
