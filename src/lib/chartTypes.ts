@@ -13,7 +13,7 @@ export type ChartDataPoint = TelemetrySample;
  * 通道：解析字段 + 显示样式 合一
  *
  * - key 是逻辑键（JSON key / KV key / 正则命名组 / 分隔符列名），同时也是 ChartDataPoint.values 里的键
- * - sourceIndex 在 delimiter / justfloat 模式下表示读取第几列或第几个 float
+ * - sourceIndex 在 delimiter / justfloat / modbus-rtu 模式下表示读取第几个解析值
  * - role 决定该通道是 Y 轴数据还是 X 轴（仅 xy-scatter 模式有意义），最多一个 "x"
  */
 export interface Channel extends TelemetryChannelDescriptor {
@@ -29,7 +29,7 @@ export interface Channel extends TelemetryChannelDescriptor {
 export type ChartSeries = Channel;
 
 /** 解析模式。第三方文本解析器使用 plugin: 前缀，避免与内置模式冲突。 */
-export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "auto";
+export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "modbus-rtu" | "auto";
 
 /**
  * 需要原始字节流的内置解析模式。文本行已经过分帧和解码，还原不回字节，
@@ -39,7 +39,7 @@ export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloa
  * 反向 import 会形成循环。两处定义可能漂移，故由
  * scripts/check-bytes-parser-registry.mjs 断言二者一致。
  */
-const BYTES_PARSE_MODES = new Set<string>(["justfloat"]);
+const BYTES_PARSE_MODES = new Set<string>(["justfloat", "modbus-rtu"]);
 
 export function isBytesParseMode(value: string): boolean {
   return BYTES_PARSE_MODES.has(value);
@@ -124,7 +124,43 @@ export interface DataParseConfig {
   // 分隔符模式
   /** 分隔符，如 ",", "\t", " " */
   delimiter: string;
+
+  /** Modbus RTU 只读主站配置。 */
+  modbusRtu: ModbusRtuConfig;
 }
+
+export type ModbusFunctionCode = 3 | 4;
+export type ModbusDataType = "uint16" | "int16" | "uint32" | "int32" | "float32";
+export type ModbusByteOrder = "big" | "little";
+export type ModbusWordOrder = "big" | "little";
+
+export interface ModbusRtuConfig {
+  slaveId: number;
+  functionCode: ModbusFunctionCode;
+  startAddress: number;
+  registerCount: number;
+  pollIntervalMs: number;
+  dataType: ModbusDataType;
+  byteOrder: ModbusByteOrder;
+  wordOrder: ModbusWordOrder;
+  scale: number;
+  offset: number;
+}
+
+// ponytail: 一个读取块共用一种数值布局；设备需要混合类型时再增加逐字段映射。
+
+export const DEFAULT_MODBUS_RTU_CONFIG: ModbusRtuConfig = {
+  slaveId: 1,
+  functionCode: 3,
+  startAddress: 0,
+  registerCount: 1,
+  pollIntervalMs: 200,
+  dataType: "uint16",
+  byteOrder: "big",
+  wordOrder: "big",
+  scale: 1,
+  offset: 0,
+};
 
 export const TRIGGER_CONDITIONS = ["rising", "falling", "above", "below"] as const;
 export type TriggerCondition = (typeof TRIGGER_CONDITIONS)[number];
@@ -236,6 +272,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   regexFlags: "",
 
   delimiter: ",",
+  modbusRtu: DEFAULT_MODBUS_RTU_CONFIG,
 
   channels: [],
 
@@ -349,6 +386,7 @@ export function migrateChartConfig(raw: unknown, allowBytesParsers = true): Char
       typeof source.delimiter === "string" && source.delimiter.length > 0
         ? source.delimiter
         : DEFAULT_CHART_CONFIG.delimiter,
+    modbusRtu: sanitizeModbusRtu(source.modbusRtu),
     channels,
     chartType,
     maxDataPoints: clampInt(source.maxDataPoints, 100, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.maxDataPoints),
@@ -560,9 +598,40 @@ function isParseMode(value: unknown): value is ParseMode {
     value === "json" ||
     value === "kv" ||
     value === "justfloat" ||
+    value === "modbus-rtu" ||
     value === "auto" ||
     isPluginParseMode(value)
   );
+}
+
+function sanitizeModbusRtu(raw: unknown): ModbusRtuConfig {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_MODBUS_RTU_CONFIG };
+  const source = raw as Record<string, unknown>;
+  const dataType: ModbusDataType =
+    source.dataType === "int16" ||
+    source.dataType === "uint32" ||
+    source.dataType === "int32" ||
+    source.dataType === "float32"
+      ? source.dataType
+      : "uint16";
+  const valueWidth = dataType === "uint16" || dataType === "int16" ? 1 : 2;
+  const startAddress = clampInt(source.startAddress, 0, 65536 - valueWidth, DEFAULT_MODBUS_RTU_CONFIG.startAddress);
+  const maxRegisters = Math.min(125, 65536 - startAddress);
+  let registerCount = clampInt(source.registerCount, valueWidth, maxRegisters, valueWidth);
+  registerCount -= registerCount % valueWidth;
+
+  return {
+    slaveId: clampInt(source.slaveId, 1, 247, DEFAULT_MODBUS_RTU_CONFIG.slaveId),
+    functionCode: source.functionCode === 4 ? 4 : 3,
+    startAddress,
+    registerCount,
+    pollIntervalMs: clampInt(source.pollIntervalMs, 20, 60000, DEFAULT_MODBUS_RTU_CONFIG.pollIntervalMs),
+    dataType,
+    byteOrder: source.byteOrder === "little" ? "little" : "big",
+    wordOrder: source.wordOrder === "little" ? "little" : "big",
+    scale: clampNumber(source.scale, -Number.MAX_VALUE, Number.MAX_VALUE, 1),
+    offset: clampNumber(source.offset, -Number.MAX_VALUE, Number.MAX_VALUE, 0),
+  };
 }
 
 function isChartType(value: unknown): value is ChartType {

@@ -4,8 +4,9 @@
 
 import type { ChartDataPoint, Channel, ParseMode, PluginParseMode, TelemetryConfig } from "./chartTypes";
 import type { TelemetryBatch } from "./telemetry";
-import { isPluginParseMode, PRESET_COLORS } from "./chartTypes";
+import { isBytesParseMode, isPluginParseMode, PRESET_COLORS } from "./chartTypes";
 import { parseJustFloatChunk } from "./parseJustFloat";
+import { createModbusChannels, decodeModbusValues, parseModbusRtuChunk } from "./parseModbusRtu";
 
 /**
  * 解析结果
@@ -370,6 +371,54 @@ const justFloatParser: BytesChartParser = {
   },
 };
 
+const modbusRtuParser: BytesChartParser = {
+  kind: "bytes",
+  id: "modbus-rtu",
+  label: "Modbus RTU",
+  createStream(): BytesParserStream {
+    let pending: number[] = [];
+    let configSignature = "";
+    return {
+      ingest(bytes, config, timestamp) {
+        const nextSignature = JSON.stringify(config.modbusRtu);
+        if (nextSignature !== configSignature) {
+          pending = [];
+          configSignature = nextSignature;
+        }
+
+        const parsed = parseModbusRtuChunk(bytes, config.modbusRtu, pending);
+        pending = parsed.pending;
+        let fail = parsed.invalidFrames + parsed.exceptions.length;
+        let detectedChannels: Channel[] | undefined;
+        let effectiveConfig = config;
+
+        if (parsed.payloads.length > 0 && config.channels.length === 0) {
+          detectedChannels = createModbusChannels(config.modbusRtu);
+          effectiveConfig = { ...config, channels: detectedChannels };
+        }
+
+        const points: ChartDataPoint[] = [];
+        for (const payload of parsed.payloads) {
+          const decoded = decodeModbusValues(payload, config.modbusRtu);
+          const values: Record<string, number> = {};
+          effectiveConfig.channels.forEach((channel, index) => {
+            const value = decoded[channel.sourceIndex ?? index];
+            if (Number.isFinite(value)) values[channel.key] = value;
+          });
+          if (Object.keys(values).length > 0) points.push({ timestamp, values });
+          else fail += 1;
+        }
+
+        return { points, success: points.length, fail, detectedChannels };
+      },
+      reset() {
+        pending = [];
+        configSignature = "";
+      },
+    };
+  },
+};
+
 const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
   [
     "delimiter",
@@ -414,6 +463,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
     },
   ],
   [justFloatParser.id, justFloatParser],
+  [modbusRtuParser.id, modbusRtuParser],
 ]);
 
 /** 按 parseMode 取解析器；调用方需自行判别 kind。 */
@@ -479,7 +529,7 @@ export function parseChartData(text: string, config: TelemetryConfig, timestamp 
     };
   }
 
-  const payload = config.parseMode === "justfloat" ? text : extractChartPayload(text, config.framePrefix);
+  const payload = isBytesParseMode(config.parseMode) ? text : extractChartPayload(text, config.framePrefix);
   if (payload === null) {
     return {
       success: false,
