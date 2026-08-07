@@ -3,9 +3,10 @@
  */
 
 import type { ChartConfig, Channel } from "./chartTypes";
-import { PRESET_COLORS } from "./chartTypes";
+import { isBytesParseMode, PRESET_COLORS } from "./chartTypes";
 import { extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
+import { createModbusChannels } from "./parseModbusRtu";
 
 /** 样本格式检测结果。 */
 export interface DetectionResult {
@@ -72,7 +73,7 @@ export function previewChartParser(
   const baseConfig = { ...config, enabled: true, channels: [] };
   const inferredConfig = populateEmptyChannelsFromSamples(
     baseConfig,
-    config.parseMode === "justfloat" ? samples : sampleText ? [sample] : samples
+    isBytesParseMode(config.parseMode) ? samples : sampleText ? [sample] : samples
   );
 
   if (config.parseMode === "justfloat") {
@@ -84,6 +85,15 @@ export function previewChartParser(
         inferredConfig.channels.length > 0
           ? `识别到 ${inferredConfig.channels.length} 个浮点通道`
           : "等待完整 JustFloat 数据帧",
+    };
+  }
+
+  if (config.parseMode === "modbus-rtu") {
+    return {
+      config: inferredConfig,
+      success: inferredConfig.channels.length > 0,
+      values: {},
+      message: `将读取 ${config.modbusRtu.registerCount} 个寄存器，生成 ${inferredConfig.channels.length} 个通道`,
     };
   }
 
@@ -574,7 +584,11 @@ export function detectChartConfig(currentConfig: ChartConfig, samples: ChartSamp
  * 通道为空时，用当前缓冲区样本预建通道；已有通道始终保留。
  */
 export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: ChartSample[]): ChartConfig {
-  if (config.channels.length > 0 || samples.length === 0) return config;
+  if (config.channels.length > 0) return config;
+  if (config.parseMode === "modbus-rtu") {
+    return { ...config, channels: createModbusChannels(config.modbusRtu) };
+  }
+  if (samples.length === 0) return config;
 
   const eligibleSamples =
     config.parseMode === "justfloat"

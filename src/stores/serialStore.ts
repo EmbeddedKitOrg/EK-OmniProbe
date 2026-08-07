@@ -636,10 +636,7 @@ export const useSerialStore = create<SerialState>((set, get) => {
     commitSerialReceiveBatch: (batch) =>
       set((state) => {
         const { telemetryBatch } = batch;
-        const detectedChannels =
-          state.chartConfig.parseMode === "justfloat" && state.chartConfig.channels.length === 0
-            ? batch.detectedChannels
-            : undefined;
+        const detectedChannels = state.chartConfig.channels.length === 0 ? batch.detectedChannels : undefined;
         if (
           !batch.terminalText &&
           batch.lines.length === 0 &&

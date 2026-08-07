@@ -9,7 +9,7 @@ import type {
   ParseMode,
   WaveformInterpolation,
 } from "@/lib/chartTypes";
-import { PRESET_COLORS } from "@/lib/chartTypes";
+import { isBytesParseMode, PRESET_COLORS } from "@/lib/chartTypes";
 import { listChartParsers } from "@/lib/parseChartData";
 import { populateEmptyChannelsFromSamples, previewChartParser, type ChartSample } from "@/lib/chartAnalysis";
 import {
@@ -171,8 +171,16 @@ export function ChartConfigDialog({
   };
 
   const isDelimiter =
-    localConfig.parseMode === "delimiter" || localConfig.parseMode === "justfloat" || localConfig.parseMode === "auto";
-  const sourceIndexLabel = localConfig.parseMode === "justfloat" ? "浮点序号" : "列号";
+    localConfig.parseMode === "delimiter" ||
+    localConfig.parseMode === "justfloat" ||
+    localConfig.parseMode === "modbus-rtu" ||
+    localConfig.parseMode === "auto";
+  const sourceIndexLabel =
+    localConfig.parseMode === "justfloat"
+      ? "浮点序号"
+      : localConfig.parseMode === "modbus-rtu"
+        ? "寄存器值序号"
+        : "列号";
   const isXyScatter = localConfig.chartType === "xy-scatter";
   const regexPreview = useMemo(
     () => (localConfig.parseMode === "regex" ? previewChartParser(localConfig, samples, sampleText) : undefined),
@@ -295,7 +303,9 @@ export function ChartConfigDialog({
             visible: true,
             role: "y",
             sourceIndex:
-              current.parseMode === "delimiter" || current.parseMode === "justfloat"
+              current.parseMode === "delimiter" ||
+              current.parseMode === "justfloat" ||
+              current.parseMode === "modbus-rtu"
                 ? current.channels.length
                 : undefined,
           },
@@ -333,6 +343,8 @@ export function ChartConfigDialog({
         return "自动提取行内所有 key=value 或 key:value 数值对。通道留空时全部保留，否则只保留命中的 key。";
       case "justfloat":
         return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
+      case "modbus-rtu":
+        return "解析 Modbus RTU 03/04 响应；主站轮询参数请在串口侧栏的数据解析面板配置。";
       case "auto":
         return "依次尝试 JSON → 正则 → KV → 分隔符。任意一种成功即停止。";
       default:
@@ -716,7 +728,9 @@ export function ChartConfigDialog({
                       <SelectContent>
                         <SelectItem value="auto">自动</SelectItem>
                         {listChartParsers()
-                          .filter((parser) => parser.kind === "text" || allowBytesParsers)
+                          .filter(
+                            (parser) => parser.id !== "modbus-rtu" && (parser.kind === "text" || allowBytesParsers)
+                          )
                           .map((parser) => (
                             <SelectItem key={parser.id} value={parser.id}>
                               {parser.label}
@@ -749,7 +763,7 @@ export function ChartConfigDialog({
 
               {allowParserConfig && <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>}
 
-              {allowParserConfig && localConfig.parseMode !== "justfloat" && (
+              {allowParserConfig && !isBytesParseMode(localConfig.parseMode) && (
                 <div className="space-y-2">
                   <Label htmlFor="framePrefix">数据帧前缀（可选）</Label>
                   <Input
@@ -901,6 +915,7 @@ export function ChartConfigDialog({
                   {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
                     "（留空时会自动提取所有数值字段）"}
                   {localConfig.parseMode === "justfloat" && "（留空时会按首个有效帧自动生成通道）"}
+                  {localConfig.parseMode === "modbus-rtu" && "（留空时会按读取块自动生成通道）"}
                 </div>
               ) : (
                 <div className="space-y-2">

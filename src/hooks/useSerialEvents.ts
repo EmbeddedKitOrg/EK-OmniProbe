@@ -12,6 +12,8 @@ import { publishAiSamples, publishAiTextLines } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
 import { TEXT_FRAME_IDLE_MS } from "@/lib/dataFraming";
 import { captureSessionChunk } from "@/lib/sessionCapture";
+import { buildModbusReadRequest } from "@/lib/parseModbusRtu";
+import { writeSerialData } from "@/lib/serialSend";
 
 const MAX_AI_TEXT_CHARS = 16 * 1024;
 const MAX_AI_TEXT_LINES_PER_BATCH = 256;
@@ -23,12 +25,25 @@ const textEncoder = new TextEncoder();
  * Automatically subscribes to serial data and status events on mount
  */
 export function useSerialEvents() {
-  const { commitSerialReceiveBatch, setRunning, setConnected, setError } = useSerialStore(
+  const {
+    commitSerialReceiveBatch,
+    setRunning,
+    setConnected,
+    setError,
+    connected,
+    running,
+    activeSourceType,
+    chartConfig,
+  } = useSerialStore(
     useShallow((state) => ({
       commitSerialReceiveBatch: state.commitSerialReceiveBatch,
       setRunning: state.setRunning,
       setConnected: state.setConnected,
       setError: state.setError,
+      connected: state.connected,
+      running: state.running,
+      activeSourceType: state.activeSourceType,
+      chartConfig: state.chartConfig,
     }))
   );
 
@@ -210,6 +225,48 @@ export function useSerialEvents() {
       unlistenStatus.then((fn) => fn());
     };
   }, [commitSerialReceiveBatch, setRunning, setConnected, setError]);
+
+  useEffect(() => {
+    if (
+      !connected ||
+      !running ||
+      activeSourceType === "simulation" ||
+      !chartConfig.enabled ||
+      chartConfig.parseMode !== "modbus-rtu"
+    ) {
+      return;
+    }
+
+    const request = buildModbusReadRequest(chartConfig.modbusRtu);
+    let stopped = false;
+    let sending = false;
+    let errorReported = false;
+    const poll = () => {
+      if (sending) return;
+      sending = true;
+      void writeSerialData(request)
+        .then(() => {
+          errorReported = false;
+        })
+        .catch((error) => {
+          if (!stopped && !errorReported) {
+            setError(`Modbus RTU 轮询失败: ${error}`);
+            errorReported = true;
+          }
+        })
+        .finally(() => {
+          sending = false;
+        });
+    };
+
+    poll();
+    // ponytail: 轮询周期同时充当响应超时；慢速多从站总线需要严格排队时再关联请求与响应。
+    const timer = window.setInterval(poll, chartConfig.modbusRtu.pollIntervalMs);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [activeSourceType, chartConfig, connected, running, setError]);
 }
 
 /**

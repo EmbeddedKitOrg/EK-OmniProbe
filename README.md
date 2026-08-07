@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.5.0-blue" alt="Version 2.5.0" />
+  <img src="https://img.shields.io/badge/version-2.6.0-blue" alt="Version 2.6.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -31,17 +31,17 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP/模拟数据，日志、终端、文本/HEX 与文件发送      |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU、日志、终端、图表与文件发送       |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.5.0 更新重点
+## 2.6.0 更新重点
 
-- 串口发送栏支持选择文件并按原始字节发送，默认 1024 字节分块，可调整分块大小和间隔
-- 支持 XMODEM、XMODEM-1K、YMODEM 和 ZMODEM，显示传输进度、速度并可随时取消
-- 协议传输期间自动接管控制字节并阻止普通命令穿插，结束后恢复正常接收
+- 串口数据解析新增 Modbus RTU 只读主站模式，支持功能码 03/04 定时读取寄存器
+- 支持常用整数与 float32、字节序/字序、比例和偏移配置，并处理 CRC、拆包和连续帧
+- 寄存器值统一进入现有数值通道，可直接使用波形、滤波、FFT、控制面板和导出
 
 当前界面采用统一的 IDE 式布局：
 
@@ -231,20 +231,20 @@ flowchart TB
 
 ## 用户文档
 
-| 文档                                          | 适合解决的问题                           |
-| --------------------------------------------- | ---------------------------------------- |
-| [快速入门](docs/QUICK_START.md)               | 第一次打开应用，了解界面和基本流程       |
-| [RTT 用户手册](docs/RTT_USER_MANUAL.md)       | RTT 接入、连接、通道和常见问题           |
-| [图表与 FFT](docs/RTT_CHART_GUIDE.md)         | 数值格式、波形、FFT、字段和性能参数      |
-| [XY 散点图](docs/RTT_XY_SCATTER_GUIDE.md)     | 绘制真正的 XY 数据和参数曲线             |
-| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)     | 数据源、日志、终端、文件发送和波形       |
-| [日志分析](docs/LOG_ANALYSIS_GUIDE.md)        | 导入大日志、搜索、时间戳和数值图表       |
-| [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md) | BLE、NUS、GATT、Notify / Write 和 SPP    |
-| [设置中心](docs/SETTINGS_GUIDE.md)            | 主题、背景、默认工作台和日志偏好         |
-| [AI 数据桥接](docs/AI_TUNING_GUIDE.md)        | 将串口数值流交给本地 AI 客户端分析和调参 |
-| [触发捕获](docs/TRIGGER_CAPTURE_GUIDE.md)     | 抓瞬时现象：条件成立时冻结前后数据       |
+| 文档                                           | 适合解决的问题                           |
+| ---------------------------------------------- | ---------------------------------------- |
+| [快速入门](docs/QUICK_START.md)                | 第一次打开应用，了解界面和基本流程       |
+| [RTT 用户手册](docs/RTT_USER_MANUAL.md)        | RTT 接入、连接、通道和常见问题           |
+| [图表与 FFT](docs/RTT_CHART_GUIDE.md)          | 数值格式、波形、FFT、字段和性能参数      |
+| [XY 散点图](docs/RTT_XY_SCATTER_GUIDE.md)      | 绘制真正的 XY 数据和参数曲线             |
+| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)      | 数据源、日志、终端、文件发送和波形       |
+| [日志分析](docs/LOG_ANALYSIS_GUIDE.md)         | 导入大日志、搜索、时间戳和数值图表       |
+| [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md)  | BLE、NUS、GATT、Notify / Write 和 SPP    |
+| [设置中心](docs/SETTINGS_GUIDE.md)             | 主题、背景、默认工作台和日志偏好         |
+| [AI 数据桥接](docs/AI_TUNING_GUIDE.md)         | 将串口数值流交给本地 AI 客户端分析和调参 |
+| [触发捕获](docs/TRIGGER_CAPTURE_GUIDE.md)      | 抓瞬时现象：条件成立时冻结前后数据       |
 | [会话录制与回放](docs/SESSION_RECORD_GUIDE.md) | 录下原始数据，换配置反复重放分析         |
-| [无线串口透传](docs/WIRELESS_SERIAL_GUIDE.md) | Zigbee / LoRa / 蓝牙透传模块接入         |
+| [无线串口透传](docs/WIRELESS_SERIAL_GUIDE.md)  | Zigbee / LoRa / 蓝牙透传模块接入         |
 
 全部用户文档见 [`docs/README.md`](docs/README.md)。
 

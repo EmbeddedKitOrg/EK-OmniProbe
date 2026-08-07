@@ -6,7 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { ChartConfig, ParseMode } from "@/lib/chartTypes";
+import {
+  isBytesParseMode,
+  migrateChartConfig,
+  type ChartConfig,
+  type ModbusDataType,
+  type ParseMode,
+} from "@/lib/chartTypes";
 import {
   haveChannelKeysChanged,
   previewChartParser,
@@ -43,6 +49,7 @@ export function ChartParserPanel({
   const [delimiter, setDelimiter] = useState(chartConfig.delimiter);
   const [regexPattern, setRegexPattern] = useState(chartConfig.regexPattern);
   const [regexFlags, setRegexFlags] = useState(chartConfig.regexFlags ?? "");
+  const [modbusRtu, setModbusRtu] = useState(chartConfig.modbusRtu);
   const latestSample = samples[samples.length - 1];
   const initialSample = chartConfig.framePrefix
     ? [...samples].reverse().find((sample) => sample.text.startsWith(chartConfig.framePrefix))
@@ -50,7 +57,7 @@ export function ChartParserPanel({
   const [sampleText, setSampleText] = useState(initialSample?.text ?? "");
 
   const preview = useMemo(() => {
-    const baseConfig: ChartConfig = {
+    const baseConfig = migrateChartConfig({
       ...chartConfig,
       enabled: true,
       parseMode,
@@ -58,10 +65,11 @@ export function ChartParserPanel({
       delimiter,
       regexPattern,
       regexFlags,
+      modbusRtu,
       channels: [],
-    };
+    });
     return previewChartParser(baseConfig, samples, sampleText);
-  }, [chartConfig, delimiter, framePrefix, parseMode, regexFlags, regexPattern, sampleText, samples]);
+  }, [chartConfig, delimiter, framePrefix, modbusRtu, parseMode, regexFlags, regexPattern, sampleText, samples]);
 
   const apply = () => {
     if (!preview.success) return;
@@ -75,6 +83,7 @@ export function ChartParserPanel({
       delimiter: parseMode === "auto" ? preview.config.delimiter : delimiter,
       regexPattern,
       regexFlags,
+      modbusRtu: preview.config.modbusRtu,
       channels,
     });
     if (channelKeysChanged) clearChartData?.();
@@ -112,6 +121,7 @@ export function ChartParserPanel({
                 ["分隔符", "25.3,3.3"],
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],
+                ["Modbus RTU", "03/04 读寄存器响应 + CRC16"],
               ].map(([label, example]) => (
                 <div key={label}>
                   <div className="mb-1 font-medium text-muted-foreground">{label}</div>
@@ -191,7 +201,149 @@ export function ChartParserPanel({
           </div>
         )}
 
-        {parseMode !== "justfloat" && (
+        {parseMode === "modbus-rtu" && (
+          <div className="space-y-3 rounded-[16px] border border-border/60 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="modbus-slave">从站地址</Label>
+                <Input
+                  id="modbus-slave"
+                  type="number"
+                  min={1}
+                  max={247}
+                  value={modbusRtu.slaveId}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, slaveId: Number(event.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>功能码</Label>
+                <Select
+                  value={String(modbusRtu.functionCode)}
+                  onValueChange={(value) => setModbusRtu({ ...modbusRtu, functionCode: value === "4" ? 4 : 3 })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">03 保持寄存器</SelectItem>
+                    <SelectItem value="4">04 输入寄存器</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modbus-start">起始地址</Label>
+                <Input
+                  id="modbus-start"
+                  type="number"
+                  min={0}
+                  max={65535}
+                  value={modbusRtu.startAddress}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, startAddress: Number(event.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modbus-count">寄存器数量</Label>
+                <Input
+                  id="modbus-count"
+                  type="number"
+                  min={1}
+                  max={125}
+                  value={modbusRtu.registerCount}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, registerCount: Number(event.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modbus-interval">轮询周期 (ms)</Label>
+                <Input
+                  id="modbus-interval"
+                  type="number"
+                  min={20}
+                  max={60000}
+                  value={modbusRtu.pollIntervalMs}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, pollIntervalMs: Number(event.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>数据类型</Label>
+                <Select
+                  value={modbusRtu.dataType}
+                  onValueChange={(value: ModbusDataType) => {
+                    const width = value === "uint16" || value === "int16" ? 1 : 2;
+                    const registerCount = Math.max(width, modbusRtu.registerCount - (modbusRtu.registerCount % width));
+                    setModbusRtu({ ...modbusRtu, dataType: value, registerCount });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="uint16">uint16</SelectItem>
+                    <SelectItem value="int16">int16</SelectItem>
+                    <SelectItem value="uint32">uint32</SelectItem>
+                    <SelectItem value="int32">int32</SelectItem>
+                    <SelectItem value="float32">float32</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>字节序</Label>
+                <Select
+                  value={modbusRtu.byteOrder}
+                  onValueChange={(byteOrder: "big" | "little") => setModbusRtu({ ...modbusRtu, byteOrder })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="big">大端 (AB)</SelectItem>
+                    <SelectItem value="little">小端 (BA)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>字序</Label>
+                <Select
+                  value={modbusRtu.wordOrder}
+                  disabled={modbusRtu.dataType === "uint16" || modbusRtu.dataType === "int16"}
+                  onValueChange={(wordOrder: "big" | "little") => setModbusRtu({ ...modbusRtu, wordOrder })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="big">高字在前 (ABCD)</SelectItem>
+                    <SelectItem value="little">低字在前 (CDAB)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modbus-scale">比例</Label>
+                <Input
+                  id="modbus-scale"
+                  type="number"
+                  step="any"
+                  value={modbusRtu.scale}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, scale: Number(event.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="modbus-offset">偏移</Label>
+                <Input
+                  id="modbus-offset"
+                  type="number"
+                  step="any"
+                  value={modbusRtu.offset}
+                  onChange={(event) => setModbusRtu({ ...modbusRtu, offset: Number(event.target.value) })}
+                />
+              </div>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              地址按协议原始值（从 0 开始）填写；一个读取块使用统一数据类型与缩放。
+            </p>
+          </div>
+        )}
+
+        {!isBytesParseMode(parseMode) && (
           <div className="space-y-2">
             <Label htmlFor="parser-frame-prefix">数据帧前缀（可选）</Label>
             <Input
@@ -236,7 +388,7 @@ export function ChartParserPanel({
           </div>
         )}
 
-        {parseMode !== "justfloat" && (
+        {!isBytesParseMode(parseMode) && (
           <div className="space-y-2">
             <Label htmlFor="parser-sample">数据样本</Label>
             <textarea
