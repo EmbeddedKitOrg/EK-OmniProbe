@@ -6,13 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   isBytesParseMode,
+  isModbusParseMode,
   migrateChartConfig,
   type ChartConfig,
   type ModbusDataType,
   type ParseMode,
 } from "@/lib/chartTypes";
+import type { DataSourceType } from "@/lib/serialTypes";
+import { isModbusSourceCompatible } from "@/lib/parseModbusRtu";
 import {
   haveChannelKeysChanged,
   previewChartParser,
@@ -30,6 +34,7 @@ interface ChartParserPanelProps {
   /** 数据源能否提供原始字节流。为 false 时隐藏字节流解析器——文本行已过分帧解码，还原不回字节。 */
   allowBytesParsers?: boolean;
   allowDataFilter?: boolean;
+  dataSourceType?: DataSourceType;
   setChartConfig: (config: ChartConfig) => void;
   clearChartData?: () => void;
   onClose: () => void;
@@ -40,6 +45,7 @@ export function ChartParserPanel({
   samples,
   allowBytesParsers = false,
   allowDataFilter = false,
+  dataSourceType = "local",
   setChartConfig,
   clearChartData,
   onClose,
@@ -50,6 +56,8 @@ export function ChartParserPanel({
   const [regexPattern, setRegexPattern] = useState(chartConfig.regexPattern);
   const [regexFlags, setRegexFlags] = useState(chartConfig.regexFlags ?? "");
   const [modbusRtu, setModbusRtu] = useState(chartConfig.modbusRtu);
+  const modbusMode = isModbusParseMode(parseMode);
+  const incompatibleSource = modbusMode && !isModbusSourceCompatible(parseMode, dataSourceType);
   const latestSample = samples[samples.length - 1];
   const initialSample = chartConfig.framePrefix
     ? [...samples].reverse().find((sample) => sample.text.startsWith(chartConfig.framePrefix))
@@ -72,7 +80,7 @@ export function ChartParserPanel({
   }, [chartConfig, delimiter, framePrefix, modbusRtu, parseMode, regexFlags, regexPattern, sampleText, samples]);
 
   const apply = () => {
-    if (!preview.success) return;
+    if (!preview.success || incompatibleSource) return;
     const channels = resolveAppliedParserChannels(chartConfig.channels, preview.config.channels);
     const channelKeysChanged = haveChannelKeysChanged(chartConfig.channels, channels);
     setChartConfig({
@@ -122,6 +130,8 @@ export function ChartParserPanel({
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],
                 ["Modbus RTU", "03/04 读寄存器响应 + CRC16"],
+                ["Modbus ASCII", "冒号帧头 + ASCII Hex + LRC + CRLF"],
+                ["Modbus TCP", "MBAP 头 + 03/04 读寄存器响应"],
               ].map(([label, example]) => (
                 <div key={label}>
                   <div className="mb-1 font-medium text-muted-foreground">{label}</div>
@@ -201,16 +211,26 @@ export function ChartParserPanel({
           </div>
         )}
 
-        {parseMode === "modbus-rtu" && (
+        {modbusMode && (
           <div className="space-y-3 rounded-[16px] border border-border/60 p-3">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+              <div>
+                <Label htmlFor="modbus-auto-poll">自动轮询</Label>
+              </div>
+              <Switch
+                id="modbus-auto-poll"
+                checked={modbusRtu.autoPoll}
+                onCheckedChange={(autoPoll) => setModbusRtu({ ...modbusRtu, autoPoll })}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="modbus-slave">从站地址</Label>
+                <Label htmlFor="modbus-slave">{parseMode === "modbus-tcp" ? "单元标识" : "从站地址"}</Label>
                 <Input
                   id="modbus-slave"
                   type="number"
-                  min={1}
-                  max={247}
+                  min={parseMode === "modbus-tcp" ? 0 : 1}
+                  max={parseMode === "modbus-tcp" ? 255 : 247}
                   value={modbusRtu.slaveId}
                   onChange={(event) => setModbusRtu({ ...modbusRtu, slaveId: Number(event.target.value) })}
                 />
@@ -402,6 +422,17 @@ export function ChartParserPanel({
           </div>
         )}
 
+        {incompatibleSource && (
+          <div className="flex items-start gap-2 rounded-[16px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <span>
+              {parseMode === "modbus-tcp"
+                ? "Modbus TCP 只能用于 TCP 数据源，请先在连接页切换为 TCP。"
+                : "模拟数据源不能使用 Modbus 主站模式。"}
+            </span>
+          </div>
+        )}
+
         <div
           className={`rounded-[16px] border p-3 ${preview.success ? "border-green-500/25 bg-green-500/10" : "border-amber-500/25 bg-amber-500/10"}`}
         >
@@ -430,7 +461,7 @@ export function ChartParserPanel({
         <Button variant="outline" onClick={onClose}>
           取消
         </Button>
-        <Button onClick={apply} disabled={!preview.success}>
+        <Button onClick={apply} disabled={!preview.success || incompatibleSource}>
           应用解析
         </Button>
       </div>

@@ -3,7 +3,7 @@
  */
 
 import type { ChartConfig, Channel } from "./chartTypes";
-import { isBytesParseMode, PRESET_COLORS } from "./chartTypes";
+import { isBytesParseMode, isModbusParseMode, PRESET_COLORS } from "./chartTypes";
 import { extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
 import { createModbusChannels } from "./parseModbusRtu";
@@ -88,12 +88,13 @@ export function previewChartParser(
     };
   }
 
-  if (config.parseMode === "modbus-rtu") {
+  if (isModbusParseMode(config.parseMode)) {
+    const protocol = config.parseMode === "modbus-ascii" ? "ASCII" : config.parseMode === "modbus-tcp" ? "TCP" : "RTU";
     return {
       config: inferredConfig,
       success: inferredConfig.channels.length > 0,
       values: {},
-      message: `将读取 ${config.modbusRtu.registerCount} 个寄存器，生成 ${inferredConfig.channels.length} 个通道`,
+      message: `Modbus ${protocol} 将读取 ${config.modbusRtu.registerCount} 个寄存器，生成 ${inferredConfig.channels.length} 个通道`,
     };
   }
 
@@ -585,7 +586,7 @@ export function detectChartConfig(currentConfig: ChartConfig, samples: ChartSamp
  */
 export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: ChartSample[]): ChartConfig {
   if (config.channels.length > 0) return config;
-  if (config.parseMode === "modbus-rtu") {
+  if (isModbusParseMode(config.parseMode)) {
     return { ...config, channels: createModbusChannels(config.modbusRtu) };
   }
   if (samples.length === 0) return config;

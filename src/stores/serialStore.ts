@@ -45,6 +45,7 @@ const SERIAL_SPLIT_ORIENTATION_KEY = "serial_split_orientation";
 const SERIAL_SEND_SETTINGS_KEY = "serial_send_settings";
 const SERIAL_TIMESTAMP_SETTINGS_KEY = "serial_timestamp_settings";
 const SERIAL_SHOW_DIRECTION_PREFIX_KEY = "serial_show_direction_prefix";
+const SERIAL_DISPLAY_MODE_KEY = "serial_display_mode";
 const SERIAL_TEXT_VIEW_MODE_KEY = "serial_text_view_mode";
 const SERIAL_TERMINAL_SETTINGS_KEY = "serial_terminal_settings";
 const SERIAL_RX_FRAMING_KEY = "serial_rx_framing";
@@ -54,6 +55,7 @@ let splitRatioSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 const VIEW_MODE_VALUES = ["text", "chart", "split"] as const;
 const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
+const DISPLAY_MODE_VALUES = ["text", "hex"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
 
@@ -497,7 +499,7 @@ export const useSerialStore = create<SerialState>((set, get) => {
     showDirectionPrefix: loadBooleanFromStorage(SERIAL_SHOW_DIRECTION_PREFIX_KEY, true),
     splitByDirection: false,
     searchQuery: "",
-    displayMode: "text",
+    displayMode: loadStringFromStorage(SERIAL_DISPLAY_MODE_KEY, DISPLAY_MODE_VALUES, "text"),
     colorParserConfig: loadColorParserConfig(),
     textViewMode: loadStringFromStorage(SERIAL_TEXT_VIEW_MODE_KEY, TEXT_VIEW_MODE_VALUES, "log"),
     inspectorTab: "connection",
@@ -693,7 +695,10 @@ export const useSerialStore = create<SerialState>((set, get) => {
     },
     setSplitByDirection: (splitByDirection) => set({ splitByDirection }),
     setSearchQuery: (searchQuery) => set({ searchQuery }),
-    setDisplayMode: (displayMode) => set({ displayMode }),
+    setDisplayMode: (displayMode) => {
+      saveToStorage(SERIAL_DISPLAY_MODE_KEY, displayMode);
+      set({ displayMode });
+    },
 
     setColorParserConfig: (colorParserConfig) => {
       saveColorParserConfig(colorParserConfig);

@@ -12,7 +12,13 @@ import { publishAiSamples, publishAiTextLines } from "@/lib/tauri";
 import { useShallow } from "zustand/react/shallow";
 import { TEXT_FRAME_IDLE_MS } from "@/lib/dataFraming";
 import { captureSessionChunk } from "@/lib/sessionCapture";
-import { buildModbusReadRequest } from "@/lib/parseModbusRtu";
+import { isModbusParseMode } from "@/lib/chartTypes";
+import {
+  buildModbusAsciiReadRequest,
+  buildModbusReadRequest,
+  buildModbusTcpReadRequest,
+  shouldAutoPollModbus,
+} from "@/lib/parseModbusRtu";
 import { writeSerialData } from "@/lib/serialSend";
 
 const MAX_AI_TEXT_CHARS = 16 * 1024;
@@ -227,22 +233,32 @@ export function useSerialEvents() {
   }, [commitSerialReceiveBatch, setRunning, setConnected, setError]);
 
   useEffect(() => {
+    const parseMode = chartConfig.parseMode;
     if (
       !connected ||
       !running ||
-      activeSourceType === "simulation" ||
       !chartConfig.enabled ||
-      chartConfig.parseMode !== "modbus-rtu"
+      !isModbusParseMode(parseMode) ||
+      !shouldAutoPollModbus(parseMode, chartConfig.modbusRtu, activeSourceType)
     ) {
       return;
     }
 
-    const request = buildModbusReadRequest(chartConfig.modbusRtu);
     let stopped = false;
     let sending = false;
     let errorReported = false;
+    let transactionId = 0;
+    const protocolLabel =
+      parseMode === "modbus-ascii" ? "Modbus ASCII" : parseMode === "modbus-tcp" ? "Modbus TCP" : "Modbus RTU";
     const poll = () => {
       if (sending) return;
+      transactionId = (transactionId + 1) & 0xffff;
+      const request =
+        parseMode === "modbus-ascii"
+          ? buildModbusAsciiReadRequest(chartConfig.modbusRtu)
+          : parseMode === "modbus-tcp"
+            ? buildModbusTcpReadRequest(chartConfig.modbusRtu, transactionId)
+            : buildModbusReadRequest(chartConfig.modbusRtu);
       sending = true;
       void writeSerialData(request)
         .then(() => {
@@ -250,7 +266,7 @@ export function useSerialEvents() {
         })
         .catch((error) => {
           if (!stopped && !errorReported) {
-            setError(`Modbus RTU 轮询失败: ${error}`);
+            setError(`${protocolLabel} 轮询失败: ${error}`);
             errorReported = true;
           }
         })
