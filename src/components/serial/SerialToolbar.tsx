@@ -23,7 +23,6 @@ import {
   ArrowDown,
   Clock,
   Columns,
-  Binary,
   Tags,
 } from "lucide-react";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
@@ -63,7 +62,6 @@ export function SerialToolbar() {
     showDirectionPrefix,
     splitByDirection,
     searchQuery,
-    displayMode,
     textViewMode,
     terminalSettings,
     viewMode,
@@ -81,7 +79,6 @@ export function SerialToolbar() {
     setShowDirectionPrefix,
     setSplitByDirection,
     setSearchQuery,
-    setDisplayMode,
     setTextViewMode,
     setTerminalSettings,
     setViewMode,
@@ -100,7 +97,6 @@ export function SerialToolbar() {
       showDirectionPrefix: state.showDirectionPrefix,
       splitByDirection: state.splitByDirection,
       searchQuery: state.searchQuery,
-      displayMode: state.displayMode,
       textViewMode: state.textViewMode,
       terminalSettings: state.terminalSettings,
       viewMode: state.viewMode,
@@ -118,7 +114,6 @@ export function SerialToolbar() {
       setShowDirectionPrefix: state.setShowDirectionPrefix,
       setSplitByDirection: state.setSplitByDirection,
       setSearchQuery: state.setSearchQuery,
-      setDisplayMode: state.setDisplayMode,
       setTextViewMode: state.setTextViewMode,
       setTerminalSettings: state.setTerminalSettings,
       setViewMode: state.setViewMode,
@@ -450,19 +445,6 @@ export function SerialToolbar() {
                       >
                         <Columns className="h-3.5 w-3.5" />
                         收发分屏
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={displayMode === "hex" ? "secondary" : "outline"}
-                        onClick={() => setDisplayMode(displayMode === "text" ? "hex" : "text")}
-                        className="gap-1"
-                      >
-                        {displayMode === "hex" ? (
-                          <Binary className="h-3.5 w-3.5" />
-                        ) : (
-                          <FileText className="h-3.5 w-3.5" />
-                        )}
-                        {displayMode === "hex" ? "Hex" : "文本"}
                       </Button>
                     </>
                   ) : textViewMode === "terminal" ? (

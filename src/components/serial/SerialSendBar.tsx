@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Send, Binary, Trash2, Settings2, History, FileUp, X } from "lucide-react";
+import { Send, Trash2, Settings2, History, FileUp, X } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,56 @@ import { cancelSerialFileTransfer, sendSerialFile } from "@/lib/tauri";
 import type { SerialFileTransferProgress, SerialFileTransferProtocol } from "@/lib/serialTypes";
 import { formatBytes } from "@/lib/formatters";
 
+function FormatSelector({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: "text" | "hex";
+  onChange: (value: "text" | "hex") => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      <div className="grid w-32 grid-cols-2 rounded-lg border border-border/60 bg-background/60 p-0.5">
+        {(["text", "hex"] as const).map((format) => (
+          <Button
+            key={format}
+            type="button"
+            size="sm"
+            variant={value === format ? "secondary" : "ghost"}
+            className="h-7 rounded-md px-2 text-xs"
+            aria-pressed={value === format}
+            onClick={() => onChange(format)}
+          >
+            {format === "text" ? "文本" : "HEX"}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SerialSendBar() {
-  const { connected, activeSourceType, sendSettings, terminalSettings, textViewMode, setSendSettings } = useSerialStore(
+  const {
+    connected,
+    activeSourceType,
+    displayMode,
+    sendSettings,
+    terminalSettings,
+    textViewMode,
+    setDisplayMode,
+    setSendSettings,
+  } = useSerialStore(
     useShallow((state) => ({
       connected: state.connected,
       activeSourceType: state.activeSourceType,
+      displayMode: state.displayMode,
       sendSettings: state.sendSettings,
       terminalSettings: state.terminalSettings,
       textViewMode: state.textViewMode,
+      setDisplayMode: state.setDisplayMode,
       setSendSettings: state.setSendSettings,
     }))
   );
@@ -239,31 +281,30 @@ export function SerialSendBar() {
       <div className="flex items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
-            <Button size="sm" variant="outline" className="gap-1" title="发送选项">
+            <Button size="sm" variant="outline" className="gap-1 whitespace-nowrap" title="收发选项">
               <Settings2 className="h-3.5 w-3.5" />
-              选项
+              {textViewMode === "log" ? `收 ${displayMode === "hex" ? "HEX" : "文本"} · ` : ""}发{" "}
+              {sendSettings.hexMode ? "HEX" : "文本"}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-[320px] rounded-[24px] border-border/70 p-3">
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium text-foreground">发送选项</div>
-                  <div className="text-xs text-muted-foreground">
-                    {sendSettings.encoding.toUpperCase()} · {sendSettings.lineEnding.toUpperCase()} ·{" "}
-                    {sendSettings.hexMode ? "HEX" : "文本"}
-                  </div>
+              <div>
+                <div className="text-sm font-medium text-foreground">收发选项</div>
+                <div className="text-xs text-muted-foreground">
+                  {sendSettings.encoding.toUpperCase()} · {sendSettings.lineEnding.toUpperCase()}
                 </div>
-                <Button
-                  size="sm"
-                  variant={sendSettings.hexMode ? "secondary" : "outline"}
-                  onClick={() => setSendSettings({ hexMode: !sendSettings.hexMode })}
-                  className="gap-1"
-                  title="十六进制发送模式"
-                >
-                  <Binary className="h-3.5 w-3.5" />
-                  HEX
-                </Button>
+              </div>
+
+              <div className="space-y-2 rounded-[16px] border border-border/60 bg-muted/20 p-2.5">
+                {textViewMode === "log" && (
+                  <FormatSelector label="接收显示" value={displayMode} onChange={setDisplayMode} />
+                )}
+                <FormatSelector
+                  label="发送格式"
+                  value={sendSettings.hexMode ? "hex" : "text"}
+                  onChange={(value) => setSendSettings({ hexMode: value === "hex" })}
+                />
               </div>
 
               <div className="rounded-[20px] border border-border/60 bg-muted/20">
@@ -381,10 +422,6 @@ export function SerialSendBar() {
             </div>
           </PopoverContent>
         </Popover>
-
-        {sendSettings.hexMode && (
-          <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">HEX</span>
-        )}
 
         {textViewMode === "terminal" && (
           <span className="rounded-full bg-secondary px-2 py-1 text-[11px] font-medium text-secondary-foreground">

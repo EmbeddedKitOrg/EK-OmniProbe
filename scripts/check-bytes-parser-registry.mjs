@@ -69,7 +69,7 @@ try {
       assert.ok(isBytesParseMode(id), `注册表里的字节流模式 ${id} 未登记进 chartTypes 的 BYTES_PARSE_MODES`);
     }
     // 反向：登记了但注册表没有的，说明集合有多余项
-    for (const id of ["justfloat", "modbus-rtu"]) {
+    for (const id of ["justfloat", "modbus-rtu", "modbus-ascii", "modbus-tcp"]) {
       assert.equal(isBytesParseMode(id), fromRegistry.includes(id), `${id} 在两处的判定不一致`);
     }
     console.log(`  内置字节流模式与注册表一致：${fromRegistry.join(", ")}`);

@@ -23,6 +23,8 @@
 | <code>T:25.3 RPM:1200</code>    | 正则           | 命名捕获组名称                           |
 | 二进制 float32 + 帧尾           | JustFloat      | <code>ch1</code>、<code>ch2</code>       |
 | Modbus RTU 03/04 寄存器响应     | Modbus RTU     | <code>reg0</code>、<code>reg1</code>     |
+| 冒号开头、CRLF 结尾的 Modbus 帧 | Modbus ASCII   | <code>reg0</code>、<code>reg1</code>     |
+| 带 MBAP 头的寄存器响应          | Modbus TCP     | <code>reg0</code>、<code>reg1</code>     |
 | 格式还没确定                    | 自动识别       | 按识别出的格式生成                       |
 
 ## 所有文本格式共用的输入规则
@@ -50,7 +52,7 @@
 - 默认文本解码为 UTF-8；字段名建议只使用 ASCII 字母、数字和下划线。
 - 一帧最好只表达一次采样。多个采样不要挤在同一行。
 - 没有换行的串口/TCP/UDP 数据会在短暂空闲后兜底刷出；高频稳定采样仍建议显式发送换行。
-- 纯二进制输入应明确选择 JustFloat 或 Modbus RTU；不要把二进制协议交给文本解析器。
+- JustFloat 和 Modbus 协议输入应明确选择对应模式，不要交给普通文本解析器。
 
 ### 日志与采样数据混合输出
 
@@ -69,7 +71,7 @@ P:0,0,26,42614,41,42,26,0
 - 前缀留空时保持原有行为。
 - 建议使用不容易与日志冲突的前缀，例如 <code>@PLOT:</code>。
 - 数据帧仍应以换行符或当前接收分帧规则结束；前缀不能替代帧尾。
-- JustFloat 和 Modbus RTU 是二进制格式，不使用文本数据帧前缀。
+- JustFloat 和三种 Modbus 模式都直接处理原始字节流，不使用文本数据帧前缀。
 
 ### 接收分帧和字段分隔不是一回事
 
@@ -96,7 +98,7 @@ P:0,0,26,42614,41,42,26,0
 JSON → 已配置的正则 → KV → 已配置通道的分隔符
 ```
 
-**自动模式不会尝试 JustFloat 或 Modbus RTU。**
+**自动模式不会尝试 JustFloat 或任何 Modbus 模式。**
 
 ### 默认数据流和通道 key
 
@@ -113,7 +115,7 @@ JSON → 已配置的正则 → KV → 已配置通道的分隔符
 - 生产环境格式已经确定：应直接选择具体模式，错误更容易定位。
 - 原始数据里混有日志和数据：应配置“数据帧前缀”，或使用从固定前缀开始的明确正则。
 - JustFloat：必须手动选择 JustFloat。
-- Modbus RTU：必须手动选择并配置从站及寄存器范围。
+- Modbus：必须手动选择 RTU、ASCII 或 TCP，并配置从站及寄存器范围。
 
 ### 常见失败
 
@@ -379,27 +381,31 @@ static void send_justfloat(float ch1, float ch2) {
 - 在“自动识别”中等待 JustFloat；必须手动选择。
 
 <a id="modbus-rtu"></a>
+<a id="modbus-ascii"></a>
+<a id="modbus-tcp"></a>
 
-## Modbus RTU 主站轮询
+## Modbus RTU、ASCII 与 TCP 主站轮询
 
-Modbus RTU 模式会定时发送读寄存器请求，校验响应 CRC，并把寄存器值转换为与 JSON、KV、JustFloat 相同的标准数值通道。图表、滤波、FFT、控制面板、导出和 AI 数据桥接继续使用现有通道，不需要 Modbus 专用图表。
+三种 Modbus 模式都会把寄存器值转换为与 JSON、KV、JustFloat 相同的标准数值通道。图表、滤波、FFT、控制面板、导出和 AI 数据桥接继续使用现有通道，不需要 Modbus 专用图表。
 
 当前支持：
 
 - 功能码 <code>03</code>（读保持寄存器）和 <code>04</code>（读输入寄存器）。
+- Modbus RTU 的 CRC16 校验、Modbus ASCII 的 LRC 校验，以及 Modbus TCP 的 MBAP 帧头。
 - <code>uint16</code>、<code>int16</code>、<code>uint32</code>、<code>int32</code>、<code>float32</code>。
 - 16 位字节序及 32 位字序调整。
 - 全读取块统一的比例和偏移：<code>绘图值 = 解码值 × 比例 + 偏移</code>。
-- 响应拆包、连续帧、CRC 错误和 Modbus 异常响应识别。
+- 响应拆包、连续帧、校验错误和 Modbus 异常响应识别。
 
 ### 配置步骤
 
 1. 在右侧配置检查器打开“数据”。
-2. 把“解析模式”设为“Modbus RTU”。
-3. 填写从站地址、功能码、起始地址、寄存器数量和轮询周期。
-4. 选择数据类型、字节序、字序，并按设备量程填写比例和偏移。
-5. 点击“应用解析”，再连接本地串口或透明串口网关；已经连接时会立即开始轮询。
-6. 打开图表或分屏视图观察生成的通道。
+2. 选择“Modbus RTU”“Modbus ASCII”或“Modbus TCP”。
+3. 填写从站地址或单元标识、功能码、起始地址、寄存器数量和轮询周期。
+4. 需要主动读取时开启“自动轮询”；关闭后应用仍解析响应，但不会发送请求。
+5. 选择数据类型、字节序、字序，并按设备量程填写比例和偏移。
+6. 点击“应用解析”，再连接对应的数据源；已经连接且开启自动轮询时会立即发送第一条请求。
+7. 打开图表或分屏视图观察生成的通道。
 
 起始地址填写协议帧中的原始零基地址。例如设备手册把第一个保持寄存器写成 <code>40001</code>，协议地址通常填写 <code>0</code>；不同厂商手册可能采用不同标号，最终以设备协议说明为准。
 
@@ -408,9 +414,9 @@ Modbus RTU 模式会定时发送读寄存器请求，校验响应 CRC，并把�
 一个响应帧会生成一个同步采样点，其中包含该读取块的全部数值：
 
 ```text
-Modbus RTU 响应 → CRC 校验 → 寄存器解码
-                 → { reg100: 25.3, reg101: 1200 }
-                 → 图表、滤波、FFT、控制面板
+Modbus RTU / ASCII / TCP 响应 → 帧校验 → 寄存器解码
+                              → { reg100: 25.3, reg101: 1200 }
+                              → 图表、滤波、FFT、控制面板
 ```
 
 - 16 位类型每个寄存器生成一个通道。
@@ -421,13 +427,13 @@ Modbus RTU 响应 → CRC 校验 → 寄存器解码
 
 ### 数据源说明
 
-- 本地 RS-485/串口可直接使用。
-- TCP、UDP 数据源只有在对端是“RTU 原始字节透明网关”时可用。
-- 当前发送的是 Modbus RTU 帧，不是带 MBAP 头的 Modbus TCP。
+- Modbus RTU 和 ASCII 可通过本地 RS-232/RS-485 串口使用。
+- RTU/ASCII 选择 TCP 或 UDP 数据源时，对端必须是相应协议的原始字节透明网关。
+- 原生 Modbus TCP 必须选择 TCP 数据源；应用会发送并解析带 MBAP 头的 Modbus TCP ADU，设备常用端口为 <code>502</code>。
 - 模拟数据源不会启动 Modbus 轮询。
 - 轮询周期同时作为简单的重试间隔；应设置得大于设备正常响应时间，避免慢速总线上请求堆叠。
 
-当前不支持线圈、离散量、写寄存器、Modbus TCP 和被动请求/响应关联。
+当前不支持线圈、离散量、写寄存器、多读取块轮询和严格的请求/响应事务关联。
 
 ## 通道 key 如何流向组件
 
@@ -444,7 +450,7 @@ Modbus RTU 响应 → CRC 校验 → 寄存器解码
 - JSON/KV/正则：key 来自字段名或捕获组名。
 - 分隔符：key 默认为 <code>field1</code>、<code>field2</code>。
 - JustFloat：key 默认为 <code>ch1</code>、<code>ch2</code>。
-- Modbus RTU：key 默认为 <code>reg&lt;协议地址&gt;</code>。
+- Modbus RTU/ASCII/TCP：key 默认为 <code>reg&lt;协议地址&gt;</code>。
 - key 区分大小写，组件属性必须完全一致。
 - 单位只影响显示或 IMU 计算方式，不会从 <code>25.3V</code> 中自动解析。
 
@@ -469,8 +475,8 @@ JSON/KV 可以把单位放在字段名或其他文本里，但数值本身必须
 ### 当前版本暂不可用的能力
 
 - 文本解析不支持嵌套 JSON 路径、JSON 数组或完整 CSV 引号语义。
-- 自动识别不包含 JustFloat 或 Modbus RTU。
+- 自动识别不包含 JustFloat 或 Modbus。
 - JustFloat 不在 RTT/BLE 数据链路开放。
-- Modbus RTU 当前只支持单个同构寄存器读取块和功能码 03/04。
+- Modbus RTU、ASCII 和 TCP 当前只支持单个同构寄存器读取块和功能码 03/04。
 
 需要这些能力时，优先在设备端把数据整理成本文支持的最小格式。

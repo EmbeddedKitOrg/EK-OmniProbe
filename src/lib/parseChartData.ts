@@ -2,11 +2,26 @@
  * RTT 图表数据解析工具
  */
 
-import type { ChartDataPoint, Channel, ParseMode, PluginParseMode, TelemetryConfig } from "./chartTypes";
+import type {
+  ChartDataPoint,
+  Channel,
+  ModbusParseMode,
+  ModbusRtuConfig,
+  ParseMode,
+  PluginParseMode,
+  TelemetryConfig,
+} from "./chartTypes";
 import type { TelemetryBatch } from "./telemetry";
 import { isBytesParseMode, isPluginParseMode, PRESET_COLORS } from "./chartTypes";
 import { parseJustFloatChunk } from "./parseJustFloat";
-import { createModbusChannels, decodeModbusValues, parseModbusRtuChunk } from "./parseModbusRtu";
+import {
+  createModbusChannels,
+  decodeModbusValues,
+  parseModbusAsciiChunk,
+  parseModbusRtuChunk,
+  parseModbusTcpChunk,
+  type ModbusRtuChunkResult,
+} from "./parseModbusRtu";
 
 /**
  * 解析结果
@@ -371,53 +386,63 @@ const justFloatParser: BytesChartParser = {
   },
 };
 
-const modbusRtuParser: BytesChartParser = {
-  kind: "bytes",
-  id: "modbus-rtu",
-  label: "Modbus RTU",
-  createStream(): BytesParserStream {
-    let pending: number[] = [];
-    let configSignature = "";
-    return {
-      ingest(bytes, config, timestamp) {
-        const nextSignature = JSON.stringify(config.modbusRtu);
-        if (nextSignature !== configSignature) {
+type ModbusChunkParser = (bytes: number[], config: ModbusRtuConfig, pending?: number[]) => ModbusRtuChunkResult;
+
+function createModbusParser(id: ModbusParseMode, label: string, parseChunk: ModbusChunkParser): BytesChartParser {
+  return {
+    kind: "bytes",
+    id,
+    label,
+    createStream(): BytesParserStream {
+      let pending: number[] = [];
+      let configSignature = "";
+      return {
+        ingest(bytes, config, timestamp) {
+          const nextSignature = JSON.stringify(config.modbusRtu);
+          if (nextSignature !== configSignature) {
+            pending = [];
+            configSignature = nextSignature;
+          }
+
+          const parsed = parseChunk(bytes, config.modbusRtu, pending);
+          pending = parsed.pending;
+          let fail = parsed.invalidFrames + parsed.exceptions.length;
+          let detectedChannels: Channel[] | undefined;
+          let effectiveConfig = config;
+
+          if (parsed.payloads.length > 0 && config.channels.length === 0) {
+            detectedChannels = createModbusChannels(config.modbusRtu);
+            effectiveConfig = { ...config, channels: detectedChannels };
+          }
+
+          const points: ChartDataPoint[] = [];
+          for (const payload of parsed.payloads) {
+            const decoded = decodeModbusValues(payload, config.modbusRtu);
+            const values: Record<string, number> = {};
+            effectiveConfig.channels.forEach((channel, index) => {
+              const value = decoded[channel.sourceIndex ?? index];
+              if (Number.isFinite(value)) values[channel.key] = value;
+            });
+            if (Object.keys(values).length > 0) points.push({ timestamp, values });
+            else fail += 1;
+          }
+
+          return { points, success: points.length, fail, detectedChannels };
+        },
+        reset() {
           pending = [];
-          configSignature = nextSignature;
-        }
+          configSignature = "";
+        },
+      };
+    },
+  };
+}
 
-        const parsed = parseModbusRtuChunk(bytes, config.modbusRtu, pending);
-        pending = parsed.pending;
-        let fail = parsed.invalidFrames + parsed.exceptions.length;
-        let detectedChannels: Channel[] | undefined;
-        let effectiveConfig = config;
-
-        if (parsed.payloads.length > 0 && config.channels.length === 0) {
-          detectedChannels = createModbusChannels(config.modbusRtu);
-          effectiveConfig = { ...config, channels: detectedChannels };
-        }
-
-        const points: ChartDataPoint[] = [];
-        for (const payload of parsed.payloads) {
-          const decoded = decodeModbusValues(payload, config.modbusRtu);
-          const values: Record<string, number> = {};
-          effectiveConfig.channels.forEach((channel, index) => {
-            const value = decoded[channel.sourceIndex ?? index];
-            if (Number.isFinite(value)) values[channel.key] = value;
-          });
-          if (Object.keys(values).length > 0) points.push({ timestamp, values });
-          else fail += 1;
-        }
-
-        return { points, success: points.length, fail, detectedChannels };
-      },
-      reset() {
-        pending = [];
-        configSignature = "";
-      },
-    };
-  },
-};
+const modbusParsers = [
+  createModbusParser("modbus-rtu", "Modbus RTU", parseModbusRtuChunk),
+  createModbusParser("modbus-ascii", "Modbus ASCII", parseModbusAsciiChunk),
+  createModbusParser("modbus-tcp", "Modbus TCP", parseModbusTcpChunk),
+];
 
 const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
   [
@@ -463,7 +488,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
     },
   ],
   [justFloatParser.id, justFloatParser],
-  [modbusRtuParser.id, modbusRtuParser],
+  ...modbusParsers.map((parser) => [parser.id, parser] as const),
 ]);
 
 /** 按 parseMode 取解析器；调用方需自行判别 kind。 */

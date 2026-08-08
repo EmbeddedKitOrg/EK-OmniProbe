@@ -891,6 +891,7 @@ export function SerialSidebar() {
           samples={chartSamples}
           allowBytesParsers
           allowDataFilter
+          dataSourceType={activeSourceType}
           setChartConfig={setChartConfig}
           clearChartData={clearChartData}
           onClose={() => setInspectorTab("connection")}

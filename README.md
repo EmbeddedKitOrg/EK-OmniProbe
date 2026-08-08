@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.6.0-blue" alt="Version 2.6.0" />
+  <img src="https://img.shields.io/badge/version-2.7.0-blue" alt="Version 2.7.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -31,16 +31,16 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU、日志、终端、图表与文件发送       |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU/ASCII/TCP、日志、终端与图表        |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.6.0 更新重点
+## 2.7.0 更新重点
 
-- 串口数据解析新增 Modbus RTU 只读主站模式，支持功能码 03/04 定时读取寄存器
-- 支持常用整数与 float32、字节序/字序、比例和偏移配置，并处理 CRC、拆包和连续帧
+- 串口数据解析支持 Modbus RTU、ASCII 和原生 TCP 只读主站，可独立开关功能码 03/04 自动轮询
+- 支持常用整数与 float32、字节序/字序、比例和偏移配置，并处理 CRC、LRC、MBAP、拆包和连续帧
 - 寄存器值统一进入现有数值通道，可直接使用波形、滤波、FFT、控制面板和导出
 
 当前界面采用统一的 IDE 式布局：
@@ -288,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.5.0`
+- 当前版本：`2.7.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
@@ -299,6 +299,10 @@ Windows 也可以直接运行：
 - [N1netyNine99](https://github.com/00lllooolll00)：功能规划、代码优化、Linux 调试与错误信息修复
 
 欢迎提交 Issue、文档修正和 Pull Request。
+
+## Star 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=EmbeddedKitOrg/EK-OmniProbe&type=Date)](https://www.star-history.com/#EmbeddedKitOrg/EK-OmniProbe&Date)
 
 ## 开源协议与致谢
 
