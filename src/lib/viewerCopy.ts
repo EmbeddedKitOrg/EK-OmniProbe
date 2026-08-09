@@ -44,11 +44,37 @@ export function copyTextToClipboard(text: string, label: string, log?: CopyLog):
     log?.("warn", "没有可复制的内容");
     return false;
   }
-  if (navigator.clipboard?.writeText) {
-    void navigator.clipboard.writeText(text).catch((err) => log?.("warn", `复制到剪贴板失败: ${err}`));
+
+  let copied = false;
+  const onCopy = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.clipboardData.setData("text/plain", text);
+    event.preventDefault();
+    copied = true;
+  };
+  document.addEventListener("copy", onCopy, { once: true });
+  try {
+    document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    document.removeEventListener("copy", onCopy);
   }
-  log?.("info", `已复制${label}（${text.split("\n").length} 行）`);
-  return true;
+  if (copied) {
+    log?.("info", `已复制${label}（${text.split("\n").length} 行）`);
+    return true;
+  }
+
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text).then(
+      () => log?.("info", `已复制${label}（${text.split("\n").length} 行）`),
+      (err) => log?.("warn", `复制到剪贴板失败: ${err}`)
+    );
+    return true;
+  }
+
+  log?.("warn", "当前环境不支持写入剪贴板");
+  return false;
 }
 
 /** 从数据数组复制全部行（供工具栏「复制全部」按钮调用，不依赖 DOM） */

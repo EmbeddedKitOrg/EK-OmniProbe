@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { SerialLine } from "@/lib/serialTypes";
 import { parseColoredText } from "@/lib/rttColorParser";
 import { parseAnsiText } from "@/lib/ansiParser";
-import { useViewerSelection, formatSerialLineForCopy, formatDataAsHex } from "@/lib/viewerCopy";
+import { useViewerSelection, formatSerialLineForCopy, formatDataAsHex, copyTextToClipboard } from "@/lib/viewerCopy";
 import { exportTextAsTxt } from "@/lib/exporters";
 import { useShallow } from "zustand/react/shallow";
 import { formatTimestamp } from "@/lib/formatters";
@@ -107,15 +107,7 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
   }, [filteredLines.length, autoScroll, rowVirtualizer]);
 
   const writeToClipboard = useCallback(
-    (text: string, label: string) => {
-      if (!text) return;
-      if (navigator.clipboard?.writeText) {
-        void navigator.clipboard.writeText(text).catch((err) => {
-          addLog("warn", `复制到剪贴板失败: ${err}`);
-        });
-      }
-      addLog("info", `已复制 ${label}（${text.split("\n").length} 行）`);
-    },
+    (text: string, label: string) => copyTextToClipboard(text, label, addLog),
     [addLog]
   );
 
@@ -127,25 +119,30 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
 
       // 纯文本 + 单行选区 + 非全选：保留精确的字符级选区（行内半句）
       if (mode === "plain" && rawText && !isSelectAll() && range && range.start === range.end) {
-        writeToClipboard(rawText, "纯文本");
-        return true;
+        return writeToClipboard(rawText, "纯文本");
       }
 
       // 其余一律按行号区间从数据数组重建，绕开虚拟滚动的 DOM 截断
       if (!range) {
         if (mode === "plain" && rawText) {
-          writeToClipboard(rawText, "纯文本");
-          return true;
+          return writeToClipboard(rawText, "纯文本");
         }
         return false;
       }
       const slice = filteredLines.slice(range.start, range.end + 1);
       if (slice.length === 0) return false;
-      const text = slice.map((line) => formatLineForCopy(line, mode, timestampFormat)).join("\n");
-      writeToClipboard(text, COPY_MODE_OPTS[mode].label);
-      return true;
+      const text = slice
+        .map((line) =>
+          formatLineForCopy(
+            displayMode === "hex" ? { ...line, text: formatDataAsHex(line.rawData, line.text) } : line,
+            mode,
+            timestampFormat
+          )
+        )
+        .join("\n");
+      return writeToClipboard(text, COPY_MODE_OPTS[mode].label);
     },
-    [filteredLines, writeToClipboard, getSelectedRange, isSelectAll, timestampFormat]
+    [displayMode, filteredLines, writeToClipboard, getSelectedRange, isSelectAll, timestampFormat]
   );
 
   // Ctrl+C 纯文本 / Ctrl+Shift+C 完整行（均按行号区间重建，跨滚动不丢）
@@ -190,15 +187,18 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
     }
   }, [addLog, displayMode, filteredLines, showDirectionPrefix, showTimestamp, timestampFormat]);
 
-  const handleContextMenu = useCallback((event: React.MouseEvent) => {
-    const sel = window.getSelection();
-    event.preventDefault();
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      canCopy: !!sel && !sel.isCollapsed && sel.toString().length > 0,
-    });
-  }, []);
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      const sel = window.getSelection();
+      event.preventDefault();
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        canCopy: getSelectedRange() !== null || (!!sel && !sel.isCollapsed && sel.toString().length > 0),
+      });
+    },
+    [getSelectedRange]
+  );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
@@ -338,7 +338,10 @@ function CopyContextMenu({ x, y, canCopy, onPick, onSave }: CopyContextMenuProps
       role="menu"
       className="fixed z-50 min-w-[220px] rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       style={{ left: x, top: y }}
-      onPointerDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       {items.map((item) => (
         <button
