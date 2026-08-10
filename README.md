@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.7.1-blue" alt="Version 2.7.1" />
+  <img src="https://img.shields.io/badge/version-2.7.2-blue" alt="Version 2.7.2" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,10 +37,10 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.7.1 更新重点
+## 2.7.2 更新重点
 
-- 修复串口文本和 HEX 视图中右键菜单及 `Ctrl+C` 无法复制选中内容的问题
-- HEX 模式复制内容现在与当前显示一致，并支持附带时间戳和 RX/TX 方向
+- 修复串口与 RTT 日志视图执行 `Ctrl+A` 后，点击视图外仍无法取消全选的问题
+- 修复 Windows 下 ESP32 等 USB 串口设备复位后，界面仍显示连接但无法继续接收的问题
 
 当前界面采用统一的 IDE 式布局：
 
@@ -287,7 +287,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.7.1`
+- 当前版本：`2.7.2`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

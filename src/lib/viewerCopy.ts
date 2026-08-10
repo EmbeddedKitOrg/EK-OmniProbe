@@ -148,6 +148,13 @@ export function useViewerSelection(lineCount: number) {
       dragEnd.current = i;
       setHighlight(null); // 新一次按下先清旧高亮，让原生选区从头开始
     };
+    const onDocumentDown = (e: MouseEvent) => {
+      if (e.button !== 0 || c.contains(e.target as Node)) return;
+      selectAll.current = false;
+      dragStart.current = null;
+      dragEnd.current = null;
+      setHighlight(null);
+    };
     const onMove = (e: MouseEvent) => {
       if (dragStart.current == null || (e.buttons & 1) === 0) return;
       const i = findLineIndex(e.target as Node, c);
@@ -160,9 +167,11 @@ export function useViewerSelection(lineCount: number) {
     };
     c.addEventListener("mousedown", onDown);
     c.addEventListener("mousemove", onMove);
+    document.addEventListener("mousedown", onDocumentDown);
     return () => {
       c.removeEventListener("mousedown", onDown);
       c.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mousedown", onDocumentDown);
     };
   }, [setHighlight]);
 
