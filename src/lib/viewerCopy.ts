@@ -119,6 +119,7 @@ function isEditableTarget(): boolean {
  */
 export function useViewerSelection(lineCount: number) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasLines = lineCount > 0;
   const dragStart = useRef<number | null>(null);
   const dragEnd = useRef<number | null>(null);
   const selectAll = useRef(false);
@@ -173,7 +174,7 @@ export function useViewerSelection(lineCount: number) {
       c.removeEventListener("mousemove", onMove);
       document.removeEventListener("mousedown", onDocumentDown);
     };
-  }, [setHighlight]);
+  }, [hasLines, setHighlight]);
 
   // 容器内才算"命中"：鼠标悬停 / 选区落在容器内
   const isInside = useCallback(() => {

@@ -1,6 +1,6 @@
 [package]
 name = "ek-omniprobe"
-version = "2.7.2"
+version = "2.7.3"
 description = "EK-OmniProbe - 嵌入式开发一体化调试与分析工作台（烧录 / 源码调试 / RTT / 串口 / 蓝牙 / 日志分析）"
 authors = ["zuolan"]
 edition = "2021"
