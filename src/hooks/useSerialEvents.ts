@@ -31,20 +31,9 @@ const textEncoder = new TextEncoder();
  * Automatically subscribes to serial data and status events on mount
  */
 export function useSerialEvents() {
-  const {
-    commitSerialReceiveBatch,
-    setRunning,
-    setConnected,
-    setError,
-    connected,
-    running,
-    activeSourceType,
-    chartConfig,
-  } = useSerialStore(
+  const { commitSerialReceiveBatch, setError, connected, running, activeSourceType, chartConfig } = useSerialStore(
     useShallow((state) => ({
       commitSerialReceiveBatch: state.commitSerialReceiveBatch,
-      setRunning: state.setRunning,
-      setConnected: state.setConnected,
       setError: state.setError,
       connected: state.connected,
       running: state.running,
@@ -207,11 +196,8 @@ export function useSerialEvents() {
         }
         receivePipeline.reset();
       }
-      setConnected(connected);
-      setRunning(running);
-      if (error) {
-        setError(error);
-      }
+      // 一次性应用后端状态，避免 setRunning/setError 的副作用互相覆盖重连状态。
+      useSerialStore.setState({ connected, running, error: error ?? null });
     });
 
     // Cleanup
@@ -230,7 +216,7 @@ export function useSerialEvents() {
       unlistenData.then((fn) => fn());
       unlistenStatus.then((fn) => fn());
     };
-  }, [commitSerialReceiveBatch, setRunning, setConnected, setError]);
+  }, [commitSerialReceiveBatch]);
 
   useEffect(() => {
     const parseMode = chartConfig.parseMode;

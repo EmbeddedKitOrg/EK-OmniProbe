@@ -332,6 +332,14 @@ pub async fn start_serial(
                         };
 
                         if !wants_reconnect {
+                            // 读失败后旧句柄已经不可用，必须先释放；否则 is_connected()
+                            // 仍会因为 port 为 Some 而把断线状态覆盖成“已连接”。
+                            {
+                                let mut guard = reader_state.datasource.lock();
+                                if let Some(ds) = guard.as_mut() {
+                                    let _ = ds.disconnect();
+                                }
+                            }
                             reader_state.set_running(false);
                             let _ = reader_app.emit(
                                 "serial-status",
@@ -464,14 +472,18 @@ pub async fn start_serial(
             );
         }
 
-        let _ = app.emit(
-            "serial-status",
-            SerialStatusEvent {
-                connected: accumulator_state.is_connected(),
-                running: false,
-                error: None,
-            },
-        );
+        // 正常停止时同步 running=false；读失败已经由 reader 上报，不能再用
+        // 无错误的结束事件覆盖断线原因。
+        if accumulator_state.is_connected() {
+            let _ = app.emit(
+                "serial-status",
+                SerialStatusEvent {
+                    connected: true,
+                    running: false,
+                    error: None,
+                },
+            );
+        }
     });
 
     Ok(())
