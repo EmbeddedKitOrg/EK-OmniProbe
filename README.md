@@ -9,15 +9,15 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.7.3-blue" alt="Version 2.7.3" />
+  <img src="https://img.shields.io/badge/version-2.7.4-blue" alt="Version 2.7.4" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
 
 <p align="center">
   <a href="https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/latest"><strong>下载最新版</strong></a>
-  · <a href="docs/QUICK_START.md">快速入门</a>
-  · <a href="docs/README.md">用户文档</a>
+  · <a href="https://embeddedkitorg.github.io/EK-OmniProbe/#/QUICK_START">快速入门</a>
+  · <a href="https://embeddedkitorg.github.io/EK-OmniProbe/">用户文档</a>
   · <a href="CHANGELOG.md">更新日志</a>
 </p>
 
@@ -31,15 +31,17 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU/ASCII/TCP、日志、终端与图表        |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU/ASCII/TCP、日志、终端与图表       |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.7.3 更新重点
+## 2.7.4 更新重点
 
-- 修复日志从空状态开始接收数据时，执行 `Ctrl+A` 后仍无法取消全选的问题
+- 修复 FFT 使用 Hann 窗后幅值低约 `6.23 dB` 的问题
+- 修复内置模拟数据配置 `200 Hz` 时实际采样率仅约 `175 Hz` 的问题
+- 修复 README 用户文档入口在第三方网页预览中点击后出现 404 的问题
 
 当前界面采用统一的 IDE 式布局：
 
@@ -110,7 +112,7 @@ sudo ./install-udev-rules.sh
 3. 搜索日志正文，或切换到分屏、图表视图。
 4. 需要提取数值曲线时打开“解析配置”，选择与日志内容匹配的解析方式。
 
-支持的时间戳格式和操作说明见 [日志分析使用指南](docs/LOG_ANALYSIS_GUIDE.md)。
+支持的时间戳格式和操作说明见 [日志分析使用指南](https://embeddedkitorg.github.io/EK-OmniProbe/#/LOG_ANALYSIS_GUIDE)。
 
 ### 使用 BLE 或经典蓝牙 SPP
 
@@ -129,7 +131,7 @@ BLE：
 3. 使用源码、寄存器、内存、Locals、Watch、调用栈和断点面板定位问题。
 4. 面板支持停靠、浮动、合并标签和一键恢复默认布局。
 
-更完整的操作步骤请阅读 [快速入门指南](docs/QUICK_START.md)。
+更完整的操作步骤请阅读 [快速入门指南](https://embeddedkitorg.github.io/EK-OmniProbe/#/QUICK_START)。
 
 ## 实时数据与图表
 
@@ -185,7 +187,7 @@ flowchart TB
 
 图表工作台支持字段选择、通道改名、单位和颜色、缓冲区上限、可视点数、采样率、CSV / PNG 导出以及独立窗口。波形底部控制栏统一显示采样间隔、缓冲/绘制点数、每格时间或频率、通道和滤波状态，并提供与 `Shift + 滚轮`作用相同的 X 轴缩放条；采样率与视图范围可一键恢复自动。串口的数据解析统一放在右侧“数据”页，图表工具栏集中提供冻结、清空、时域/FFT、统计、通道和导出；冻结期间后台仍会继续解析并缓存数据。
 
-串口右侧“数据”页支持图形化级联低通、高通和带通滤波，可预览频率响应并导出 JSON 参数；也可以粘贴 MATLAB 生成的 FIR 系数或 IIR 的 SOS/ScaleValues。可在串口工作台右侧“连接”页选择“模拟数据 → 滤波演示”，用内置的 5 Hz 主信号和 40 Hz 干扰直接观察时域、FFT 和统计结果。原始日志、CSV 和 AI 数据不会被覆盖。详见 [数据滤波与 MATLAB 参数](docs/MATLAB_FILTER_GUIDE.md)。
+串口右侧“数据”页支持图形化级联低通、高通和带通滤波，可预览频率响应并导出 JSON 参数；也可以粘贴 MATLAB 生成的 FIR 系数或 IIR 的 SOS/ScaleValues。可在串口工作台右侧“连接”页选择“模拟数据 → 滤波演示”，用内置的 5 Hz 主信号和 40 Hz 干扰直接观察时域、FFT 和统计结果。原始日志、CSV 和 AI 数据不会被覆盖。详见 [数据滤波与 MATLAB 参数](https://embeddedkitorg.github.io/EK-OmniProbe/#/MATLAB_FILTER_GUIDE)。
 
 ## 控制面板与模拟数据
 
@@ -203,7 +205,7 @@ flowchart TB
 
 串口模拟数据源可生成正弦、方波、三角波、锯齿波、噪声、固定值、圆形或李萨如 XY 轨迹，以及三轴/六轴 IMU 数据。模拟数据与真实串口共用日志、解析、图表和控制面板链路，便于在没有设备时搭建和验证界面。
 
-串口还可以启动本机 AI 数据桥接，把当前图表解析结果以标准批量样本提供给本地客户端。默认只读，写操作需要显式授权。详见 [AI 数据桥接与可视化调参指南](docs/AI_TUNING_GUIDE.md)。
+串口还可以启动本机 AI 数据桥接，把当前图表解析结果以标准批量样本提供给本地客户端。默认只读，写操作需要显式授权。详见 [AI 数据桥接与可视化调参指南](https://embeddedkitorg.github.io/EK-OmniProbe/#/AI_TUNING_GUIDE)。
 
 ## 设备与格式支持
 
@@ -229,22 +231,22 @@ flowchart TB
 
 ## 用户文档
 
-| 文档                                           | 适合解决的问题                           |
-| ---------------------------------------------- | ---------------------------------------- |
-| [快速入门](docs/QUICK_START.md)                | 第一次打开应用，了解界面和基本流程       |
-| [RTT 用户手册](docs/RTT_USER_MANUAL.md)        | RTT 接入、连接、通道和常见问题           |
-| [图表与 FFT](docs/RTT_CHART_GUIDE.md)          | 数值格式、波形、FFT、字段和性能参数      |
-| [XY 散点图](docs/RTT_XY_SCATTER_GUIDE.md)      | 绘制真正的 XY 数据和参数曲线             |
-| [串口终端](docs/SERIAL_TERMINAL_GUIDE.md)      | 数据源、日志、终端、文件发送和波形       |
-| [日志分析](docs/LOG_ANALYSIS_GUIDE.md)         | 导入大日志、搜索、时间戳和数值图表       |
-| [蓝牙使用手册](docs/BLUETOOTH_USER_MANUAL.md)  | BLE、NUS、GATT、Notify / Write 和 SPP    |
-| [设置中心](docs/SETTINGS_GUIDE.md)             | 主题、背景、默认工作台和日志偏好         |
-| [AI 数据桥接](docs/AI_TUNING_GUIDE.md)         | 将串口数值流交给本地 AI 客户端分析和调参 |
-| [触发捕获](docs/TRIGGER_CAPTURE_GUIDE.md)      | 抓瞬时现象：条件成立时冻结前后数据       |
-| [会话录制与回放](docs/SESSION_RECORD_GUIDE.md) | 录下原始数据，换配置反复重放分析         |
-| [无线串口透传](docs/WIRELESS_SERIAL_GUIDE.md)  | Zigbee / LoRa / 蓝牙透传模块接入         |
+| 文档                                                                                   | 适合解决的问题                           |
+| -------------------------------------------------------------------------------------- | ---------------------------------------- |
+| [快速入门](https://embeddedkitorg.github.io/EK-OmniProbe/#/QUICK_START)                | 第一次打开应用，了解界面和基本流程       |
+| [RTT 用户手册](https://embeddedkitorg.github.io/EK-OmniProbe/#/RTT_USER_MANUAL)        | RTT 接入、连接、通道和常见问题           |
+| [图表与 FFT](https://embeddedkitorg.github.io/EK-OmniProbe/#/RTT_CHART_GUIDE)          | 数值格式、波形、FFT、字段和性能参数      |
+| [XY 散点图](https://embeddedkitorg.github.io/EK-OmniProbe/#/RTT_XY_SCATTER_GUIDE)      | 绘制真正的 XY 数据和参数曲线             |
+| [串口终端](https://embeddedkitorg.github.io/EK-OmniProbe/#/SERIAL_TERMINAL_GUIDE)      | 数据源、日志、终端、文件发送和波形       |
+| [日志分析](https://embeddedkitorg.github.io/EK-OmniProbe/#/LOG_ANALYSIS_GUIDE)         | 导入大日志、搜索、时间戳和数值图表       |
+| [蓝牙使用手册](https://embeddedkitorg.github.io/EK-OmniProbe/#/BLUETOOTH_USER_MANUAL)  | BLE、NUS、GATT、Notify / Write 和 SPP    |
+| [设置中心](https://embeddedkitorg.github.io/EK-OmniProbe/#/SETTINGS_GUIDE)             | 主题、背景、默认工作台和日志偏好         |
+| [AI 数据桥接](https://embeddedkitorg.github.io/EK-OmniProbe/#/AI_TUNING_GUIDE)         | 将串口数值流交给本地 AI 客户端分析和调参 |
+| [触发捕获](https://embeddedkitorg.github.io/EK-OmniProbe/#/TRIGGER_CAPTURE_GUIDE)      | 抓瞬时现象：条件成立时冻结前后数据       |
+| [会话录制与回放](https://embeddedkitorg.github.io/EK-OmniProbe/#/SESSION_RECORD_GUIDE) | 录下原始数据，换配置反复重放分析         |
+| [无线串口透传](https://embeddedkitorg.github.io/EK-OmniProbe/#/WIRELESS_SERIAL_GUIDE)  | Zigbee / LoRa / 蓝牙透传模块接入         |
 
-全部用户文档见 [`docs/README.md`](docs/README.md)。
+全部用户文档见 [在线用户文档](https://embeddedkitorg.github.io/EK-OmniProbe/)。
 
 ## 已知限制
 
@@ -286,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.7.3`
+- 当前版本：`2.7.4`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
