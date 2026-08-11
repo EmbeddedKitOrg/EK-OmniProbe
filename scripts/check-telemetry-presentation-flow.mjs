@@ -59,13 +59,23 @@ try {
     signal: { min: 0.5, max: 6, avg: 3.125, latest: 6 },
   });
 
-  const sampleRateHz = 128;
+  const sampleRateHz = 200;
+  const sampleCount = 1000;
+  const signalFrequencyHz = 6.25;
   const spectrum = calculateSpectrum(
-    Array.from({ length: sampleRateHz }, (_, index) => Math.sin((2 * Math.PI * 5 * index) / sampleRateHz)),
+    Array.from({ length: sampleCount }, (_, index) =>
+      Math.sin((2 * Math.PI * signalFrequencyHz * index) / sampleRateHz)
+    ),
     sampleRateHz
   );
   const peak = spectrum.slice(1).reduce((highest, bin) => (bin.magnitude > highest.magnitude ? bin : highest));
-  assert.equal(peak.freq, 5);
+  assert.equal(peak.freq, signalFrequencyHz);
+  assert.ok(Math.abs(peak.magnitude) < 0.01, `Hann 补偿后单位正弦峰值应为 0 dB，实际 ${peak.magnitude} dB`);
+  const dc = calculateSpectrum(
+    Array.from({ length: sampleCount }, () => 1),
+    sampleRateHz
+  );
+  assert.ok(Math.abs(dc[0].magnitude) < 1e-9, `DC 不应应用单边频谱倍增，实际 ${dc[0].magnitude} dB`);
 
   const rawCsv = serializeChartDataAsCsv(rawData, chartConfig);
   const processedCsv = serializeChartDataAsCsv(processing.processedData, chartConfig);

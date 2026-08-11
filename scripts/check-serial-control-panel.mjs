@@ -35,7 +35,7 @@ try {
   const { createImuFusionState, estimateGyroBias, ImuFusionProcessor, updateImuFusion } =
     await server.ssrLoadModule("/src/lib/imuFusion.ts");
   const { parseHexBytes } = await server.ssrLoadModule("/src/lib/serialSend.ts");
-  const { createSimulationSample, normalizeSimulationConfig } =
+  const { createSimulationBatch, createSimulationSample, normalizeSimulationConfig } =
     await server.ssrLoadModule("/src/lib/serialSimulation.ts");
   const { formatTimestamp } = await server.ssrLoadModule("/src/lib/formatters.ts");
 
@@ -137,6 +137,23 @@ try {
   assert.deepEqual(createSimulationSample(filterDemoConfig, 0), { signal: 0 });
   assert.ok(Math.abs(createSimulationSample(filterDemoConfig, 0.05).signal - 1) < 1e-6);
   assert.equal(normalizeSimulationConfig(filterDemoConfig).sampleRateHz, 200);
+  const scheduled = createSimulationBatch(
+    { ...simulationConfig, preset: "waveform", sampleRateHz: 200, frequencyHz: 6.25 },
+    1_000,
+    0,
+    4_000,
+    () => 0.5
+  );
+  assert.equal(scheduled.length, 4_000);
+  assert.equal((scheduled.length - 1) / ((scheduled.at(-1).timestamp - scheduled[0].timestamp) / 1000), 200);
+  assert.deepEqual(
+    JSON.parse(new TextDecoder().decode(new Uint8Array(scheduled[8].data))),
+    createSimulationSample(
+      { ...simulationConfig, preset: "waveform", sampleRateHz: 200, frequencyHz: 6.25 },
+      8 / 200,
+      () => 0.5
+    )
+  );
 
   assert.equal(renderSerialControlCommand("PWM={value};COPY={value}", 128), "PWM=128;COPY=128");
   assert.equal(renderSerialJoystickCommand("X={x},Y={y}", -20, 30), "X=-20,Y=30");

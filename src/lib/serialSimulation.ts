@@ -90,6 +90,26 @@ export function createSimulationSample(
   );
 }
 
+export function createSimulationBatch(
+  config: SimulationSerialConfig,
+  startedAt: number,
+  firstSampleIndex: number,
+  count: number,
+  random: () => number = Math.random
+): SerialDataEvent["chunks"] {
+  const normalized = normalizeSimulationConfig(config);
+  const encoder = new TextEncoder();
+  return Array.from({ length: count }, (_, offset) => {
+    const sampleIndex = firstSampleIndex + offset;
+    const elapsedSeconds = sampleIndex / normalized.sampleRateHz;
+    const sample = createSimulationSample(normalized, elapsedSeconds, random);
+    return {
+      timestamp: startedAt + elapsedSeconds * 1000,
+      data: Array.from(encoder.encode(`${JSON.stringify(sample)}\n`)),
+    };
+  });
+}
+
 export function stopSerialSimulation() {
   if (simulationTimer !== null) {
     clearInterval(simulationTimer);
@@ -100,16 +120,27 @@ export function stopSerialSimulation() {
 export function startSerialSimulation(config: SimulationSerialConfig) {
   stopSerialSimulation();
   const normalized = normalizeSimulationConfig(config);
-  const encoder = new TextEncoder();
+  const intervalMs = 1000 / normalized.sampleRateHz;
   const startedAt = performance.now();
-  const pushSample = () => {
-    const timestamp = Date.now();
-    const sample = createSimulationSample(normalized, (performance.now() - startedAt) / 1000);
-    const data = Array.from(encoder.encode(`${JSON.stringify(sample)}\n`));
-    void emit<SerialDataEvent>("serial-data", { chunks: [{ data, timestamp }], direction: "rx" });
+  const startedAtTimestamp = Date.now();
+  let nextSampleIndex = 0;
+  const pushDueSamples = () => {
+    const dueSampleIndex = Math.floor((performance.now() - startedAt) / intervalMs);
+    if (dueSampleIndex < nextSampleIndex) return;
+
+    // ponytail: 最多补发 1 秒，窗口长时间挂起后跳过旧样本，避免恢复时阻塞界面。
+    const firstSampleIndex = Math.max(nextSampleIndex, dueSampleIndex - normalized.sampleRateHz + 1);
+    const chunks = createSimulationBatch(
+      normalized,
+      startedAtTimestamp,
+      firstSampleIndex,
+      dueSampleIndex - firstSampleIndex + 1
+    );
+    nextSampleIndex = dueSampleIndex + 1;
+    void emit<SerialDataEvent>("serial-data", { chunks, direction: "rx" });
   };
 
-  pushSample();
-  simulationTimer = setInterval(pushSample, 1000 / normalized.sampleRateHz);
+  pushDueSamples();
+  simulationTimer = setInterval(pushDueSamples, intervalMs);
   return normalized;
 }
