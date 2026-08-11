@@ -15,6 +15,10 @@
 - 修复内置模拟数据在高采样率下受前端定时器延迟影响、配置 `200 Hz` 时实际仅约 `175 Hz` 的问题
 - 修复 README 用户文档入口在第三方网页预览中被解析为错误相对路径、点击后出现 404 的问题
 
+### 致谢
+
+- 感谢 [@MermaidFAR](https://github.com/MermaidFAR) 通过 [#5](https://github.com/EmbeddedKitOrg/EK-OmniProbe/pull/5) 和 [#6](https://github.com/EmbeddedKitOrg/EK-OmniProbe/pull/6) 提供问题复现、核心修复与回归测试；合入时保留其方案，并结合项目已有改动微调了用户文档、CHANGELOG 与发布说明
+
 ## [2.7.3] - 2026-08-10
 
 ### 修复
