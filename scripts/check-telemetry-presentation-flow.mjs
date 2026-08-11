@@ -66,6 +66,28 @@ try {
   );
   const peak = spectrum.slice(1).reduce((highest, bin) => (bin.magnitude > highest.magnitude ? bin : highest));
   assert.equal(peak.freq, 5);
+  assert.ok(Math.abs(peak.magnitude) < 0.01, `128 点整频正弦幅值应接近 0 dB，实际 ${peak.magnitude} dB`);
+
+  const exact2048 = calculateSpectrum(
+    Array.from({ length: 2048 }, (_, index) => Math.sin((2 * Math.PI * 6.25 * index) / 200)),
+    200
+  );
+  assert.ok(Math.abs(exact2048[64].magnitude) < 0.001, `2048 点幅值应接近 0 dB，实际 ${exact2048[64].magnitude} dB`);
+
+  const padded4000 = calculateSpectrum(
+    Array.from({ length: 4000 }, (_, index) => Math.sin((2 * Math.PI * 6.25 * index) / 200)),
+    200
+  );
+  assert.ok(
+    Math.abs(padded4000[128].magnitude) < 0.001,
+    `4000 点补零幅值应接近 0 dB，实际 ${padded4000[128].magnitude} dB`
+  );
+
+  const dcSpectrum = calculateSpectrum(
+    Array.from({ length: 128 }, () => 1),
+    128
+  );
+  assert.ok(Math.abs(dcSpectrum[0].magnitude) < 1e-9, `DC 幅值应接近 0 dB，实际 ${dcSpectrum[0].magnitude} dB`);
 
   const rawCsv = serializeChartDataAsCsv(rawData, chartConfig);
   const processedCsv = serializeChartDataAsCsv(processing.processedData, chartConfig);
