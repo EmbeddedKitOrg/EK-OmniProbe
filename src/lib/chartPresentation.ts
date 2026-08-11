@@ -163,18 +163,20 @@ export function calculateSpectrum(values: number[], sampleRateHz: number) {
   const fftSize = nextPowerOfTwo(values.length);
   prepareFftBuffers(fftSize);
   const window = getHannWindow(values.length);
-  let windowWeightSum = 0;
 
+  let windowSum = 0;
   for (let index = 0; index < values.length; index += 1) {
-    fftReBuffer[index] = values[index] * window[index];
-    windowWeightSum += window[index];
+    const weight = window[index];
+    windowSum += weight;
+    fftReBuffer[index] = values[index] * weight;
   }
   fftInPlace(fftReBuffer, fftImBuffer, fftSize);
 
   const result: Array<{ freq: number; magnitude: number }> = new Array(fftSize >> 1);
   const frequencyStep = sampleRateHz / fftSize;
+  const coherentAmplitudeScale = windowSum > 0 ? 1 / windowSum : 0;
   for (let bin = 0; bin < result.length; bin += 1) {
-    const amplitudeScale = (bin === 0 ? 1 : 2) / windowWeightSum;
+    const amplitudeScale = bin === 0 ? coherentAmplitudeScale : 2 * coherentAmplitudeScale;
     const amplitude = amplitudeScale * Math.hypot(fftReBuffer[bin], fftImBuffer[bin]);
     result[bin] = {
       freq: bin * frequencyStep,
