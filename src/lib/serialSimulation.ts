@@ -3,6 +3,8 @@ import type { SerialDataEvent, SimulationSerialConfig } from "@/lib/serialTypes"
 
 let simulationTimer: ReturnType<typeof setInterval> | null = null;
 
+const MAX_SIMULATION_CATCH_UP_SECONDS = 1;
+
 const clamp = (value: number, min: number, max: number, fallback: number) =>
   Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
 
@@ -97,19 +99,48 @@ export function stopSerialSimulation() {
   }
 }
 
+export function resolveSimulationSampleRange(
+  elapsedMilliseconds: number,
+  sampleRateHz: number,
+  emittedSampleCount: number
+) {
+  const dueSampleCount = Math.max(1, Math.floor((Math.max(elapsedMilliseconds, 0) * sampleRateHz) / 1000) + 1);
+  const maxBatchSize = Math.max(1, Math.round(sampleRateHz * MAX_SIMULATION_CATCH_UP_SECONDS));
+  return {
+    startIndex: Math.max(emittedSampleCount, dueSampleCount - maxBatchSize),
+    endIndex: dueSampleCount,
+  };
+}
+
 export function startSerialSimulation(config: SimulationSerialConfig) {
   stopSerialSimulation();
   const normalized = normalizeSimulationConfig(config);
   const encoder = new TextEncoder();
   const startedAt = performance.now();
-  const pushSample = () => {
-    const timestamp = Date.now();
-    const sample = createSimulationSample(normalized, (performance.now() - startedAt) / 1000);
-    const data = Array.from(encoder.encode(`${JSON.stringify(sample)}\n`));
-    void emit<SerialDataEvent>("serial-data", { chunks: [{ data, timestamp }], direction: "rx" });
+  const startedTimestamp = Date.now();
+  let emittedSampleCount = 0;
+  const pushDueSamples = () => {
+    const { startIndex, endIndex } = resolveSimulationSampleRange(
+      performance.now() - startedAt,
+      normalized.sampleRateHz,
+      emittedSampleCount
+    );
+    const chunks = [];
+    for (let sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex += 1) {
+      const elapsedSeconds = sampleIndex / normalized.sampleRateHz;
+      const sample = createSimulationSample(normalized, elapsedSeconds);
+      chunks.push({
+        data: Array.from(encoder.encode(`${JSON.stringify(sample)}\n`)),
+        timestamp: Math.round(startedTimestamp + elapsedSeconds * 1000),
+      });
+    }
+    emittedSampleCount = endIndex;
+    if (chunks.length > 0) {
+      void emit<SerialDataEvent>("serial-data", { chunks, direction: "rx" });
+    }
   };
 
-  pushSample();
-  simulationTimer = setInterval(pushSample, 1000 / normalized.sampleRateHz);
+  pushDueSamples();
+  simulationTimer = setInterval(pushDueSamples, 1000 / normalized.sampleRateHz);
   return normalized;
 }
