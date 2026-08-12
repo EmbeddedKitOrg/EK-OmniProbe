@@ -58,6 +58,8 @@ const TEXT_VIEW_MODE_VALUES = ["log", "terminal"] as const;
 const DISPLAY_MODE_VALUES = ["text", "hex"] as const;
 const SPLIT_ORIENTATION_VALUES = ["vertical", "horizontal"] as const;
 const ANSI_ESCAPE_SEQUENCE_REGEX = /^\x1b\[[0-?]*[ -/]*[@-~]/;
+const MAX_TERMINAL_ACTIVE_UNITS = 4096;
+const MAX_TERMINAL_PENDING_ESCAPE_CHARS = 64;
 
 // Default local serial config
 const defaultLocalConfig: LocalSerialConfig = {
@@ -332,6 +334,11 @@ function tokenizeTerminalChunk(
     if (char === "\x1b") {
       const match = combined.slice(index).match(ANSI_ESCAPE_SEQUENCE_REGEX);
       if (!match) {
+        if (combined.length - index > MAX_TERMINAL_PENDING_ESCAPE_CHARS) {
+          tokens.push({ type: "char", value: char });
+          index += 1;
+          continue;
+        }
         return { tokens, pendingEscape: combined.slice(index) };
       }
 
@@ -431,6 +438,7 @@ function processTerminalChunk(
     if (token.type === "ansi") {
       const insertionIndex = getInsertionIndex(activeUnits, cursorColumn);
       activeUnits.splice(insertionIndex, 0, { kind: "ansi", value: token.value });
+      if (activeUnits.length >= MAX_TERMINAL_ACTIVE_UNITS) pushCommittedLine();
       continue;
     }
 
@@ -446,6 +454,7 @@ function processTerminalChunk(
     }
 
     cursorColumn += 1;
+    if (activeUnits.length >= MAX_TERMINAL_ACTIVE_UNITS) pushCommittedLine();
   }
 
   return {

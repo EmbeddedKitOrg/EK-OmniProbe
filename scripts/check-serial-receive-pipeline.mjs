@@ -86,6 +86,7 @@ try {
   const idle = pipeline.flushPending(jsonConfig, 2200);
   assert.equal(utf8First.terminalText + utf8Second.terminalText, "温度:25");
   assert.equal(idle.lines[0].text, "温度:25");
+  assert.equal(idle.terminalText, "\n");
   assert.equal(idle.lines[0].timestamp.getTime(), 2200);
   assert.equal(idle.telemetryBatch.fail, 1);
 
@@ -126,6 +127,48 @@ try {
   useSerialStore.setState({ chartConfig: justFloatConfig.chartConfig, chartData: [] });
   useSerialStore.getState().commitSerialReceiveBatch(mergedJustFloat);
   assert.equal(useSerialStore.getState().chartConfig.channels.length, 2);
+
+  pipeline.reset();
+  const modbusFrame = [0x01, 0x03, 0x04, 0x00, 0x01, 0x00, 0x02, 0x2a, 0x32];
+  const modbusConfig = {
+    framing: DEFAULT_RX_FRAMING,
+    chartConfig: {
+      ...DEFAULT_CHART_CONFIG,
+      enabled: true,
+      parseMode: "modbus-rtu",
+      channels: [],
+      modbusRtu: { ...DEFAULT_CHART_CONFIG.modbusRtu, registerCount: 2, dataType: "uint16" },
+    },
+  };
+  useSerialStore.setState({
+    terminalLines: [],
+    terminalActiveLine: "",
+    terminalActiveUnits: [],
+    terminalCursorColumn: 0,
+    terminalPendingEscape: "",
+    terminalLineCounter: 0,
+    chartData: [],
+    chartConfig: modbusConfig.chartConfig,
+  });
+  for (let index = 0; index < 100; index += 1) {
+    useSerialStore
+      .getState()
+      .commitSerialReceiveBatch(
+        pipeline.ingest({ direction: "rx", chunks: [chunk(modbusFrame, 5000 + index * 200)] }, modbusConfig)
+      );
+    useSerialStore.getState().commitSerialReceiveBatch(pipeline.flushPending(modbusConfig, 5100 + index * 200));
+  }
+  assert.equal(useSerialStore.getState().terminalLines.length, 100);
+  assert.equal(useSerialStore.getState().terminalActiveUnits.length, 0);
+
+  useSerialStore.getState().commitSerialReceiveBatch({
+    terminalText: `${"x".repeat(5000)}\x1b${"y".repeat(100)}`,
+    lines: [],
+    telemetryBatch: { points: [], success: 0, fail: 0 },
+    bytesReceived: 5101,
+  });
+  assert.ok(useSerialStore.getState().terminalActiveUnits.length < 4096);
+  assert.ok(useSerialStore.getState().terminalPendingEscape.length <= 64);
 
   pipeline.reset();
   assert.equal(pipeline.flushPending(jsonConfig).lines.length, 0);

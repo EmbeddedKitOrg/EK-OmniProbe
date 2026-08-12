@@ -99,7 +99,8 @@ export class SerialReceivePipeline {
     }
 
     return {
-      terminalText: "",
+      // 空闲刷出已经确认了帧边界，终端也应结束当前行。
+      terminalText: "\n",
       lines,
       telemetryBatch: telemetryBuffer.drain(),
       bytesReceived: 0,

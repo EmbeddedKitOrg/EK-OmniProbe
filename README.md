@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.7.4-blue" alt="Version 2.7.4" />
+  <img src="https://img.shields.io/badge/version-2.7.5-blue" alt="Version 2.7.5" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,11 +37,10 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.7.4 更新重点
+## 2.7.5 更新重点
 
-- 修复 FFT 使用 Hann 窗后幅值低约 `6.23 dB` 的问题
-- 修复内置模拟数据配置 `200 Hz` 时实际采样率仅约 `175 Hz` 的问题
-- 修复 README 用户文档入口在第三方网页预览中点击后出现 404 的问题
+- 修复长时间使用 Modbus RTU / TCP 时，无换行二进制响应持续累积在串口终端活动行，最终导致界面卡顿或黑屏的问题
+- 空闲分帧完成后同步结束终端当前行，并限制异常连续数据和不完整 ANSI 转义序列的缓冲长度
 
 当前界面采用统一的 IDE 式布局：
 
@@ -288,7 +287,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.7.4`
+- 当前版本：`2.7.5`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
