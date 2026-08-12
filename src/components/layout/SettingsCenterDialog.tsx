@@ -1,11 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
+import { open as openExternal } from "@tauri-apps/plugin-shell";
 import {
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   FolderOpen,
   ImagePlus,
   Keyboard,
   Palette,
+  RefreshCw,
   RotateCcw,
   Settings2,
   SlidersHorizontal,
@@ -33,6 +37,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AuthorAboutDialog } from "./AuthorAboutDialog";
+import { UpdateChecker } from "@/components/UpdateChecker";
+
+const USER_DOCS_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/";
 
 const workspaceOptions: Array<{ value: AppMode; label: string }> = WORKSPACES.map(({ id, settingsLabel }) => ({
   value: id,
@@ -67,6 +74,7 @@ const quickActions = [
 
 export function SettingsCenterDialog() {
   const [themeSectionOpen, setThemeSectionOpen] = useState(false);
+  const [version, setVersion] = useState<string | null>(null);
   const schemeId = useThemeStore((state) => state.schemeId);
   const setSchemeId = useThemeStore((state) => state.setSchemeId);
   const appMode = useAppStore((state) => state.mode);
@@ -93,6 +101,12 @@ export function SettingsCenterDialog() {
     () => THEME_SCHEMES.find((scheme) => scheme.id === schemeId) ?? THEME_SCHEMES[0],
     [schemeId]
   );
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch((error) => console.error("获取版本号失败:", error));
+  }, []);
 
   const updateSignalPreference = (target: "rtt" | "serial", domain: SignalDomain) => {
     if (target === "rtt") {
@@ -139,7 +153,7 @@ export function SettingsCenterDialog() {
           <span>设置</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="grid-rows-[auto_minmax(0,1fr)] max-h-[min(88vh,760px)] max-w-4xl gap-3 overflow-hidden rounded-[14px] p-4">
+      <DialogContent className="grid-rows-[auto_auto_minmax(0,1fr)] max-h-[min(88vh,760px)] max-w-4xl gap-3 overflow-hidden rounded-[14px] p-4">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-primary" />
@@ -150,6 +164,27 @@ export function SettingsCenterDialog() {
           </DialogDescription>
         </DialogHeader>
 
+        <section className="glass-section flex flex-wrap items-center justify-between gap-3 rounded-[12px] p-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">应用信息</h3>
+            <p className="text-xs text-muted-foreground">
+              当前版本：<span className="font-mono">{version ? `v${version}` : "加载中..."}</span>
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <UpdateChecker
+              autoCheck={false}
+              trigger={
+                <Button size="sm" variant="outline" className="gap-2 px-3">
+                  <RefreshCw className="h-4 w-4" />
+                  <span>检查更新</span>
+                </Button>
+              }
+            />
+            <AuthorAboutDialog />
+          </div>
+        </section>
+
         <Tabs defaultValue="appearance" className="flex min-h-0 flex-col gap-3">
           <TabsList className="surface-control h-auto w-full justify-start gap-1 rounded-[10px] border border-border/60 p-1">
             <TabsTrigger value="appearance" className="rounded-[8px] px-2.5 py-1 text-xs">
@@ -158,8 +193,8 @@ export function SettingsCenterDialog() {
             <TabsTrigger value="preferences" className="rounded-[8px] px-2.5 py-1 text-xs">
               偏好
             </TabsTrigger>
-            <TabsTrigger value="tools" className="rounded-[8px] px-2.5 py-1 text-xs">
-              工具
+            <TabsTrigger value="help" className="rounded-[8px] px-2.5 py-1 text-xs">
+              帮助
             </TabsTrigger>
           </TabsList>
 
@@ -385,22 +420,28 @@ export function SettingsCenterDialog() {
               </section>
             </TabsContent>
 
-            <TabsContent value="tools" className="mt-0 space-y-4">
-              <section className="glass-section flex items-center justify-between gap-3 rounded-[12px] p-3">
-                <div>
-                  <h3 className="text-sm font-semibold">应用信息</h3>
-                  <p className="text-xs text-muted-foreground">查看版本、作者主页、项目仓库并检查更新。</p>
-                </div>
-                <AuthorAboutDialog />
-              </section>
-
+            <TabsContent value="help" className="mt-0">
               <section className="glass-section rounded-[12px] p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <Keyboard className="h-3.5 w-3.5 text-primary" />
-                  <div>
-                    <h3 className="text-sm font-semibold">工作流提示</h3>
-                    <p className="text-xs text-muted-foreground">几个常用功能的速查。</p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Keyboard className="h-3.5 w-3.5 text-primary" />
+                    <div>
+                      <h3 className="text-sm font-semibold">帮助与速查</h3>
+                      <p className="text-xs text-muted-foreground">查阅完整文档或快速找到常用功能。</p>
+                    </div>
                   </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 px-3"
+                    onClick={() =>
+                      void openExternal(USER_DOCS_URL).catch((error) => console.error("打开在线文档失败:", error))
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span>在线文档</span>
+                  </Button>
                 </div>
 
                 <div className="space-y-2">

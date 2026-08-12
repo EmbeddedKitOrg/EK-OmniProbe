@@ -59,7 +59,7 @@ RTT、串口和 BLE 图表可以分别弹出为独立窗口。控制面板使用
 
 前往 [GitHub Releases](https://github.com/EmbeddedKitOrg/EK-OmniProbe/releases/latest)，选择适合当前系统的安装包。项目发布流程提供 Windows、Linux x64 和 macOS Universal 构建。
 
-应用启动后会自动检查更新，也可以在“设置 → 工具 → 关于作者”中手动检查。
+应用启动后会自动检查更新，也可以直接在设置中心顶部的“应用信息”中手动检查。
 
 ### Linux USB 权限
 
