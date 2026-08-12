@@ -18,6 +18,7 @@
   - Default
   - Sakura Pink
   - Ocean Blue
+  - Aqua Glass（水玻璃）
   - Forest Green
   - Twilight Violet
   - Amber Orange
