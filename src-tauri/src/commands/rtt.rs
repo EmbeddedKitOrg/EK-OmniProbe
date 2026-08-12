@@ -98,19 +98,20 @@ pub async fn start_rtt(
         // 附加 RTT
         log::info!("开始扫描 RTT 控制块...");
         let attach_start = std::time::Instant::now();
-        let mut rtt = Rtt::attach_region(&mut core, &scan_region)
-            .map_err(|e| {
-                let elapsed = attach_start.elapsed();
-                log::error!("RTT 附加失败 (耗时 {:?}): {}", elapsed, e);
-                let msg = e.to_string();
-                if msg.contains("control block") || msg.contains("RTT") {
-                    AppError::RttError("未找到 RTT 控制块。请确保目标固件已集成 SEGGER RTT 库。".to_string())
-                } else if msg.contains("ARM") {
-                    AppError::RttError("无法读取目标内存。请检查：1) 目标设备是否正在运行 2) 固件是否包含 RTT 支持".to_string())
-                } else {
-                    AppError::RttError(format!("无法附加 RTT: {}", e))
-                }
-            })?;
+        let mut rtt = Rtt::attach_region(&mut core, &scan_region).map_err(|e| {
+            let elapsed = attach_start.elapsed();
+            log::error!("RTT 附加失败 (耗时 {:?}): {}", elapsed, e);
+            let msg = e.to_string();
+            if msg.contains("control block") || msg.contains("RTT") {
+                AppError::RttError("未找到 RTT 控制块。请确保目标固件已集成 SEGGER RTT 库。".to_string())
+            } else if msg.contains("ARM") {
+                AppError::RttError(
+                    "无法读取目标内存。请检查：1) 目标设备是否正在运行 2) 固件是否包含 RTT 支持".to_string(),
+                )
+            } else {
+                AppError::RttError(format!("无法附加 RTT: {}", e))
+            }
+        })?;
         log::info!("RTT 附加成功，耗时: {:?}", attach_start.elapsed());
 
         // 获取控制块地址 - probe-rs 已经找到了地址，直接使用 ptr() 方法获取
@@ -143,7 +144,7 @@ pub async fn start_rtt(
 
     // 保存配置
     let poll_interval = options.poll_interval.unwrap_or(10); // 默认 10ms
-    // Linux 上 halt_on_read 会导致性能问题，默认设为 false
+                                                             // Linux 上 halt_on_read 会导致性能问题，默认设为 false
     let halt_on_read = options.halt_on_read.unwrap_or(false);
     *state.rtt_state.poll_interval_ms.lock() = poll_interval;
     *state.rtt_state.control_block_address.lock() = found_address;
@@ -190,14 +191,21 @@ async fn rtt_polling_task(
     // 获取保存的控制块地址
     let control_block_addr = *rtt_state.control_block_address.lock();
 
-    log::info!("RTT 轮询启动: 间隔={}ms, 暂停读取={}, 控制块地址={:?}",
-        poll_interval_ms, halt_on_read, control_block_addr);
+    log::info!(
+        "RTT 轮询启动: 间隔={}ms, 暂停读取={}, 控制块地址={:?}",
+        poll_interval_ms,
+        halt_on_read,
+        control_block_addr
+    );
 
     // 发送初始状态事件
-    let _ = app_handle.emit("rtt-status", RttStatusEvent {
-        running: true,
-        error: None,
-    });
+    let _ = app_handle.emit(
+        "rtt-status",
+        RttStatusEvent {
+            running: true,
+            error: None,
+        },
+    );
 
     let mut poll_count = 0u64;
     loop {
@@ -215,7 +223,14 @@ async fn rtt_polling_task(
         }
 
         // 尝试读取数据（所有操作在同步块中完成）
-        let poll_result = poll_rtt_once(&session, &mut buffer, &mut consecutive_errors, MAX_CONSECUTIVE_ERRORS, control_block_addr, halt_on_read);
+        let poll_result = poll_rtt_once(
+            &session,
+            &mut buffer,
+            &mut consecutive_errors,
+            MAX_CONSECUTIVE_ERRORS,
+            control_block_addr,
+            halt_on_read,
+        );
 
         match poll_result {
             PollResult::Data(events) => {
@@ -232,10 +247,13 @@ async fn rtt_polling_task(
                 log::error!("RTT 轮询错误: {}", msg);
                 // 停止 RTT
                 rtt_state.set_running(false);
-                let _ = app_handle.emit("rtt-status", RttStatusEvent {
-                    running: false,
-                    error: Some(msg),
-                });
+                let _ = app_handle.emit(
+                    "rtt-status",
+                    RttStatusEvent {
+                        running: false,
+                        error: Some(msg),
+                    },
+                );
                 break;
             }
         }
@@ -244,10 +262,13 @@ async fn rtt_polling_task(
     log::info!("RTT 轮询任务清理中...");
     // 清理状态
     rtt_state.reset();
-    let _ = app_handle.emit("rtt-status", RttStatusEvent {
-        running: false,
-        error: None,
-    });
+    let _ = app_handle.emit(
+        "rtt-status",
+        RttStatusEvent {
+            running: false,
+            error: None,
+        },
+    );
     log::info!("RTT 轮询任务已完全结束");
 }
 
@@ -359,7 +380,12 @@ fn read_rtt_data(core: &mut probe_rs::Core, buffer: &mut [u8], control_block_add
         match Rtt::attach_region(core, &ScanRegion::Exact(addr)) {
             Ok(r) => r,
             Err(e) => {
-                log::warn!("使用精确地址 0x{:08X} 附加 RTT 失败 (耗时 {:?}): {}", addr, attach_start.elapsed(), e);
+                log::warn!(
+                    "使用精确地址 0x{:08X} 附加 RTT 失败 (耗时 {:?}): {}",
+                    addr,
+                    attach_start.elapsed(),
+                    e
+                );
                 return events;
             }
         }
@@ -377,7 +403,11 @@ fn read_rtt_data(core: &mut probe_rs::Core, buffer: &mut [u8], control_block_add
 
     let attach_elapsed = attach_start.elapsed();
     if attach_elapsed.as_millis() > 50 {
-        log::warn!("RTT attach 耗时过长: {:?} (地址: {:?})", attach_elapsed, control_block_addr);
+        log::warn!(
+            "RTT attach 耗时过长: {:?} (地址: {:?})",
+            attach_elapsed,
+            control_block_addr
+        );
     }
 
     // 读取所有 up 通道

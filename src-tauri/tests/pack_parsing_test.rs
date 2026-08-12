@@ -3,9 +3,9 @@
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-    use ek_omniprobe_lib::pack::target_gen;
     use ek_omniprobe_lib::pack::progress;
+    use ek_omniprobe_lib::pack::target_gen;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_multiple_subfamily_parsing() {
@@ -50,16 +50,10 @@ mod tests {
 </package>"#;
 
         // 解析设备
-        let devices = target_gen::parse_devices_from_pdsc(pdsc_content, None)
-            .expect("解析失败");
+        let devices = target_gen::parse_devices_from_pdsc(pdsc_content, None).expect("解析失败");
 
         // 验证：应该解析出 5 个设备（修复前只能解析出 2 个）
-        assert_eq!(
-            devices.len(),
-            5,
-            "应该解析出 5 个设备，实际解析出 {} 个",
-            devices.len()
-        );
+        assert_eq!(devices.len(), 5, "应该解析出 5 个设备，实际解析出 {} 个", devices.len());
 
         // 验证设备名称
         let device_names: Vec<String> = devices.iter().map(|d| d.name.clone()).collect();
@@ -100,20 +94,13 @@ mod tests {
         });
 
         // 解析设备
-        let devices = target_gen::parse_devices_from_pdsc(
-            pdsc_content,
-            Some(&callback),
-        )
-        .expect("解析失败");
+        let devices = target_gen::parse_devices_from_pdsc(pdsc_content, Some(&callback)).expect("解析失败");
 
         assert_eq!(devices.len(), 1);
 
         // 验证进度回调被调用
         let log = progress_log.lock().unwrap();
-        assert!(
-            !log.is_empty(),
-            "进度回调应该被调用"
-        );
+        assert!(!log.is_empty(), "进度回调应该被调用");
 
         println!("✅ 测试通过：进度回调正常工作");
         println!("   进度日志:");

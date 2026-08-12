@@ -23,14 +23,8 @@ fn validate_export_path(path: &str, allowed_exts: &[&str]) -> AppResult<()> {
     if !p.is_absolute() {
         return Err(AppError::InvalidInput("导出路径必须是绝对路径".into()));
     }
-    let ext = p
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase());
-    let ok = ext
-        .as_deref()
-        .map(|e| allowed_exts.contains(&e))
-        .unwrap_or(false);
+    let ext = p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase());
+    let ok = ext.as_deref().map(|e| allowed_exts.contains(&e)).unwrap_or(false);
     if !ok {
         return Err(AppError::InvalidInput(format!(
             "导出扩展名不在白名单中（允许: {}）",

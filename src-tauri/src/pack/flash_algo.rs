@@ -15,12 +15,12 @@ pub struct FlashAlgorithm {
     pub name: String,
     pub description: String,
     pub default: bool,
-    pub instructions: String,        // base64 编码的二进制 blob
-    pub pc_init: Option<u64>,        // Init 函数地址（相对偏移）
-    pub pc_uninit: Option<u64>,      // UnInit 函数地址（相对偏移）
-    pub pc_program_page: u64,        // ProgramPage 函数地址（相对偏移）
-    pub pc_erase_sector: u64,        // EraseSector 函数地址（相对偏移）
-    pub pc_erase_all: Option<u64>,   // EraseChip 函数地址（相对偏移）
+    pub instructions: String,      // base64 编码的二进制 blob
+    pub pc_init: Option<u64>,      // Init 函数地址（相对偏移）
+    pub pc_uninit: Option<u64>,    // UnInit 函数地址（相对偏移）
+    pub pc_program_page: u64,      // ProgramPage 函数地址（相对偏移）
+    pub pc_erase_sector: u64,      // EraseSector 函数地址（相对偏移）
+    pub pc_erase_all: Option<u64>, // EraseChip 函数地址（相对偏移）
     pub data_section_offset: u64,
     pub flash_properties: FlashProperties,
 }
@@ -106,12 +106,9 @@ impl FlashDevice {
         let mut sectors = Vec::new();
         let mut offset = 0xA0;
         while offset + 8 <= data.len() {
-            let sector_size = u32::from_le_bytes([
-                data[offset], data[offset + 1], data[offset + 2], data[offset + 3]
-            ]);
-            let sector_addr = u32::from_le_bytes([
-                data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7]
-            ]);
+            let sector_size = u32::from_le_bytes([data[offset], data[offset + 1], data[offset + 2], data[offset + 3]]);
+            let sector_addr =
+                u32::from_le_bytes([data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7]]);
 
             // 扇区列表以 0xFFFFFFFF 结尾
             if sector_size == 0xFFFFFFFF {
@@ -129,8 +126,14 @@ impl FlashDevice {
             offset += 8;
         }
 
-        log::info!("解析 FlashDevice: name={}, start=0x{:08X}, size=0x{:X}, page_size={}, sectors={}",
-            name, start_address, device_size, page_size, sectors.len());
+        log::info!(
+            "解析 FlashDevice: name={}, start=0x{:08X}, size=0x{:X}, page_size={}, sectors={}",
+            name,
+            start_address,
+            device_size,
+            page_size,
+            sectors.len()
+        );
 
         Some(FlashDevice {
             name,
@@ -155,8 +158,8 @@ pub fn extract_flash_algorithm_from_flm(
     let flm_data = fs::read(flm_path)?;
 
     // 解析 ELF 文件
-    let elf_file = object::File::parse(&*flm_data)
-        .map_err(|e| AppError::PackError(format!("解析 FLM 文件失败: {}", e)))?;
+    let elf_file =
+        object::File::parse(&*flm_data).map_err(|e| AppError::PackError(format!("解析 FLM 文件失败: {}", e)))?;
 
     // 1. 查找 FlashDevice 符号并提取配置信息
     let flash_device = extract_flash_device(&elf_file, &flm_data);
@@ -199,7 +202,9 @@ pub fn extract_flash_algorithm_from_flm(
 
     log::info!(
         "提取 Flash 算法: {} (blob size: {}, data_offset: 0x{:X})",
-        algo_name, blob.len(), data_offset
+        algo_name,
+        blob.len(),
+        data_offset
     );
 
     Ok(FlashAlgorithm {
@@ -331,8 +336,7 @@ fn extract_algorithm_blob(elf_file: &object::File) -> AppResult<(Vec<u8>, u64, u
         }
     }
 
-    let (code_start, code_data) = code_section
-        .ok_or_else(|| AppError::PackError("未找到代码段".to_string()))?;
+    let (code_start, code_data) = code_section.ok_or_else(|| AppError::PackError("未找到代码段".to_string()))?;
 
     // 构建连续的二进制 blob
     let mut blob = code_data;
@@ -379,7 +383,12 @@ fn extract_function_symbols(
                 let thumb_offset = offset | 1;
 
                 symbols.insert(name.to_string(), thumb_offset);
-                log::info!("函数 {}: addr=0x{:X}, offset=0x{:X}", name, symbol.address(), thumb_offset);
+                log::info!(
+                    "函数 {}: addr=0x{:X}, offset=0x{:X}",
+                    name,
+                    symbol.address(),
+                    thumb_offset
+                );
             }
         }
     }
@@ -454,9 +463,10 @@ pub fn find_flm_files(pack_dir: &Path) -> AppResult<Vec<std::path::PathBuf>> {
 
                 if path.is_dir() {
                     search_dir(&path, flm_files)?;
-                } else if path.extension().is_some_and(|ext| {
-                    ext.eq_ignore_ascii_case("flm") || ext.eq_ignore_ascii_case("FLM")
-                }) {
+                } else if path
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("flm") || ext.eq_ignore_ascii_case("FLM"))
+                {
                     flm_files.push(path);
                 }
             }
@@ -483,7 +493,12 @@ pub fn match_flm_for_device(
     let flash_size_kb = flash_size / 1024;
     let flash_size_mb = flash_size / (1024 * 1024);
 
-    log::info!("匹配 FLM: 设备={}, Flash={}KB, 可用FLM数={}", device_name, flash_size_kb, flm_files.len());
+    log::info!(
+        "匹配 FLM: 设备={}, Flash={}KB, 可用FLM数={}",
+        device_name,
+        flash_size_kb,
+        flm_files.len()
+    );
 
     // 1. 精确匹配设备型号（Flash + 设备名）
     for flm_path in flm_files {
@@ -521,7 +536,11 @@ pub fn match_flm_for_device(
     let size_patterns: Vec<String> = if flash_size_mb >= 1 {
         vec![format!("_{}MB", flash_size_mb), format!("{}MB", flash_size_mb)]
     } else {
-        vec![format!("_{}KB", flash_size_kb), format!("{}KB", flash_size_kb), format!("_{}K", flash_size_kb)]
+        vec![
+            format!("_{}KB", flash_size_kb),
+            format!("{}KB", flash_size_kb),
+            format!("_{}K", flash_size_kb),
+        ]
     };
 
     // 提取短前缀用于系列匹配

@@ -98,9 +98,7 @@ impl DataSource for LocalSerial {
             // 64 KB RX / 8 KB TX：在 921600 baud 下能扛住 ~700ms 的调度抖动而不丢字节。
             let ok = unsafe { SetupComm(handle as *mut _, 65536, 8192) };
             if ok == 0 {
-                log::warn!(
-                    "SetupComm 调用失败，OS 驱动 RX 队列保持默认大小（高 baud 时可能丢字节）"
-                );
+                log::warn!("SetupComm 调用失败，OS 驱动 RX 队列保持默认大小（高 baud 时可能丢字节）");
             } else {
                 log::info!("已把 OS 驱动 RX 队列扩大到 64 KB");
             }
@@ -186,8 +184,7 @@ impl DataSource for LocalSerial {
 
 /// List available serial ports
 pub fn list_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
-    let ports = serialport::available_ports()
-        .map_err(|e| format!("Failed to list serial ports: {}", e))?;
+    let ports = serialport::available_ports().map_err(|e| format!("Failed to list serial ports: {}", e))?;
 
     Ok(ports
         .into_iter()
@@ -199,15 +196,9 @@ pub fn list_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
                     info.manufacturer.clone(),
                     info.serial_number.clone(),
                 ),
-                serialport::SerialPortType::PciPort => {
-                    ("PCI".to_string(), None, None, None)
-                }
-                serialport::SerialPortType::BluetoothPort => {
-                    ("Bluetooth".to_string(), None, None, None)
-                }
-                serialport::SerialPortType::Unknown => {
-                    ("Unknown".to_string(), None, None, None)
-                }
+                serialport::SerialPortType::PciPort => ("PCI".to_string(), None, None, None),
+                serialport::SerialPortType::BluetoothPort => ("Bluetooth".to_string(), None, None, None),
+                serialport::SerialPortType::Unknown => ("Unknown".to_string(), None, None, None),
             };
 
             SerialPortInfo {

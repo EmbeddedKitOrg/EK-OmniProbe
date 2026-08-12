@@ -69,8 +69,7 @@ pub fn install_udev_rules() -> AppResult<()> {
     let temp_dir = std::env::temp_dir();
     let temp_rules_file = temp_dir.join(UDEV_RULES_FILE);
 
-    std::fs::write(&temp_rules_file, UDEV_RULES_CONTENT)
-        .map_err(AppError::IoError)?;
+    std::fs::write(&temp_rules_file, UDEV_RULES_CONTENT).map_err(AppError::IoError)?;
 
     log::info!("临时规则文件: {:?}", temp_rules_file);
 
@@ -98,10 +97,7 @@ pub fn install_udev_rules() -> AppResult<()> {
     } else {
         let error_msg = String::from_utf8_lossy(&output.stderr);
         log::error!("udev 规则安装失败: {}", error_msg);
-        Err(AppError::ProbeError(format!(
-            "安装 udev 规则失败: {}",
-            error_msg
-        )))
+        Err(AppError::ProbeError(format!("安装 udev 规则失败: {}", error_msg)))
     }
 }
 

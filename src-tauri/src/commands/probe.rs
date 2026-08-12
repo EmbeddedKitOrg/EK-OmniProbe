@@ -1,6 +1,6 @@
 use crate::commands::config::TARGET_REGISTRY;
 use crate::error::{AppError, AppResult};
-use crate::state::{AppState, ConnectionInfo, ConnectMode, InterfaceType};
+use crate::state::{AppState, ConnectMode, ConnectionInfo, InterfaceType};
 use probe_rs::{
     architecture::arm::dp::{DpAddress, DpRegisterAddress},
     probe::{list::Lister, WireProtocol},
@@ -18,7 +18,7 @@ pub struct ProbeInfo {
     pub serial_number: Option<String>,
     pub probe_type: String,
     pub dap_version: Option<String>,
-    pub debug_info: Option<String>,  // 诊断信息
+    pub debug_info: Option<String>, // 诊断信息
 }
 
 /// USB 设备诊断信息
@@ -67,7 +67,7 @@ struct CmsisDapCaps {
     serial_number: Option<String>,
     has_hid: bool,
     has_v2: bool,
-    debug_info: String,  // 诊断信息
+    debug_info: String, // 诊断信息
 }
 
 fn is_cmsis_dap_str(value: &str) -> bool {
@@ -188,11 +188,11 @@ fn read_chip_id(session: &mut Session) -> Option<u32> {
 
     // Common chip IDCODE address list
     let id_addresses: &[(u64, &str)] = &[
-        (0xE0042000, "STM32 DBGMCU_IDCODE"),     // Most STM32 chips
-        (0x40015800, "STM32G0/G4 DBG_IDCODE"),   // STM32G0/G4 series
-        (0x1FFFF7E8, "STM32 UID"),               // Backup: Unique ID
-        (0x10000060, "nRF FICR.INFO.PART"),      // Nordic nRF
-        (0x40000FF8, "RP2040 CHIPID"),           // Raspberry Pi RP2040
+        (0xE0042000, "STM32 DBGMCU_IDCODE"),   // Most STM32 chips
+        (0x40015800, "STM32G0/G4 DBG_IDCODE"), // STM32G0/G4 series
+        (0x1FFFF7E8, "STM32 UID"),             // Backup: Unique ID
+        (0x10000060, "nRF FICR.INFO.PART"),    // Nordic nRF
+        (0x40000FF8, "RP2040 CHIPID"),         // Raspberry Pi RP2040
     ];
 
     for (addr, _name) in id_addresses {
@@ -214,7 +214,10 @@ fn read_dp_idcode(session: &mut Session) -> Option<u32> {
     if let Ok(interface) = session.get_arm_interface() {
         // DPIDR register: address 0x0, no bank selection
         let dp_addr = DpAddress::Default;
-        let reg_addr = DpRegisterAddress { address: 0x0, bank: None };
+        let reg_addr = DpRegisterAddress {
+            address: 0x0,
+            bank: None,
+        };
         if let Ok(dpidr) = interface.read_raw_dp_register(dp_addr, reg_addr) {
             if dpidr != 0 && dpidr != 0xFFFFFFFF {
                 return Some(dpidr);
@@ -232,7 +235,11 @@ pub async fn list_probes() -> AppResult<Vec<ProbeInfo>> {
     for cap in &caps {
         log::info!(
             "Device VID={:#06x}, PID={:#06x}, serial={:?}, has_hid={}, has_v2={}",
-            cap.vendor_id, cap.product_id, cap.serial_number, cap.has_hid, cap.has_v2
+            cap.vendor_id,
+            cap.product_id,
+            cap.serial_number,
+            cap.has_hid,
+            cap.has_v2
         );
     }
 
@@ -351,10 +358,7 @@ pub struct ConnectOptions {
 }
 
 #[tauri::command]
-pub async fn connect_target(
-    options: ConnectOptions,
-    state: State<'_, AppState>,
-) -> AppResult<TargetInfo> {
+pub async fn connect_target(options: ConnectOptions, state: State<'_, AppState>) -> AppResult<TargetInfo> {
     log::info!("=== 开始连接目标 ===");
     log::info!("探针标识: {}", options.probe_identifier);
     log::info!("目标芯片: {}", options.target);
@@ -381,12 +385,10 @@ pub async fn connect_target(
 
     log::info!("找到探针: {:?}", probe_info.identifier);
 
-    let mut probe = probe_info
-        .open()
-        .map_err(|e| {
-            log::error!("打开探针失败: {}", e);
-            AppError::ProbeError(e.to_string())
-        })?;
+    let mut probe = probe_info.open().map_err(|e| {
+        log::error!("打开探针失败: {}", e);
+        AppError::ProbeError(e.to_string())
+    })?;
 
     log::info!("探针已打开");
 
@@ -395,24 +397,20 @@ pub async fn connect_target(
         InterfaceType::Swd => WireProtocol::Swd,
         InterfaceType::Jtag => WireProtocol::Jtag,
     };
-    probe
-        .select_protocol(protocol)
-        .map_err(|e| {
-            log::error!("设置协议失败 ({:?}): {}", protocol, e);
-            AppError::ProbeError(e.to_string())
-        })?;
+    probe.select_protocol(protocol).map_err(|e| {
+        log::error!("设置协议失败 ({:?}): {}", protocol, e);
+        AppError::ProbeError(e.to_string())
+    })?;
 
     log::info!("协议已设置: {:?}", protocol);
 
     // 设置时钟速度（前端传递的是Hz，probe-rs需要kHz）
     if let Some(speed_hz) = options.clock_speed {
         let speed_khz = speed_hz / 1000;
-        probe
-            .set_speed(speed_khz)
-            .map_err(|e| {
-                log::error!("设置时钟速度失败 ({} kHz): {}", speed_khz, e);
-                AppError::ProbeError(format!("设置时钟速度失败 ({} kHz): {}", speed_khz, e))
-            })?;
+        probe.set_speed(speed_khz).map_err(|e| {
+            log::error!("设置时钟速度失败 ({} kHz): {}", speed_khz, e);
+            AppError::ProbeError(format!("设置时钟速度失败 ({} kHz): {}", speed_khz, e))
+        })?;
         log::info!("时钟速度已设置: {} kHz", speed_khz);
     }
 
@@ -490,15 +488,24 @@ pub async fn connect_target(
             .iter()
             .map(|region| {
                 let (name, kind, address, size) = match region {
-                    probe_rs::config::MemoryRegion::Ram(r) => {
-                        (r.name.clone().unwrap_or_default(), "RAM", r.range.start, r.range.end - r.range.start)
-                    }
-                    probe_rs::config::MemoryRegion::Nvm(r) => {
-                        (r.name.clone().unwrap_or_default(), "Flash", r.range.start, r.range.end - r.range.start)
-                    }
-                    probe_rs::config::MemoryRegion::Generic(r) => {
-                        (r.name.clone().unwrap_or_default(), "Generic", r.range.start, r.range.end - r.range.start)
-                    }
+                    probe_rs::config::MemoryRegion::Ram(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "RAM",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
+                    probe_rs::config::MemoryRegion::Nvm(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "Flash",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
+                    probe_rs::config::MemoryRegion::Generic(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "Generic",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
                 };
                 MemoryRegion {
                     name,
@@ -508,11 +515,7 @@ pub async fn connect_target(
                 }
             })
             .collect(),
-        flash_algorithms: target
-            .flash_algorithms
-            .iter()
-            .map(|a| a.name.clone())
-            .collect(),
+        flash_algorithms: target.flash_algorithms.iter().map(|a| a.name.clone()).collect(),
         chip_id,
     };
 
@@ -521,11 +524,11 @@ pub async fn connect_target(
         let mut conn_info = state.connection_info.lock();
         *conn_info = Some(ConnectionInfo {
             probe_name: options.probe_identifier.clone(),
-            probe_serial: probe_info.serial_number.clone(),  // 保存探针序列号
+            probe_serial: probe_info.serial_number.clone(), // 保存探针序列号
             target_name: options.target.clone(),
             core_type: target_info.core_type.clone(),
             chip_id,
-            target_idcode,  // 保存目标IDCODE
+            target_idcode, // 保存目标IDCODE
         });
     }
 
@@ -584,10 +587,7 @@ pub async fn get_connection_status(state: State<'_, AppState>) -> AppResult<Conn
 // ==================== RTT 独立连接命令 ====================
 
 #[tauri::command]
-pub async fn connect_rtt(
-    options: ConnectOptions,
-    state: State<'_, AppState>,
-) -> AppResult<TargetInfo> {
+pub async fn connect_rtt(options: ConnectOptions, state: State<'_, AppState>) -> AppResult<TargetInfo> {
     // 关闭现有 RTT 连接
     {
         let mut rtt_session_guard = state.rtt_session.lock();
@@ -602,9 +602,7 @@ pub async fn connect_rtt(
         .find(|p| p.identifier == options.probe_identifier)
         .ok_or_else(|| AppError::ProbeError("未找到指定的探针".to_string()))?;
 
-    let mut probe = probe_info
-        .open()
-        .map_err(|e| AppError::ProbeError(e.to_string()))?;
+    let mut probe = probe_info.open().map_err(|e| AppError::ProbeError(e.to_string()))?;
 
     // 设置协议
     let protocol = match options.interface_type {
@@ -656,15 +654,24 @@ pub async fn connect_rtt(
             .iter()
             .map(|region| {
                 let (name, kind, address, size) = match region {
-                    probe_rs::config::MemoryRegion::Ram(r) => {
-                        (r.name.clone().unwrap_or_default(), "RAM", r.range.start, r.range.end - r.range.start)
-                    }
-                    probe_rs::config::MemoryRegion::Nvm(r) => {
-                        (r.name.clone().unwrap_or_default(), "Flash", r.range.start, r.range.end - r.range.start)
-                    }
-                    probe_rs::config::MemoryRegion::Generic(r) => {
-                        (r.name.clone().unwrap_or_default(), "Generic", r.range.start, r.range.end - r.range.start)
-                    }
+                    probe_rs::config::MemoryRegion::Ram(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "RAM",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
+                    probe_rs::config::MemoryRegion::Nvm(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "Flash",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
+                    probe_rs::config::MemoryRegion::Generic(r) => (
+                        r.name.clone().unwrap_or_default(),
+                        "Generic",
+                        r.range.start,
+                        r.range.end - r.range.start,
+                    ),
                 };
                 MemoryRegion {
                     name,
@@ -674,11 +681,7 @@ pub async fn connect_rtt(
                 }
             })
             .collect(),
-        flash_algorithms: target
-            .flash_algorithms
-            .iter()
-            .map(|a| a.name.clone())
-            .collect(),
+        flash_algorithms: target.flash_algorithms.iter().map(|a| a.name.clone()).collect(),
         chip_id,
     };
 
@@ -767,7 +770,8 @@ async fn diagnose_usb_devices() -> AppResult<Vec<UsbDeviceInfo>> {
 
         log::info!(
             "Found USB device: VID={:#06x}, PID={:#06x}, bus={}, addr={}",
-            vid, pid,
+            vid,
+            pid,
             device_info.bus_number(),
             device_info.device_address()
         );
@@ -850,7 +854,9 @@ pub async fn check_usb_permissions() -> AppResult<UsbPermissionStatus> {
     status.detected_dap_devices = devices.clone();
 
     if devices.is_empty() {
-        status.suggestions.push("未检测到CMSIS-DAP调试器，请检查USB连接".to_string());
+        status
+            .suggestions
+            .push("未检测到CMSIS-DAP调试器，请检查USB连接".to_string());
         return Ok(status);
     }
 
@@ -883,7 +889,9 @@ pub async fn check_usb_permissions() -> AppResult<UsbPermissionStatus> {
     status.udev_rules_installed = crate::udev::check_udev_rules_installed();
     if !status.udev_rules_installed {
         status.suggestions.push("未检测到udev规则文件".to_string());
-        status.suggestions.push("点击下方按钮自动安装，或手动运行: sudo ./install-udev-rules.sh".to_string());
+        status
+            .suggestions
+            .push("点击下方按钮自动安装，或手动运行: sudo ./install-udev-rules.sh".to_string());
     }
 
     log::info!("=== USB Permission Check End ===");

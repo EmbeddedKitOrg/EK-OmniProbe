@@ -82,21 +82,9 @@ pub fn parse_pdsc(content: &str) -> AppResult<PackInfo> {
     }
 
     let pack_info = PackInfo {
-        name: if name.is_empty() {
-            "Unknown".into()
-        } else {
-            name
-        },
-        vendor: if vendor.is_empty() {
-            "Unknown".into()
-        } else {
-            vendor
-        },
-        version: if version.is_empty() {
-            "1.0.0".into()
-        } else {
-            version
-        },
+        name: if name.is_empty() { "Unknown".into() } else { name },
+        vendor: if vendor.is_empty() { "Unknown".into() } else { vendor },
+        version: if version.is_empty() { "1.0.0".into() } else { version },
         description,
         device_count,
     };

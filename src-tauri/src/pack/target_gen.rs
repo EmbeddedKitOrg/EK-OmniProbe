@@ -25,7 +25,7 @@ pub struct DeviceDefinition {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessorInfo {
-    pub core: String,      // Cortex-M0, Cortex-M3, Cortex-M4, etc.
+    pub core: String, // Cortex-M0, Cortex-M3, Cortex-M4, etc.
     pub fpu: bool,
     pub mpu: bool,
 }
@@ -159,7 +159,8 @@ pub fn parse_devices_from_pdsc(
                             }
 
                             // 从父级继承配置
-                            let inherited_processor = subfamily_processor.clone()
+                            let inherited_processor = subfamily_processor
+                                .clone()
                                 .or_else(|| family_processor.clone())
                                 .unwrap_or(ProcessorInfo {
                                     core: String::new(),
@@ -167,7 +168,8 @@ pub fn parse_devices_from_pdsc(
                                     mpu: false,
                                 });
 
-                            let inherited_memory = subfamily_memory.clone()
+                            let inherited_memory = subfamily_memory
+                                .clone()
                                 .or_else(|| family_memory.clone())
                                 .unwrap_or(MemoryInfo {
                                     ram_start: 0,
@@ -176,8 +178,7 @@ pub fn parse_devices_from_pdsc(
                                     flash_size: 0,
                                 });
 
-                            let inherited_algorithm = subfamily_algorithm.clone()
-                                .or_else(|| family_algorithm.clone());
+                            let inherited_algorithm = subfamily_algorithm.clone().or_else(|| family_algorithm.clone());
 
                             current_device = Some(DeviceDefinition {
                                 name,
@@ -261,14 +262,20 @@ pub fn parse_devices_from_pdsc(
                         } else if in_subfamily {
                             if subfamily_memory.is_none() {
                                 subfamily_memory = Some(MemoryInfo {
-                                    ram_start: 0, ram_size: 0, flash_start: 0, flash_size: 0
+                                    ram_start: 0,
+                                    ram_size: 0,
+                                    flash_start: 0,
+                                    flash_size: 0,
                                 });
                             }
                             subfamily_memory.as_mut()
                         } else if in_family {
                             if family_memory.is_none() {
                                 family_memory = Some(MemoryInfo {
-                                    ram_start: 0, ram_size: 0, flash_start: 0, flash_size: 0
+                                    ram_start: 0,
+                                    ram_size: 0,
+                                    flash_start: 0,
+                                    flash_size: 0,
                                 });
                             }
                             family_memory.as_mut()
@@ -277,13 +284,19 @@ pub fn parse_devices_from_pdsc(
                         };
 
                         if let Some(mem) = target_memory {
-                            if mem_id_upper.contains("IROM") || mem_id_upper.contains("FLASH") || mem_id_upper.contains("ROM") {
+                            if mem_id_upper.contains("IROM")
+                                || mem_id_upper.contains("FLASH")
+                                || mem_id_upper.contains("ROM")
+                            {
                                 // Flash: 优先使用 default 或更大的区域
                                 if mem.flash_size == 0 || is_default || size > mem.flash_size {
                                     mem.flash_start = start;
                                     mem.flash_size = size;
                                 }
-                            } else if mem_id_upper.contains("IRAM") || mem_id_upper.contains("RAM") || mem_id_upper.contains("SRAM") {
+                            } else if mem_id_upper.contains("IRAM")
+                                || mem_id_upper.contains("RAM")
+                                || mem_id_upper.contains("SRAM")
+                            {
                                 // RAM: 优先使用 default="1" 的区域，或者主 SRAM (0x20000000)
                                 let should_update = mem.ram_size == 0
                                     || is_default
@@ -395,14 +408,20 @@ pub fn parse_devices_from_pdsc(
                         } else if in_subfamily {
                             if subfamily_memory.is_none() {
                                 subfamily_memory = Some(MemoryInfo {
-                                    ram_start: 0, ram_size: 0, flash_start: 0, flash_size: 0
+                                    ram_start: 0,
+                                    ram_size: 0,
+                                    flash_start: 0,
+                                    flash_size: 0,
                                 });
                             }
                             subfamily_memory.as_mut()
                         } else if in_family {
                             if family_memory.is_none() {
                                 family_memory = Some(MemoryInfo {
-                                    ram_start: 0, ram_size: 0, flash_start: 0, flash_size: 0
+                                    ram_start: 0,
+                                    ram_size: 0,
+                                    flash_start: 0,
+                                    flash_size: 0,
                                 });
                             }
                             family_memory.as_mut()
@@ -411,13 +430,19 @@ pub fn parse_devices_from_pdsc(
                         };
 
                         if let Some(mem) = target_memory {
-                            if mem_id_upper.contains("IROM") || mem_id_upper.contains("FLASH") || mem_id_upper.contains("ROM") {
+                            if mem_id_upper.contains("IROM")
+                                || mem_id_upper.contains("FLASH")
+                                || mem_id_upper.contains("ROM")
+                            {
                                 // Flash: 优先使用 default 或更大的区域
                                 if mem.flash_size == 0 || is_default || size > mem.flash_size {
                                     mem.flash_start = start;
                                     mem.flash_size = size;
                                 }
-                            } else if mem_id_upper.contains("IRAM") || mem_id_upper.contains("RAM") || mem_id_upper.contains("SRAM") {
+                            } else if mem_id_upper.contains("IRAM")
+                                || mem_id_upper.contains("RAM")
+                                || mem_id_upper.contains("SRAM")
+                            {
                                 // RAM: 优先使用 default="1" 的区域，或者主 SRAM (0x20000000)
                                 let should_update = mem.ram_size == 0
                                     || is_default
@@ -481,9 +506,15 @@ pub fn parse_devices_from_pdsc(
                             }
 
                             // 记录设备信息
-                            log::info!("解析设备: {} - Flash: 0x{:X}+0x{:X}, RAM: 0x{:X}+0x{:X}, Algorithm: {:?}",
-                                dev.name, dev.memory.flash_start, dev.memory.flash_size,
-                                dev.memory.ram_start, dev.memory.ram_size, dev.flash_algorithm);
+                            log::info!(
+                                "解析设备: {} - Flash: 0x{:X}+0x{:X}, RAM: 0x{:X}+0x{:X}, Algorithm: {:?}",
+                                dev.name,
+                                dev.memory.flash_start,
+                                dev.memory.flash_size,
+                                dev.memory.ram_start,
+                                dev.memory.ram_size,
+                                dev.flash_algorithm
+                            );
 
                             // 报告进度（每10个设备报告一次）
                             if devices.len() % 10 == 0 {
@@ -593,7 +624,8 @@ pub fn generate_probe_rs_yaml_with_algo(
         }
 
         if device.memory.flash_size > 0 {
-            if let Some(flm_path) = flash_algo::match_flm_for_device(&flm_files, &device.name, device.memory.flash_size) {
+            if let Some(flm_path) = flash_algo::match_flm_for_device(&flm_files, &device.name, device.memory.flash_size)
+            {
                 match flash_algo::extract_flash_algorithm_from_flm(
                     &flm_path,
                     device.memory.flash_start,
@@ -637,8 +669,14 @@ pub fn generate_probe_rs_yaml_with_algo(
     let mut yaml = String::new();
 
     // 版本标记（用于检测旧版本配置）
-    yaml.push_str(&format!("# EK-OmniProbe Pack Scanner Version: {}\n", PACK_SCANNER_VERSION));
-    yaml.push_str(&format!("# Generated at: {}\n\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")));
+    yaml.push_str(&format!(
+        "# EK-OmniProbe Pack Scanner Version: {}\n",
+        PACK_SCANNER_VERSION
+    ));
+    yaml.push_str(&format!(
+        "# Generated at: {}\n\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+    ));
 
     // 家族定义
     yaml.push_str(&format!("name: {}\n", family_name));
@@ -681,12 +719,27 @@ pub fn generate_probe_rs_yaml_with_algo(
             // Flash 属性
             yaml.push_str("    flash_properties:\n");
             yaml.push_str("      address_range:\n");
-            yaml.push_str(&format!("        start: 0x{:x}\n", algo.flash_properties.address_range.start));
-            yaml.push_str(&format!("        end: 0x{:x}\n", algo.flash_properties.address_range.end));
+            yaml.push_str(&format!(
+                "        start: 0x{:x}\n",
+                algo.flash_properties.address_range.start
+            ));
+            yaml.push_str(&format!(
+                "        end: 0x{:x}\n",
+                algo.flash_properties.address_range.end
+            ));
             yaml.push_str(&format!("      page_size: {}\n", algo.flash_properties.page_size));
-            yaml.push_str(&format!("      erased_byte_value: 0x{:x}\n", algo.flash_properties.erased_byte_value));
-            yaml.push_str(&format!("      program_page_timeout: {}\n", algo.flash_properties.program_page_timeout));
-            yaml.push_str(&format!("      erase_sector_timeout: {}\n", algo.flash_properties.erase_sector_timeout));
+            yaml.push_str(&format!(
+                "      erased_byte_value: 0x{:x}\n",
+                algo.flash_properties.erased_byte_value
+            ));
+            yaml.push_str(&format!(
+                "      program_page_timeout: {}\n",
+                algo.flash_properties.program_page_timeout
+            ));
+            yaml.push_str(&format!(
+                "      erase_sector_timeout: {}\n",
+                algo.flash_properties.erase_sector_timeout
+            ));
 
             // 扇区信息
             yaml.push_str("      sectors:\n");
@@ -785,9 +838,7 @@ pub fn generate_scan_report(
     pack_name: &str,
     pack_dir: &Path,
 ) -> AppResult<crate::pack::scan_report::PackScanReport> {
-    use crate::pack::scan_report::{
-        AlgorithmInfo, DeviceReport, DeviceStatus, PackScanReport,
-    };
+    use crate::pack::scan_report::{AlgorithmInfo, DeviceReport, DeviceStatus, PackScanReport};
 
     let mut report = PackScanReport::new(pack_name.to_string());
 
@@ -808,11 +859,8 @@ pub fn generate_scan_report(
 
         // 尝试匹配算法
         if device.memory.flash_size > 0 {
-            if let Some(flm_path) = flash_algo::match_flm_for_device(
-                &flm_files,
-                &device.name,
-                device.memory.flash_size,
-            ) {
+            if let Some(flm_path) = flash_algo::match_flm_for_device(&flm_files, &device.name, device.memory.flash_size)
+            {
                 match flash_algo::extract_flash_algorithm_from_flm(
                     &flm_path,
                     device.memory.flash_start,
@@ -821,11 +869,7 @@ pub fn generate_scan_report(
                     Ok(algo) => {
                         device_report.algorithm = Some(AlgorithmInfo {
                             name: algo.name.clone(),
-                            flm_file: flm_path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string(),
+                            flm_file: flm_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
                             page_size: algo.flash_properties.page_size as u32,
                             sector_count: algo.flash_properties.sectors.len(),
                         });
@@ -853,16 +897,12 @@ pub fn generate_scan_report(
 }
 
 /// 保存扫描报告到文件
-pub fn save_scan_report(
-    report: &crate::pack::scan_report::PackScanReport,
-    pack_dir: &Path,
-) -> AppResult<()> {
+pub fn save_scan_report(report: &crate::pack::scan_report::PackScanReport, pack_dir: &Path) -> AppResult<()> {
     let report_path = pack_dir.join("scan_report.json");
-    let json = serde_json::to_string_pretty(report)
-        .map_err(|e| AppError::PackError(format!("序列化报告失败: {}", e)))?;
+    let json =
+        serde_json::to_string_pretty(report).map_err(|e| AppError::PackError(format!("序列化报告失败: {}", e)))?;
 
-    std::fs::write(&report_path, json)
-        .map_err(|e| AppError::FileError(format!("保存报告失败: {}", e)))?;
+    std::fs::write(&report_path, json).map_err(|e| AppError::FileError(format!("保存报告失败: {}", e)))?;
 
     log::info!("扫描报告已保存到: {:?}", report_path);
     Ok(())
@@ -876,11 +916,10 @@ pub fn load_scan_report(pack_dir: &Path) -> AppResult<crate::pack::scan_report::
         return Err(AppError::FileError("扫描报告不存在".to_string()));
     }
 
-    let json = std::fs::read_to_string(&report_path)
-        .map_err(|e| AppError::FileError(format!("读取报告失败: {}", e)))?;
+    let json =
+        std::fs::read_to_string(&report_path).map_err(|e| AppError::FileError(format!("读取报告失败: {}", e)))?;
 
-    let report = serde_json::from_str(&json)
-        .map_err(|e| AppError::PackError(format!("解析报告失败: {}", e)))?;
+    let report = serde_json::from_str(&json).map_err(|e| AppError::PackError(format!("解析报告失败: {}", e)))?;
 
     Ok(report)
 }
@@ -900,9 +939,7 @@ pub fn detect_pack_scanner_version(pack_dir: &Path) -> Option<String> {
     for line in content.lines() {
         if line.starts_with("# EK-OmniProbe Pack Scanner Version:") {
             // 提取版本号
-            let version = line
-                .trim_start_matches("# EK-OmniProbe Pack Scanner Version:")
-                .trim();
+            let version = line.trim_start_matches("# EK-OmniProbe Pack Scanner Version:").trim();
             return Some(version.to_string());
         }
     }

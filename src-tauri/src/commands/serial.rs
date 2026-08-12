@@ -1,7 +1,7 @@
 use crate::serial::{
     file_transfer::{
-        send_protocol_file, send_raw_file, simulate_file, FileTransferProtocol,
-        SerialFileTransferOptions, SerialFileTransferProgress, SerialFileTransferResult,
+        send_protocol_file, send_raw_file, simulate_file, FileTransferProtocol, SerialFileTransferOptions,
+        SerialFileTransferProgress, SerialFileTransferResult,
     },
     list_serial_ports, LocalSerial, SerialConfig, SerialPortInfo, TcpSerial, UdpSerial,
 };
@@ -78,22 +78,13 @@ pub fn connect_serial(config: SerialConfig, state: State<'_, AppState>) -> Resul
             rts,
             reconnect,
         )),
-        SerialConfig::Tcp {
-            host,
-            port,
-            reconnect,
-        } => Box::new(TcpSerial::new(host, port, reconnect)),
+        SerialConfig::Tcp { host, port, reconnect } => Box::new(TcpSerial::new(host, port, reconnect)),
         SerialConfig::Udp {
             local_host,
             local_port,
             remote_host,
             remote_port,
-        } => Box::new(UdpSerial::new(
-            local_host,
-            local_port,
-            remote_host,
-            remote_port,
-        )),
+        } => Box::new(UdpSerial::new(local_host, local_port, remote_host, remote_port)),
     };
 
     // Connect
@@ -141,9 +132,7 @@ pub async fn write_serial(data: Vec<u8>, state: State<'_, AppState>) -> Result<u
             return Err("文件传输中，暂不能发送其他数据".to_string());
         }
         let mut guard = serial_state.datasource.lock();
-        let ds = guard
-            .as_mut()
-            .ok_or_else(|| "Serial port not connected".to_string())?;
+        let ds = guard.as_mut().ok_or_else(|| "Serial port not connected".to_string())?;
 
         ds.write(&data)
     })
@@ -204,9 +193,7 @@ pub async fn write_serial_string(
             return Err("文件传输中，暂不能发送其他数据".to_string());
         }
         let mut guard = serial_state.datasource.lock();
-        let ds = guard
-            .as_mut()
-            .ok_or_else(|| "Serial port not connected".to_string())?;
+        let ds = guard.as_mut().ok_or_else(|| "Serial port not connected".to_string())?;
 
         ds.write(&data)
     })
@@ -253,9 +240,7 @@ pub async fn send_serial_file(
         }
 
         let mut guard = serial_state.datasource.lock();
-        let source = guard
-            .as_mut()
-            .ok_or_else(|| "串口未连接".to_string())?;
+        let source = guard.as_mut().ok_or_else(|| "串口未连接".to_string())?;
         if source.name().starts_with("udp://") {
             return Err("UDP 数据源仅支持原始字节文件发送".to_string());
         }

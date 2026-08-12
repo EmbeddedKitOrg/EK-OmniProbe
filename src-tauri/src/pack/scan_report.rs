@@ -112,10 +112,7 @@ impl PackScanReport {
 
         for device in &self.devices {
             if let Some(ref algo) = device.algorithm {
-                algo_map
-                    .entry(algo.name.clone())
-                    .or_default()
-                    .push(device.name.clone());
+                algo_map.entry(algo.name.clone()).or_default().push(device.name.clone());
             }
         }
 
@@ -129,14 +126,12 @@ impl PackScanReport {
             .collect();
 
         // 按设备数量降序排序
-        self.algorithm_stats.sort_by_key(|stat| std::cmp::Reverse(stat.device_count));
+        self.algorithm_stats
+            .sort_by_key(|stat| std::cmp::Reverse(stat.device_count));
     }
 
     /// 获取有问题的设备列表
     pub fn get_problematic_devices(&self) -> Vec<&DeviceReport> {
-        self.devices
-            .iter()
-            .filter(|d| d.status != DeviceStatus::Ok)
-            .collect()
+        self.devices.iter().filter(|d| d.status != DeviceStatus::Ok).collect()
     }
 }

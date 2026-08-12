@@ -141,8 +141,8 @@ impl AiBridgeState {
             return Err("AI 数据桥接已启动".to_string());
         }
 
-        let listener = TcpListener::bind(("127.0.0.1", port))
-            .map_err(|error| format!("无法监听 127.0.0.1:{port}: {error}"))?;
+        let listener =
+            TcpListener::bind(("127.0.0.1", port)).map_err(|error| format!("无法监听 127.0.0.1:{port}: {error}"))?;
         listener
             .set_nonblocking(true)
             .map_err(|error| format!("无法配置 AI 数据桥接: {error}"))?;
@@ -330,8 +330,7 @@ impl AiBridgeState {
                     }
                     Ok(None) => break,
                     Err(error)
-                        if error.kind() == io::ErrorKind::WouldBlock
-                            || error.kind() == io::ErrorKind::TimedOut => {}
+                        if error.kind() == io::ErrorKind::WouldBlock || error.kind() == io::ErrorKind::TimedOut => {}
                     Err(error) => {
                         let _ = tx.send(error_response(None, error.to_string()));
                         break;
@@ -386,9 +385,11 @@ fn validate_batch(batch: &AiTelemetryBatch) -> Result<(), String> {
     if batch.channels.len() > 64 || batch.samples.len() > 2048 {
         return Err("单批最多包含 64 个通道和 2048 个样本".to_string());
     }
-    if batch.samples.iter().any(|sample| {
-        sample.values.len() > 64 || sample.values.values().any(|value| !value.is_finite())
-    }) {
+    if batch
+        .samples
+        .iter()
+        .any(|sample| sample.values.len() > 64 || sample.values.values().any(|value| !value.is_finite()))
+    {
         return Err("样本必须包含不超过 64 个有限数值".to_string());
     }
     Ok(())
@@ -401,11 +402,7 @@ fn validate_text_batch(batch: &AiTextBatch) -> Result<(), String> {
     if batch.lines.len() > MAX_TEXT_LINES_PER_BATCH {
         return Err("单批最多包含 256 行文本".to_string());
     }
-    if batch
-        .lines
-        .iter()
-        .any(|line| line.text.len() > MAX_TEXT_LINE_BYTES)
-    {
+    if batch.lines.iter().any(|line| line.text.len() > MAX_TEXT_LINE_BYTES) {
         return Err("单行文本不能超过 65536 字节".to_string());
     }
     if batch.lines.iter().map(|line| line.text.len()).sum::<usize>() > MAX_TEXT_BATCH_BYTES {
@@ -414,10 +411,7 @@ fn validate_text_batch(batch: &AiTextBatch) -> Result<(), String> {
     Ok(())
 }
 
-fn read_line_limited<R: BufRead>(
-    reader: &mut R,
-    bytes: &mut Vec<u8>,
-) -> io::Result<Option<String>> {
+fn read_line_limited<R: BufRead>(reader: &mut R, bytes: &mut Vec<u8>) -> io::Result<Option<String>> {
     loop {
         let available = reader.fill_buf()?;
         if available.is_empty() {
@@ -462,11 +456,7 @@ fn error_response(id: Option<&str>, error: String) -> String {
 }
 
 #[tauri::command]
-pub fn start_ai_bridge(
-    port: u16,
-    allow_write: bool,
-    state: State<'_, AppState>,
-) -> Result<AiBridgeStatus, String> {
+pub fn start_ai_bridge(port: u16, allow_write: bool, state: State<'_, AppState>) -> Result<AiBridgeStatus, String> {
     if port < 1024 {
         return Err("AI 数据桥接端口必须在 1024-65535 之间".to_string());
     }
@@ -486,26 +476,17 @@ pub fn get_ai_bridge_status(state: State<'_, AppState>) -> AiBridgeStatus {
 }
 
 #[tauri::command]
-pub fn set_ai_bridge_write_enabled(
-    allow_write: bool,
-    state: State<'_, AppState>,
-) -> AiBridgeStatus {
+pub fn set_ai_bridge_write_enabled(allow_write: bool, state: State<'_, AppState>) -> AiBridgeStatus {
     state.ai_bridge_state.set_allow_write(allow_write)
 }
 
 #[tauri::command]
-pub fn publish_ai_samples(
-    batch: AiTelemetryBatch,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub fn publish_ai_samples(batch: AiTelemetryBatch, state: State<'_, AppState>) -> Result<(), String> {
     state.ai_bridge_state.publish(batch)
 }
 
 #[tauri::command]
-pub fn publish_ai_text_lines(
-    batch: AiTextBatch,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub fn publish_ai_text_lines(batch: AiTextBatch, state: State<'_, AppState>) -> Result<(), String> {
     state.ai_bridge_state.publish_text(batch)
 }
 
@@ -527,17 +508,12 @@ enum ClientCommand {
 }
 
 fn parse_client_command(line: &str, allow_write: bool) -> Result<ClientCommand, String> {
-    let command: RawClientCommand =
-        serde_json::from_str(line).map_err(|error| format!("无效 JSON 命令: {error}"))?;
+    let command: RawClientCommand = serde_json::from_str(line).map_err(|error| format!("无效 JSON 命令: {error}"))?;
     if !allow_write {
         return Err("AI 串口写入未授权".to_string());
     }
 
-    let RawClientCommand::SerialWrite {
-        id,
-        text,
-        line_ending,
-    } = command;
+    let RawClientCommand::SerialWrite { id, text, line_ending } = command;
     if id.is_empty() || id.len() > 64 {
         return Err("命令 id 必须为 1-64 字节".to_string());
     }
@@ -607,9 +583,7 @@ mod tests {
     #[test]
     fn client_receives_hello_and_normalized_samples() {
         let bridge = Arc::new(AiBridgeState::default());
-        let status = bridge
-            .start(0, false, Arc::new(SerialState::default()))
-            .unwrap();
+        let status = bridge.start(0, false, Arc::new(SerialState::default())).unwrap();
         let stream = TcpStream::connect(("127.0.0.1", status.port)).unwrap();
         stream
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
@@ -651,9 +625,7 @@ mod tests {
     #[test]
     fn client_receives_serial_text_lines() {
         let bridge = Arc::new(AiBridgeState::default());
-        let status = bridge
-            .start(0, false, Arc::new(SerialState::default()))
-            .unwrap();
+        let status = bridge.start(0, false, Arc::new(SerialState::default())).unwrap();
         let stream = TcpStream::connect(("127.0.0.1", status.port)).unwrap();
         stream
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))

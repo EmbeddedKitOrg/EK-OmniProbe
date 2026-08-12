@@ -41,11 +41,7 @@ pub enum ScanPhase {
 impl PackScanProgress {
     /// 创建新的进度信息
     pub fn new(phase: ScanPhase, current: usize, total: usize, message: String) -> Self {
-        let progress = if total > 0 {
-            current as f64 / total as f64
-        } else {
-            0.0
-        };
+        let progress = if total > 0 { current as f64 / total as f64 } else { 0.0 };
 
         Self {
             phase,

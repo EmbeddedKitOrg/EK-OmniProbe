@@ -98,10 +98,7 @@ pub struct DebugReadSourceResult {
 // ============================================================================
 
 #[tauri::command]
-pub async fn debug_attach(
-    options: DebugAttachOptions,
-    state: State<'_, AppState>,
-) -> AppResult<DebugStatus> {
+pub async fn debug_attach(options: DebugAttachOptions, state: State<'_, AppState>) -> AppResult<DebugStatus> {
     log::info!("=== Debug attach ===");
     log::info!("探针: {} / 目标: {}", options.probe_identifier, options.target);
 
@@ -230,9 +227,7 @@ pub async fn debug_get_status(state: State<'_, AppState>) -> AppResult<DebugStat
             Ok(mut core) => {
                 let halted = core.core_halted().unwrap_or(false);
                 let pc = if halted {
-                    core.registers()
-                        .pc()
-                        .and_then(|reg| core.read_core_reg(reg).ok())
+                    core.registers().pc().and_then(|reg| core.read_core_reg(reg).ok())
                 } else {
                     None
                 };
@@ -263,7 +258,8 @@ pub async fn debug_run(state: State<'_, AppState>) -> AppResult<DebugCoreState> 
     let mut core = session
         .core(0)
         .map_err(|e| AppError::DebugError(format!("获取核心失败: {}", e)))?;
-    core.run().map_err(|e| AppError::DebugError(format!("run 失败: {}", e)))?;
+    core.run()
+        .map_err(|e| AppError::DebugError(format!("run 失败: {}", e)))?;
     Ok(DebugCoreState {
         state: "running".into(),
         pc: None,
@@ -376,9 +372,7 @@ pub async fn debug_step_out(state: State<'_, AppState>) -> AppResult<DebugCoreSt
         .registers()
         .core_registers()
         .find(|r| r.name().eq_ignore_ascii_case("LR"))
-        .ok_or_else(|| {
-            AppError::DebugError("当前架构未暴露 LR 寄存器，无法 step out".to_string())
-        })?;
+        .ok_or_else(|| AppError::DebugError("当前架构未暴露 LR 寄存器，无法 step out".to_string()))?;
     let lr: u64 = core
         .read_core_reg(lr_reg)
         .map_err(|e| AppError::DebugError(format!("读 LR 失败: {}", e)))?;
@@ -432,10 +426,7 @@ pub async fn debug_reset(state: State<'_, AppState>) -> AppResult<DebugCoreState
 // ============================================================================
 
 #[tauri::command]
-pub async fn debug_read_memory(
-    options: DebugReadMemoryOptions,
-    state: State<'_, AppState>,
-) -> AppResult<Vec<u8>> {
+pub async fn debug_read_memory(options: DebugReadMemoryOptions, state: State<'_, AppState>) -> AppResult<Vec<u8>> {
     const MAX_READ: u32 = 1024 * 1024;
     if options.size > MAX_READ {
         return Err(AppError::InvalidInput(format!(
@@ -479,14 +470,12 @@ pub async fn debug_read_registers(state: State<'_, AppState>) -> AppResult<Vec<R
     let mut registers: Vec<RegisterValue> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-    let push = |list: &mut Vec<RegisterValue>,
-                seen: &mut std::collections::HashSet<String>,
-                name: String,
-                value: u64| {
-        if seen.insert(name.clone()) {
-            list.push(RegisterValue { name, value });
-        }
-    };
+    let push =
+        |list: &mut Vec<RegisterValue>, seen: &mut std::collections::HashSet<String>, name: String, value: u64| {
+            if seen.insert(name.clone()) {
+                list.push(RegisterValue { name, value });
+            }
+        };
 
     if let Some(pc) = register_file.pc() {
         if let Ok(value) = core.read_core_reg(pc) {
@@ -515,10 +504,7 @@ pub async fn debug_read_registers(state: State<'_, AppState>) -> AppResult<Vec<R
 // ============================================================================
 
 #[tauri::command]
-pub async fn debug_load_elf(
-    path: String,
-    state: State<'_, AppState>,
-) -> AppResult<DebugLoadElfResult> {
+pub async fn debug_load_elf(path: String, state: State<'_, AppState>) -> AppResult<DebugLoadElfResult> {
     let symbols = DebugSymbols::load(&path).map_err(AppError::DebugError)?;
     let summary = symbols.summary();
     let symbol_list = symbols.symbols.clone();
@@ -615,23 +601,18 @@ pub async fn debug_set_source_breakpoint(
         let symbols = guard
             .as_ref()
             .ok_or_else(|| AppError::DebugError("未加载 ELF".to_string()))?;
-        symbols
-            .lookup_addr(&options.file, options.line)
-            .ok_or_else(|| {
-                AppError::DebugError(format!(
-                    "DWARF 行表中找不到 {}:{} 对应的指令地址（可能此行不是语句开头或被优化）",
-                    options.file, options.line
-                ))
-            })?
+        symbols.lookup_addr(&options.file, options.line).ok_or_else(|| {
+            AppError::DebugError(format!(
+                "DWARF 行表中找不到 {}:{} 对应的指令地址（可能此行不是语句开头或被优化）",
+                options.file, options.line
+            ))
+        })?
     };
     register_breakpoint(&state, address, Some((options.file, options.line)))
 }
 
 #[tauri::command]
-pub async fn debug_clear_breakpoint(
-    options: DebugBreakpointOptions,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
+pub async fn debug_clear_breakpoint(options: DebugBreakpointOptions, state: State<'_, AppState>) -> AppResult<()> {
     {
         let mut session_guard = state.debug_session.lock();
         let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
@@ -686,8 +667,7 @@ pub async fn debug_read_source(path: String) -> AppResult<DebugReadSourceResult>
     if !p.exists() {
         return Err(AppError::DebugError(format!("源文件不存在: {}", path)));
     }
-    let metadata = std::fs::metadata(p)
-        .map_err(|e| AppError::DebugError(format!("无法读取源文件元数据: {}", e)))?;
+    let metadata = std::fs::metadata(p).map_err(|e| AppError::DebugError(format!("无法读取源文件元数据: {}", e)))?;
     if metadata.len() > MAX_SOURCE_SIZE {
         return Err(AppError::DebugError(format!(
             "源文件过大 ({} 字节)，超过 4MB 上限",
@@ -695,8 +675,7 @@ pub async fn debug_read_source(path: String) -> AppResult<DebugReadSourceResult>
         )));
     }
 
-    let content =
-        std::fs::read_to_string(p).map_err(|e| AppError::DebugError(format!("读源文件失败: {}", e)))?;
+    let content = std::fs::read_to_string(p).map_err(|e| AppError::DebugError(format!("读源文件失败: {}", e)))?;
     Ok(DebugReadSourceResult { path, content })
 }
 

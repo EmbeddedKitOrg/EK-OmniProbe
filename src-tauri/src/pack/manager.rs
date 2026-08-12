@@ -18,9 +18,7 @@ pub fn validate_pack_name(name: &str) -> AppResult<()> {
     }
     let forbidden = ['/', '\\', '\0', ':', '*', '?', '"', '<', '>', '|'];
     if name.chars().any(|c| forbidden.contains(&c) || c.is_control()) {
-        return Err(AppError::InvalidInput(
-            "Pack 名称包含路径分隔符或保留字符".into(),
-        ));
+        return Err(AppError::InvalidInput("Pack 名称包含路径分隔符或保留字符".into()));
     }
     Ok(())
 }
@@ -32,18 +30,14 @@ fn safe_zip_extract_path(base: &Path, entry_name: &str) -> AppResult<PathBuf> {
     }
     let entry_path = Path::new(entry_name);
     if entry_path.is_absolute() {
-        return Err(AppError::PackError(format!(
-            "zip 条目使用了绝对路径: {entry_name}"
-        )));
+        return Err(AppError::PackError(format!("zip 条目使用了绝对路径: {entry_name}")));
     }
     // 仅允许 Normal 组件（拒绝 ParentDir/CurDir/Prefix/RootDir）
     for component in entry_path.components() {
         match component {
             Component::Normal(_) => {}
             _ => {
-                return Err(AppError::PackError(format!(
-                    "zip 条目包含非法路径成分: {entry_name}"
-                )));
+                return Err(AppError::PackError(format!("zip 条目包含非法路径成分: {entry_name}")));
             }
         }
     }
@@ -156,16 +150,13 @@ impl PackManager {
         log::info!("🔄 开始导入 Pack: {:?}", pack_path);
 
         let file = fs::File::open(pack_path)?;
-        let mut archive = ZipArchive::new(file)
-            .map_err(|e| AppError::PackError(format!("无法打开Pack文件: {}", e)))?;
+        let mut archive = ZipArchive::new(file).map_err(|e| AppError::PackError(format!("无法打开Pack文件: {}", e)))?;
 
         // 查找.pdsc文件
         let mut pdsc_content = String::new();
 
         for i in 0..archive.len() {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| AppError::PackError(e.to_string()))?;
+            let mut file = archive.by_index(i).map_err(|e| AppError::PackError(e.to_string()))?;
 
             if file.name().ends_with(".pdsc") {
                 log::info!("📄 找到 PDSC 文件: {}", file.name());
@@ -193,13 +184,10 @@ impl PackManager {
         // 解压Pack
         log::info!("📦 开始解压 Pack 文件...");
         let file = fs::File::open(pack_path)?;
-        let mut archive = ZipArchive::new(file)
-            .map_err(|e| AppError::PackError(format!("无法打开Pack文件: {}", e)))?;
+        let mut archive = ZipArchive::new(file).map_err(|e| AppError::PackError(format!("无法打开Pack文件: {}", e)))?;
 
         for i in 0..archive.len() {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| AppError::PackError(e.to_string()))?;
+            let mut file = archive.by_index(i).map_err(|e| AppError::PackError(e.to_string()))?;
 
             // Zip Slip 防御：拒绝绝对路径、`..`、符号链接
             const SYMLINK_MODE: u32 = 0o120000;

@@ -1,10 +1,13 @@
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
-use probe_rs::flashing::{download_file_with_options, erase_all, FlashProgress, ProgressEvent, ProgressOperation, Format, DownloadOptions, BinOptions, ElfOptions};
+use parking_lot::Mutex;
+use probe_rs::flashing::{
+    download_file_with_options, erase_all, BinOptions, DownloadOptions, ElfOptions, FlashProgress, Format,
+    ProgressEvent, ProgressOperation,
+};
 use probe_rs::MemoryInterface;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use parking_lot::Mutex;
 use std::sync::Arc;
 use tauri::{Emitter, State, Window};
 
@@ -42,13 +45,12 @@ impl ProgressState {
     }
 }
 
-
 /// 擦除模式
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum EraseMode {
     #[default]
-    ChipErase,    // 整片擦除
-    SectorErase,  // 扇区擦除
+    ChipErase, // 整片擦除
+    SectorErase, // 扇区擦除
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,15 +80,9 @@ pub struct FlashProgressEvent {
 }
 
 #[tauri::command]
-pub async fn flash_firmware(
-    options: FlashOptions,
-    state: State<'_, AppState>,
-    window: Window,
-) -> AppResult<()> {
+pub async fn flash_firmware(options: FlashOptions, state: State<'_, AppState>, window: Window) -> AppResult<()> {
     let mut session_guard = state.session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
 
     let path = Path::new(&options.file_path);
     if !path.exists() {
@@ -116,7 +112,10 @@ pub async fn flash_firmware(
                 options.custom_flash_address.unwrap_or(0x08000000)
             } else {
                 // 自动从目标内存映射获取Flash起始地址
-                session.target().memory_map.iter()
+                session
+                    .target()
+                    .memory_map
+                    .iter()
                     .find_map(|region| {
                         if let probe_rs::config::MemoryRegion::Nvm(r) = region {
                             Some(r.range.start)
@@ -127,7 +126,10 @@ pub async fn flash_firmware(
                     .unwrap_or(0x08000000)
             };
             log::info!("BIN 基地址: 0x{:08X}", base_address);
-            Format::Bin(BinOptions { base_address: Some(base_address), skip: 0 })
+            Format::Bin(BinOptions {
+                base_address: Some(base_address),
+                skip: 0,
+            })
         }
         // ELF 格式 (包括 AXF - ARM eXecutable Format)
         Some("elf") | Some("axf") | Some("out") => {
@@ -157,7 +159,7 @@ pub async fn flash_firmware(
         }
     }
     download_options.verify = options.verify;
-    download_options.preverify = options.preverify;  // 预校验：跳过已正确的块
+    download_options.preverify = options.preverify; // 预校验：跳过已正确的块
 
     // 创建并设置进度回调
     let progress_state = Arc::new(Mutex::new(ProgressState::new()));
@@ -168,79 +170,60 @@ pub async fn flash_firmware(
         let mut state = progress_state_clone.lock();
 
         let (phase, message) = match event {
-            ProgressEvent::FlashLayoutReady { .. } => {
-                ("init".to_string(), "Flash布局准备完成".to_string())
-            }
-            ProgressEvent::AddProgressBar { operation, total } => {
-                match operation {
-                    ProgressOperation::Erase => {
-                        state.erase_total = total.unwrap_or(0);
-                        ("init".to_string(), format!("准备擦除 {} 字节", state.erase_total))
-                    }
-                    ProgressOperation::Program => {
-                        state.program_total = total.unwrap_or(0);
-                        ("init".to_string(), format!("准备编程 {} 字节", state.program_total))
-                    }
-                    ProgressOperation::Fill => {
-                        ("init".to_string(), "准备填充数据".to_string())
-                    }
-                    ProgressOperation::Verify => {
-                        ("init".to_string(), "准备校验".to_string())
-                    }
+            ProgressEvent::FlashLayoutReady { .. } => ("init".to_string(), "Flash布局准备完成".to_string()),
+            ProgressEvent::AddProgressBar { operation, total } => match operation {
+                ProgressOperation::Erase => {
+                    state.erase_total = total.unwrap_or(0);
+                    ("init".to_string(), format!("准备擦除 {} 字节", state.erase_total))
                 }
-            }
-            ProgressEvent::Started(operation) => {
-                match operation {
-                    ProgressOperation::Fill => ("fill".to_string(), "开始填充数据".to_string()),
-                    ProgressOperation::Erase => {
-                        state.erase_current = 0;
-                        ("erase".to_string(), "开始擦除".to_string())
-                    }
-                    ProgressOperation::Program => {
-                        state.program_current = 0;
-                        ("program".to_string(), "开始编程".to_string())
-                    }
-                    ProgressOperation::Verify => ("verify".to_string(), "开始校验".to_string()),
+                ProgressOperation::Program => {
+                    state.program_total = total.unwrap_or(0);
+                    ("init".to_string(), format!("准备编程 {} 字节", state.program_total))
                 }
-            }
-            ProgressEvent::Progress { operation, size, .. } => {
-                match operation {
-                    ProgressOperation::Fill => {
-                        ("fill".to_string(), format!("已填充 {} 字节", size))
-                    }
-                    ProgressOperation::Erase => {
-                        state.erase_current += size;
-                        state.erase_total = state.erase_current.max(state.erase_total);
-                        ("erase".to_string(), format!("已擦除 {} 字节", state.erase_current))
-                    }
-                    ProgressOperation::Program => {
-                        state.program_current += size;
-                        ("program".to_string(), format!("已编程 {}/{} 字节", state.program_current, state.program_total))
-                    }
-                    ProgressOperation::Verify => {
-                        ("verify".to_string(), format!("已校验 {} 字节", size))
-                    }
+                ProgressOperation::Fill => ("init".to_string(), "准备填充数据".to_string()),
+                ProgressOperation::Verify => ("init".to_string(), "准备校验".to_string()),
+            },
+            ProgressEvent::Started(operation) => match operation {
+                ProgressOperation::Fill => ("fill".to_string(), "开始填充数据".to_string()),
+                ProgressOperation::Erase => {
+                    state.erase_current = 0;
+                    ("erase".to_string(), "开始擦除".to_string())
                 }
-            }
-            ProgressEvent::Failed(operation) => {
-                match operation {
-                    ProgressOperation::Fill => ("fill".to_string(), "填充失败".to_string()),
-                    ProgressOperation::Erase => ("erase".to_string(), "擦除失败".to_string()),
-                    ProgressOperation::Program => ("program".to_string(), "编程失败".to_string()),
-                    ProgressOperation::Verify => ("verify".to_string(), "校验失败".to_string()),
+                ProgressOperation::Program => {
+                    state.program_current = 0;
+                    ("program".to_string(), "开始编程".to_string())
                 }
-            }
-            ProgressEvent::Finished(operation) => {
-                match operation {
-                    ProgressOperation::Fill => ("fill".to_string(), "填充完成".to_string()),
-                    ProgressOperation::Erase => ("erase".to_string(), "擦除完成".to_string()),
-                    ProgressOperation::Program => ("program".to_string(), "编程完成".to_string()),
-                    ProgressOperation::Verify => ("verify".to_string(), "校验完成".to_string()),
+                ProgressOperation::Verify => ("verify".to_string(), "开始校验".to_string()),
+            },
+            ProgressEvent::Progress { operation, size, .. } => match operation {
+                ProgressOperation::Fill => ("fill".to_string(), format!("已填充 {} 字节", size)),
+                ProgressOperation::Erase => {
+                    state.erase_current += size;
+                    state.erase_total = state.erase_current.max(state.erase_total);
+                    ("erase".to_string(), format!("已擦除 {} 字节", state.erase_current))
                 }
-            }
-            ProgressEvent::DiagnosticMessage { message } => {
-                ("info".to_string(), message)
-            }
+                ProgressOperation::Program => {
+                    state.program_current += size;
+                    (
+                        "program".to_string(),
+                        format!("已编程 {}/{} 字节", state.program_current, state.program_total),
+                    )
+                }
+                ProgressOperation::Verify => ("verify".to_string(), format!("已校验 {} 字节", size)),
+            },
+            ProgressEvent::Failed(operation) => match operation {
+                ProgressOperation::Fill => ("fill".to_string(), "填充失败".to_string()),
+                ProgressOperation::Erase => ("erase".to_string(), "擦除失败".to_string()),
+                ProgressOperation::Program => ("program".to_string(), "编程失败".to_string()),
+                ProgressOperation::Verify => ("verify".to_string(), "校验失败".to_string()),
+            },
+            ProgressEvent::Finished(operation) => match operation {
+                ProgressOperation::Fill => ("fill".to_string(), "填充完成".to_string()),
+                ProgressOperation::Erase => ("erase".to_string(), "擦除完成".to_string()),
+                ProgressOperation::Program => ("program".to_string(), "编程完成".to_string()),
+                ProgressOperation::Verify => ("verify".to_string(), "校验完成".to_string()),
+            },
+            ProgressEvent::DiagnosticMessage { message } => ("info".to_string(), message),
         };
 
         let progress = state.calculate_progress();
@@ -258,16 +241,15 @@ pub async fn flash_firmware(
     download_options.progress = progress_callback;
 
     // 执行下载
-    download_file_with_options(session, path, format, download_options)
-        .map_err(|e| {
-            // 输出详细的错误信息用于调试
-            log::error!("Flash 错误详情: {:?}", e);
-            log::error!("Flash 错误类型: {}", std::any::type_name_of_val(&e));
+    download_file_with_options(session, path, format, download_options).map_err(|e| {
+        // 输出详细的错误信息用于调试
+        log::error!("Flash 错误详情: {:?}", e);
+        log::error!("Flash 错误类型: {}", std::any::type_name_of_val(&e));
 
-            // 构建更详细的错误消息
-            let error_msg = format!("{:#}", e);
-            AppError::FlashError(error_msg)
-        })?;
+        // 构建更详细的错误消息
+        let error_msg = format!("{:#}", e);
+        AppError::FlashError(error_msg)
+    })?;
 
     // 烧录完成，发送 95% 进度
     let _ = window.emit(
@@ -318,9 +300,7 @@ pub async fn erase_chip(
     window: Window,
 ) -> AppResult<()> {
     let mut session_guard = state.session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
 
     let erase_mode = options.map(|o| o.erase_mode).unwrap_or(EraseMode::ChipErase);
 
@@ -358,7 +338,10 @@ pub async fn erase_chip(
             );
 
             // 获取所有 Flash 区域并逐个扇区擦除
-            let flash_regions: Vec<_> = session.target().memory_map.iter()
+            let flash_regions: Vec<_> = session
+                .target()
+                .memory_map
+                .iter()
                 .filter_map(|region| {
                     if let probe_rs::config::MemoryRegion::Nvm(r) = region {
                         Some((r.range.start, r.range.end - r.range.start))
@@ -374,14 +357,16 @@ pub async fn erase_chip(
 
                 // 添加 0xFF 数据来触发扇区擦除
                 let erase_data = vec![0xFFu8; size as usize];
-                loader.add_data(address, &erase_data)
+                loader
+                    .add_data(address, &erase_data)
                     .map_err(|e| AppError::FlashError(e.to_string()))?;
 
                 let mut download_options = DownloadOptions::default();
                 download_options.do_chip_erase = false; // 使用扇区擦除
                 download_options.skip_erase = false;
 
-                loader.commit(session, download_options)
+                loader
+                    .commit(session, download_options)
                     .map_err(|e| AppError::FlashError(e.to_string()))?;
             }
 
@@ -406,10 +391,7 @@ pub struct EraseSectorOptions {
 }
 
 #[tauri::command]
-pub async fn erase_sector(
-    options: EraseSectorOptions,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
+pub async fn erase_sector(options: EraseSectorOptions, state: State<'_, AppState>) -> AppResult<()> {
     // 64MB 上限校验，防止 OOM
     const MAX_ERASE_SIZE: u64 = 64 * 1024 * 1024;
     if options.size > MAX_ERASE_SIZE {
@@ -420,58 +402,49 @@ pub async fn erase_sector(
     }
 
     let mut session_guard = state.session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
 
     // 使用 probe-rs 的扇区擦除功能
-    let mut loader = session
-        .target()
-        .flash_loader();
+    let mut loader = session.target().flash_loader();
 
     // 添加要擦除的区域
-    loader.add_data(options.address, &vec![0xFF; options.size as usize])
+    loader
+        .add_data(options.address, &vec![0xFF; options.size as usize])
         .map_err(|e| AppError::FlashError(e.to_string()))?;
 
     // 执行擦除
-    loader.commit(session, DownloadOptions::default())
+    loader
+        .commit(session, DownloadOptions::default())
         .map_err(|e| AppError::FlashError(e.to_string()))?;
 
     Ok(())
 }
 
 #[tauri::command]
-pub async fn verify_firmware(
-    file_path: String,
-    state: State<'_, AppState>,
-    window: Window,
-) -> AppResult<bool> {
+pub async fn verify_firmware(file_path: String, state: State<'_, AppState>, window: Window) -> AppResult<bool> {
     // 检测文件格式，只支持 BIN 格式
     {
         use std::io::Read as IoRead;
         let mut header = [0u8; 4];
-        let mut f = std::fs::File::open(&file_path)
-            .map_err(|e| AppError::FileError(e.to_string()))?;
+        let mut f = std::fs::File::open(&file_path).map_err(|e| AppError::FileError(e.to_string()))?;
         let _ = f.read(&mut header);
 
         // ELF 魔数: 0x7F 'E' 'L' 'F'
         if header == [0x7F, 0x45, 0x4C, 0x46] {
             return Err(AppError::InvalidInput(
-                "检测到 ELF 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string()
+                "检测到 ELF 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string(),
             ));
         }
         // Intel HEX 以 ':' 开头
         if header[0] == b':' {
             return Err(AppError::InvalidInput(
-                "检测到 Intel HEX 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string()
+                "检测到 Intel HEX 格式文件，verify_firmware 仅支持 BIN 格式，请先将固件转换为 BIN 文件。".to_string(),
             ));
         }
     }
 
     let mut session_guard = state.session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
 
     let path = Path::new(&file_path);
     if !path.exists() {
@@ -493,7 +466,9 @@ pub async fn verify_firmware(
 
     // 获取Flash起始地址（假设是主Flash区域）
     let target = session.target();
-    let flash_start = target.memory_map.iter()
+    let flash_start = target
+        .memory_map
+        .iter()
         .find_map(|region| {
             if let probe_rs::config::MemoryRegion::Nvm(r) = region {
                 Some(r.range.start)
@@ -566,10 +541,7 @@ pub struct ReadFlashOptions {
 }
 
 #[tauri::command]
-pub async fn read_flash(
-    options: ReadFlashOptions,
-    state: State<'_, AppState>,
-) -> AppResult<Vec<u8>> {
+pub async fn read_flash(options: ReadFlashOptions, state: State<'_, AppState>) -> AppResult<Vec<u8>> {
     const MAX_FLASH_READ_SIZE: u64 = 64 * 1024 * 1024;
     if options.size > MAX_FLASH_READ_SIZE {
         return Err(AppError::InvalidInput(format!(
@@ -579,9 +551,7 @@ pub async fn read_flash(
     }
 
     let mut session_guard = state.session.lock();
-    let session = session_guard
-        .as_mut()
-        .ok_or(AppError::NotConnected)?;
+    let session = session_guard.as_mut().ok_or(AppError::NotConnected)?;
 
     let mut core = session.core(0).map_err(|e| AppError::FlashError(e.to_string()))?;
 
@@ -597,7 +567,7 @@ pub async fn read_flash(
 pub struct FirmwareFileInfo {
     pub path: String,
     pub size: u64,
-    pub modified: Option<u64>,  // Unix timestamp in seconds
+    pub modified: Option<u64>, // Unix timestamp in seconds
     pub exists: bool,
 }
 
@@ -617,7 +587,8 @@ pub async fn get_firmware_info(file_path: String) -> AppResult<FirmwareFileInfo>
 
     let metadata = std::fs::metadata(path)?;
     let size = metadata.len();
-    let modified = metadata.modified()
+    let modified = metadata
+        .modified()
         .ok()
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs());

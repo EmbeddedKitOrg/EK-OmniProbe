@@ -11,8 +11,8 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::ble::{
-    ensure_adapter, BleCharacteristic, BleCharacteristicProperties, BleDeviceInfo, BleService,
-    NusAutoConfig, NUS_RX_CHAR_UUID, NUS_SERVICE_UUID, NUS_TX_CHAR_UUID,
+    ensure_adapter, BleCharacteristic, BleCharacteristicProperties, BleDeviceInfo, BleService, NusAutoConfig,
+    NUS_RX_CHAR_UUID, NUS_SERVICE_UUID, NUS_TX_CHAR_UUID,
 };
 use crate::state::AppState;
 
@@ -44,10 +44,7 @@ struct BleStatusEvent {
 // ============================================================================
 
 #[tauri::command]
-pub async fn ble_start_scan(
-    timeout_ms: Option<u64>,
-    state: State<'_, AppState>,
-) -> Result<Vec<BleDeviceInfo>, String> {
+pub async fn ble_start_scan(timeout_ms: Option<u64>, state: State<'_, AppState>) -> Result<Vec<BleDeviceInfo>, String> {
     let ble = state.ble_state.clone();
     let adapter = ensure_adapter(&ble).await?;
 
@@ -155,10 +152,7 @@ pub async fn ble_connect(
             .ok_or_else(|| format!("未找到设备: {}", device_id))?,
     };
 
-    peripheral
-        .connect()
-        .await
-        .map_err(|e| format!("连接失败: {}", e))?;
+    peripheral.connect().await.map_err(|e| format!("连接失败: {}", e))?;
     peripheral
         .discover_services()
         .await
@@ -241,9 +235,7 @@ pub async fn ble_list_services(state: State<'_, AppState>) -> Result<Vec<BleServ
                 properties: BleCharacteristicProperties {
                     read: ch.properties.contains(CharPropFlags::READ),
                     write: ch.properties.contains(CharPropFlags::WRITE),
-                    write_without_response: ch
-                        .properties
-                        .contains(CharPropFlags::WRITE_WITHOUT_RESPONSE),
+                    write_without_response: ch.properties.contains(CharPropFlags::WRITE_WITHOUT_RESPONSE),
                     notify: ch.properties.contains(CharPropFlags::NOTIFY),
                     indicate: ch.properties.contains(CharPropFlags::INDICATE),
                 },
@@ -274,8 +266,7 @@ pub async fn ble_detect_nus(state: State<'_, AppState>) -> Result<Option<NusAuto
         let mut write_uuid: Option<String> = None;
         for c in &s.characteristics {
             if c.uuid == NUS_TX_CHAR_UUID
-                && (c.properties.contains(CharPropFlags::NOTIFY)
-                    || c.properties.contains(CharPropFlags::INDICATE))
+                && (c.properties.contains(CharPropFlags::NOTIFY) || c.properties.contains(CharPropFlags::INDICATE))
             {
                 notify_uuid = Some(c.uuid.to_string());
             }
@@ -320,11 +311,7 @@ async fn stop_notify(ble: &crate::ble::SharedBleState) {
 }
 
 #[tauri::command]
-pub async fn ble_subscribe(
-    char_uuid: String,
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn ble_subscribe(char_uuid: String, app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let ble = state.ble_state.clone();
     let target_uuid = Uuid::parse_str(&char_uuid).map_err(|e| format!("无效 UUID: {}", e))?;
 
@@ -461,10 +448,7 @@ pub async fn ble_unsubscribe(state: State<'_, AppState>) -> Result<(), String> {
 // 写入
 // ============================================================================
 
-fn pick_write_type(
-    char_props: CharPropFlags,
-    with_response: Option<bool>,
-) -> Result<WriteType, String> {
+fn pick_write_type(char_props: CharPropFlags, with_response: Option<bool>) -> Result<WriteType, String> {
     match with_response {
         Some(true) => Ok(WriteType::WithResponse),
         Some(false) => Ok(WriteType::WithoutResponse),

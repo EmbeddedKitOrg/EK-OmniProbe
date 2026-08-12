@@ -15,8 +15,7 @@ pub struct AppConfig {
 
 /// 获取配置文件路径
 fn get_config_file_path() -> Option<PathBuf> {
-    ProjectDirs::from("com", "zuolan", "daplink")
-        .map(|proj_dirs| proj_dirs.config_dir().join("config.json"))
+    ProjectDirs::from("com", "zuolan", "daplink").map(|proj_dirs| proj_dirs.config_dir().join("config.json"))
 }
 
 /// 加载应用配置
@@ -54,11 +53,12 @@ pub fn load_config() -> AppConfig {
 
 /// 保存应用配置
 pub fn save_config(config: &AppConfig) -> AppResult<()> {
-    let config_path = get_config_file_path()
-        .ok_or_else(|| AppError::IoError(std::io::Error::new(
+    let config_path = get_config_file_path().ok_or_else(|| {
+        AppError::IoError(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "无法获取配置文件路径"
-        )))?;
+            "无法获取配置文件路径",
+        ))
+    })?;
 
     // 确保配置目录存在
     if let Some(parent) = config_path.parent() {

@@ -69,31 +69,20 @@ impl DataSource for UdpSerial {
     }
 
     fn write(&mut self, data: &[u8]) -> Result<usize, String> {
-        let socket = self
-            .socket
-            .as_ref()
-            .ok_or_else(|| "UDP 数据源未连接".to_string())?;
-        let written = socket
-            .send(data)
-            .map_err(|e| format!("UDP 发送失败: {e}"))?;
+        let socket = self.socket.as_ref().ok_or_else(|| "UDP 数据源未连接".to_string())?;
+        let written = socket.send(data).map_err(|e| format!("UDP 发送失败: {e}"))?;
         self.stats.bytes_sent += written as u64;
         Ok(written)
     }
 
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, String> {
-        let socket = self
-            .socket
-            .as_ref()
-            .ok_or_else(|| "UDP 数据源未连接".to_string())?;
+        let socket = self.socket.as_ref().ok_or_else(|| "UDP 数据源未连接".to_string())?;
         match socket.recv(buf) {
             Ok(n) => {
                 self.stats.bytes_received += n as u64;
                 Ok(n)
             }
-            Err(ref e)
-                if e.kind() == std::io::ErrorKind::WouldBlock
-                    || e.kind() == std::io::ErrorKind::TimedOut =>
-            {
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
                 Ok(0)
             }
             Err(e) => Err(format!("UDP 接收失败: {e}")),
@@ -129,12 +118,7 @@ mod tests {
         let peer = UdpSocket::bind("127.0.0.1:0").unwrap();
         peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
         let peer_addr = peer.local_addr().unwrap();
-        let mut source = UdpSerial::new(
-            "127.0.0.1".into(),
-            0,
-            peer_addr.ip().to_string(),
-            peer_addr.port(),
-        );
+        let mut source = UdpSerial::new("127.0.0.1".into(), 0, peer_addr.ip().to_string(), peer_addr.port());
 
         source.connect().unwrap();
         source.write(b"ping").unwrap();

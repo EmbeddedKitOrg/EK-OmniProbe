@@ -272,9 +272,7 @@ fn build_line_index(obj: &object::File<'_>) -> Option<HashMap<(String, u32), u64
 }
 
 /// 把一个 gimli reader 里的 DWARF 字符串解码成 `String`，UTF-8 损坏时用 lossy 兜底
-fn reader_to_string(
-    reader: &gimli::EndianRcSlice<gimli::RunTimeEndian>,
-) -> Option<String> {
+fn reader_to_string(reader: &gimli::EndianRcSlice<gimli::RunTimeEndian>) -> Option<String> {
     use gimli::Reader;
     let slice = reader.to_slice().ok()?;
     Some(String::from_utf8_lossy(&slice).into_owned())
@@ -283,8 +281,7 @@ fn reader_to_string(
 fn build_full_path(comp_dir: Option<&str>, dir: Option<&str>, name: &str) -> String {
     let is_absolute = |p: &str| {
         let bytes = p.as_bytes();
-        matches!(bytes.first(), Some(b'/') | Some(b'\\'))
-            || (bytes.len() >= 2 && bytes[1] == b':')
+        matches!(bytes.first(), Some(b'/') | Some(b'\\')) || (bytes.len() >= 2 && bytes[1] == b':')
     };
 
     let mut pb = PathBuf::new();

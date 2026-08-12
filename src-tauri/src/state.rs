@@ -167,11 +167,7 @@ impl SerialState {
     }
 
     pub fn get_stats(&self) -> SerialStats {
-        self.datasource
-            .lock()
-            .as_ref()
-            .map(|ds| ds.stats())
-            .unwrap_or_default()
+        self.datasource.lock().as_ref().map(|ds| ds.stats()).unwrap_or_default()
     }
 
     pub fn reset(&self) {
@@ -187,9 +183,9 @@ impl SerialState {
 // ============================================================================
 
 pub struct AppState {
-    pub session: Arc<Mutex<Option<Session>>>,           // 主连接（用于烧录）
-    pub rtt_session: Arc<Mutex<Option<Session>>>,       // RTT 独立连接
-    pub debug_session: Arc<Mutex<Option<Session>>>,     // 调试独立连接
+    pub session: Arc<Mutex<Option<Session>>>,            // 主连接（用于烧录）
+    pub rtt_session: Arc<Mutex<Option<Session>>>,        // RTT 独立连接
+    pub debug_session: Arc<Mutex<Option<Session>>>,      // 调试独立连接
     pub debug_symbols: Arc<Mutex<Option<DebugSymbols>>>, // 当前加载的 ELF/DWARF 缓存
     pub debug_breakpoints: Arc<Mutex<Vec<DebugBreakpointEntry>>>, // 已注册的硬断点
     pub connection_info: Arc<Mutex<Option<ConnectionInfo>>>,
@@ -197,7 +193,7 @@ pub struct AppState {
     pub debug_connection_info: Arc<Mutex<Option<ConnectionInfo>>>, // 调试连接信息
     pub settings: Arc<Mutex<DeviceSettings>>,
     pub rtt_state: Arc<RttState>,
-    pub serial_state: Arc<SerialState>,  // Serial port state
+    pub serial_state: Arc<SerialState>, // Serial port state
     pub ai_bridge_state: Arc<crate::ai_bridge::AiBridgeState>,
     pub ble_state: crate::ble::SharedBleState, // BLE 蓝牙状态
 }
@@ -243,11 +239,11 @@ pub struct DebugBreakpointEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionInfo {
     pub probe_name: String,
-    pub probe_serial: Option<String>,  // 新增：DAP探针序列号
+    pub probe_serial: Option<String>, // 新增：DAP探针序列号
     pub target_name: String,
     pub core_type: String,
-    pub chip_id: Option<u32>,          // 芯片DBGMCU_IDCODE
-    pub target_idcode: Option<u32>,    // 新增：目标芯片的真实IDCODE（通过SWD读取）
+    pub chip_id: Option<u32>,       // 芯片DBGMCU_IDCODE
+    pub target_idcode: Option<u32>, // 新增：目标芯片的真实IDCODE（通过SWD读取）
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

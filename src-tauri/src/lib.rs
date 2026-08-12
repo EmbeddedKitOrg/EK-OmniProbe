@@ -9,9 +9,7 @@ pub mod serial;
 pub mod state;
 pub mod udev;
 
-use commands::{
-    ble as ble_cmd, config, debug as debug_cmd, export, flash, probe, rtt, serial as serial_cmd,
-};
+use commands::{ble as ble_cmd, config, debug as debug_cmd, export, flash, probe, rtt, serial as serial_cmd};
 use futures::StreamExt;
 use state::AppState;
 use tauri::{Emitter, Manager};
