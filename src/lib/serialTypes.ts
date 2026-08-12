@@ -220,6 +220,8 @@ export interface SerialFileTransferResult {
 export type RxFramingMode = "auto" | "lf" | "crlf" | "cr" | "timeout" | "custom";
 
 export interface RxFramingSettings {
+  /** 接收文本编码；HEX 显示不受此项影响 */
+  encoding: Encoding;
   mode: RxFramingMode;
   /** 超时分帧的空闲毫秒数（timeout 模式生效） */
   idleMs: number;
@@ -230,6 +232,7 @@ export interface RxFramingSettings {
 }
 
 export const DEFAULT_RX_FRAMING: RxFramingSettings = {
+  encoding: "utf-8",
   mode: "auto",
   idleMs: 50,
   customDelimiter: "",

@@ -3,7 +3,7 @@ import type { Channel, TelemetryConfig } from "./chartTypes";
 import { TextFrameStream } from "./dataFraming";
 import { getChartParser } from "./parseChartData";
 import type { TelemetryBatch } from "./telemetry";
-import type { RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
+import type { Encoding, RxFramingSettings, SerialDataEvent, SerialLine } from "./serialTypes";
 
 export interface SerialReceivePipelineConfig {
   framing: RxFramingSettings;
@@ -38,7 +38,8 @@ export function mergeSerialReceiveResults(results: SerialReceiveResult[]): Seria
 
 export class SerialReceivePipeline {
   private textFrames = new TextFrameStream();
-  private terminalDecoder = new TextDecoder();
+  private encoding: Encoding = "utf-8";
+  private terminalDecoder = new TextDecoder(this.encoding);
   private parseDispatcher = new TelemetryParseDispatcher();
 
   ingest(event: SerialDataEvent, config: SerialReceivePipelineConfig): SerialReceiveResult {
@@ -48,6 +49,12 @@ export class SerialReceivePipeline {
     let bytesReceived = 0;
     let detectedChannels: Channel[] | undefined;
     let chartConfig = config.chartConfig;
+
+    const encoding = config.framing.encoding ?? "utf-8";
+    if (encoding !== this.encoding) {
+      this.encoding = encoding;
+      this.terminalDecoder = new TextDecoder(encoding);
+    }
 
     const usesBytesParser = this.parseDispatcher.usesBytesParser(chartConfig);
 
@@ -86,6 +93,12 @@ export class SerialReceivePipeline {
   }
 
   flushPending(config: SerialReceivePipelineConfig, timestamp = Date.now()): SerialReceiveResult {
+    const encoding = config.framing.encoding ?? "utf-8";
+    if (encoding !== this.encoding) {
+      this.encoding = encoding;
+      this.terminalDecoder = new TextDecoder(encoding);
+      this.textFrames.reset();
+    }
     const lines = this.textFrames.flush(timestamp);
     if (lines.length === 0) {
       return { terminalText: "", lines: [], telemetryBatch: { points: [], success: 0, fail: 0 }, bytesReceived: 0 };
@@ -109,7 +122,8 @@ export class SerialReceivePipeline {
 
   reset(): void {
     this.textFrames.reset();
-    this.terminalDecoder = new TextDecoder();
+    this.encoding = "utf-8";
+    this.terminalDecoder = new TextDecoder(this.encoding);
     this.parseDispatcher.reset();
   }
 }

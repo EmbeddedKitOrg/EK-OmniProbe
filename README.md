@@ -225,7 +225,7 @@ flowchart TB
 - 固件：ELF、HEX、BIN、AXF、OUT、IHEX
 - 离线日志：UTF-8 编码的 LOG、TXT
 - 串口数据源：本地串口、TCP、双向 UDP、模拟数据
-- 文本显示：UTF-8、ASCII、文本 / HEX、ANSI 颜色
+- 串口文本收发：UTF-8、ASCII、GBK、文本 / HEX、ANSI 颜色
 - 图表解析：单值、CSV、JSON、KV、XY、JustFloat
 
 ## 用户文档

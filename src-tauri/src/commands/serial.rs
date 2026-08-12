@@ -152,6 +152,38 @@ pub async fn write_serial(data: Vec<u8>, state: State<'_, AppState>) -> Result<u
 }
 
 /// Write string to serial port with optional encoding and line ending
+fn encode_serial_text(text: String, encoding: &str, line_ending: &str) -> Vec<u8> {
+    let text = match line_ending {
+        "lf" => format!("{}\n", text),
+        "crlf" => format!("{}\r\n", text),
+        "cr" => format!("{}\r", text),
+        _ => text,
+    };
+
+    match encoding.to_lowercase().as_str() {
+        "utf-8" | "utf8" => text.into_bytes(),
+        "ascii" => text
+            .chars()
+            .map(|character| if character.is_ascii() { character as u8 } else { b'?' })
+            .collect(),
+        "gbk" | "gb2312" => encoding_rs::GBK.encode(&text).0.into_owned(),
+        _ => text.into_bytes(),
+    }
+}
+
+#[cfg(test)]
+mod text_encoding_tests {
+    use super::encode_serial_text;
+
+    #[test]
+    fn encodes_gbk_text_and_line_ending() {
+        assert_eq!(
+            encode_serial_text("中文".to_string(), "gbk", "lf"),
+            [0xd6, 0xd0, 0xce, 0xc4, 0x0a]
+        );
+    }
+}
+
 #[tauri::command]
 pub async fn write_serial_string(
     text: String,
@@ -162,24 +194,7 @@ pub async fn write_serial_string(
     if state.serial_state.is_file_transferring() {
         return Err("文件传输中，暂不能发送其他数据".to_string());
     }
-    // Apply line ending
-    let text_with_ending = match line_ending.as_str() {
-        "lf" => format!("{}\n", text),
-        "crlf" => format!("{}\r\n", text),
-        "cr" => format!("{}\r", text),
-        _ => text, // "none"
-    };
-
-    // Encode text to bytes
-    let data = match encoding.to_lowercase().as_str() {
-        "utf-8" | "utf8" => text_with_ending.as_bytes().to_vec(),
-        "ascii" => text_with_ending
-            .chars()
-            .map(|c| if c.is_ascii() { c as u8 } else { b'?' })
-            .collect(),
-        // For GBK/GB2312, we just use UTF-8 for now (could add encoding_rs crate for full support)
-        _ => text_with_ending.as_bytes().to_vec(),
-    };
+    let data = encode_serial_text(text, &encoding, &line_ending);
 
     // 克隆 Arc 以便在 spawn_blocking 中使用
     let serial_state = Arc::clone(&state.serial_state);

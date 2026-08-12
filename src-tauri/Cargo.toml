@@ -29,6 +29,7 @@ tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 parking_lot = "0.12"
 log = "0.4"
 env_logger = "0.11"
+encoding_rs = "0.8"
 zip = "2"
 directories = "5"
 hex = "0.4"

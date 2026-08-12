@@ -91,6 +91,20 @@ try {
   assert.equal(idle.telemetryBatch.fail, 1);
 
   pipeline.reset();
+  const gbkConfig = { ...jsonConfig, framing: { ...DEFAULT_RX_FRAMING, encoding: "gbk" } };
+  const gbkBytes = Uint8Array.from([0xd6, 0xd0, 0xce, 0xc4, 0x0a]);
+  const gbkFirst = pipeline.ingest(
+    { direction: "rx", chunks: [chunk(gbkBytes.slice(0, 1), 2300)] },
+    gbkConfig
+  );
+  const gbkSecond = pipeline.ingest(
+    { direction: "rx", chunks: [chunk(gbkBytes.slice(1), 2301)] },
+    gbkConfig
+  );
+  assert.equal(gbkFirst.terminalText + gbkSecond.terminalText, "中文\n");
+  assert.equal(gbkSecond.lines[0].text, "中文");
+
+  pipeline.reset();
   const idleJson = encoder.encode('{"signal":2.5}');
   pipeline.ingest({ direction: "rx", chunks: [chunk(idleJson, 3000)] }, jsonConfig);
   const idleJsonResult = pipeline.flushPending(jsonConfig, 3200);

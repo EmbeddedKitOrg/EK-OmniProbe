@@ -21,6 +21,7 @@ import {
   type SimulationWaveform,
   type SimulationXyPattern,
   type SerialLine,
+  type Encoding,
 } from "@/lib/serialTypes";
 import { createSimulationSample, startSerialSimulation, stopSerialSimulation } from "@/lib/serialSimulation";
 import { useShallow } from "zustand/react/shallow";
@@ -43,6 +44,8 @@ export function SerialSidebar() {
     udpConfig,
     simulationConfig,
     activeSourceType,
+    displayMode,
+    rxFraming,
     sendSettings,
     chartConfig,
     inspectorTab,
@@ -55,6 +58,8 @@ export function SerialSidebar() {
     setUdpConfig,
     setSimulationConfig,
     setActiveSourceType,
+    setDisplayMode,
+    setRxFraming,
     setSendSettings,
     setChartConfig,
     clearChartData,
@@ -70,6 +75,8 @@ export function SerialSidebar() {
       udpConfig: state.udpConfig,
       simulationConfig: state.simulationConfig,
       activeSourceType: state.activeSourceType,
+      displayMode: state.displayMode,
+      rxFraming: state.rxFraming,
       sendSettings: state.sendSettings,
       chartConfig: state.chartConfig,
       inspectorTab: state.inspectorTab,
@@ -82,6 +89,8 @@ export function SerialSidebar() {
       setUdpConfig: state.setUdpConfig,
       setSimulationConfig: state.setSimulationConfig,
       setActiveSourceType: state.setActiveSourceType,
+      setDisplayMode: state.setDisplayMode,
+      setRxFraming: state.setRxFraming,
       setSendSettings: state.setSendSettings,
       setChartConfig: state.setChartConfig,
       clearChartData: state.clearChartData,
@@ -800,16 +809,18 @@ export function SerialSidebar() {
           </Card>
         )}
 
-        {/* Send Settings */}
+        {/* Receive / Send Settings */}
         <Collapsible open={sendSettingsOpen} onOpenChange={setSendSettingsOpen}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="py-4 cursor-pointer hover:bg-accent/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm">发送设置</CardTitle>
+                    <CardTitle className="text-sm">收发设置</CardTitle>
                     <CardDescription className="mt-1 text-xs">
-                      {sendSettings.hexMode ? "Hex" : sendSettings.encoding} · {sendSettings.lineEnding.toUpperCase()}
+                      收 {displayMode === "hex" ? "HEX" : rxFraming.encoding.toUpperCase()} · 发{" "}
+                      {sendSettings.hexMode ? "HEX" : sendSettings.encoding.toUpperCase()} /{" "}
+                      {sendSettings.lineEnding.toUpperCase()}
                     </CardDescription>
                   </div>
                   {sendSettingsOpen ? (
@@ -821,14 +832,29 @@ export function SerialSidebar() {
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">编码</label>
+              <CardContent className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <div className="text-xs font-medium">接收</div>
+                  <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+                    {(["text", "hex"] as const).map((format) => (
+                      <Button
+                        key={format}
+                        type="button"
+                        size="sm"
+                        variant={displayMode === format ? "secondary" : "ghost"}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setDisplayMode(format)}
+                      >
+                        {format === "text" ? "文本" : "HEX"}
+                      </Button>
+                    ))}
+                  </div>
                   <Select
-                    value={sendSettings.encoding}
-                    onValueChange={(value) => setSendSettings({ encoding: value as "utf-8" | "ascii" | "gbk" })}
+                    value={rxFraming.encoding}
+                    disabled={displayMode === "hex"}
+                    onValueChange={(value) => setRxFraming({ encoding: value as Encoding })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -839,13 +865,45 @@ export function SerialSidebar() {
                   </Select>
                 </div>
 
-                <div>
-                  <label className="text-xs text-muted-foreground">换行符</label>
+                <div className="space-y-2">
+                  <div className="text-xs font-medium">发送</div>
+                  <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+                    {(["text", "hex"] as const).map((format) => (
+                      <Button
+                        key={format}
+                        type="button"
+                        size="sm"
+                        variant={(sendSettings.hexMode ? "hex" : "text") === format ? "secondary" : "ghost"}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setSendSettings({ hexMode: format === "hex" })}
+                      >
+                        {format === "text" ? "文本" : "HEX"}
+                      </Button>
+                    ))}
+                  </div>
+                  <Select
+                    value={sendSettings.encoding}
+                    disabled={sendSettings.hexMode}
+                    onValueChange={(value) => setSendSettings({ encoding: value as Encoding })}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="utf-8">UTF-8</SelectItem>
+                      <SelectItem value="ascii">ASCII</SelectItem>
+                      <SelectItem value="gbk">GBK</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-muted-foreground">发送换行符</label>
                   <Select
                     value={sendSettings.lineEnding}
+                    disabled={sendSettings.hexMode}
                     onValueChange={(value) => setSendSettings({ lineEnding: value as "none" | "lf" | "crlf" | "cr" })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="mt-1 h-8">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

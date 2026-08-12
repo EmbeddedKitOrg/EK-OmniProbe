@@ -1183,6 +1183,7 @@ dependencies = [
  "btleplug",
  "chrono",
  "directories",
+ "encoding_rs",
  "env_logger",
  "futures",
  "gimli 0.31.1",

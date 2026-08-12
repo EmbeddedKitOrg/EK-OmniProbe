@@ -1,5 +1,5 @@
 import type { RttLine } from "./types";
-import type { RxFramingSettings, SerialLine } from "./serialTypes";
+import type { Encoding, RxFramingSettings, SerialLine } from "./serialTypes";
 import { DEFAULT_RX_FRAMING } from "./serialTypes";
 import { parseLogLevel } from "./utils";
 
@@ -19,10 +19,14 @@ const MAX_PENDING_BYTES = 1 << 20;
 
 const emptyPendingTextData = (): PendingTextData => ({ rawData: [] });
 
-// 解码器无状态，模块级复用即可，不必每次调用新建
-const textDecoder = new TextDecoder();
+const textDecoders: Record<Encoding, TextDecoder> = {
+  "utf-8": new TextDecoder("utf-8"),
+  ascii: new TextDecoder("ascii"),
+  gbk: new TextDecoder("gbk"),
+};
 
-const decodeBytes = (bytes: number[]): string => textDecoder.decode(new Uint8Array(bytes));
+const decodeBytes = (bytes: number[], encoding: Encoding = "utf-8"): string =>
+  textDecoders[encoding].decode(new Uint8Array(bytes));
 
 function parseHexDelimiter(input: string): number[] {
   const hex = input.replace(/[^0-9a-fA-F]/g, "");
@@ -106,7 +110,7 @@ export function parseSerialData(
   const lines: Omit<SerialLine, "id">[] = [];
 
   const pushFrame = (frameBytes: number[]) => {
-    const text = decodeBytes(frameBytes);
+    const text = decodeBytes(frameBytes, framing.encoding);
     if (!text.trim()) return;
     lines.push({
       timestamp: new Date(timestamp),
@@ -138,6 +142,7 @@ export function parseSerialData(
 export class TextFrameStream {
   private pending = emptyPendingTextData();
   private direction: "rx" | "tx" = "rx";
+  private encoding: Encoding = "utf-8";
 
   ingest(
     data: number[],
@@ -145,6 +150,9 @@ export class TextFrameStream {
     direction: "rx" | "tx",
     framing: RxFramingSettings = DEFAULT_RX_FRAMING
   ): Omit<SerialLine, "id">[] {
+    const encoding = framing.encoding ?? "utf-8";
+    if (encoding !== this.encoding) this.pending = emptyPendingTextData();
+    this.encoding = encoding;
     const result = parseSerialData(data, timestamp, direction, this.pending, framing);
     this.pending = result.pending;
     this.direction = direction;
@@ -158,7 +166,7 @@ export class TextFrameStream {
 
     const pending = this.pending;
     this.pending = emptyPendingTextData();
-    const text = decodeBytes(pending.rawData);
+    const text = decodeBytes(pending.rawData, this.encoding);
 
     return [
       {
@@ -174,6 +182,7 @@ export class TextFrameStream {
   reset(): void {
     this.pending = emptyPendingTextData();
     this.direction = "rx";
+    this.encoding = "utf-8";
   }
 }
 
