@@ -9,11 +9,32 @@
 // 从数据数组重建文本，彻底绕开虚拟化。
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
 import { DEFAULT_TIMESTAMP_FORMAT, formatTime, formatTimestamp } from "./formatters";
 
 export type CopyLog = (level: "info" | "warn", message: string) => void;
+
+function copyWithExecCommand(text: string): boolean {
+  let copied = false;
+  const onCopy = (event: ClipboardEvent) => {
+    if (!event.clipboardData) return;
+    event.clipboardData.setData("text/plain", text);
+    event.preventDefault();
+    copied = true;
+  };
+  document.addEventListener("copy", onCopy, { once: true });
+  try {
+    document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    document.removeEventListener("copy", onCopy);
+  }
+  return copied;
+}
 
 export function formatDataAsHex(data: number[] | undefined, text: string): string {
   const bytes = data?.length ? data : Array.from(new TextEncoder().encode(text));
@@ -45,31 +66,27 @@ export function copyTextToClipboard(text: string, label: string, log?: CopyLog):
     return false;
   }
 
-  let copied = false;
-  const onCopy = (event: ClipboardEvent) => {
-    if (!event.clipboardData) return;
-    event.clipboardData.setData("text/plain", text);
-    event.preventDefault();
-    copied = true;
+  const reportSuccess = () => log?.("info", `已复制${label}（${text.split("\n").length} 行）`);
+  const fallback = () => {
+    if (copyWithExecCommand(text)) {
+      reportSuccess();
+    } else {
+      log?.("warn", "当前环境不支持写入剪贴板");
+    }
   };
-  document.addEventListener("copy", onCopy, { once: true });
-  try {
-    document.execCommand("copy");
-  } catch {
-    copied = false;
-  } finally {
-    document.removeEventListener("copy", onCopy);
-  }
-  if (copied) {
-    log?.("info", `已复制${label}（${text.split("\n").length} 行）`);
+
+  if (isTauri()) {
+    void writeText(text).then(reportSuccess, (error) => log?.("warn", `写入系统剪贴板失败: ${error}`));
     return true;
   }
 
   if (navigator.clipboard?.writeText) {
-    void navigator.clipboard.writeText(text).then(
-      () => log?.("info", `已复制${label}（${text.split("\n").length} 行）`),
-      (err) => log?.("warn", `复制到剪贴板失败: ${err}`)
-    );
+    void navigator.clipboard.writeText(text).then(reportSuccess, fallback);
+    return true;
+  }
+
+  if (copyWithExecCommand(text)) {
+    reportSuccess();
     return true;
   }
 
@@ -112,7 +129,7 @@ function isEditableTarget(): boolean {
  *  - 拖拽期间记录起止行号（mousedown→mousemove），即使中途滚动、行被卸载也不丢
  *  - highlight：跨行拖拽 / 全选时返回行号区间，供视图自绘高亮（不依赖原生选区，
  *    滚动卸载也不掉色）；单行选择返回 null，把字符级高亮留给原生选区
- *  - Ctrl+A：仅当鼠标在该视图内时拦截，标记"全选"并高亮整段
+ *  - Ctrl+A：仅当该视图已聚焦时拦截，标记"全选"并高亮整段
  *  - getSelectedRange()：全选 → 整段；拖拽 → 起止区间；否则回退到当前 DOM 选区
  *
  * 不接管 Ctrl+C —— 由各 viewer 自己处理（串口有 RX/TX 等多种复制模式）。
@@ -180,7 +197,7 @@ export function useViewerSelection(lineCount: number) {
   const isInside = useCallback(() => {
     const c = scrollRef.current;
     if (!c) return false;
-    if (c.matches(":hover")) return true;
+    if (document.activeElement === c) return true;
     const sel = window.getSelection();
     return !!(sel && sel.anchorNode && c.contains(sel.anchorNode));
   }, []);
@@ -229,5 +246,24 @@ export function useViewerSelection(lineCount: number) {
 
   const isSelectAll = useCallback(() => selectAll.current, []);
 
-  return { scrollRef, getSelectedRange, isSelectAll, highlight };
+  const clearSelection = useCallback(() => {
+    selectAll.current = false;
+    dragStart.current = null;
+    dragEnd.current = null;
+    window.getSelection()?.removeAllRanges();
+    setHighlight(null);
+  }, [setHighlight]);
+
+  const selectLine = useCallback(
+    (index: number) => {
+      window.getSelection()?.removeAllRanges();
+      selectAll.current = false;
+      dragStart.current = index;
+      dragEnd.current = index;
+      setHighlight({ start: index, end: index });
+    },
+    [setHighlight]
+  );
+
+  return { scrollRef, getSelectedRange, isSelectAll, highlight, clearSelection, selectLine };
 }

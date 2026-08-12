@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSerialStore } from "@/stores/serialStore";
 import { useLogStore } from "@/stores/logStore";
@@ -90,7 +91,9 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
     return filtered;
   }, [lines, direction, searchQuery]);
 
-  const { scrollRef, getSelectedRange, isSelectAll, highlight } = useViewerSelection(filteredLines.length);
+  const { scrollRef, getSelectedRange, isSelectAll, highlight, clearSelection, selectLine } = useViewerSelection(
+    filteredLines.length
+  );
 
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
@@ -119,13 +122,17 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
 
       // 纯文本 + 单行选区 + 非全选：保留精确的字符级选区（行内半句）
       if (mode === "plain" && rawText && !isSelectAll() && range && range.start === range.end) {
-        return writeToClipboard(rawText, "纯文本");
+        const copied = writeToClipboard(rawText, "纯文本");
+        if (copied) clearSelection();
+        return copied;
       }
 
       // 其余一律按行号区间从数据数组重建，绕开虚拟滚动的 DOM 截断
       if (!range) {
         if (mode === "plain" && rawText) {
-          return writeToClipboard(rawText, "纯文本");
+          const copied = writeToClipboard(rawText, "纯文本");
+          if (copied) clearSelection();
+          return copied;
         }
         return false;
       }
@@ -140,9 +147,11 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
           )
         )
         .join("\n");
-      return writeToClipboard(text, COPY_MODE_OPTS[mode].label);
+      const copied = writeToClipboard(text, COPY_MODE_OPTS[mode].label);
+      if (copied) clearSelection();
+      return copied;
     },
-    [displayMode, filteredLines, writeToClipboard, getSelectedRange, isSelectAll, timestampFormat]
+    [clearSelection, displayMode, filteredLines, writeToClipboard, getSelectedRange, isSelectAll, timestampFormat]
   );
 
   // Ctrl+C 纯文本 / Ctrl+Shift+C 完整行（均按行号区间重建，跨滚动不丢）
@@ -190,14 +199,21 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
   const handleContextMenu = useCallback(
     (event: React.MouseEvent) => {
       const sel = window.getSelection();
+      const clickedLine = (event.target as HTMLElement).closest<HTMLElement>("[data-line-index]");
+      const clickedIndex = clickedLine ? Number(clickedLine.dataset.lineIndex) : null;
+      const range = getSelectedRange();
       event.preventDefault();
+      scrollRef.current?.focus({ preventScroll: true });
+      if (clickedIndex !== null && (!range || clickedIndex < range.start || clickedIndex > range.end)) {
+        selectLine(clickedIndex);
+      }
       setContextMenu({
         x: event.clientX,
         y: event.clientY,
-        canCopy: getSelectedRange() !== null || (!!sel && !sel.isCollapsed && sel.toString().length > 0),
+        canCopy: clickedIndex !== null || range !== null || (!!sel && !sel.isCollapsed && sel.toString().length > 0),
       });
     },
-    [getSelectedRange]
+    [getSelectedRange, scrollRef, selectLine]
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -257,8 +273,9 @@ export function SerialViewer({ direction, title, data }: SerialViewerProps) {
       )}
       <div
         ref={scrollRef}
+        tabIndex={0}
         className={cn(
-          "flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background",
+          "flex-1 overflow-y-auto font-mono text-xs leading-5 p-2 bg-background outline-none",
           highlight && "select-none" // 跨行/全选时关掉原生选区，只留行级高亮，避免两套高亮打架
         )}
         onContextMenu={handleContextMenu}
@@ -333,11 +350,14 @@ function CopyContextMenu({ x, y, canCopy, onPick, onSave }: CopyContextMenuProps
     { mode: "with-timestamp", label: "复制（含时间戳）" },
     { mode: "full", label: "复制（含时间戳 + RX/TX）", hint: "Ctrl+Shift+C" },
   ];
-  return (
+  return createPortal(
     <div
       role="menu"
-      className="fixed z-50 min-w-[220px] rounded-md border border-border bg-popover py-1 text-sm shadow-md"
-      style={{ left: x, top: y }}
+      className="fixed z-50 min-w-[220px] rounded-md border border-border bg-background py-1 text-sm text-foreground shadow-xl"
+      style={{
+        left: Math.max(8, Math.min(x, window.innerWidth - 236)),
+        top: Math.max(8, Math.min(y, window.innerHeight - 156)),
+      }}
       onPointerDown={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -360,7 +380,8 @@ function CopyContextMenu({ x, y, canCopy, onPick, onSave }: CopyContextMenuProps
       <button type="button" role="menuitem" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={onSave}>
         保存当前窗口全部内容为 TXT
       </button>
-    </div>
+    </div>,
+    document.body
   );
 }
 

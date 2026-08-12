@@ -44,7 +44,9 @@ export function RttViewer() {
     return filtered;
   }, [lines, selectedChannel, searchQuery]);
 
-  const { scrollRef, getSelectedRange, isSelectAll, highlight } = useViewerSelection(filteredLines.length);
+  const { scrollRef, getSelectedRange, isSelectAll, highlight, clearSelection } = useViewerSelection(
+    filteredLines.length
+  );
 
   const rowVirtualizer = useVirtualizer({
     count: filteredLines.length,
@@ -69,13 +71,14 @@ export function RttViewer() {
       const slice = filteredLines.slice(range.start, range.end + 1);
       if (slice.length === 0) return;
       event.preventDefault();
-      copyTextToClipboard(
+      const copied = copyTextToClipboard(
         slice.map((line) => formatRttLineForCopy(line, showTimestamp)).join("\n"),
         isSelectAll() ? "全部" : "选区",
         addLog
       );
+      if (copied) clearSelection();
     },
-    [getSelectedRange, isSelectAll, filteredLines, showTimestamp, addLog]
+    [clearSelection, getSelectedRange, isSelectAll, filteredLines, showTimestamp, addLog]
   );
 
   useEffect(() => {
@@ -113,9 +116,10 @@ export function RttViewer() {
   return (
     <div
       ref={scrollRef}
+      tabIndex={0}
       onContextMenu={onContextMenu}
       className={cn(
-        "h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background",
+        "h-full overflow-y-auto font-mono text-xs leading-5 p-2 bg-background outline-none",
         highlight && "select-none" // 跨行/全选时关掉原生选区，只留行级高亮，避免两套高亮打架
       )}
     >

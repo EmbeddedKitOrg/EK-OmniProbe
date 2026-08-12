@@ -25,8 +25,11 @@ export function useSaveTxtContextMenu(onSave: () => void | Promise<void>) {
     ? createPortal(
         <div
           role="menu"
-          className="fixed z-50 min-w-[220px] rounded-md border border-border bg-popover py-1 text-sm shadow-md"
-          style={{ left: position.x, top: position.y }}
+          className="fixed z-50 min-w-[220px] rounded-md border border-border bg-background py-1 text-sm text-foreground shadow-xl"
+          style={{
+            left: Math.max(8, Math.min(position.x, window.innerWidth - 236)),
+            top: Math.max(8, Math.min(position.y, window.innerHeight - 52)),
+          }}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <button

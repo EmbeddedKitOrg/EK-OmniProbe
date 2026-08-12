@@ -10,6 +10,7 @@ import type { LineEnding } from "@/lib/serialTypes";
 import { loadSendHistory, pushSendHistory } from "@/lib/serialHistory";
 import { exportTextAsTxt } from "@/lib/exporters";
 import { useSaveTxtContextMenu } from "@/components/ui/save-txt-context-menu";
+import { copyTextToClipboard } from "@/lib/viewerCopy";
 import { useShallow } from "zustand/react/shallow";
 
 interface SerialTerminalViewerProps {
@@ -164,12 +165,7 @@ export function SerialTerminalViewer({ title }: SerialTerminalViewerProps) {
     const sel = window.getSelection();
     const text = sel ? sel.toString() : "";
     if (!text) return false;
-    if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(text).catch((err) => {
-        addLog("warn", `复制到剪贴板失败: ${err}`);
-      });
-    }
-    return true;
+    return copyTextToClipboard(text, "终端选区", addLog);
   }, [addLog]);
 
   const emitLocalEcho = useCallback(

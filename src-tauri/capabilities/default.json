@@ -23,6 +23,7 @@
     "updater:allow-download-and-install",
     "process:default",
     "process:allow-restart",
+    "clipboard-manager:allow-write-text",
     "window-state:default"
   ]
 }
