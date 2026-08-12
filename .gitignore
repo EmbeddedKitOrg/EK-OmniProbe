@@ -37,6 +37,9 @@ packs/*.pack
 .claude/
 .spec-workflow/
 
+# CodeGraph local index
+.codegraph/
+
 # Debug files
 *.pdb
 nul
