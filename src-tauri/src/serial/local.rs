@@ -3,6 +3,9 @@ use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{Read, Write};
 use std::time::Duration;
 
+const READ_TIMEOUT: Duration = Duration::from_millis(50);
+const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+
 #[cfg(windows)]
 #[link(name = "kernel32")]
 extern "system" {
@@ -87,7 +90,7 @@ impl DataSource for LocalSerial {
             .stop_bits(self.stop_bits)
             .parity(self.parity)
             .flow_control(self.flow_control)
-            .timeout(Duration::from_millis(50))
+            .timeout(READ_TIMEOUT)
             .open_native()
             .map_err(|e| format!("Failed to open serial port: {}", e))?;
 
@@ -132,13 +135,18 @@ impl DataSource for LocalSerial {
             .as_mut()
             .ok_or_else(|| "Serial port not connected".to_string())?;
 
-        // 使用 write_all 确保所有数据都被写入
-        port.write_all(data)
-            .map_err(|e| format!("Failed to write to serial port: {}", e))?;
-
-        // 立即刷新缓冲区，确保数据发送
-        port.flush()
-            .map_err(|e| format!("Failed to flush serial port: {}", e))?;
+        // serialport 的 timeout 同时控制读写；短读超时不够发送文件分块。
+        port.set_timeout(WRITE_TIMEOUT)
+            .map_err(|e| format!("Failed to set serial write timeout: {}", e))?;
+        let result = port
+            .write_all(data)
+            .and_then(|_| port.flush())
+            .map_err(|e| format!("Failed to write to serial port: {}", e));
+        let restore_result = port
+            .set_timeout(READ_TIMEOUT)
+            .map_err(|e| format!("Failed to restore serial read timeout: {}", e));
+        result?;
+        restore_result?;
 
         let written = data.len();
         self.stats.bytes_sent += written as u64;

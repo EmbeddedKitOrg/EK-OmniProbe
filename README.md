@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.8.0-blue" alt="Version 2.8.0" />
+  <img src="https://img.shields.io/badge/version-2.8.1-blue" alt="Version 2.8.1" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,12 +37,9 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.8.0 更新重点
+## 2.8.1 更新重点
 
-- 新增 Aqua Glass（水玻璃）配色主题，可在设置中切换
-- 串口文本模式支持分别选择接收与发送编码，修复 GBK 中文收发乱码
-- 串口右侧将接收与发送选项整合为紧凑的“收发设置”
-- 优化串口与 RTT 日志复制及右键菜单，桌面端复制支持 Windows 剪贴板历史
+- 修复 Windows 本地串口发送文件时可能因写入超时而失败的问题
 
 当前界面采用统一的 IDE 式布局：
 
@@ -289,7 +286,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.8.0`
+- 当前版本：`2.8.1`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)
