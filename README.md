@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.9.0-blue" alt="Version 2.9.0" />
+  <img src="https://img.shields.io/badge/version-2.10.0-blue" alt="Version 2.10.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -31,16 +31,17 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、CAN/SLCAN、Modbus、日志、终端与图表          |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、通用二进制、CAN/SLCAN、Modbus、终端与图表    |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.9.0 更新重点
+## 2.10.0 更新重点
 
-- 串口新增经典 CAN 与 CAN FD 解析、帧列表、payload 信号和总线负载分析
-- CAN 工作区支持 DBC 导入、信号节点映射、适配器初始化和帧发送
+- 新增通用二进制协议设计器，支持帧同步、长度、多消息类型、数值字段和 CRC/校验和配置
+- 串口、TCP/UDP、RTT、BLE 与经典蓝牙 SPP 可复用同一份协议，并将字段接入现有图表和分析链路
+- 新增本机协议库，可保存多个设备协议并在数据解析页快速切换
 
 当前界面采用统一的 IDE 式布局：
 
@@ -101,8 +102,9 @@ sudo ./install-udev-rules.sh
 2. 配置连接参数并点击“连接”，然后开始接收。
 3. “日志”适合持续观察和筛选，“终端”适合 CLI / shell 式交互。
 4. 数值流可以直接进入分屏、波形或 FFT；发送栏支持历史、换行、HEX 和文件发送。
-5. 没有硬件时可选择“模拟数据”，生成通用波形、XY 轨迹或 IMU 数据验证完整流程。
-6. 需要集中操作设备时进入左侧“面板”，选择串口数据来源，再把常用命令和数据显示组件自由排布在画布上。
+5. 设备使用自定义二进制帧时，在数据解析中选择“通用二进制协议”，从协议库载入或打开设计器配置。
+6. 没有硬件时可选择“模拟数据”，生成通用波形、XY 轨迹或 IMU 数据验证完整流程。
+7. 需要集中操作设备时进入左侧“面板”，选择串口数据来源，再把常用命令和数据显示组件自由排布在画布上。
 
 ### 分析离线日志
 
@@ -142,6 +144,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - XY 数据：XY 散点图
 - 数据帧前缀：混合日志中只解析带指定前缀的文本行
 - JustFloat / VOFA RawData：二进制浮点流，串口、RTT 与蓝牙均可使用
+- 通用二进制协议：自定义帧头、长度、消息类型、字段与 CRC，串口、RTT 与蓝牙均可使用
 - CAN / SLCAN：经典 CAN 与 CAN FD、DBC 信号、节点映射、帧收发和总线负载分析
 - 时域 / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
@@ -168,7 +171,7 @@ flowchart TB
   FRAME --> LOG["原始文本 / HEX 日志"]
   LOG --> TEXT_VIEW["文本窗口"]
   FRAME --> PARSE["JSON / KV / CSV / Regex 解析"]
-  SERIAL_RX --> BYTES["字节流解析<br/>JustFloat / CAN / Modbus"]
+  SERIAL_RX --> BYTES["字节流解析<br/>JustFloat / 通用二进制 / CAN / Modbus"]
   RTT_RX --> BYTES
   BLE_RX --> BYTES
 
@@ -227,7 +230,7 @@ flowchart TB
 - 离线日志：UTF-8 编码的 LOG、TXT
 - 串口数据源：本地串口、TCP、双向 UDP、模拟数据
 - 串口文本收发：UTF-8、ASCII、GBK、文本 / HEX、ANSI 颜色
-- 图表解析：单值、CSV、JSON、KV、XY、JustFloat、CAN / SLCAN
+- 图表解析：单值、CSV、JSON、KV、XY、JustFloat、通用二进制、CAN / SLCAN、Modbus
 
 ## 用户文档
 
@@ -288,7 +291,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.9.0`
+- 当前版本：`2.10.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

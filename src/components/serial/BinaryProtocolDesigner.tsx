@@ -510,7 +510,13 @@ export function BinaryProtocolDesigner({
             </TabsContent>
 
             <TabsContent value="messages" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-              <div className="flex flex-wrap items-end gap-2 pt-2">
+              <div className="space-y-1 pt-2 text-xs leading-5 text-muted-foreground">
+                <p>
+                  同一协议可以包含多种消息类型，例如状态帧、测量帧和告警帧。系统先按匹配规则选择消息，再按该消息的字段布局解析。
+                </p>
+                <p>设备只有一种帧时保留“默认消息”即可；默认消息只在没有具体消息匹配时使用。</p>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end gap-2">
                 <div className="min-w-52 flex-1 space-y-1">
                   <Label>当前消息类型</Label>
                   <Select value={selectedMessage?.id} onValueChange={setSelectedMessageId}>

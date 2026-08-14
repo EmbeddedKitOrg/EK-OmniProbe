@@ -30,6 +30,9 @@ test("通用二进制协议设计器可配置、预览且无布局溢出", async
   await page.screenshot({ path: `test-results/protocol-designer-${testInfo.project.name}-preview.png` });
 
   await dialog.getByRole("tab", { name: "消息字段" }).click();
+  await expect(dialog.getByText("同一协议可以包含多种消息类型", { exact: false })).toBeVisible();
+  await expect(dialog.getByText("设备只有一种帧时保留“默认消息”即可", { exact: false })).toBeVisible();
+  await page.screenshot({ path: `test-results/protocol-designer-${testInfo.project.name}-messages.png` });
   await dialog.getByRole("button", { name: "添加消息" }).click();
   const currentMessage = dialog.getByText("当前消息类型", { exact: true }).locator("..").getByRole("combobox");
   await expect(currentMessage).toContainText("消息 2");
