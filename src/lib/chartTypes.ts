@@ -3,6 +3,11 @@
  */
 
 import type { TelemetryChannelDescriptor, TelemetrySample } from "./telemetry";
+import {
+  DEFAULT_BINARY_PROTOCOL_CONFIG,
+  sanitizeBinaryProtocolConfig,
+  type BinaryProtocolConfig,
+} from "./binaryProtocol";
 
 /**
  * 图表数据点
@@ -58,7 +63,16 @@ export type ChartSeries = Channel;
 
 /** 解析模式。第三方文本解析器使用 plugin: 前缀，避免与内置模式冲突。 */
 export type ModbusParseMode = "modbus-rtu" | "modbus-ascii" | "modbus-tcp";
-export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "slcan" | ModbusParseMode | "auto";
+export type BuiltInParseMode =
+  | "regex"
+  | "delimiter"
+  | "json"
+  | "kv"
+  | "binary"
+  | "justfloat"
+  | "slcan"
+  | ModbusParseMode
+  | "auto";
 
 /**
  * 需要原始字节流的内置解析模式。文本行已经过分帧和解码，还原不回字节，
@@ -69,7 +83,7 @@ export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloa
  * scripts/check-bytes-parser-registry.mjs 断言二者一致。
  */
 const MODBUS_PARSE_MODES = new Set<string>(["modbus-rtu", "modbus-ascii", "modbus-tcp"]);
-const BYTES_PARSE_MODES = new Set<string>(["justfloat", "slcan", ...MODBUS_PARSE_MODES]);
+const BYTES_PARSE_MODES = new Set<string>(["binary", "justfloat", "slcan", ...MODBUS_PARSE_MODES]);
 
 export function isModbusParseMode(value: string): value is ModbusParseMode {
   return MODBUS_PARSE_MODES.has(value);
@@ -164,6 +178,9 @@ export interface DataParseConfig {
 
   /** SLCAN 总线负载统计配置；信号映射保存在 channels[].can。 */
   canBus: CanBusConfig;
+
+  /** 通用二进制协议设计器配置。 */
+  binaryProtocol: BinaryProtocolConfig;
 }
 
 export type ModbusFunctionCode = 3 | 4;
@@ -323,6 +340,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
   delimiter: ",",
   modbusRtu: DEFAULT_MODBUS_RTU_CONFIG,
   canBus: DEFAULT_CAN_BUS_CONFIG,
+  binaryProtocol: DEFAULT_BINARY_PROTOCOL_CONFIG,
 
   channels: [],
 
@@ -438,6 +456,7 @@ export function migrateChartConfig(raw: unknown, allowBytesParsers = true): Char
         : DEFAULT_CHART_CONFIG.delimiter,
     modbusRtu: sanitizeModbusRtu(source.modbusRtu, parseMode),
     canBus: sanitizeCanBus(source.canBus),
+    binaryProtocol: sanitizeBinaryProtocolConfig(source.binaryProtocol),
     channels,
     chartType,
     maxDataPoints: clampInt(source.maxDataPoints, 100, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.maxDataPoints),
@@ -666,6 +685,7 @@ function isParseMode(value: unknown): value is ParseMode {
     value === "delimiter" ||
     value === "json" ||
     value === "kv" ||
+    value === "binary" ||
     value === "justfloat" ||
     value === "slcan" ||
     (typeof value === "string" && isModbusParseMode(value)) ||

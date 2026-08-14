@@ -4,9 +4,10 @@
 
 import type { ChartConfig, Channel } from "./chartTypes";
 import { isBytesParseMode, isModbusParseMode, PRESET_COLORS } from "./chartTypes";
-import { extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
+import { createBinaryProtocolChannels, extractChartPayload, parseChartData, parseWithKv } from "./parseChartData";
 import { parseJustFloatChunk } from "./parseJustFloat";
 import { createModbusChannels } from "./parseModbusRtu";
+import { BinaryProtocolStream, validateBinaryProtocolConfig } from "./binaryProtocol";
 
 /** 样本格式检测结果。 */
 export interface DetectionResult {
@@ -97,6 +98,25 @@ export function previewChartParser(
         inferredConfig.channels.length > 0
           ? `已配置 ${inferredConfig.channels.length} 个 CAN 信号；总线负载会统计全部有效帧`
           : "可先只分析 CAN 帧与总线负载，信号映射按需添加",
+    };
+  }
+
+  if (config.parseMode === "binary") {
+    const errors = validateBinaryProtocolConfig(config.binaryProtocol);
+    const channels = createBinaryProtocolChannels(config);
+    if (errors.length > 0) {
+      return { config: { ...inferredConfig, channels }, success: false, values: {}, message: errors[0] };
+    }
+    const stream = new BinaryProtocolStream(config.binaryProtocol);
+    const frames = samples.flatMap(({ rawData }) => (rawData?.length ? stream.ingest(rawData).frames : []));
+    const latest = frames[frames.length - 1];
+    return {
+      config: { ...inferredConfig, channels },
+      success: true,
+      values: latest?.values ?? {},
+      message: latest
+        ? `已解析 ${latest.messageName ?? "消息"}，得到 ${Object.keys(latest.values).length} 个字段`
+        : `协议配置有效，将生成 ${channels.length} 个数值通道`,
     };
   }
 
@@ -598,6 +618,9 @@ export function detectChartConfig(currentConfig: ChartConfig, samples: ChartSamp
  */
 export function populateEmptyChannelsFromSamples(config: ChartConfig, samples: ChartSample[]): ChartConfig {
   if (config.channels.length > 0) return config;
+  if (config.parseMode === "binary") {
+    return { ...config, channels: createBinaryProtocolChannels(config) };
+  }
   if (isModbusParseMode(config.parseMode)) {
     return { ...config, channels: createModbusChannels(config.modbusRtu) };
   }

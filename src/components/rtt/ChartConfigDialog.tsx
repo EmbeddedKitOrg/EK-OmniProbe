@@ -10,8 +10,13 @@ import type {
   WaveformInterpolation,
 } from "@/lib/chartTypes";
 import { isBytesParseMode, isModbusParseMode, PRESET_COLORS } from "@/lib/chartTypes";
-import { listChartParsers } from "@/lib/parseChartData";
-import { populateEmptyChannelsFromSamples, previewChartParser, type ChartSample } from "@/lib/chartAnalysis";
+import { createBinaryProtocolChannels, listChartParsers } from "@/lib/parseChartData";
+import {
+  populateEmptyChannelsFromSamples,
+  previewChartParser,
+  resolveAppliedParserChannels,
+  type ChartSample,
+} from "@/lib/chartAnalysis";
 import {
   calculateSosFrequencyResponse,
   designParametricSos,
@@ -28,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle, CheckCircle2, Download, Eye, EyeOff, GripVertical, Plus, Settings, Trash2 } from "lucide-react";
+import { BinaryProtocolDesigner } from "@/components/serial/BinaryProtocolDesigner";
 
 type ChartConfigSection = "basic" | "channels" | "performance" | "display" | "filter";
 
@@ -357,6 +363,8 @@ export function ChartConfigDialog({
         return "自动提取行内所有 key=value 或 key:value 数值对。通道留空时全部保留，否则只保留命中的 key。";
       case "justfloat":
         return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
+      case "binary":
+        return "按协议设计器配置，从原始字节流完成分帧、消息匹配、CRC 校验和字段解码。";
       case "slcan":
         return "解析 SLCAN 经典 CAN t/T/r/R 与 CAN FD d/D/b/B 帧；信号与 DBC 请在串口侧栏的数据解析面板配置。";
       case "modbus-rtu":
@@ -781,6 +789,22 @@ export function ChartConfigDialog({
 
               {allowParserConfig && <p className="text-xs text-muted-foreground leading-5">{parseModeHint}</p>}
 
+              {allowParserConfig && localConfig.parseMode === "binary" && (
+                <BinaryProtocolDesigner
+                  value={localConfig.binaryProtocol}
+                  samples={samples}
+                  onChange={(binaryProtocol) =>
+                    setLocalConfig((current) => {
+                      const next = { ...current, binaryProtocol };
+                      return {
+                        ...next,
+                        channels: resolveAppliedParserChannels(current.channels, createBinaryProtocolChannels(next)),
+                      };
+                    })
+                  }
+                />
+              )}
+
               {allowParserConfig && !isBytesParseMode(localConfig.parseMode) && (
                 <div className="space-y-2">
                   <Label htmlFor="framePrefix">数据帧前缀（可选）</Label>
@@ -933,6 +957,7 @@ export function ChartConfigDialog({
                   {(localConfig.parseMode === "json" || localConfig.parseMode === "kv") &&
                     "（留空时会自动提取所有数值字段）"}
                   {localConfig.parseMode === "justfloat" && "（留空时会按首个有效帧自动生成通道）"}
+                  {localConfig.parseMode === "binary" && "（通道由协议字段自动生成）"}
                   {isModbusParseMode(localConfig.parseMode) && "（留空时会按读取块自动生成通道）"}
                 </div>
               ) : (

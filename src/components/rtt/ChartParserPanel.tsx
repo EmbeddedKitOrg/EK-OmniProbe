@@ -27,6 +27,7 @@ import {
 import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { CanSignalEditor } from "@/components/serial/CanSignalEditor";
+import { BinaryProtocolDesigner } from "@/components/serial/BinaryProtocolDesigner";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
 
@@ -59,6 +60,7 @@ export function ChartParserPanel({
   const [regexFlags, setRegexFlags] = useState(chartConfig.regexFlags ?? "");
   const [modbusRtu, setModbusRtu] = useState(chartConfig.modbusRtu);
   const [canBus, setCanBus] = useState(chartConfig.canBus);
+  const [binaryProtocol, setBinaryProtocol] = useState(chartConfig.binaryProtocol);
   const [canChannels, setCanChannels] = useState<Channel[]>(
     chartConfig.parseMode === "slcan" ? chartConfig.channels : []
   );
@@ -81,12 +83,14 @@ export function ChartParserPanel({
       regexFlags,
       modbusRtu,
       canBus,
+      binaryProtocol,
       channels: parseMode === "slcan" ? canChannels : [],
     });
     return previewChartParser(baseConfig, samples, sampleText);
   }, [
     canBus,
     canChannels,
+    binaryProtocol,
     chartConfig,
     delimiter,
     framePrefix,
@@ -113,6 +117,7 @@ export function ChartParserPanel({
       regexFlags,
       modbusRtu: preview.config.modbusRtu,
       canBus,
+      binaryProtocol,
       channels,
     });
     if (channelKeysChanged) clearChartData?.();
@@ -150,6 +155,7 @@ export function ChartParserPanel({
                 ["分隔符", "25.3,3.3"],
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],
+                ["通用二进制", "帧头 + 长度/帧尾 + 字段 + CRC"],
                 ["CAN / SLCAN", "t1238AABBCCDDEEFF0011\\r 或 b1239AABB...\\r"],
                 ["Modbus RTU", "03/04 读寄存器响应 + CRC16"],
                 ["Modbus ASCII", "冒号帧头 + ASCII Hex + LRC + CRLF"],
@@ -395,6 +401,15 @@ export function ChartParserPanel({
             onCanBusChange={setCanBus}
             onChannelsChange={setCanChannels}
           />
+        )}
+
+        {parseMode === "binary" && (
+          <div className="space-y-2">
+            <BinaryProtocolDesigner value={binaryProtocol} onChange={setBinaryProtocol} samples={samples} />
+            <p className="text-xs leading-5 text-muted-foreground">
+              支持固定长度、长度字段或帧尾分帧，并把消息字段转换成数值通道。
+            </p>
+          </div>
         )}
 
         {!isBytesParseMode(parseMode) && (

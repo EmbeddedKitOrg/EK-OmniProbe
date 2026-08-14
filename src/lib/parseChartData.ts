@@ -15,6 +15,7 @@ import type { TelemetryBatch } from "./telemetry";
 import { isBytesParseMode, isPluginParseMode, PRESET_COLORS } from "./chartTypes";
 import { parseJustFloatChunk } from "./parseJustFloat";
 import { SlcanStream, slcanFrameToTelemetry } from "./parseCan";
+import { BinaryProtocolStream, listBinaryProtocolFields } from "./binaryProtocol";
 import {
   createModbusChannels,
   decodeModbusValues,
@@ -346,6 +347,55 @@ function toJustFloatPoint(values: number[], config: TelemetryConfig, timestamp: 
   return { timestamp, values: mappedValues };
 }
 
+export function createBinaryProtocolChannels(config: TelemetryConfig): Channel[] {
+  return listBinaryProtocolFields(config.binaryProtocol).map((field, index) => ({
+    key: field.key,
+    name: field.name,
+    unit: field.unit,
+    color: PRESET_COLORS[index % PRESET_COLORS.length],
+    visible: true,
+    role: "y" as const,
+  }));
+}
+
+const binaryProtocolParser: BytesChartParser = {
+  kind: "bytes",
+  id: "binary",
+  label: "通用二进制协议",
+  createStream(): BytesParserStream {
+    let stream: BinaryProtocolStream | undefined;
+    let configSignature = "";
+    return {
+      ingest(bytes, config, timestamp) {
+        const nextSignature = JSON.stringify(config.binaryProtocol);
+        if (!stream || nextSignature !== configSignature) {
+          stream = new BinaryProtocolStream(config.binaryProtocol);
+          configSignature = nextSignature;
+        }
+        const parsed = stream.ingest(bytes);
+        const detectedChannels = config.channels.length === 0 ? createBinaryProtocolChannels(config) : undefined;
+        const channels = detectedChannels ?? config.channels;
+        const allowedKeys = new Set(channels.map((channel) => channel.key));
+        let fail = parsed.invalidFrames;
+        const points = parsed.frames.flatMap((frame) => {
+          const values = Object.fromEntries(Object.entries(frame.values).filter(([key]) => allowedKeys.has(key)));
+          if (Object.keys(values).length === 0) {
+            fail += 1;
+            return [];
+          }
+          return [{ timestamp, values }];
+        });
+        return { points, success: points.length, fail, detectedChannels };
+      },
+      reset() {
+        stream?.reset();
+        stream = undefined;
+        configSignature = "";
+      },
+    };
+  },
+};
+
 /**
  * JustFloat / VOFA RawData：小端 float32 序列 + 4 字节帧尾。
  * 此前这段逻辑焊死在 SerialReceivePipeline 里，导致只有串口能用；
@@ -510,6 +560,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
           : { success: false, error: "正则表达式未配置" },
     },
   ],
+  [binaryProtocolParser.id, binaryProtocolParser],
   [justFloatParser.id, justFloatParser],
   [slcanParser.id, slcanParser],
   ...modbusParsers.map((parser) => [parser.id, parser] as const),
