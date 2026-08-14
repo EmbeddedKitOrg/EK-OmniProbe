@@ -7,7 +7,7 @@ import {
   DEFAULT_BINARY_PROTOCOL_CONFIG,
   sanitizeBinaryProtocolConfig,
   type BinaryProtocolConfig,
-} from "./binaryProtocol";
+} from "./binaryProtocol.ts";
 
 /**
  * 图表数据点
