@@ -72,6 +72,7 @@ export function LogAnalysisMode() {
       delimiter: chartConfig.delimiter,
       modbusRtu: chartConfig.modbusRtu,
       canBus: chartConfig.canBus,
+      binaryProtocol: chartConfig.binaryProtocol,
       channels: chartConfig.channels,
       maxDataPoints: chartConfig.maxDataPoints,
       sampleRateHz: chartConfig.sampleRateHz,
@@ -79,6 +80,7 @@ export function LogAnalysisMode() {
       trigger: chartConfig.trigger,
     }),
     [
+      chartConfig.binaryProtocol,
       chartConfig.canBus,
       chartConfig.channels,
       chartConfig.dataFilter,
