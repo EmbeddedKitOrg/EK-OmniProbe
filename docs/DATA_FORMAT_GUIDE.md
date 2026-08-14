@@ -22,6 +22,7 @@
 | <code>25.3,1200</code>          | 分隔符         | <code>field1</code>、<code>field2</code> |
 | <code>T:25.3 RPM:1200</code>    | 正则           | 命名捕获组名称                           |
 | 二进制 float32 + 帧尾           | JustFloat      | <code>ch1</code>、<code>ch2</code>       |
+| Lawicel <code>t/T/r/R</code> 帧 | CAN / SLCAN    | 按配置的 payload 信号 key                 |
 | Modbus RTU 03/04 寄存器响应     | Modbus RTU     | <code>reg0</code>、<code>reg1</code>     |
 | 冒号开头、CRLF 结尾的 Modbus 帧 | Modbus ASCII   | <code>reg0</code>、<code>reg1</code>     |
 | 带 MBAP 头的寄存器响应          | Modbus TCP     | <code>reg0</code>、<code>reg1</code>     |
@@ -52,7 +53,7 @@
 - 默认文本解码为 UTF-8；字段名建议只使用 ASCII 字母、数字和下划线。
 - 一帧最好只表达一次采样。多个采样不要挤在同一行。
 - 没有换行的串口/TCP/UDP 数据会在短暂空闲后兜底刷出；高频稳定采样仍建议显式发送换行。
-- JustFloat 和 Modbus 协议输入应明确选择对应模式，不要交给普通文本解析器。
+- JustFloat、CAN / SLCAN 和 Modbus 协议输入应明确选择对应模式，不要交给普通文本解析器。
 
 ### 日志与采样数据混合输出
 
@@ -71,7 +72,7 @@ P:0,0,26,42614,41,42,26,0
 - 前缀留空时保持原有行为。
 - 建议使用不容易与日志冲突的前缀，例如 <code>@PLOT:</code>。
 - 数据帧仍应以换行符或当前接收分帧规则结束；前缀不能替代帧尾。
-- JustFloat 和三种 Modbus 模式都直接处理原始字节流，不使用文本数据帧前缀。
+- JustFloat、CAN / SLCAN 和三种 Modbus 模式都直接处理原始字节流，不使用文本数据帧前缀。
 
 ### 接收分帧和字段分隔不是一回事
 
@@ -98,7 +99,7 @@ P:0,0,26,42614,41,42,26,0
 JSON → 已配置的正则 → KV → 已配置通道的分隔符
 ```
 
-**自动模式不会尝试 JustFloat 或任何 Modbus 模式。**
+**自动模式不会尝试 JustFloat、CAN / SLCAN 或任何 Modbus 模式。**
 
 ### 默认数据流和通道 key
 
@@ -115,6 +116,7 @@ JSON → 已配置的正则 → KV → 已配置通道的分隔符
 - 生产环境格式已经确定：应直接选择具体模式，错误更容易定位。
 - 原始数据里混有日志和数据：应配置“数据帧前缀”，或使用从固定前缀开始的明确正则。
 - JustFloat：必须手动选择 JustFloat。
+- CAN：必须手动选择 CAN / SLCAN，并配置总线波特率与需要的 payload 信号。
 - Modbus：必须手动选择 RTU、ASCII 或 TCP，并配置从站及寄存器范围。
 
 ### 常见失败
@@ -380,6 +382,53 @@ static void send_justfloat(float ch1, float ch2) {
 - 每帧通道数量不断变化。
 - 在“自动识别”中等待 JustFloat；必须手动选择。
 
+<a id="slcan"></a>
+
+## CAN / SLCAN
+
+CAN / SLCAN 模式接收 Lawicel 串口 CAN 适配器输出的经典 CAN 2.0 帧。它会同时保留原始帧、计算总线负载，并把配置的 payload 位域转换为标准数值通道。
+
+### 支持的帧格式
+
+```text
+t1238AABBCCDDEEFF0011
+T001ABCDE2AABB
+r3218
+R001ABCDE8
+```
+
+- <code>t</code> / <code>r</code>：11 位标准数据帧 / 远程帧，CAN ID 固定 3 个十六进制字符。
+- <code>T</code> / <code>R</code>：29 位扩展数据帧 / 远程帧，CAN ID 固定 8 个十六进制字符。
+- ID 后一位是 DLC，经典 CAN 取值为 0–8；数据帧随后携带 <code>DLC × 2</code> 个十六进制字符。
+- 帧尾必须是 CR 或 LF；允许附带 Lawicel 4 位毫秒时间戳，时间戳回绕会自动展开。
+
+### 配置步骤
+
+1. 在串口侧栏打开“数据”，选择“CAN / SLCAN”。
+2. 选择实际 CAN 波特率、负载统计窗口和告警阈值。
+3. 需要解析 payload 时添加信号，填写 CAN ID、标准/扩展帧、起始位、位宽、字节序、有无符号、比例和偏移。
+4. 应用后，在图表区切换“信号 / 帧 / 负载”。“信号”继续使用现有波形、FFT 和控制面板通道。
+
+物理值计算公式：
+
+```text
+physical = raw × factor + offset
+```
+
+Intel 小端使用 LSB0 连续位编号；Motorola 大端使用 DBC sawtooth 位编号。位宽当前支持 1–32 位。
+
+### 总线负载说明
+
+标准帧按 <code>(47 + 8 × DLC) × 1.2</code>、扩展帧按 <code>(67 + 8 × DLC) × 1.2</code> 估算总位数，远程帧不计 payload 位；再除以统计窗口内的理论总线位数得到负载率。
+
+这是串口接收侧估算：适配器和操作系统可能批量转发数据，未携带 SLCAN 时间戳时，短窗口内的帧率和负载曲线会受主机接收时序影响。需要总线级精确测量时，应使用带硬件时间戳或硬件负载计数器的 CAN 接口。
+
+### 当前限制
+
+- 仅支持经典 CAN 2.0，不支持 CAN FD。
+- 不导入 DBC；信号映射在应用中手动配置。
+- 本模式解析已有 SLCAN 帧，不负责初始化不同厂商适配器或发送 CAN 帧。
+
 <a id="modbus-rtu"></a>
 <a id="modbus-ascii"></a>
 <a id="modbus-tcp"></a>
@@ -450,6 +499,7 @@ Modbus RTU / ASCII / TCP 响应 → 帧校验 → 寄存器解码
 - JSON/KV/正则：key 来自字段名或捕获组名。
 - 分隔符：key 默认为 <code>field1</code>、<code>field2</code>。
 - JustFloat：key 默认为 <code>ch1</code>、<code>ch2</code>。
+- CAN / SLCAN：key 来自 payload 信号配置；未配置信号时仍可查看帧和总线负载。
 - Modbus RTU/ASCII/TCP：key 默认为 <code>reg&lt;协议地址&gt;</code>。
 - key 区分大小写，组件属性必须完全一致。
 - 单位只影响显示或 IMU 计算方式，不会从 <code>25.3V</code> 中自动解析。
@@ -475,8 +525,9 @@ JSON/KV 可以把单位放在字段名或其他文本里，但数值本身必须
 ### 当前版本暂不可用的能力
 
 - 文本解析不支持嵌套 JSON 路径、JSON 数组或完整 CSV 引号语义。
-- 自动识别不包含 JustFloat 或 Modbus。
+- 自动识别不包含 JustFloat、CAN / SLCAN 或 Modbus。
 - JustFloat 不在 RTT/BLE 数据链路开放。
+- CAN / SLCAN 当前仅支持经典 CAN 2.0 和手动信号映射，不支持 CAN FD、DBC 导入或适配器初始化。
 - Modbus RTU、ASCII 和 TCP 当前只支持单个同构寄存器读取块和功能码 03/04。
 
 需要这些能力时，优先在设备端把数据整理成本文支持的最小格式。

@@ -31,7 +31,7 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | ---------------------- | ------------ | ---------------------------------------------------------- |
 | 给 MCU 下载固件        | 烧录         | ELF / HEX / BIN 等格式，擦除、烧录、校验、读取             |
 | 查看高速调试输出       | RTT          | 多通道日志、搜索、颜色标记、波形和 FFT                     |
-| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、Modbus RTU/ASCII/TCP、日志、终端与图表       |
+| 调试 CLI 或串口协议    | 串口         | 串口/TCP/UDP、CAN/SLCAN、Modbus、日志、终端与图表           |
 | 分析已有日志文件       | 日志         | 流式导入大日志、搜索、时间戳识别和数值图表                 |
 | 组合设备操作与数据显示 | 控制面板     | 独立画布，可选择串口或 RTT 数据来源                        |
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
@@ -141,6 +141,7 @@ RTT、串口和 BLE 共用同一套数值解析与图表工作流：
 - XY 数据：XY 散点图
 - 数据帧前缀：混合日志中只解析带指定前缀的文本行
 - JustFloat / VOFA RawData：二进制浮点流，串口、RTT 与蓝牙均可使用
+- CAN / SLCAN：经典 CAN 帧、payload 位域信号、帧列表与总线负载分析
 - 时域 / FFT：时域和频域切换，时域波形可选择直线或平滑曲线连接
 
 ### 实时数据流向
@@ -166,7 +167,7 @@ flowchart TB
   FRAME --> LOG["原始文本 / HEX 日志"]
   LOG --> TEXT_VIEW["文本窗口"]
   FRAME --> PARSE["JSON / KV / CSV / Regex 解析"]
-  SERIAL_RX --> BYTES["字节流解析<br/>JustFloat / VOFA RawData"]
+  SERIAL_RX --> BYTES["字节流解析<br/>JustFloat / CAN / Modbus"]
   RTT_RX --> BYTES
   BLE_RX --> BYTES
 
@@ -225,7 +226,7 @@ flowchart TB
 - 离线日志：UTF-8 编码的 LOG、TXT
 - 串口数据源：本地串口、TCP、双向 UDP、模拟数据
 - 串口文本收发：UTF-8、ASCII、GBK、文本 / HEX、ANSI 颜色
-- 图表解析：单值、CSV、JSON、KV、XY、JustFloat
+- 图表解析：单值、CSV、JSON、KV、XY、JustFloat、CAN / SLCAN
 
 ## 用户文档
 

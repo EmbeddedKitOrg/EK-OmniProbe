@@ -302,6 +302,20 @@ export function ChartConfigDialog({
             color: PRESET_COLORS[current.channels.length % PRESET_COLORS.length],
             visible: true,
             role: "y",
+            ...(current.parseMode === "slcan"
+              ? {
+                  can: {
+                    frameId: 0x100,
+                    extended: false,
+                    startBit: Math.min(current.channels.length * 8, 63),
+                    bitLength: 8,
+                    byteOrder: "little" as const,
+                    signed: false,
+                    factor: 1,
+                    offset: 0,
+                  },
+                }
+              : {}),
             sourceIndex:
               current.parseMode === "delimiter" ||
               current.parseMode === "justfloat" ||
@@ -343,6 +357,8 @@ export function ChartConfigDialog({
         return "自动提取行内所有 key=value 或 key:value 数值对。通道留空时全部保留，否则只保留命中的 key。";
       case "justfloat":
         return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
+      case "slcan":
+        return "解析 Lawicel SLCAN t/T/r/R 帧；CAN ID、位域、比例和偏移请在串口侧栏的数据解析面板配置。";
       case "modbus-rtu":
       case "modbus-ascii":
       case "modbus-tcp":

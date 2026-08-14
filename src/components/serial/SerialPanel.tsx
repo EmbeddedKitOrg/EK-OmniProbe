@@ -13,6 +13,7 @@ import { useChartWorkspaceControls } from "@/hooks/useChartWorkspaceHost";
 import { useShallow } from "zustand/react/shallow";
 import { ChartDetachedPlaceholder, ChartWindowActions } from "@/components/rtt/ChartWindowControls";
 import type { SerialTextViewMode } from "@/lib/serialTypes";
+import { SerialCanWorkspace } from "./SerialCanWorkspace";
 
 interface SerialPanelProps {
   className?: string;
@@ -48,7 +49,7 @@ function SerialChartViewer() {
     }))
   );
 
-  return (
+  const chart = (
     <ChartViewer
       chartData={chartData}
       processedData={processedChartData}
@@ -63,6 +64,7 @@ function SerialChartViewer() {
       triggeredAt={triggeredAt}
     />
   );
+  return chartConfig.parseMode === "slcan" ? <SerialCanWorkspace chart={chart} /> : chart;
 }
 
 // Terminal viewer section - can be split by direction or single view

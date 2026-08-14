@@ -14,6 +14,7 @@ import type {
 import type { TelemetryBatch } from "./telemetry";
 import { isBytesParseMode, isPluginParseMode, PRESET_COLORS } from "./chartTypes";
 import { parseJustFloatChunk } from "./parseJustFloat";
+import { SlcanStream, slcanFrameToTelemetry } from "./parseCan";
 import {
   createModbusChannels,
   decodeModbusValues,
@@ -386,6 +387,28 @@ const justFloatParser: BytesChartParser = {
   },
 };
 
+const slcanParser: BytesChartParser = {
+  kind: "bytes",
+  id: "slcan",
+  label: "CAN / SLCAN",
+  createStream(): BytesParserStream {
+    const stream = new SlcanStream();
+    return {
+      ingest(bytes, config, timestamp) {
+        const parsed = stream.ingest(bytes, timestamp);
+        return {
+          points: parsed.frames.map((frame) => slcanFrameToTelemetry(frame, config.channels)),
+          success: parsed.frames.length,
+          fail: parsed.invalidFrames,
+        };
+      },
+      reset() {
+        stream.reset();
+      },
+    };
+  },
+};
+
 type ModbusChunkParser = (bytes: number[], config: ModbusRtuConfig, pending?: number[]) => ModbusRtuChunkResult;
 
 function createModbusParser(id: ModbusParseMode, label: string, parseChunk: ModbusChunkParser): BytesChartParser {
@@ -488,6 +511,7 @@ const chartParsers = new Map<ChartParserPlugin["id"], ChartParserPlugin>([
     },
   ],
   [justFloatParser.id, justFloatParser],
+  [slcanParser.id, slcanParser],
   ...modbusParsers.map((parser) => [parser.id, parser] as const),
 ]);
 

@@ -8,7 +8,7 @@
 
 | 我想做什么                                              | 从这里开始                                    |
 | ------------------------------------------------------- | --------------------------------------------- |
-| 配置 JSON、KV、CSV、JustFloat 或 Modbus 数据输入        | [输入数据解析格式](DATA_FORMAT_GUIDE.md)      |
+| 配置 JSON、KV、CSV、JustFloat、CAN 或 Modbus 数据输入   | [输入数据解析格式](DATA_FORMAT_GUIDE.md)      |
 | 配置发送按钮、滑块、摇杆、FFT、XY 或 IMU 等控制面板组件 | [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md) |
 
 ## 按工作流查找
@@ -21,7 +21,7 @@
 ### 数据与串口
 
 - [日志分析](LOG_ANALYSIS_GUIDE.md)：导入 UTF-8 日志文件，搜索正文并解析数值图表。
-- [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则、JustFloat，以及 Modbus RTU、ASCII 和 TCP。
+- [输入数据解析格式](DATA_FORMAT_GUIDE.md)：自动、JSON、KV、分隔符、正则、JustFloat、CAN / SLCAN，以及 Modbus RTU、ASCII 和 TCP。
 - [数据滤波与 MATLAB 参数](MATLAB_FILTER_GUIDE.md)：图形化级联低通、高通、带通，预览和导出参数，或导入 FIR 与 SOS/ScaleValues。
 - [控制面板组件](SERIAL_CONTROL_PANEL_GUIDE.md)：独立面板工作台、串口/RTT 数据来源及全部 15 种组件。
 - [串口终端](SERIAL_TERMINAL_GUIDE.md)：串口、TCP、UDP、模拟数据、日志、终端交互和文件发送。

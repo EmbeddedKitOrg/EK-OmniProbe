@@ -11,6 +11,18 @@ import {
 export interface TelemetrySample {
   timestamp: number;
   values: Record<string, number>;
+  /** SLCAN 解析附带的原始 CAN 帧；普通遥测样本不设置。 */
+  canFrame?: CanFrameSample;
+}
+
+export interface CanFrameSample {
+  id: number;
+  extended: boolean;
+  rtr: boolean;
+  dlc: number;
+  data: number[];
+  /** 含固定 20% 位填充余量的经典 CAN 帧位数估算。 */
+  estimatedBits: number;
 }
 
 /** 解析器和接收管线之间传递的标准批次。 */

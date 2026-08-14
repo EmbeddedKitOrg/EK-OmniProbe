@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { LogEntry, RttLine } from "./types";
 import type { SerialLine } from "./serialTypes";
 import type { ChartConfig, ChartDataPoint } from "./chartTypes";
+import type { TelemetrySample } from "./telemetry";
 import { DEFAULT_TIMESTAMP_FORMAT, formatTime, formatTimestamp } from "./formatters";
 
 interface DialogFilter {
@@ -125,6 +126,26 @@ export async function exportSerialLinesAsCsv(lines: SerialLine[]): Promise<strin
   );
   const content = [header, ...rows].join("\n");
   return saveTextFile(content, `serial-${timestampSuffix()}.csv`, CSV_FILTERS);
+}
+
+export async function exportCanFramesAsCsv(samples: TelemetrySample[]): Promise<string | null> {
+  const header = "timestamp,id,extended,rtr,dlc,data,signals";
+  const rows = samples.flatMap((sample) => {
+    const frame = sample.canFrame;
+    if (!frame) return [];
+    return [
+      [
+        escapeCsv(new Date(sample.timestamp).toISOString()),
+        `0x${frame.id.toString(16).toUpperCase()}`,
+        String(frame.extended),
+        String(frame.rtr),
+        String(frame.dlc),
+        escapeCsv(frame.data.map((byte) => byte.toString(16).toUpperCase().padStart(2, "0")).join(" ")),
+        escapeCsv(JSON.stringify(sample.values)),
+      ].join(","),
+    ];
+  });
+  return saveTextFile([header, ...rows].join("\n"), `can-frames-${timestampSuffix()}.csv`, CSV_FILTERS);
 }
 
 // ============ Chart ============

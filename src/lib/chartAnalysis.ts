@@ -70,7 +70,7 @@ export function previewChartParser(
 ): ChartParserPreview {
   const latestSample = samples[samples.length - 1];
   const sample = { text: sampleText, rawData: latestSample?.rawData };
-  const baseConfig = { ...config, enabled: true, channels: [] };
+  const baseConfig = { ...config, enabled: true, channels: config.parseMode === "slcan" ? config.channels : [] };
   const inferredConfig = populateEmptyChannelsFromSamples(
     baseConfig,
     isBytesParseMode(config.parseMode) ? samples : sampleText ? [sample] : samples
@@ -85,6 +85,18 @@ export function previewChartParser(
         inferredConfig.channels.length > 0
           ? `识别到 ${inferredConfig.channels.length} 个浮点通道`
           : "等待完整 JustFloat 数据帧",
+    };
+  }
+
+  if (config.parseMode === "slcan") {
+    return {
+      config: inferredConfig,
+      success: true,
+      values: {},
+      message:
+        inferredConfig.channels.length > 0
+          ? `已配置 ${inferredConfig.channels.length} 个 CAN 信号；总线负载会统计全部有效帧`
+          : "可先只分析 CAN 帧与总线负载，信号映射按需添加",
     };
   }
 

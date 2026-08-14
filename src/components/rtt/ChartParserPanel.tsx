@@ -12,6 +12,7 @@ import {
   isModbusParseMode,
   migrateChartConfig,
   type ChartConfig,
+  type Channel,
   type ModbusDataType,
   type ParseMode,
 } from "@/lib/chartTypes";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/chartAnalysis";
 import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
+import { CanSignalEditor } from "@/components/serial/CanSignalEditor";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
 
@@ -56,6 +58,10 @@ export function ChartParserPanel({
   const [regexPattern, setRegexPattern] = useState(chartConfig.regexPattern);
   const [regexFlags, setRegexFlags] = useState(chartConfig.regexFlags ?? "");
   const [modbusRtu, setModbusRtu] = useState(chartConfig.modbusRtu);
+  const [canBus, setCanBus] = useState(chartConfig.canBus);
+  const [canChannels, setCanChannels] = useState<Channel[]>(
+    chartConfig.parseMode === "slcan" ? chartConfig.channels : []
+  );
   const modbusMode = isModbusParseMode(parseMode);
   const incompatibleSource = modbusMode && !isModbusSourceCompatible(parseMode, dataSourceType);
   const latestSample = samples[samples.length - 1];
@@ -74,14 +80,28 @@ export function ChartParserPanel({
       regexPattern,
       regexFlags,
       modbusRtu,
-      channels: [],
+      canBus,
+      channels: parseMode === "slcan" ? canChannels : [],
     });
     return previewChartParser(baseConfig, samples, sampleText);
-  }, [chartConfig, delimiter, framePrefix, modbusRtu, parseMode, regexFlags, regexPattern, sampleText, samples]);
+  }, [
+    canBus,
+    canChannels,
+    chartConfig,
+    delimiter,
+    framePrefix,
+    modbusRtu,
+    parseMode,
+    regexFlags,
+    regexPattern,
+    sampleText,
+    samples,
+  ]);
 
   const apply = () => {
     if (!preview.success || incompatibleSource) return;
-    const channels = resolveAppliedParserChannels(chartConfig.channels, preview.config.channels);
+    const channels =
+      parseMode === "slcan" ? canChannels : resolveAppliedParserChannels(chartConfig.channels, preview.config.channels);
     const channelKeysChanged = haveChannelKeysChanged(chartConfig.channels, channels);
     setChartConfig({
       ...chartConfig,
@@ -92,6 +112,7 @@ export function ChartParserPanel({
       regexPattern,
       regexFlags,
       modbusRtu: preview.config.modbusRtu,
+      canBus,
       channels,
     });
     if (channelKeysChanged) clearChartData?.();
@@ -129,6 +150,7 @@ export function ChartParserPanel({
                 ["分隔符", "25.3,3.3"],
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],
+                ["CAN / SLCAN", "t1238AABBCCDDEEFF0011\\r"],
                 ["Modbus RTU", "03/04 读寄存器响应 + CRC16"],
                 ["Modbus ASCII", "冒号帧头 + ASCII Hex + LRC + CRLF"],
                 ["Modbus TCP", "MBAP 头 + 03/04 读寄存器响应"],
@@ -361,6 +383,15 @@ export function ChartParserPanel({
               地址按协议原始值（从 0 开始）填写；一个读取块使用统一数据类型与缩放。
             </p>
           </div>
+        )}
+
+        {parseMode === "slcan" && (
+          <CanSignalEditor
+            canBus={canBus}
+            channels={canChannels}
+            onCanBusChange={setCanBus}
+            onChannelsChange={setCanChannels}
+          />
         )}
 
         {!isBytesParseMode(parseMode) && (

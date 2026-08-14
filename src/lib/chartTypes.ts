@@ -20,6 +20,27 @@ export interface Channel extends TelemetryChannelDescriptor {
   color: string;
   visible: boolean;
   role?: "x" | "y";
+  /** 仅 SLCAN 模式使用的 CAN payload 信号来源。 */
+  can?: CanSignalSource;
+}
+
+export type CanByteOrder = "little" | "big";
+
+export interface CanSignalSource {
+  frameId: number;
+  extended: boolean;
+  startBit: number;
+  bitLength: number;
+  byteOrder: CanByteOrder;
+  signed: boolean;
+  factor: number;
+  offset: number;
+}
+
+export interface CanBusConfig {
+  bitrate: number;
+  loadWindowMs: number;
+  alarmThreshold: number;
 }
 
 /**
@@ -30,7 +51,7 @@ export type ChartSeries = Channel;
 
 /** 解析模式。第三方文本解析器使用 plugin: 前缀，避免与内置模式冲突。 */
 export type ModbusParseMode = "modbus-rtu" | "modbus-ascii" | "modbus-tcp";
-export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | ModbusParseMode | "auto";
+export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloat" | "slcan" | ModbusParseMode | "auto";
 
 /**
  * 需要原始字节流的内置解析模式。文本行已经过分帧和解码，还原不回字节，
@@ -41,7 +62,7 @@ export type BuiltInParseMode = "regex" | "delimiter" | "json" | "kv" | "justfloa
  * scripts/check-bytes-parser-registry.mjs 断言二者一致。
  */
 const MODBUS_PARSE_MODES = new Set<string>(["modbus-rtu", "modbus-ascii", "modbus-tcp"]);
-const BYTES_PARSE_MODES = new Set<string>(["justfloat", ...MODBUS_PARSE_MODES]);
+const BYTES_PARSE_MODES = new Set<string>(["justfloat", "slcan", ...MODBUS_PARSE_MODES]);
 
 export function isModbusParseMode(value: string): value is ModbusParseMode {
   return MODBUS_PARSE_MODES.has(value);
@@ -133,6 +154,9 @@ export interface DataParseConfig {
 
   /** Modbus 只读主站配置。字段名为兼容旧版持久化数据而保留。 */
   modbusRtu: ModbusRtuConfig;
+
+  /** SLCAN 总线负载统计配置；信号映射保存在 channels[].can。 */
+  canBus: CanBusConfig;
 }
 
 export type ModbusFunctionCode = 3 | 4;
@@ -168,6 +192,12 @@ export const DEFAULT_MODBUS_RTU_CONFIG: ModbusRtuConfig = {
   wordOrder: "big",
   scale: 1,
   offset: 0,
+};
+
+export const DEFAULT_CAN_BUS_CONFIG: CanBusConfig = {
+  bitrate: 500_000,
+  loadWindowMs: 1_000,
+  alarmThreshold: 0.8,
 };
 
 export const TRIGGER_CONDITIONS = ["rising", "falling", "above", "below"] as const;
@@ -281,6 +311,7 @@ export const DEFAULT_CHART_CONFIG: ChartConfig = {
 
   delimiter: ",",
   modbusRtu: DEFAULT_MODBUS_RTU_CONFIG,
+  canBus: DEFAULT_CAN_BUS_CONFIG,
 
   channels: [],
 
@@ -395,6 +426,7 @@ export function migrateChartConfig(raw: unknown, allowBytesParsers = true): Char
         ? source.delimiter
         : DEFAULT_CHART_CONFIG.delimiter,
     modbusRtu: sanitizeModbusRtu(source.modbusRtu, parseMode),
+    canBus: sanitizeCanBus(source.canBus),
     channels,
     chartType,
     maxDataPoints: clampInt(source.maxDataPoints, 100, Number.MAX_SAFE_INTEGER, DEFAULT_CHART_CONFIG.maxDataPoints),
@@ -507,6 +539,7 @@ function sanitizeChannels(raw: unknown[]): Channel[] {
       color: typeof e.color === "string" && e.color ? e.color : PRESET_COLORS[index % PRESET_COLORS.length],
       visible: e.visible !== false,
       role: e.role === "x" ? "x" : "y",
+      can: sanitizeCanSignalSource(e.can),
     });
   });
   // 至多一个 x
@@ -518,6 +551,22 @@ function sanitizeChannels(raw: unknown[]): Channel[] {
     }
     return c;
   });
+}
+
+function sanitizeCanSignalSource(raw: unknown): CanSignalSource | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const source = raw as Record<string, unknown>;
+  const extended = source.extended === true;
+  return {
+    frameId: clampInt(source.frameId, 0, extended ? 0x1fffffff : 0x7ff, 0),
+    extended,
+    startBit: clampInt(source.startBit, 0, 63, 0),
+    bitLength: clampInt(source.bitLength, 1, 32, 8),
+    byteOrder: source.byteOrder === "big" ? "big" : "little",
+    signed: source.signed === true,
+    factor: clampNumber(source.factor, -Number.MAX_VALUE, Number.MAX_VALUE, 1),
+    offset: clampNumber(source.offset, -Number.MAX_VALUE, Number.MAX_VALUE, 0),
+  };
 }
 
 function buildChannelsFromLegacy(source: Record<string, unknown>): Channel[] {
@@ -606,10 +655,21 @@ function isParseMode(value: unknown): value is ParseMode {
     value === "json" ||
     value === "kv" ||
     value === "justfloat" ||
+    value === "slcan" ||
     (typeof value === "string" && isModbusParseMode(value)) ||
     value === "auto" ||
     isPluginParseMode(value)
   );
+}
+
+function sanitizeCanBus(raw: unknown): CanBusConfig {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_CAN_BUS_CONFIG };
+  const source = raw as Record<string, unknown>;
+  return {
+    bitrate: clampInt(source.bitrate, 1_000, 10_000_000, DEFAULT_CAN_BUS_CONFIG.bitrate),
+    loadWindowMs: clampInt(source.loadWindowMs, 100, 5_000, DEFAULT_CAN_BUS_CONFIG.loadWindowMs),
+    alarmThreshold: clampNumber(source.alarmThreshold, 0.1, 1.5, DEFAULT_CAN_BUS_CONFIG.alarmThreshold),
+  };
 }
 
 function sanitizeModbusRtu(raw: unknown, parseMode: ParseMode): ModbusRtuConfig {
