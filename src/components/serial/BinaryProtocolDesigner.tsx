@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
-import { AlertCircle, Binary, CheckCircle2, Download, Plus, Trash2, Upload } from "lucide-react";
+import { AlertCircle, Binary, CheckCircle2, Download, Plus, Save, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportJson } from "@/lib/exporters";
 import type { ChartSample } from "@/lib/chartAnalysis";
+import { loadBinaryProtocolLibrary, saveBinaryProtocolLibrary } from "@/lib/binaryProtocolLibrary";
 import {
   BINARY_CHECKSUM_PRESETS,
   BINARY_FIELD_TYPES,
@@ -39,6 +40,7 @@ import {
 interface BinaryProtocolDesignerProps {
   value: BinaryProtocolConfig;
   onChange: (value: BinaryProtocolConfig) => void;
+  onLibraryChange?: (protocols: BinaryProtocolConfig[]) => void;
   samples?: ChartSample[];
 }
 
@@ -61,22 +63,19 @@ const FIELD_TYPE_LABELS: Record<BinaryFieldType, string> = {
   bitfield: "位域",
 };
 
-export function BinaryProtocolDesigner({ value, onChange, samples = [] }: BinaryProtocolDesignerProps) {
+export function BinaryProtocolDesigner({
+  value,
+  onChange,
+  onLibraryChange,
+  samples = [],
+}: BinaryProtocolDesignerProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => sanitizeBinaryProtocolConfig(value));
   const [selectedMessageId, setSelectedMessageId] = useState(draft.messages[0]?.id ?? "");
   const [sampleHex, setSampleHex] = useState("");
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    const next = sanitizeBinaryProtocolConfig(value);
-    setDraft(next);
-    setSelectedMessageId(next.messages[0]?.id ?? "");
-    const latestBytes = [...samples].reverse().find(({ rawData }) => rawData?.length)?.rawData;
-    if (latestBytes) setSampleHex(formatHexBytes(latestBytes));
-    setStatus("");
-  }, [open, samples, value]);
+  const [savedProtocols, setSavedProtocols] = useState<BinaryProtocolConfig[]>([]);
+  const [selectedProtocolName, setSelectedProtocolName] = useState("");
 
   const selectedMessageIndex = Math.max(
     0,
@@ -91,6 +90,55 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
     const result = stream.ingest(previewBytes);
     return result.frames[result.frames.length - 1];
   }, [draft, errors.length, previewBytes]);
+
+  const openDesigner = () => {
+    const next = sanitizeBinaryProtocolConfig(value);
+    const protocols = loadBinaryProtocolLibrary();
+    const latestBytes = [...samples].reverse().find(({ rawData }) => rawData?.length)?.rawData;
+    setDraft(next);
+    setSelectedMessageId(next.messages[0]?.id ?? "");
+    setSampleHex(latestBytes ? formatHexBytes(latestBytes) : "");
+    setSavedProtocols(protocols);
+    setSelectedProtocolName(protocols.some(({ name }) => name === next.name) ? next.name : "");
+    setStatus("");
+    setOpen(true);
+  };
+
+  const loadSavedProtocol = (name: string) => {
+    const next = savedProtocols.find((protocol) => protocol.name === name);
+    if (!next) return;
+    const protocol = sanitizeBinaryProtocolConfig(next);
+    setDraft(protocol);
+    setSelectedMessageId(protocol.messages[0]?.id ?? "");
+    setSelectedProtocolName(protocol.name);
+    setStatus(`已载入协议：${protocol.name}`);
+  };
+
+  const saveProtocol = () => {
+    if (errors.length > 0) return;
+    const protocol = sanitizeBinaryProtocolConfig(draft);
+    const existingIndex = savedProtocols.findIndex(({ name }) => name === protocol.name);
+    const protocols =
+      existingIndex < 0
+        ? [...savedProtocols, protocol]
+        : savedProtocols.map((saved, index) => (index === existingIndex ? protocol : saved));
+    saveBinaryProtocolLibrary(protocols);
+    setDraft(protocol);
+    setSavedProtocols(protocols);
+    setSelectedProtocolName(protocol.name);
+    onLibraryChange?.(protocols);
+    setStatus(`${existingIndex < 0 ? "已保存" : "已覆盖"}协议：${protocol.name}`);
+  };
+
+  const deleteSavedProtocol = () => {
+    if (!selectedProtocolName || !window.confirm(`确定删除已保存协议“${selectedProtocolName}”吗？`)) return;
+    const protocols = savedProtocols.filter(({ name }) => name !== selectedProtocolName);
+    saveBinaryProtocolLibrary(protocols);
+    setSavedProtocols(protocols);
+    setSelectedProtocolName("");
+    onLibraryChange?.(protocols);
+    setStatus(`已删除协议：${selectedProtocolName}`);
+  };
 
   const updateFrame = (patch: Partial<BinaryProtocolConfig["frame"]>) =>
     setDraft((current) => ({ ...current, frame: { ...current.frame, ...patch } }));
@@ -163,6 +211,7 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
       const next = sanitizeBinaryProtocolConfig(parsed.protocol ?? parsed);
       setDraft(next);
       setSelectedMessageId(next.messages[0]?.id ?? "");
+      setSelectedProtocolName("");
       setStatus("协议配置已导入");
     } catch (error) {
       setStatus(`导入失败：${String(error)}`);
@@ -181,7 +230,7 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
     }
   };
 
-  const save = () => {
+  const applyProtocol = () => {
     if (errors.length > 0) return;
     onChange(sanitizeBinaryProtocolConfig(draft));
     setOpen(false);
@@ -189,7 +238,7 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
 
   return (
     <>
-      <Button type="button" variant="outline" className="w-full justify-start gap-2" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" className="w-full justify-start gap-2" onClick={openDesigner}>
         <Binary className="h-4 w-4" />
         打开协议设计器
       </Button>
@@ -205,6 +254,39 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
 
           <div className="flex flex-wrap items-end gap-2 border-b border-border/60 px-5 py-3">
             <div className="min-w-52 flex-1 space-y-1">
+              <Label htmlFor="binary-saved-protocol">已保存协议</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={selectedProtocolName || undefined}
+                  onValueChange={loadSavedProtocol}
+                  disabled={savedProtocols.length === 0}
+                >
+                  <SelectTrigger id="binary-saved-protocol" className="min-w-0 flex-1">
+                    <SelectValue placeholder={savedProtocols.length > 0 ? "选择协议" : "暂无保存协议"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savedProtocols.map((protocol) => (
+                      <SelectItem key={protocol.name} value={protocol.name}>
+                        {protocol.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  disabled={!selectedProtocolName}
+                  onClick={deleteSavedProtocol}
+                  title="删除已保存协议"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">删除已保存协议</span>
+                </Button>
+              </div>
+            </div>
+            <div className="min-w-52 flex-1 space-y-1">
               <Label htmlFor="binary-protocol-name">协议名称</Label>
               <Input
                 id="binary-protocol-name"
@@ -212,14 +294,27 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               />
             </div>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={importProtocol}>
-              <Upload className="h-3.5 w-3.5" />
-              导入
-            </Button>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={exportProtocol}>
-              <Download className="h-3.5 w-3.5" />
-              导出
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={errors.length > 0}
+                onClick={saveProtocol}
+              >
+                <Save className="h-3.5 w-3.5" />
+                保存协议
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={importProtocol}>
+                <Upload className="h-3.5 w-3.5" />
+                导入
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={exportProtocol}>
+                <Download className="h-3.5 w-3.5" />
+                导出
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="frame" className="flex min-h-0 flex-1 flex-col">
@@ -417,7 +512,7 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
             <TabsContent value="messages" className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
               <div className="flex flex-wrap items-end gap-2 pt-2">
                 <div className="min-w-52 flex-1 space-y-1">
-                  <Label>当前消息</Label>
+                  <Label>当前消息类型</Label>
                   <Select value={selectedMessage?.id} onValueChange={setSelectedMessageId}>
                     <SelectTrigger>
                       <SelectValue />
@@ -698,7 +793,7 @@ export function BinaryProtocolDesigner({ value, onChange, samples = [] }: Binary
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 取消
               </Button>
-              <Button type="button" disabled={errors.length > 0} onClick={save}>
+              <Button type="button" disabled={errors.length > 0} onClick={applyProtocol}>
                 应用协议
               </Button>
             </div>

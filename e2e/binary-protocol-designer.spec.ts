@@ -11,20 +11,7 @@ test("通用二进制协议设计器可配置、预览且无布局溢出", async
   });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
-  await page.goto("/");
-  await expect(page.getByText("串口工作台", { exact: true })).toBeVisible();
-
-  const inspectorToggle = page.getByRole("button", { name: "展开配置检查器" });
-  if (await inspectorToggle.isVisible()) await inspectorToggle.click();
-  await page.getByRole("button", { name: "数据", exact: true }).click();
-
-  const parseMode = page.getByText("解析模式", { exact: true }).locator("..").getByRole("combobox");
-  await parseMode.click();
-  await page.getByRole("option", { name: "通用二进制协议" }).click();
-  await page.getByRole("button", { name: "打开协议设计器" }).click();
-
-  const dialog = page.getByRole("dialog", { name: "二进制协议设计器" });
-  await expect(dialog).toBeVisible();
+  const dialog = await openProtocolDesigner(page);
   await expect(dialog.getByLabel("协议名称")).toHaveValue("55 AA 长度帧");
   await expect(dialog.getByText("总帧长 = 长度字段值 × 1 + 6", { exact: true })).toBeVisible();
   await expect(dialog.getByText("CRC-16/MODBUS", { exact: true })).toBeVisible();
@@ -43,6 +30,12 @@ test("通用二进制协议设计器可配置、预览且无布局溢出", async
   await page.screenshot({ path: `test-results/protocol-designer-${testInfo.project.name}-preview.png` });
 
   await dialog.getByRole("tab", { name: "消息字段" }).click();
+  await dialog.getByRole("button", { name: "添加消息" }).click();
+  const currentMessage = dialog.getByText("当前消息类型", { exact: true }).locator("..").getByRole("combobox");
+  await expect(currentMessage).toContainText("消息 2");
+  await dialog.getByRole("tab", { name: "帧结构" }).click();
+  await dialog.getByRole("tab", { name: "消息字段" }).click();
+  await expect(currentMessage).toContainText("消息 2");
   await expect(dialog.getByText("字段 1", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "添加字段" }).click();
   await expect(dialog.getByText("字段 2", { exact: true })).toBeVisible();
@@ -55,6 +48,63 @@ test("通用二进制协议设计器可配置、预览且无布局溢出", async
   );
   expect(unexpectedErrors, unexpectedErrors.join("\n")).toEqual([]);
 });
+
+test("数据解析页可切换并在刷新后恢复多个协议", async ({ page }, testInfo) => {
+  let dialog = await openProtocolDesigner(page);
+  const protocolName = dialog.getByLabel("协议名称");
+
+  await protocolName.fill("协议 A");
+  await dialog.getByRole("button", { name: "保存协议", exact: true }).click();
+  await expect(dialog.getByText("已保存协议：协议 A", { exact: true })).toBeVisible();
+
+  await protocolName.fill("协议 B");
+  await dialog.getByRole("button", { name: "保存协议", exact: true }).click();
+  await expect(dialog.getByText("已保存协议：协议 B", { exact: true })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "取消" }).click();
+  const savedProtocol = page.getByLabel("已保存协议");
+  await savedProtocol.click();
+  await page.getByRole("option", { name: "协议 A", exact: true }).click();
+  await expect(savedProtocol).toContainText("协议 A");
+  await page.screenshot({ path: `test-results/protocol-library-${testInfo.project.name}.png` });
+
+  await page.getByRole("button", { name: "打开协议设计器" }).click();
+  dialog = page.getByRole("dialog", { name: "二进制协议设计器" });
+  await expect(dialog.getByLabel("协议名称")).toHaveValue("协议 A");
+
+  await page.reload();
+  await openDataParser(page);
+  const restoredProtocol = page.getByLabel("已保存协议");
+  await restoredProtocol.click();
+  await page.getByRole("option", { name: "协议 B", exact: true }).click();
+  await expect(restoredProtocol).toContainText("协议 B");
+  await page.getByRole("button", { name: "打开协议设计器" }).click();
+  dialog = page.getByRole("dialog", { name: "二进制协议设计器" });
+  await expect(dialog.getByLabel("协议名称")).toHaveValue("协议 B");
+  await assertDialogFitsViewport(page, dialog);
+});
+
+async function openProtocolDesigner(page: Page) {
+  await openDataParser(page);
+  await page.getByRole("button", { name: "打开协议设计器" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "二进制协议设计器" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function openDataParser(page: Page) {
+  await page.goto("/");
+  await expect(page.getByText("串口工作台", { exact: true })).toBeVisible();
+
+  const inspectorToggle = page.getByRole("button", { name: "展开配置检查器" });
+  if (await inspectorToggle.isVisible()) await inspectorToggle.click();
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+
+  const parseMode = page.getByText("解析模式", { exact: true }).locator("..").getByRole("combobox");
+  await parseMode.click();
+  await page.getByRole("option", { name: "通用二进制协议" }).click();
+}
 
 async function assertDialogFitsViewport(page: Page, dialog: ReturnType<Page["getByRole"]>) {
   const viewport = page.viewportSize();

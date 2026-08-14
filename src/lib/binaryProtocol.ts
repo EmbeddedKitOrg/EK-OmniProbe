@@ -415,6 +415,7 @@ function sanitizeField(raw: unknown, index: number): BinaryFieldConfig[] {
 export function validateBinaryProtocolConfig(config: BinaryProtocolConfig): string[] {
   const errors: string[] = [];
   const { frame, checksum } = config;
+  if (!config.name.trim()) errors.push("协议名称不能为空");
   if (frame.mode === "fixed" && frame.fixedLength > frame.maxLength) errors.push("固定帧长不能超过最大帧长");
   if (frame.mode === "length") {
     if (frame.lengthField.multiplier <= 0) errors.push("长度字段倍数必须大于 0");

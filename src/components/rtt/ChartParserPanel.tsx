@@ -28,6 +28,7 @@ import { listChartParsers } from "@/lib/parseChartData";
 import { ChartConfigDialog } from "@/components/rtt/ChartConfigDialog";
 import { CanSignalEditor } from "@/components/serial/CanSignalEditor";
 import { BinaryProtocolDesigner } from "@/components/serial/BinaryProtocolDesigner";
+import { loadBinaryProtocolLibrary } from "@/lib/binaryProtocolLibrary";
 
 const DATA_FORMAT_DOC_URL = "https://embeddedkitorg.github.io/EK-OmniProbe/#/DATA_FORMAT_GUIDE";
 
@@ -61,6 +62,7 @@ export function ChartParserPanel({
   const [modbusRtu, setModbusRtu] = useState(chartConfig.modbusRtu);
   const [canBus, setCanBus] = useState(chartConfig.canBus);
   const [binaryProtocol, setBinaryProtocol] = useState(chartConfig.binaryProtocol);
+  const [savedBinaryProtocols, setSavedBinaryProtocols] = useState(loadBinaryProtocolLibrary);
   const [canChannels, setCanChannels] = useState<Channel[]>(
     chartConfig.parseMode === "slcan" ? chartConfig.channels : []
   );
@@ -405,7 +407,34 @@ export function ChartParserPanel({
 
         {parseMode === "binary" && (
           <div className="space-y-2">
-            <BinaryProtocolDesigner value={binaryProtocol} onChange={setBinaryProtocol} samples={samples} />
+            <Label htmlFor="parser-binary-protocol">已保存协议</Label>
+            <Select
+              value={
+                savedBinaryProtocols.some(({ name }) => name === binaryProtocol.name) ? binaryProtocol.name : undefined
+              }
+              onValueChange={(name) => {
+                const protocol = savedBinaryProtocols.find((saved) => saved.name === name);
+                if (protocol) setBinaryProtocol(protocol);
+              }}
+              disabled={savedBinaryProtocols.length === 0}
+            >
+              <SelectTrigger id="parser-binary-protocol">
+                <SelectValue placeholder={savedBinaryProtocols.length > 0 ? "选择协议" : "暂无保存协议"} />
+              </SelectTrigger>
+              <SelectContent>
+                {savedBinaryProtocols.map((protocol) => (
+                  <SelectItem key={protocol.name} value={protocol.name}>
+                    {protocol.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <BinaryProtocolDesigner
+              value={binaryProtocol}
+              onChange={setBinaryProtocol}
+              onLibraryChange={setSavedBinaryProtocols}
+              samples={samples}
+            />
             <p className="text-xs leading-5 text-muted-foreground">
               支持固定长度、长度字段或帧尾分帧，并把消息字段转换成数值通道。
             </p>
