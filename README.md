@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.8.1-blue" alt="Version 2.8.1" />
+  <img src="https://img.shields.io/badge/version-2.9.0-blue" alt="Version 2.9.0" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Windows Linux macOS" />
 </p>
@@ -37,9 +37,10 @@ EK-OmniProbe 把嵌入式开发中经常分散在多个软件里的工作流放�
 | 调试无线设备           | 蓝牙         | BLE 扫描、GATT、Notify / Write、NUS 自动识别、经典蓝牙 SPP |
 | 定位 Cortex-M 程序问题 | 调试         | 源码、寄存器、内存、Watch、调用栈和断点                    |
 
-## 2.8.1 更新重点
+## 2.9.0 更新重点
 
-- 修复 Windows 本地串口发送文件时可能因写入超时而失败的问题
+- 串口新增经典 CAN 与 CAN FD 解析、帧列表、payload 信号和总线负载分析
+- CAN 工作区支持 DBC 导入、信号节点映射、适配器初始化和帧发送
 
 当前界面采用统一的 IDE 式布局：
 
@@ -287,7 +288,7 @@ Windows 也可以直接运行：
 
 ## 版本、反馈与贡献
 
-- 当前版本：`2.8.1`
+- 当前版本：`2.9.0`
 - 完整变化：[CHANGELOG.md](CHANGELOG.md)
 - 问题与建议：[GitHub Issues](https://github.com/EmbeddedKitOrg/EK-OmniProbe/issues)
 - 项目仓库：[EmbeddedKitOrg/EK-OmniProbe](https://github.com/EmbeddedKitOrg/EK-OmniProbe)

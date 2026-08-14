@@ -121,13 +121,13 @@ export function ChartParserPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-3">
         <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={onClose} title="返回通道列表">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-foreground">数据解析</div>
-          <div className="text-xs text-muted-foreground">按当前串口样本预览解析结果</div>
+          <div className="text-xs text-muted-foreground">预览当前串口样本</div>
         </div>
         <Popover>
           <PopoverTrigger asChild>
@@ -180,7 +180,7 @@ export function ChartParserPanel({
         </Popover>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {allowDataFilter && (
           <ChartConfigDialog
             chartConfig={chartConfig}
@@ -245,7 +245,10 @@ export function ChartParserPanel({
                 onCheckedChange={(autoPoll) => setModbusRtu({ ...modbusRtu, autoPoll })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 9rem), 1fr))" }}
+            >
               <div className="space-y-2">
                 <Label htmlFor="modbus-slave">{parseMode === "modbus-tcp" ? "单元标识" : "从站地址"}</Label>
                 <Input
@@ -467,7 +470,7 @@ export function ChartParserPanel({
         <div
           className={`rounded-[16px] border p-3 ${preview.success ? "border-green-500/25 bg-green-500/10" : "border-amber-500/25 bg-amber-500/10"}`}
         >
-          <div className="flex items-center gap-2 text-sm font-medium">
+          <div className="flex items-start gap-2 text-sm font-medium leading-5">
             {preview.success ? (
               <CheckCircle2 className="h-4 w-4 text-green-600" />
             ) : (
@@ -478,9 +481,9 @@ export function ChartParserPanel({
           {Object.keys(preview.values).length > 0 && (
             <div className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
               {Object.entries(preview.values).map(([key, value]) => (
-                <div key={key} className="flex justify-between gap-3">
-                  <span>{key}</span>
-                  <span>{value}</span>
+                <div key={key} className="flex min-w-0 justify-between gap-3">
+                  <span className="min-w-0 break-all">{key}</span>
+                  <span className="shrink-0">{value}</span>
                 </div>
               ))}
             </div>
@@ -488,11 +491,11 @@ export function ChartParserPanel({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-border/60 p-3">
-        <Button variant="outline" onClick={onClose}>
+      <div className="grid grid-cols-2 gap-2 border-t border-border/60 p-3">
+        <Button variant="outline" className="w-full" onClick={onClose}>
           取消
         </Button>
-        <Button onClick={apply} disabled={!preview.success || incompatibleSource}>
+        <Button className="w-full" onClick={apply} disabled={!preview.success || incompatibleSource}>
           应用解析
         </Button>
       </div>

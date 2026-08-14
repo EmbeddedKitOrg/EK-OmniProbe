@@ -74,7 +74,7 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 11rem), 1fr))" }}>
         <div className="space-y-2">
           <Label htmlFor="can-bitrate">CAN 波特率 (bit/s)</Label>
           <Input
@@ -135,22 +135,24 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-[8px] border border-border/60 p-3 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-[8px] border border-border/60 p-3">
         <label className="flex items-center justify-between gap-3 text-sm">
-          连接后自动初始化适配器
+          <span className="min-w-0 leading-5">连接后自动初始化适配器</span>
           <Switch
+            className="shrink-0"
             checked={canBus.autoInitialize}
             onCheckedChange={(autoInitialize) => onCanBusChange({ ...canBus, autoInitialize })}
           />
         </label>
         <label className="flex items-center justify-between gap-3 text-sm">
-          启用适配器时间戳
+          <span className="min-w-0 leading-5">启用适配器时间戳</span>
           <Switch
+            className="shrink-0"
             checked={canBus.timestamps}
             onCheckedChange={(timestamps) => onCanBusChange({ ...canBus, timestamps })}
           />
         </label>
-        <div className="space-y-1 sm:col-span-2">
+        <div className="space-y-1">
           <Label htmlFor="can-init-commands">自定义初始化命令（每行一条）</Label>
           <textarea
             id="can-init-commands"
@@ -162,17 +164,19 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="space-y-3">
         <div>
           <div className="text-sm font-medium">Payload 信号</div>
-          <p className="text-xs text-muted-foreground">Intel 使用 LSB0；Motorola 使用 DBC sawtooth 位编号。</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Intel 使用 LSB0；Motorola 使用 DBC sawtooth 位编号。
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={importDbc}>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" size="sm" variant="outline" className="w-full gap-1" onClick={importDbc}>
             <FileUp className="h-3.5 w-3.5" />
             导入 DBC
           </Button>
-          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={addSignal}>
+          <Button type="button" size="sm" variant="outline" className="w-full gap-1" onClick={addSignal}>
             <Plus className="h-3.5 w-3.5" />
             添加信号
           </Button>
@@ -190,46 +194,60 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
             const source = channel.can ?? DEFAULT_SOURCE;
             return (
               <div key={`${channel.key}-${index}`} className="space-y-3 rounded-[8px] border border-border/60 p-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={channel.key}
-                    onChange={(event) => updateChannel(index, { key: event.target.value })}
-                    placeholder="channel_key"
-                    className="h-8 min-w-0 flex-1 font-mono"
-                  />
-                  <Input
-                    value={channel.name}
-                    onChange={(event) => updateChannel(index, { name: event.target.value })}
-                    placeholder="显示名称"
-                    className="h-8 min-w-0 flex-1"
-                  />
-                  <Input
-                    value={channel.unit ?? ""}
-                    onChange={(event) => updateChannel(index, { unit: event.target.value || undefined })}
-                    placeholder="单位"
-                    className="h-8 w-20"
-                  />
-                  <input
-                    type="color"
-                    value={channel.color}
-                    onChange={(event) => updateChannel(index, { color: event.target.value })}
-                    className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
-                    aria-label={`${channel.name} 颜色`}
-                  />
-                  <Switch checked={channel.visible} onCheckedChange={(visible) => updateChannel(index, { visible })} />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => onChannelsChange(channels.filter((_, current) => current !== index))}
-                    aria-label={`删除 ${channel.name}`}
+                <div className="grid gap-2">
+                  <div
+                    className="grid gap-2"
+                    style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 8rem), 1fr))" }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                    <Input
+                      value={channel.key}
+                      onChange={(event) => updateChannel(index, { key: event.target.value })}
+                      placeholder="channel_key"
+                      className="h-8 min-w-0 font-mono"
+                    />
+                    <Input
+                      value={channel.name}
+                      onChange={(event) => updateChannel(index, { name: event.target.value })}
+                      placeholder="显示名称"
+                      className="h-8 min-w-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={channel.unit ?? ""}
+                      onChange={(event) => updateChannel(index, { unit: event.target.value || undefined })}
+                      placeholder="单位"
+                      className="h-8 min-w-0 flex-1"
+                    />
+                    <input
+                      type="color"
+                      value={channel.color}
+                      onChange={(event) => updateChannel(index, { color: event.target.value })}
+                      className="h-8 w-10 shrink-0 cursor-pointer rounded border border-border bg-transparent"
+                      aria-label={`${channel.name} 颜色`}
+                    />
+                    <Switch
+                      className="shrink-0"
+                      checked={channel.visible}
+                      onCheckedChange={(visible) => updateChannel(index, { visible })}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => onChannelsChange(channels.filter((_, current) => current !== index))}
+                      aria-label={`删除 ${channel.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div
+                  className="grid gap-2"
+                  style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr))" }}
+                >
                   <Field label="CAN ID (HEX)">
                     <Input
                       value={`0x${source.frameId.toString(16).toUpperCase()}`}
