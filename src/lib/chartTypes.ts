@@ -29,6 +29,8 @@ export type CanByteOrder = "little" | "big";
 export interface CanSignalSource {
   frameId: number;
   extended: boolean;
+  /** 未设置时同时匹配经典 CAN 与 CAN FD。 */
+  fd?: boolean;
   startBit: number;
   bitLength: number;
   byteOrder: CanByteOrder;
@@ -39,8 +41,13 @@ export interface CanSignalSource {
 
 export interface CanBusConfig {
   bitrate: number;
+  dataBitrate: number;
   loadWindowMs: number;
   alarmThreshold: number;
+  autoInitialize: boolean;
+  timestamps: boolean;
+  /** 留空时生成标准 Lawicel C/S/Z/O 命令；否则每行作为一条适配器命令。 */
+  initCommands: string;
 }
 
 /**
@@ -196,8 +203,12 @@ export const DEFAULT_MODBUS_RTU_CONFIG: ModbusRtuConfig = {
 
 export const DEFAULT_CAN_BUS_CONFIG: CanBusConfig = {
   bitrate: 500_000,
+  dataBitrate: 2_000_000,
   loadWindowMs: 1_000,
   alarmThreshold: 0.8,
+  autoInitialize: false,
+  timestamps: true,
+  initCommands: "",
 };
 
 export const TRIGGER_CONDITIONS = ["rising", "falling", "above", "below"] as const;
@@ -560,8 +571,9 @@ function sanitizeCanSignalSource(raw: unknown): CanSignalSource | undefined {
   return {
     frameId: clampInt(source.frameId, 0, extended ? 0x1fffffff : 0x7ff, 0),
     extended,
-    startBit: clampInt(source.startBit, 0, 63, 0),
-    bitLength: clampInt(source.bitLength, 1, 32, 8),
+    fd: typeof source.fd === "boolean" ? source.fd : undefined,
+    startBit: clampInt(source.startBit, 0, 511, 0),
+    bitLength: clampInt(source.bitLength, 1, 64, 8),
     byteOrder: source.byteOrder === "big" ? "big" : "little",
     signed: source.signed === true,
     factor: clampNumber(source.factor, -Number.MAX_VALUE, Number.MAX_VALUE, 1),
@@ -667,8 +679,12 @@ function sanitizeCanBus(raw: unknown): CanBusConfig {
   const source = raw as Record<string, unknown>;
   return {
     bitrate: clampInt(source.bitrate, 1_000, 10_000_000, DEFAULT_CAN_BUS_CONFIG.bitrate),
+    dataBitrate: clampInt(source.dataBitrate, 1_000, 20_000_000, DEFAULT_CAN_BUS_CONFIG.dataBitrate),
     loadWindowMs: clampInt(source.loadWindowMs, 100, 5_000, DEFAULT_CAN_BUS_CONFIG.loadWindowMs),
     alarmThreshold: clampNumber(source.alarmThreshold, 0.1, 1.5, DEFAULT_CAN_BUS_CONFIG.alarmThreshold),
+    autoInitialize: source.autoInitialize === true,
+    timestamps: source.timestamps !== false,
+    initCommands: typeof source.initCommands === "string" ? source.initCommands.slice(0, 2_000) : "",
   };
 }
 

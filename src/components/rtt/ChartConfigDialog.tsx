@@ -358,7 +358,7 @@ export function ChartConfigDialog({
       case "justfloat":
         return "解析 VOFA JustFloat：little-endian float32 数组，以 00 00 80 7F 结束。通道留空时按首帧自动生成。";
       case "slcan":
-        return "解析 Lawicel SLCAN t/T/r/R 帧；CAN ID、位域、比例和偏移请在串口侧栏的数据解析面板配置。";
+        return "解析 SLCAN 经典 CAN t/T/r/R 与 CAN FD d/D/b/B 帧；信号与 DBC 请在串口侧栏的数据解析面板配置。";
       case "modbus-rtu":
       case "modbus-ascii":
       case "modbus-tcp":

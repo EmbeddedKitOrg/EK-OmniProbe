@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Activity, Download, Gauge, List, Trash2, Waves } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Activity, Download, Gauge, List, Network, Send, Trash2, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportCanFramesAsCsv } from "@/lib/exporters";
-import { calculateCanLoad, type CanLoadSnapshot } from "@/lib/parseCan";
+import { buildSlcanInitCommands, calculateCanLoad, type CanLoadSnapshot } from "@/lib/parseCan";
 import type { ChartDataPoint } from "@/lib/chartTypes";
+import { sendSerialPayload } from "@/lib/serialSend";
 import { useLogStore } from "@/stores/logStore";
 import { useSerialStore } from "@/stores/serialStore";
 import { useShallow } from "zustand/react/shallow";
+import { CanNodeEditor } from "./CanNodeEditor";
+import { CanTransmitPanel } from "./CanTransmitPanel";
 
 interface SerialCanWorkspaceProps {
   chart: ReactNode;
@@ -19,20 +22,30 @@ interface LoadHistoryPoint {
 }
 
 export function SerialCanWorkspace({ chart }: SerialCanWorkspaceProps) {
-  const { chartData, canBus, clearChartData } = useSerialStore(
+  const { chartData, chartConfig, connected, clearChartData, setChartConfig } = useSerialStore(
     useShallow((state) => ({
       chartData: state.chartData,
-      canBus: state.chartConfig.canBus,
+      chartConfig: state.chartConfig,
+      connected: state.connected,
       clearChartData: state.clearChartData,
+      setChartConfig: state.setChartConfig,
     }))
   );
+  const canBus = chartConfig.canBus;
   const addLog = useLogStore((state) => state.addLog);
   const [now, setNow] = useState(0);
   const [history, setHistory] = useState<LoadHistoryPoint[]>([]);
   const canSamples = useMemo(() => chartData.filter((sample) => sample.canFrame), [chartData]);
   const snapshot = useMemo(() => calculateCanLoad(canSamples, canBus, now), [canBus, canSamples, now]);
   const snapshotRef = useRef(snapshot);
+  const initializedRef = useRef(false);
   snapshotRef.current = snapshot;
+
+  const initializeAdapter = useCallback(async () => {
+    const commands = buildSlcanInitCommands(canBus);
+    await sendSerialPayload(commands.join("\r"), { encoding: "utf-8", lineEnding: "cr" });
+    addLog("success", `SLCAN 适配器初始化完成：${commands.join(" · ")}`);
+  }, [addLog, canBus]);
 
   useEffect(() => {
     setNow(Date.now());
@@ -45,6 +58,19 @@ export function SerialCanWorkspace({ chart }: SerialCanWorkspaceProps) {
   }, [now]);
 
   useEffect(() => setHistory([]), [canBus.bitrate, canBus.loadWindowMs]);
+
+  useEffect(() => {
+    if (!connected) {
+      initializedRef.current = false;
+      return;
+    }
+    if (!canBus.autoInitialize || initializedRef.current) return;
+    initializedRef.current = true;
+    void initializeAdapter().catch((error) => {
+      initializedRef.current = false;
+      addLog("error", `SLCAN 自动初始化失败：${error}`);
+    });
+  }, [addLog, canBus.autoInitialize, connected, initializeAdapter]);
 
   const handleExport = async () => {
     try {
@@ -69,6 +95,14 @@ export function SerialCanWorkspace({ chart }: SerialCanWorkspaceProps) {
           <TabsTrigger value="load" className="h-6 gap-1.5 px-2 text-xs">
             <Gauge className="h-3.5 w-3.5" />
             负载
+          </TabsTrigger>
+          <TabsTrigger value="nodes" className="h-6 gap-1.5 px-2 text-xs">
+            <Network className="h-3.5 w-3.5" />
+            节点
+          </TabsTrigger>
+          <TabsTrigger value="send" className="h-6 gap-1.5 px-2 text-xs">
+            <Send className="h-3.5 w-3.5" />
+            发送
           </TabsTrigger>
         </TabsList>
         <span className="text-xs tabular-nums text-muted-foreground">{canSamples.length} 帧缓存</span>
@@ -105,7 +139,22 @@ export function SerialCanWorkspace({ chart }: SerialCanWorkspaceProps) {
         <CanFrameTable samples={canSamples} />
       </TabsContent>
       <TabsContent value="load" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-        <CanLoadView snapshot={snapshot} history={history} threshold={canBus.alarmThreshold} bitrate={canBus.bitrate} />
+        <CanLoadView
+          snapshot={snapshot}
+          history={history}
+          threshold={canBus.alarmThreshold}
+          bitrate={canBus.bitrate}
+          dataBitrate={canBus.dataBitrate}
+        />
+      </TabsContent>
+      <TabsContent value="nodes" className="mt-0 min-h-0 flex-1 overflow-hidden">
+        <CanNodeEditor
+          channels={chartConfig.channels}
+          onChannelsChange={(channels) => setChartConfig({ ...chartConfig, channels })}
+        />
+      </TabsContent>
+      <TabsContent value="send" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        <CanTransmitPanel connected={connected} onInitialize={initializeAdapter} />
       </TabsContent>
     </Tabs>
   );
@@ -114,7 +163,7 @@ export function SerialCanWorkspace({ chart }: SerialCanWorkspaceProps) {
 function CanFrameTable({ samples }: { samples: ChartDataPoint[] }) {
   const recent = samples.slice(-500).reverse();
   if (recent.length === 0) {
-    return <EmptyCanState message="等待 SLCAN t/T/r/R 帧" />;
+    return <EmptyCanState message="等待 SLCAN t/T/r/R/d/D/b/B 帧" />;
   }
 
   return (
@@ -143,7 +192,7 @@ function CanFrameTable({ samples }: { samples: ChartDataPoint[] }) {
               {frame.id.toString(16).toUpperCase().padStart(idWidth, "0")}
               {frame.rtr ? " RTR" : ""}
             </span>
-            <span>{frame.dlc}</span>
+            <span>{frame.fd ? `${frame.dlc}/${frame.data.length}B` : frame.dlc}</span>
             <span>{frame.rtr ? "-" : frame.data.map(formatByte).join(" ")}</span>
             <span className="truncate text-primary" title={signals}>
               {signals || "-"}
@@ -160,11 +209,13 @@ function CanLoadView({
   history,
   threshold,
   bitrate,
+  dataBitrate,
 }: {
   snapshot: CanLoadSnapshot;
   history: LoadHistoryPoint[];
   threshold: number;
   bitrate: number;
+  dataBitrate: number;
 }) {
   const alarm = snapshot.loadRatio >= threshold;
   return (
@@ -180,7 +231,7 @@ function CanLoadView({
         <Metric label="总线负载" value={formatPercent(snapshot.loadRatio)} alert={alarm} />
         <Metric label="帧率" value={`${snapshot.framesPerSecond.toFixed(1)} FPS`} />
         <Metric label="窗口帧数" value={snapshot.frameCount.toLocaleString()} />
-        <Metric label="波特率" value={formatBitrate(bitrate)} />
+        <Metric label="仲裁 / 数据波特率" value={`${formatBitrate(bitrate)} / ${formatBitrate(dataBitrate)}`} />
       </div>
 
       <section className="space-y-2">

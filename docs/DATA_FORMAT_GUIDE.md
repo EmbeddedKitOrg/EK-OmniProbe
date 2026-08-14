@@ -15,18 +15,18 @@
 
 不知道怎么选时，可按下表决定：
 
-| 设备输出                        | 选择的解析模式 | 自动通道 key                             |
-| ------------------------------- | -------------- | ---------------------------------------- |
-| <code>{"temp":25.3}</code>      | JSON           | JSON 字段名，如 <code>temp</code>        |
-| <code>temp=25.3,rpm:1200</code> | KV             | 等号或冒号左边的 key                     |
-| <code>25.3,1200</code>          | 分隔符         | <code>field1</code>、<code>field2</code> |
-| <code>T:25.3 RPM:1200</code>    | 正则           | 命名捕获组名称                           |
-| 二进制 float32 + 帧尾           | JustFloat      | <code>ch1</code>、<code>ch2</code>       |
-| Lawicel <code>t/T/r/R</code> 帧 | CAN / SLCAN    | 按配置的 payload 信号 key                 |
-| Modbus RTU 03/04 寄存器响应     | Modbus RTU     | <code>reg0</code>、<code>reg1</code>     |
-| 冒号开头、CRLF 结尾的 Modbus 帧 | Modbus ASCII   | <code>reg0</code>、<code>reg1</code>     |
-| 带 MBAP 头的寄存器响应          | Modbus TCP     | <code>reg0</code>、<code>reg1</code>     |
-| 格式还没确定                    | 自动识别       | 按识别出的格式生成                       |
+| 设备输出                              | 选择的解析模式 | 自动通道 key                             |
+| ------------------------------------- | -------------- | ---------------------------------------- |
+| <code>{"temp":25.3}</code>            | JSON           | JSON 字段名，如 <code>temp</code>        |
+| <code>temp=25.3,rpm:1200</code>       | KV             | 等号或冒号左边的 key                     |
+| <code>25.3,1200</code>                | 分隔符         | <code>field1</code>、<code>field2</code> |
+| <code>T:25.3 RPM:1200</code>          | 正则           | 命名捕获组名称                           |
+| 二进制 float32 + 帧尾                 | JustFloat      | <code>ch1</code>、<code>ch2</code>       |
+| SLCAN <code>t/T/r/R/d/D/b/B</code> 帧 | CAN / SLCAN    | 按配置或 DBC 导入的 payload 信号 key     |
+| Modbus RTU 03/04 寄存器响应           | Modbus RTU     | <code>reg0</code>、<code>reg1</code>     |
+| 冒号开头、CRLF 结尾的 Modbus 帧       | Modbus ASCII   | <code>reg0</code>、<code>reg1</code>     |
+| 带 MBAP 头的寄存器响应                | Modbus TCP     | <code>reg0</code>、<code>reg1</code>     |
+| 格式还没确定                          | 自动识别       | 按识别出的格式生成                       |
 
 ## 所有文本格式共用的输入规则
 
@@ -386,7 +386,7 @@ static void send_justfloat(float ch1, float ch2) {
 
 ## CAN / SLCAN
 
-CAN / SLCAN 模式接收 Lawicel 串口 CAN 适配器输出的经典 CAN 2.0 帧。它会同时保留原始帧、计算总线负载，并把配置的 payload 位域转换为标准数值通道。
+CAN / SLCAN 模式接收串口 CAN 适配器输出的经典 CAN 2.0 与 CAN FD 帧。它会同时保留原始帧、计算总线负载，并把手动配置或 DBC 导入的 payload 位域转换为标准数值通道。
 
 ### 支持的帧格式
 
@@ -395,19 +395,24 @@ t1238AABBCCDDEEFF0011
 T001ABCDE2AABB
 r3218
 R001ABCDE8
+d1239AABBCCDDEEFF0011223344
+B001ABCDE9AABBCCDDEEFF0011223344
 ```
 
 - <code>t</code> / <code>r</code>：11 位标准数据帧 / 远程帧，CAN ID 固定 3 个十六进制字符。
 - <code>T</code> / <code>R</code>：29 位扩展数据帧 / 远程帧，CAN ID 固定 8 个十六进制字符。
 - ID 后一位是 DLC，经典 CAN 取值为 0–8；数据帧随后携带 <code>DLC × 2</code> 个十六进制字符。
+- <code>d</code> / <code>D</code>：标准 / 扩展 CAN FD 帧；<code>b</code> / <code>B</code> 表示同时启用 BRS。
+- CAN FD DLC 9–F 分别对应 12、16、20、24、32、48、64 字节。
 - 帧尾必须是 CR 或 LF；允许附带 Lawicel 4 位毫秒时间戳，时间戳回绕会自动展开。
 
 ### 配置步骤
 
 1. 在串口侧栏打开“数据”，选择“CAN / SLCAN”。
-2. 选择实际 CAN 波特率、负载统计窗口和告警阈值。
-3. 需要解析 payload 时添加信号，填写 CAN ID、标准/扩展帧、起始位、位宽、字节序、有无符号、比例和偏移。
-4. 应用后，在图表区切换“信号 / 帧 / 负载”。“信号”继续使用现有波形、FFT 和控制面板通道。
+2. 选择仲裁波特率、CAN FD 数据波特率、负载统计窗口和告警阈值。
+3. 需要解析 payload 时手动添加信号，或点击“导入 DBC”一次载入普通信号。
+4. 需要应用管理适配器时启用自动初始化。标准波特率会生成 Lawicel <code>C/S0-S8/Z/O</code>；厂商私有命令按每行一条填写到自定义初始化命令。
+5. 应用后，在图表区切换“信号 / 帧 / 负载 / 节点 / 发送”。节点页控制信号显隐；发送页支持经典帧、RTR、CAN FD 和 BRS。
 
 物理值计算公式：
 
@@ -415,19 +420,19 @@ R001ABCDE8
 physical = raw × factor + offset
 ```
 
-Intel 小端使用 LSB0 连续位编号；Motorola 大端使用 DBC sawtooth 位编号。位宽当前支持 1–32 位。
+Intel 小端使用 LSB0 连续位编号；Motorola 大端使用 DBC sawtooth 位编号。位宽支持 1–64 位，CAN FD 起始位最高为 511。
 
 ### 总线负载说明
 
-标准帧按 <code>(47 + 8 × DLC) × 1.2</code>、扩展帧按 <code>(67 + 8 × DLC) × 1.2</code> 估算总位数，远程帧不计 payload 位；再除以统计窗口内的理论总线位数得到负载率。
+经典标准帧按 <code>(47 + 8 × DLC) × 1.2</code>、扩展帧按 <code>(67 + 8 × DLC) × 1.2</code> 估算总位数，远程帧不计 payload 位。CAN FD 会分别估算仲裁段与数据段，BRS 帧的数据段使用配置的数据波特率，再按统计窗口累计占用时间。
 
 这是串口接收侧估算：适配器和操作系统可能批量转发数据，未携带 SLCAN 时间戳时，短窗口内的帧率和负载曲线会受主机接收时序影响。需要总线级精确测量时，应使用带硬件时间戳或硬件负载计数器的 CAN 接口。
 
 ### 当前限制
 
-- 仅支持经典 CAN 2.0，不支持 CAN FD。
-- 不导入 DBC；信号映射在应用中手动配置。
-- 本模式解析已有 SLCAN 帧，不负责初始化不同厂商适配器或发送 CAN 帧。
+- DBC 导入支持普通 `BO_` / `SG_` 信号；多路复用信号会跳过并在导入结果中提示。
+- CAN FD 的 <code>d/D/b/B</code> 命令和数据波特率初始化并非 Lawicel 标准，不同固件可能使用其他命令；此时应填写适配器厂商提供的自定义初始化命令。
+- 节点页展示并控制现有 CAN ID 到 payload 信号的映射，不执行任意数学节点编排。
 
 <a id="modbus-rtu"></a>
 <a id="modbus-ascii"></a>
@@ -527,7 +532,7 @@ JSON/KV 可以把单位放在字段名或其他文本里，但数值本身必须
 - 文本解析不支持嵌套 JSON 路径、JSON 数组或完整 CSV 引号语义。
 - 自动识别不包含 JustFloat、CAN / SLCAN 或 Modbus。
 - JustFloat 不在 RTT/BLE 数据链路开放。
-- CAN / SLCAN 当前仅支持经典 CAN 2.0 和手动信号映射，不支持 CAN FD、DBC 导入或适配器初始化。
+- CAN / SLCAN 支持经典 CAN、CAN FD、DBC 普通信号导入、适配器初始化和帧发送；厂商私有命令需按适配器文档配置。
 - Modbus RTU、ASCII 和 TCP 当前只支持单个同构寄存器读取块和功能码 03/04。
 
 需要这些能力时，优先在设备端把数据整理成本文支持的最小格式。

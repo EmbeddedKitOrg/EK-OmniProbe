@@ -150,7 +150,7 @@ export function ChartParserPanel({
                 ["分隔符", "25.3,3.3"],
                 ["正则", "temp:(?<temp>-?\\d+(?:\\.\\d+)?)"],
                 ["JustFloat", "little-endian float32 + 00 00 80 7F"],
-                ["CAN / SLCAN", "t1238AABBCCDDEEFF0011\\r"],
+                ["CAN / SLCAN", "t1238AABBCCDDEEFF0011\\r 或 b1239AABB...\\r"],
                 ["Modbus RTU", "03/04 读寄存器响应 + CRC16"],
                 ["Modbus ASCII", "冒号帧头 + ASCII Hex + LRC + CRLF"],
                 ["Modbus TCP", "MBAP 头 + 03/04 读寄存器响应"],

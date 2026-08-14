@@ -19,9 +19,11 @@ export interface CanFrameSample {
   id: number;
   extended: boolean;
   rtr: boolean;
+  fd: boolean;
+  brs: boolean;
   dlc: number;
   data: number[];
-  /** 含固定 20% 位填充余量的经典 CAN 帧位数估算。 */
+  /** 含固定 20% 位填充余量的帧位数估算。 */
   estimatedBits: number;
 }
 

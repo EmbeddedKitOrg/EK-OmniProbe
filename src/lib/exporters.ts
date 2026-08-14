@@ -129,7 +129,7 @@ export async function exportSerialLinesAsCsv(lines: SerialLine[]): Promise<strin
 }
 
 export async function exportCanFramesAsCsv(samples: TelemetrySample[]): Promise<string | null> {
-  const header = "timestamp,id,extended,rtr,dlc,data,signals";
+  const header = "timestamp,id,extended,rtr,fd,brs,dlc,data_length,data,signals";
   const rows = samples.flatMap((sample) => {
     const frame = sample.canFrame;
     if (!frame) return [];
@@ -139,7 +139,10 @@ export async function exportCanFramesAsCsv(samples: TelemetrySample[]): Promise<
         `0x${frame.id.toString(16).toUpperCase()}`,
         String(frame.extended),
         String(frame.rtr),
+        String(frame.fd),
+        String(frame.brs),
         String(frame.dlc),
+        String(frame.data.length),
         escapeCsv(frame.data.map((byte) => byte.toString(16).toUpperCase().padStart(2, "0")).join(" ")),
         escapeCsv(JSON.stringify(sample.values)),
       ].join(","),

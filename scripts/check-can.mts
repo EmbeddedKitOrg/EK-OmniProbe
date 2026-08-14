@@ -3,18 +3,22 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import {
   SlcanStream,
+  buildSlcanFrameCommand,
+  buildSlcanInitCommands,
   calculateCanLoad,
   decodeCanSignal,
   estimateClassicCanBits,
   parseSlcanLine,
   slcanFrameToTelemetry,
 } from "../src/lib/parseCan.ts";
+import { parseDbc } from "../src/lib/parseDbc.ts";
 import type { Channel } from "../src/lib/chartTypes.ts";
 
 const standard = parseSlcanLine("t1238AABBCCDDEEFF0011");
 assert.ok(standard);
 assert.equal(standard.id, 0x123);
 assert.equal(standard.extended, false);
+assert.equal(standard.fd, false);
 assert.deepEqual(standard.data, [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11]);
 assert.equal(standard.estimatedBits, 133);
 
@@ -31,6 +35,45 @@ assert.deepEqual(remote.data, []);
 assert.equal(remote.estimatedBits, estimateClassicCanBits(remote));
 assert.equal(parseSlcanLine("tFFF0"), null, "标准帧 ID 不得超过 0x7FF");
 assert.equal(parseSlcanLine("t1239"), null, "经典 CAN DLC 不得超过 8");
+assert.equal(buildSlcanFrameCommand({ id: 0x321, extended: false, rtr: true, dlc: 8, data: [] }), "r3218");
+
+const fd = parseSlcanLine(`b1239${"AA".repeat(12)}`);
+assert.ok(fd);
+assert.equal(fd.fd, true);
+assert.equal(fd.brs, true);
+assert.equal(fd.dlc, 9);
+assert.equal(fd.data.length, 12);
+assert.equal(
+  buildSlcanFrameCommand({ id: 0x123, extended: false, fd: true, brs: true, data: fd.data }),
+  `b1239${"AA".repeat(12)}`
+);
+assert.deepEqual(buildSlcanInitCommands({ bitrate: 500_000, timestamps: true, initCommands: "" }), [
+  "C",
+  "S6",
+  "Z1",
+  "O",
+]);
+assert.deepEqual(buildSlcanInitCommands({ bitrate: 333_333, timestamps: false, initCommands: "C\n s031C \nO" }), [
+  "C",
+  "s031C",
+  "O",
+]);
+
+const dbc = parseDbc(`
+BO_ 291 VehicleStatus: 8 ECU
+ SG_ Speed : 0|16@1+ (0.1,0) [0|250] "km/h" Vector__XXX
+ SG_ Torque : 23|12@0- (0.5,-10) [-10|1000] "Nm" Vector__XXX
+BO_ 2147483939 ExtendedFd: 12 ECU
+ SG_ Counter : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ Mode m1 : 8|8@1+ (1,0) [0|255] "" Vector__XXX
+`);
+assert.equal(dbc.messageCount, 2);
+assert.equal(dbc.channels.length, 3);
+assert.equal(dbc.channels[0].can?.frameId, 0x123);
+assert.equal(dbc.channels[1].can?.byteOrder, "big");
+assert.equal(dbc.channels[2].can?.extended, true);
+assert.equal(dbc.channels[2].can?.fd, true);
+assert.equal(dbc.skippedMultiplexedSignals, 1);
 
 const stream = new SlcanStream();
 const joined = new TextEncoder().encode("t1232AABB\rT001ABCDE2CCDD\r");
@@ -101,7 +144,7 @@ const load = calculateCanLoad(
     { ...point, timestamp: 1_000 },
     { ...point, timestamp: 800 },
   ],
-  { bitrate: 500_000, loadWindowMs: 100 },
+  { bitrate: 500_000, dataBitrate: 2_000_000, loadWindowMs: 100 },
   1_000
 );
 assert.equal(load.frameCount, 2);

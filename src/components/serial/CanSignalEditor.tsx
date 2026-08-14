@@ -1,10 +1,14 @@
-import { Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { FileUp, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { PRESET_COLORS, type CanBusConfig, type CanSignalSource, type Channel } from "@/lib/chartTypes";
+import { parseDbc } from "@/lib/parseDbc";
 
 interface CanSignalEditorProps {
   canBus: CanBusConfig;
@@ -25,6 +29,7 @@ const DEFAULT_SOURCE: CanSignalSource = {
 };
 
 export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsChange }: CanSignalEditorProps) {
+  const [importStatus, setImportStatus] = useState("");
   const updateChannel = (index: number, patch: Partial<Channel>) => {
     onChannelsChange(channels.map((channel, current) => (current === index ? { ...channel, ...patch } : channel)));
   };
@@ -52,9 +57,24 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
     ]);
   };
 
+  const importDbc = async () => {
+    const path = await open({ multiple: false, filters: [{ name: "CAN 数据库", extensions: ["dbc"] }] });
+    if (typeof path !== "string") return;
+    try {
+      const result = parseDbc(await invoke<string>("read_text_file", { path }));
+      onChannelsChange(result.channels);
+      setImportStatus(
+        `已导入 ${result.messageCount} 个消息、${result.channels.length} 个信号` +
+          (result.skippedMultiplexedSignals ? `，跳过 ${result.skippedMultiplexedSignals} 个多路复用信号` : "")
+      );
+    } catch (error) {
+      setImportStatus(`DBC 导入失败：${error}`);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2">
           <Label htmlFor="can-bitrate">CAN 波特率 (bit/s)</Label>
           <Input
@@ -65,6 +85,18 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
             step={1_000}
             value={canBus.bitrate}
             onChange={(event) => onCanBusChange({ ...canBus, bitrate: Number(event.target.value) })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="can-data-bitrate">FD 数据波特率 (bit/s)</Label>
+          <Input
+            id="can-data-bitrate"
+            type="number"
+            min={1_000}
+            max={20_000_000}
+            step={1_000}
+            value={canBus.dataBitrate}
+            onChange={(event) => onCanBusChange({ ...canBus, dataBitrate: Number(event.target.value) })}
           />
         </div>
         <div className="space-y-2">
@@ -103,16 +135,50 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
         </div>
       </div>
 
+      <div className="grid gap-3 rounded-[8px] border border-border/60 p-3 sm:grid-cols-2">
+        <label className="flex items-center justify-between gap-3 text-sm">
+          连接后自动初始化适配器
+          <Switch
+            checked={canBus.autoInitialize}
+            onCheckedChange={(autoInitialize) => onCanBusChange({ ...canBus, autoInitialize })}
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          启用适配器时间戳
+          <Switch
+            checked={canBus.timestamps}
+            onCheckedChange={(timestamps) => onCanBusChange({ ...canBus, timestamps })}
+          />
+        </label>
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="can-init-commands">自定义初始化命令（每行一条）</Label>
+          <textarea
+            id="can-init-commands"
+            value={canBus.initCommands}
+            onChange={(event) => onCanBusChange({ ...canBus, initCommands: event.target.value })}
+            placeholder={"留空使用 C / S0-S8 / Z / O\nCAN FD 适配器可在此填写厂商命令"}
+            className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-medium">Payload 信号</div>
           <p className="text-xs text-muted-foreground">Intel 使用 LSB0；Motorola 使用 DBC sawtooth 位编号。</p>
         </div>
-        <Button type="button" size="sm" variant="outline" className="gap-1" onClick={addSignal}>
-          <Plus className="h-3.5 w-3.5" />
-          添加信号
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={importDbc}>
+            <FileUp className="h-3.5 w-3.5" />
+            导入 DBC
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="gap-1" onClick={addSignal}>
+            <Plus className="h-3.5 w-3.5" />
+            添加信号
+          </Button>
+        </div>
       </div>
+      {importStatus && <div className="text-xs text-muted-foreground">{importStatus}</div>}
 
       {channels.length === 0 ? (
         <div className="rounded-[8px] border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
@@ -190,18 +256,35 @@ export function CanSignalEditor({ canBus, channels, onCanBusChange, onChannelsCh
                       </SelectContent>
                     </Select>
                   </Field>
+                  <Field label="总线类型">
+                    <Select
+                      value={source.fd === undefined ? "any" : source.fd ? "fd" : "classic"}
+                      onValueChange={(value) =>
+                        updateSource(index, { fd: value === "any" ? undefined : value === "fd" })
+                      }
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">经典 / FD</SelectItem>
+                        <SelectItem value="classic">经典 CAN</SelectItem>
+                        <SelectItem value="fd">CAN FD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
                   <NumberField
                     label="起始位"
                     value={source.startBit}
                     min={0}
-                    max={63}
+                    max={511}
                     onChange={(startBit) => updateSource(index, { startBit })}
                   />
                   <NumberField
                     label="位宽"
                     value={source.bitLength}
                     min={1}
-                    max={32}
+                    max={64}
                     onChange={(bitLength) => updateSource(index, { bitLength })}
                   />
                   <Field label="字节序">
